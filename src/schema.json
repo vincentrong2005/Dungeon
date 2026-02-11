@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "_血量": {
+      "default": 10,
+      "type": "number"
+    },
+    "_魔量": {
+      "default": 1,
+      "type": "number"
+    },
+    "_初始血量": {
+      "default": 10,
+      "type": "number"
+    },
+    "_初始魔量": {
+      "default": 1,
+      "type": "number"
+    },
+    "_初始金币": {
+      "type": "number"
+    },
+    "_金币": {
+      "type": "number"
+    },
+    "_商人投资额度": {
+      "type": "number"
+    },
+    "_当前牌库": {
+      "default": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "minItems": 9,
+      "maxItems": 9,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema0"
+      }
+    },
+    "$最大点数": {
+      "type": "number"
+    },
+    "$最小点数": {
+      "type": "number"
+    },
+    "$星期": {
+      "default": 1,
+      "type": "number"
+    },
+    "$难度": {
+      "default": "普通",
+      "type": "string",
+      "enum": [
+        "简单",
+        "普通",
+        "困难",
+        "地狱",
+        "自定义"
+      ]
+    },
+    "$自定义影响": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "自选buff/debuff"
+      }
+    },
+    "_当前区域": {
+      "type": "string"
+    },
+    "_对手名称": {
+      "type": "string"
+    },
+    "_是否已击败商人": {
+      "type": "boolean"
+    },
+    "_友好的领主": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "领主名"
+      }
+    },
+    "角色": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "description": "角色名"
+      },
+      "additionalProperties": {
+        "default": {
+          "好感度": 0
+        },
+        "type": "object",
+        "properties": {
+          "好感度": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "__schema0": {
+      "type": "string"
+    }
+  }
+}
