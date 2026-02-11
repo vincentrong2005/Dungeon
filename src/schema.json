@@ -27,7 +27,7 @@
     "_商人投资额度": {
       "type": "number"
     },
-    "_当前牌库": {
+    "_技能": {
       "default": [
         "",
         "",
@@ -44,6 +44,21 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/__schema0"
+      }
+    },
+    "$被动": {
+      "type": "string"
+    },
+    "$主动": {
+      "default": [
+        "",
+        ""
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema1"
       }
     },
     "$最大点数": {
@@ -78,6 +93,12 @@
     "_当前区域": {
       "type": "string"
     },
+    "_当前房间类型": {
+      "type": "string"
+    },
+    "_当前事件": {
+      "type": "string"
+    },
     "_对手名称": {
       "type": "string"
     },
@@ -90,6 +111,42 @@
       "items": {
         "type": "string",
         "description": "领主名"
+      }
+    },
+    "$统计": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "当前层已过房间": {
+          "type": "number"
+        },
+        "累计已过房间": {
+          "type": "number"
+        },
+        "累计经过战斗": {
+          "type": "number"
+        },
+        "累计经过温泉": {
+          "type": "number"
+        },
+        "累计经过宝箱": {
+          "type": "number"
+        },
+        "累计经过商店": {
+          "type": "number"
+        },
+        "累计经过神像": {
+          "type": "number"
+        },
+        "累计经过事件": {
+          "type": "number"
+        },
+        "累计经过问号": {
+          "type": "number"
+        },
+        "累计经过陷阱": {
+          "type": "number"
+        }
       }
     },
     "角色": {
@@ -114,6 +171,9 @@
   },
   "$defs": {
     "__schema0": {
+      "type": "string"
+    },
+    "__schema1": {
       "type": "string"
     }
   }
