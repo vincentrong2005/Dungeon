@@ -10,6 +10,7 @@ export const Schema = z.object({
   _技能: z.array(z.string()).length(9).prefault(['', '', '', '', '', '', '', '', '']),
   $被动: z.string().prefault(''),
   $主动: z.array(z.string()).length(2).prefault(['', '']),
+  _圣遗物: z.record(z.string().describe('圣遗物名'), z.coerce.number().describe('数量')).prefault({}),
 
   // 计算属性（由其他脚本操控）
   $最大点数: z.coerce.number().prefault(0),
@@ -18,13 +19,14 @@ export const Schema = z.object({
   $难度: z.enum(['简单', '普通', '困难', '地狱', '自定义']).prefault('普通'),
   $自定义影响: z.array(z.string().describe('自选buff/debuff')).prefault([]),
 
-  // 游戏状态（只读）
+  // 游戏状态
   _当前区域: z.string().prefault(''),
   _当前房间类型: z.string().prefault(''),
   _当前事件: z.string().prefault(''),
   _对手名称: z.string().prefault(''),
   _是否已击败商人: z.boolean().prefault(false),
   _友好的领主: z.array(z.string().describe('领主名')).prefault([]),
+  _在场人物: z.array(z.string().describe('角色名')).prefault([]),
 
   // 统计数据（AI不可见）
   $统计: z.object({
