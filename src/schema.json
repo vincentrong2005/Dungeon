@@ -61,6 +61,18 @@
         "$ref": "#/$defs/__schema1"
       }
     },
+    "_圣遗物": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "description": "圣遗物名"
+      },
+      "additionalProperties": {
+        "type": "number",
+        "description": "数量"
+      }
+    },
     "$最大点数": {
       "type": "number"
     },
@@ -111,6 +123,14 @@
       "items": {
         "type": "string",
         "description": "领主名"
+      }
+    },
+    "_在场人物": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "角色名"
       }
     },
     "$统计": {
