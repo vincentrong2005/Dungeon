@@ -79,28 +79,43 @@ const config: Config = {
   entries: glob_script_files().map(parse_entry),
 };
 
-let io: Server;
+let io: Server | undefined;
 function watch_tavern_helper(compiler: webpack.Compiler) {
   if (compiler.options.watch) {
     if (!io) {
       const port = config.port ?? 6621;
-      io = new Server(port, { cors: { origin: '*' } });
-      console.info(`\x1b[36m[tavern_helper]\x1b[0m 已启动酒馆监听服务`);
-      io.on('connect', socket => {
-        console.info(`\x1b[36m[tavern_helper]\x1b[0m 成功连接到酒馆网页 '${socket.id}', 初始化推送...`);
-        io.emit('iframe_updated');
-        socket.on('disconnect', reason => {
-          console.info(`\x1b[36m[tavern_helper]\x1b[0m 与酒馆网页 '${socket.id}' 断开连接: ${reason}`);
+      try {
+        io = new Server(port, { cors: { origin: '*' } });
+        console.info(`\x1b[36m[tavern_helper]\x1b[0m 已启动酒馆监听服务`);
+        io.on('connect', socket => {
+          console.info(`\x1b[36m[tavern_helper]\x1b[0m 成功连接到酒馆网页 '${socket.id}', 初始化推送...`);
+          io?.emit('iframe_updated');
+          socket.on('disconnect', reason => {
+            console.info(`\x1b[36m[tavern_helper]\x1b[0m 与酒馆网页 '${socket.id}' 断开连接: ${reason}`);
+          });
         });
-      });
+      } catch (error) {
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          (error as { code?: string }).code === 'EADDRINUSE'
+        ) {
+          console.warn(
+            `\x1b[33m[tavern_helper]\x1b[0m 端口 ${port} 已被占用，当前进程将不再重复启动监听服务（通常是已有 watch 进程正在运行）`,
+          );
+        } else {
+          throw error;
+        }
+      }
     }
 
     compiler.hooks.done.tap('watch_tavern_helper', () => {
       console.info('\n\x1b[36m[tavern_helper]\x1b[0m 检测到完成编译, 推送更新事件...');
       if (compiler.options.plugins.some(plugin => plugin instanceof HtmlWebpackPlugin)) {
-        io.emit('message_iframe_updated');
+        io?.emit('message_iframe_updated');
       } else {
-        io.emit('script_iframe_updated');
+        io?.emit('script_iframe_updated');
       }
     });
   }
