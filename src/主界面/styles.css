@@ -1,0 +1,187 @@
+@import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&family=MedievalSharp&display=swap');
+
+@theme {
+  --color-dungeon-dark: #0a0a0c;
+  --color-dungeon-brown: #2c1a0e;
+  --color-dungeon-gold: #d4af37;
+  --color-dungeon-gold-dim: #8a7122;
+  --color-dungeon-paper: #eaddcf;
+  --color-dungeon-blood: #660a0a;
+  --color-dungeon-magic: #4b0082;
+  --color-dungeon-action: #2e8b57;
+
+  --font-heading: 'MedievalSharp', cursive;
+  --font-body: 'Cinzel', serif;
+  --font-ui: 'Inter', sans-serif;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-deal: deal 0.5s ease-out forwards;
+  --animate-clash-left: clashLeft 0.6s ease-in forwards;
+  --animate-clash-right: clashRight 0.6s ease-in forwards;
+  --animate-shatter: shatter 0.6s ease-out forwards;
+  --animate-shake: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes deal {
+  0% {
+    transform: translateY(100px) scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes clashLeft {
+  0% {
+    transform: translateX(-200px) scale(0.8);
+    opacity: 0;
+  }
+  40% {
+    transform: translateX(-250px) scale(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes clashRight {
+  0% {
+    transform: translateX(200px) scale(0.8);
+    opacity: 0;
+  }
+  40% {
+    transform: translateX(250px) scale(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shatter {
+  0% {
+    transform: scale(1);
+    filter: brightness(2);
+  }
+  30% {
+    transform: scale(1.2) rotate(15deg);
+    filter: brightness(3) sepia(1) hue-rotate(-50deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5) rotate(45deg);
+    opacity: 0;
+    filter: brightness(0);
+  }
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translate3d(-2px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(4px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-6px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(6px, 0, 0);
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3d2b1f;
+  border-radius: 4px;
+  border: 1px solid #d4af37;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #553e2d;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #0a0a0c;
+}
+
+/* Glass Panel */
+.glass-panel {
+  background: rgba(20, 10, 5, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* CRT Scanline Overlay */
+.scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0.1)
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.15;
+}
+
+body {
+  background-color: #050505;
+  color: #eaddcf;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}

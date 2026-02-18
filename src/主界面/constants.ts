@@ -18,11 +18,10 @@ export const INITIAL_ENEMY_STATS: EntityStats = {
   maxMp: 15,
   gold: 20,
   buffs: [],
-  minDice: 2, // Slightly stronger minimum
+  minDice: 2,
   maxDice: 6,
 };
 
-// Initial Deck of 9 Cards
 export const STARTING_DECK: CardData[] = [
   { id: 'c1', name: '锈蚀铁剑', type: CardType.PHYSICAL, cost: 0, value: 6, description: '基础物理攻击。' },
   { id: 'c2', name: '锈蚀铁剑', type: CardType.PHYSICAL, cost: 0, value: 6, description: '基础物理攻击。' },

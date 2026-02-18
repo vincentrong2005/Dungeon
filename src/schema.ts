@@ -1,13 +1,14 @@
 export const Schema = z.object({
-  // 人物属性（只读）
+  // 人物属性
   _血量: z.coerce.number().prefault(10),
+  _血量上限: z.coerce.number().prefault(10),
   _魔量: z.coerce.number().prefault(1),
-  _初始血量: z.coerce.number().prefault(10),
-  _初始魔量: z.coerce.number().prefault(1),
-  _初始金币: z.coerce.number().prefault(0),
   _金币: z.coerce.number().prefault(0),
-  _商人投资额度: z.coerce.number().prefault(0),
+  $初始血量上限: z.coerce.number().prefault(10),
+  $初始魔量: z.coerce.number().prefault(1),
+  $初始金币: z.coerce.number().prefault(0),
   _技能: z.array(z.string()).length(9).prefault(['', '', '', '', '', '', '', '', '']),
+  _负面状态: z.array(z.string()).prefault([]),
   $被动: z.string().prefault(''),
   $主动: z.array(z.string()).length(2).prefault(['', '']),
   _圣遗物: z.record(z.string().describe('圣遗物名'), z.coerce.number().describe('数量')).prefault({}),

@@ -11,11 +11,11 @@ export enum GamePhase {
 }
 
 export enum CombatPhase {
-  INIT = 'INIT', // Start of combat
-  ROLL_PHASE = 'ROLL_PHASE', // Both sides roll dice
-  DRAW_PHASE = 'DRAW_PHASE', // Player draws 3 cards
-  PLAYER_ACTION = 'PLAYER_ACTION', // Player selects card
-  RESOLUTION = 'RESOLUTION', // Compare and apply effects
+  INIT = 'INIT',
+  ROLL_PHASE = 'ROLL_PHASE',
+  DRAW_PHASE = 'DRAW_PHASE',
+  PLAYER_ACTION = 'PLAYER_ACTION',
+  RESOLUTION = 'RESOLUTION',
   WIN = 'WIN',
   LOSE = 'LOSE',
 }
@@ -25,7 +25,7 @@ export interface CardData {
   name: string;
   type: CardType;
   cost: number;
-  value: number; // Damage or Effect magnitude
+  value: number;
   description: string;
   image?: string;
 }

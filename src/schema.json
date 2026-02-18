@@ -6,25 +6,26 @@
       "default": 10,
       "type": "number"
     },
-    "_魔量": {
-      "default": 1,
-      "type": "number"
-    },
-    "_初始血量": {
+    "_血量上限": {
       "default": 10,
       "type": "number"
     },
-    "_初始魔量": {
+    "_魔量": {
       "default": 1,
-      "type": "number"
-    },
-    "_初始金币": {
       "type": "number"
     },
     "_金币": {
       "type": "number"
     },
-    "_商人投资额度": {
+    "$初始血量上限": {
+      "default": 10,
+      "type": "number"
+    },
+    "$初始魔量": {
+      "default": 1,
+      "type": "number"
+    },
+    "$初始金币": {
       "type": "number"
     },
     "_技能": {
@@ -44,6 +45,13 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/__schema0"
+      }
+    },
+    "_负面状态": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     },
     "$被动": {

@@ -1,21 +1,21 @@
-import { mountStreamingMessages } from '@util/streaming';
+import { createApp } from 'vue';
 import App from './App.vue';
-
-function initializeApp(): void {
-  console.info('[主界面] 初始化流式界面');
-  const { unmount } = mountStreamingMessages(
-    () => {
-      return createApp(App).use(createPinia());
-    },
-    { host: 'div' },
-  );
-
-  $(window).on('pagehide', () => {
-    console.info('[主界面] 卸载流式界面');
-    unmount();
-  });
-}
+import './styles.css';
 
 $(() => {
-  errorCatched(initializeApp)();
+  const app = createApp(App).use(createPinia());
+  app.mount('#app');
+  $(window).on('pagehide', () => app.unmount());
+
+  // 隐藏旧楼层实现伪同层：只保留最新一楼
+  $('#chat > .mes').not('.last_mes').remove();
+
+  // 当聊天文件变更时, 重新加载前端界面
+  let current_chat_id = SillyTavern.getCurrentChatId();
+  eventOn(tavern_events.CHAT_CHANGED, (chat_id: string) => {
+    if (current_chat_id !== chat_id) {
+      current_chat_id = chat_id;
+      reloadIframe();
+    }
+  });
 });
