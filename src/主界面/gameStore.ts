@@ -132,10 +132,10 @@ export const useGameStore = defineStore('game', () => {
       // 1. 在创建新消息前，获取最新楼层的 MVU 变量（用于继承）
       const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getLastMessageId() });
 
-      // 2. 创建 user 楼层
+      // 2. 创建 user 楼层（携带上一楼层的 MVU 数据，避免 MVU 变量 undefined）
       console.info('[GameStore] Creating user message:', userInput);
       await createChatMessages(
-        [{ role: 'user', message: userInput }],
+        [{ role: 'user', message: userInput, data: _.cloneDeep(oldMvuData) }],
         { refresh: 'none' },
       );
 
