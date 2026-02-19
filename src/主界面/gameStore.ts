@@ -53,9 +53,6 @@ export const useGameStore = defineStore('game', () => {
         loadStatData();
       }
 
-      // 隐藏旧楼层
-      hideOldFloors();
-
       isInitialized.value = true;
       console.info('[GameStore] Initialized successfully');
     } catch (err) {
@@ -154,8 +151,8 @@ export const useGameStore = defineStore('game', () => {
       const parsed = parseResponse(result);
       applyParsedResponse(parsed);
 
-      // 6. 解析 MVU 变量命令（基于旧数据继承）
-      const newMvuData = await Mvu.parseMessage(result, oldMvuData);
+      // 6. 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
+      const newMvuData = await Mvu.parseMessage(result, _.cloneDeep(oldMvuData));
 
       // 7. 创建 assistant 楼层，携带解析后的 MVU 数据
       console.info('[GameStore] Creating assistant message with MVU data');
@@ -166,9 +163,6 @@ export const useGameStore = defineStore('game', () => {
 
       // 8. 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
-
-      // 9. 隐藏旧楼层
-      hideOldFloors();
 
       console.info('[GameStore] Action completed successfully');
     } catch (err) {
@@ -208,22 +202,6 @@ export const useGameStore = defineStore('game', () => {
       }
     } catch (err) {
       console.warn('[GameStore] refreshLocalStatData error:', err);
-    }
-  }
-
-  /**
-   * 隐藏旧楼层（只保留最新一楼的 DOM 显示）
-   */
-  function hideOldFloors() {
-    try {
-      // 在酒馆页面的 parent window 中操作
-      const parentWindow = window.parent as any;
-      const jq = parentWindow.$;
-      if (jq) {
-        jq('#chat > .mes').not('.last_mes').remove();
-      }
-    } catch (err) {
-      console.warn('[GameStore] hideOldFloors error:', err);
     }
   }
 
@@ -274,11 +252,19 @@ export const useGameStore = defineStore('game', () => {
       // 从新的最新 assistant 楼层重新加载状态
       loadLatestAssistantState();
 
-      // 刷新 MVU 变量
-      loadStatData();
-
-      // 隐藏旧楼层
-      hideOldFloors();
+      // 显式从目标楼层加载 MVU 变量（不依赖 getLastMessageId，避免读到旧数据）
+      try {
+        const mvuData = Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
+        const raw = _.get(mvuData, 'stat_data');
+        if (raw && typeof raw === 'object') {
+          const result = Schema.safeParse(raw);
+          statData.value = result.success ? result.data : (raw as any);
+          console.info('[GameStore] Rollback: loaded stat_data from message', targetMessageId);
+        }
+      } catch (e) {
+        console.warn('[GameStore] Rollback: failed to load stat_data from target, falling back', e);
+        loadStatData();
+      }
 
       // 关闭读档面板
       isSaveLoadOpen.value = false;
@@ -340,8 +326,8 @@ export const useGameStore = defineStore('game', () => {
       const parsed = parseResponse(result);
       applyParsedResponse(parsed);
 
-      // 解析 MVU 变量命令（基于旧数据继承）
-      const newMvuData = await Mvu.parseMessage(result, oldMvuData);
+      // 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
+      const newMvuData = await Mvu.parseMessage(result, _.cloneDeep(oldMvuData));
 
       // 创建新的 assistant 楼层，携带 MVU 数据
       await createChatMessages(
@@ -351,9 +337,6 @@ export const useGameStore = defineStore('game', () => {
 
       // 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
-
-      // 隐藏旧楼层
-      hideOldFloors();
 
       toastr.success('重新生成完成！');
       console.info('[GameStore] Reroll completed');
@@ -398,8 +381,8 @@ export const useGameStore = defineStore('game', () => {
         ? Mvu.getMvuData({ type: 'message', message_id: lastId - 1 })
         : Mvu.getMvuData({ type: 'message', message_id: 0 });
 
-      // 用编辑后的文本重新解析 MVU 变量
-      let newMvuData = await Mvu.parseMessage(editingText.value, prevMvuData);
+      // 用编辑后的文本重新解析 MVU 变量（深拷贝以避免污染上一楼层）
+      let newMvuData = await Mvu.parseMessage(editingText.value, _.cloneDeep(prevMvuData));
 
       // 关键：如果重新解析后丢失了 stat_data / display_data，
       // 则从当前楼层已有的 MVU 数据中恢复
@@ -472,7 +455,6 @@ export const useGameStore = defineStore('game', () => {
     loadStatData,
     loadSaveEntries,
     rollbackTo,
-    hideOldFloors,
     rerollCurrent,
     startEdit,
     saveEdit,

@@ -110,10 +110,10 @@
         "description": "自选buff/debuff"
       }
     },
-    "_当前区域": {
+    "当前区域": {
       "type": "string"
     },
-    "_当前房间类型": {
+    "当前房间类型": {
       "type": "string"
     },
     "_当前事件": {

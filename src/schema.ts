@@ -21,8 +21,8 @@ export const Schema = z.object({
   $自定义影响: z.array(z.string().describe('自选buff/debuff')).prefault([]),
 
   // 游戏状态
-  _当前区域: z.string().prefault(''),
-  _当前房间类型: z.string().prefault(''),
+  当前区域: z.string().prefault(''),
+  当前房间类型: z.string().prefault(''),
   _当前事件: z.string().prefault(''),
   _对手名称: z.string().prefault(''),
   _是否已击败商人: z.boolean().prefault(false),
