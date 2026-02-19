@@ -26,9 +26,9 @@
     <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
       <div
         class="bg-black/60 px-2 py-0.5 rounded text-dungeon-gold font-bold font-heading text-xs border border-dungeon-gold/30"
-        :class="card.type !== CardType.MAGIC ? 'opacity-0' : ''"
+        :class="card.type !== CardType.MAGIC || card.manaCost === 0 ? 'opacity-0' : ''"
       >
-        MP {{ card.cost }}
+        MP {{ card.manaCost }}
       </div>
       <div class="bg-black/60 p-1 rounded-full border border-white/10">
         <component :is="typeIcon" class="size-5" :class="typeIconColor" />
@@ -58,7 +58,7 @@
         {{ card.description }}
       </div>
       <div class="mt-1 text-center text-dungeon-gold font-bold text-xs font-ui">
-        {{ card.type }} · {{ card.value > 0 ? `强度 ${card.value}` : '特殊' }}
+        {{ card.type }}
       </div>
     </div>
   </div>
@@ -96,7 +96,7 @@ const typeColorClass = computed(() => {
       return 'border-red-900 bg-red-950/30';
     case CardType.MAGIC:
       return 'border-purple-900 bg-purple-950/30';
-    case CardType.ACTION:
+    case CardType.FUNCTION:
       return 'border-emerald-900 bg-emerald-950/30';
     case CardType.DODGE:
       return 'border-blue-900 bg-blue-950/30';
@@ -111,7 +111,7 @@ const typeIcon = computed(() => {
       return Sword;
     case CardType.MAGIC:
       return Sparkles;
-    case CardType.ACTION:
+    case CardType.FUNCTION:
       return RefreshCcw;
     case CardType.DODGE:
       return Footprints;
@@ -126,12 +126,22 @@ const typeIconColor = computed(() => {
       return 'text-red-400';
     case CardType.MAGIC:
       return 'text-purple-400';
-    case CardType.ACTION:
+    case CardType.FUNCTION:
       return 'text-emerald-400';
     case CardType.DODGE:
       return 'text-blue-400';
     default:
       return 'text-gray-400';
+  }
+});
+
+const cardStrengthLabel = computed(() => {
+  const dl = props.card.damageLogic;
+  switch (dl.mode) {
+    case 'relative': return `倍率 ${dl.scale ?? 1}x`;
+    case 'fixed':    return dl.value ? `固伤 ${dl.value}` : '特殊';
+    case 'mixed':    return `${dl.baseValue ?? 0}+${dl.scale ?? 1}x`;
+    default:         return '特殊';
   }
 });
 

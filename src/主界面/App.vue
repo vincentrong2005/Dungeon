@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import GameView from './components/GameView.vue';
 import SplashScreen from './components/SplashScreen.vue';
+import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
 
 const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
@@ -35,18 +36,6 @@ async function startGame() {
   await nextTick();
   await gameStore.initialize();
 }
-
-const toggleFullScreen = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch((err) => {
-      console.warn(`Error attempting to enable fullscreen: ${err.message}`);
-    });
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    }
-  }
-};
 </script>
 
 <style scoped>

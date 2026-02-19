@@ -133,7 +133,7 @@
         "description": "领主名"
       }
     },
-    "_在场人物": {
+    "在场人物": {
       "default": [],
       "type": "array",
       "items": {

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div
     class="w-full h-screen bg-[#050505] font-body text-dungeon-paper overflow-hidden relative"
   >
@@ -45,7 +45,7 @@
     <!-- Main Content Area -->
     <div class="h-full w-full flex flex-col items-center">
       <div
-        class="w-full flex flex-col pt-6 pb-24 px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
+        class="w-full flex flex-col pt-2 pb-2 px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
         :style="{ maxWidth: textSettings.containerWidth + 'px' }"
       >
         <!-- Story Text Area -->
@@ -117,13 +117,15 @@
             </div>
 
             <!-- Options Section -->
-            <div v-if="!gameStore.isGenerating && gameStore.options.length > 0" class="mt-8 flex flex-col space-y-3">
+            <div v-if="!gameStore.isGenerating && (gameStore.options.length > 0 || gameStore.hasOptionE || gameStore.hasLeave)" class="mt-8 flex flex-col space-y-3">
               <div
                 class="h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
               ></div>
+
+              <!-- A-D Normal Options -->
               <button
                 v-for="(option, i) in gameStore.options"
-                :key="i"
+                :key="'opt-' + i"
                 class="w-full text-left px-5 py-3 bg-dungeon-dark/60 hover:bg-dungeon-brown/40
                        text-dungeon-paper/80 hover:text-dungeon-paper
                        rounded border border-dungeon-brown/50 hover:border-dungeon-gold/40
@@ -135,6 +137,65 @@
               >
                 {{ option }}
               </button>
+
+              <!-- E Option: Special Room Action Button -->
+              <button
+                v-if="gameStore.hasOptionE && specialOptionConfig"
+                class="w-full text-center px-6 py-4 rounded-lg border-2 font-heading text-base tracking-wider
+                       transition-all duration-400 hover:scale-[1.02] active:scale-[0.98]"
+                :style="{
+                  backgroundColor: specialOptionConfig.bgColor,
+                  borderColor: specialOptionConfig.borderColor,
+                  color: specialOptionConfig.textColor,
+                  boxShadow: `0 0 20px ${specialOptionConfig.glowColor}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+                }"
+                @click="handleSpecialOption"
+              >
+                <span class="text-xl mr-2">{{ specialOptionConfig.icon }}</span>
+                {{ specialOptionConfig.label }}
+              </button>
+
+              <!-- [Leave] Portal System -->
+              <div v-if="gameStore.hasLeave && portalChoices.length > 0" class="mt-4">
+                <div class="text-center text-dungeon-gold/40 text-xs font-ui tracking-widest uppercase mb-3">
+                  ─── 传送门 ───
+                </div>
+                <div class="flex justify-center gap-4">
+                  <button
+                    v-for="(portal, i) in portalChoices"
+                    :key="'portal-' + i"
+                    class="portal-btn group relative flex flex-col items-center justify-center
+                           w-24 h-24 rounded-lg border-2 backdrop-blur-sm
+                           transition-all duration-500 hover:scale-110
+                           active:scale-95"
+                    :style="{
+                      backgroundColor: portal.bgColor,
+                      borderColor: portal.borderColor,
+                      boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
+                    }"
+                    @click="handlePortalClick(portal)"
+                  >
+                    <!-- Portal glow ring -->
+                    <div
+                      class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
+                      :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
+                    ></div>
+                    <!-- Portal icon -->
+                    <span class="text-2xl mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
+                    <!-- Portal label -->
+                    <span
+                      class="text-[10px] font-ui tracking-wide relative z-10 text-center leading-tight"
+                      :style="{ color: portal.textColor }"
+                    >{{ portal.label }}</span>
+                    <!-- Animated ring -->
+                    <div
+                      class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70
+                             animate-[spin_8s_linear_infinite] transition-opacity"
+                      :style="{ borderColor: portal.borderColor }"
+                    ></div>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Error Display -->
@@ -335,15 +396,38 @@
       </div>
     </DungeonModal>
 
-    <DungeonModal title="符文卡组 (当前)" :is-open="activeModal === 'deck'" @close="activeModal = null">
-      <div class="grid grid-cols-3 gap-8 overflow-y-auto max-h-[60%] p-4">
-        <div v-for="(card, i) in STARTING_DECK" :key="i" class="hover:scale-105 transition-transform flex justify-center">
+    <DungeonModal title="符文卡组" :is-open="activeModal === 'deck'" @close="activeModal = null">
+      <div v-if="resolvedDeck.length > 0" class="grid grid-cols-3 gap-8 overflow-y-auto max-h-[60%] p-4">
+        <div v-for="(card, i) in resolvedDeck" :key="i" class="hover:scale-105 transition-transform flex justify-center">
           <DungeonCard :card="card" disabled />
         </div>
       </div>
+      <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
+        <Scroll class="size-12 text-dungeon-gold/20" />
+        <span class="font-ui text-dungeon-paper/40 text-sm">卡组为空 — 尚未装备技能卡</span>
+      </div>
     </DungeonModal>
 
-    <DungeonModal title="圣遗物" :is-open="activeModal === 'relics'" @close="activeModal = null" />
+    <DungeonModal title="圣遗物" :is-open="activeModal === 'relics'" @close="activeModal = null">
+      <div v-if="relicEntries.length > 0" class="grid grid-cols-4 sm:grid-cols-6 gap-1 p-2 overflow-y-auto max-h-[60%]">
+        <div
+          v-for="relic in relicEntries"
+          :key="relic.name"
+          class="relative flex flex-col items-center p-1"
+          :title="relic.name"
+        >
+          <div class="relative">
+            <Box class="size-8 text-dungeon-gold/70" />
+            <span class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded px-0.5 leading-tight">x{{ relic.count }}</span>
+          </div>
+          <span class="font-heading text-dungeon-gold text-[10px] text-center mt-0.5 leading-tight truncate w-full">{{ relic.name }}</span>
+        </div>
+      </div>
+      <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
+        <Box class="size-12 text-dungeon-gold/20" />
+        <span class="font-ui text-dungeon-paper/40 text-sm">尚未获得圣遗物</span>
+      </div>
+    </DungeonModal>
 
     <!-- Settings Modal -->
     <DungeonModal title="系统设置" :is-open="activeModal === 'settings'" @close="activeModal = null">
@@ -426,6 +510,12 @@
             >
               退出到标题
             </button>
+            <button
+              class="p-3 border border-amber-600/40 hover:bg-amber-900/20 text-amber-400 text-sm rounded col-span-2"
+              @click="enterCombatTest"
+            >
+              ⚔ 进入战斗测试
+            </button>
           </div>
         </div>
       </div>
@@ -437,25 +527,57 @@
       :entries="gameStore.saveEntries"
       @close="gameStore.isSaveLoadOpen = false"
     />
+
+    <!-- Combat Overlay -->
+    <Transition name="combat-fade">
+      <div v-if="showCombat" class="absolute inset-0 z-[100] bg-black">
+        <CombatView
+          class="w-full h-full"
+          :enemy-name="combatEnemyName"
+          :player-deck="resolvedDeck"
+          :initial-player-stats="{
+            hp: displayHp,
+            maxHp: displayMaxHp,
+            mp: displayMp,
+            minDice: displayMinDice || 1,
+            maxDice: displayMaxDice || 6,
+            effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' as const }],
+          }"
+          @end-combat="handleCombatEnd"
+        />
+        <!-- Exit combat button -->
+        <button
+          class="absolute top-4 right-4 z-[110] px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg
+                 hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
+          @click="showCombat = false"
+        >
+          ✕ 退出战斗
+        </button>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import {
-    Activity,
-    BookOpen,
-    Box,
-    ChevronDown,
-    Coins,
-    Dices,
-    Map as MapIcon,
-    Maximize,
-    Scroll,
-    Send,
-    Settings as SettingsIcon,
+  Activity,
+  BookOpen,
+  Box,
+  ChevronDown,
+  Coins,
+  Dices,
+  Map as MapIcon,
+  Maximize,
+  Scroll,
+  Send,
+  Settings as SettingsIcon,
 } from 'lucide-vue-next';
-import { STARTING_DECK } from '../constants';
+import { resolveCardNames } from '../battle/cardRegistry';
+import { getEnemyByName } from '../battle/enemyRegistry';
+import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
+import { type CardData, EffectType } from '../types';
+import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
 import SaveLoadPanel from './SaveLoadPanel.vue';
@@ -508,13 +630,30 @@ const gameStore = useGameStore();
 const activeModal = ref<string | null>(null);
 const inputText = ref('');
 const isStatusOpen = ref(true);
+const showCombat = ref(false);
+const combatEnemyName = ref('');
+
+// ── Resolved deck from MVU _技能 via card registry ──
+const resolvedDeck = computed<CardData[]>(() => {
+  const skills: string[] = gameStore.statData._技能 ?? [];
+  return resolveCardNames(skills.filter((s) => s !== ''));
+});
+
+// ── Resolved relics from MVU _圣遗物 ──
+// Format: { relicName: count } e.g. { "圣杯": 2, "毒药": 3 }
+const relicEntries = computed(() => {
+  const raw: Record<string, number> = gameStore.statData._圣遗物 ?? {};
+  return Object.entries(raw)
+    .filter(([name, count]) => name && count > 0)
+    .map(([name, count]) => ({ name, count }));
+});
 
 // ── Text display settings (reactive, persisted) ──
 const textSettings = reactive({
-  fontSize: 16,
+  fontSize: 21,
   lineHeight: 2.0,
   fontFamily: "'Cinzel', serif",
-  containerWidth: 1024,
+  containerWidth: 1300,
 });
 
 // ── Computed display values from MVU stat_data ──
@@ -561,24 +700,248 @@ const handleSendInput = () => {
 
 const handleOptionClick = (option: string) => {
   if (gameStore.isGenerating) return;
-  gameStore.sendAction(option);
+  // Strip the "A. " / "B. " / etc. prefix, paste content into input box
+  const stripped = option.replace(/^[A-D]\.\s*/i, '');
+  inputText.value = stripped;
 };
+
+// ── Room type config for E option ──
+interface RoomConfig {
+  label: string;
+  icon: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  glowColor: string;
+}
+
+const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
+  '战斗房': { label: '战斗', icon: '⚔', bgColor: 'rgba(185,28,28,0.25)', borderColor: '#dc2626', textColor: '#fca5a5', glowColor: '#dc262680' },
+  '领主房': { label: '战斗', icon: '⚔', bgColor: 'rgba(185,28,28,0.3)',  borderColor: '#ef4444', textColor: '#fca5a5', glowColor: '#ef444480' },
+  '宝箱房': { label: '打开宝箱', icon: '📦', bgColor: 'rgba(161,98,7,0.25)',  borderColor: '#eab308', textColor: '#fde68a', glowColor: '#eab30880' },
+  '商店房': { label: '打开商店', icon: '🛒', bgColor: 'rgba(21,128,61,0.25)', borderColor: '#22c55e', textColor: '#bbf7d0', glowColor: '#22c55e80' },
+  '温泉房': { label: '清除诅咒', icon: '💧', bgColor: 'rgba(8,145,178,0.25)',  borderColor: '#06b6d4', textColor: '#a5f3fc', glowColor: '#06b6d480' },
+  '神像房': { label: '膜拜', icon: '🙏', bgColor: 'rgba(126,34,206,0.25)', borderColor: '#a855f7', textColor: '#e9d5ff', glowColor: '#a855f780' },
+};
+
+// E option: no button for 事件房 / 陷阱房
+const specialOptionConfig = computed<RoomConfig | null>(() => {
+  if (!gameStore.hasOptionE) return null;
+  const roomType = gameStore.statData._当前房间类型 as string;
+  if (!roomType) return null;
+  if (roomType === '事件房' || roomType === '陷阱房') return null;
+  return ROOM_TYPE_CONFIG[roomType] ?? null;
+});
+
+const handleSpecialOption = () => {
+  toastr.info('功能开发中...');
+};
+
+// ══════════════════════════════════════════════════════════════
+//  [Leave] Portal System — Floor/Area Logic
+// ══════════════════════════════════════════════════════════════
+
+const FLOOR_MAP: Record<string, string[]> = {
+  '第一层': ['魔女的小窝', '粘液之沼', '发情迷雾森林', '喷精泉眼', '触手菌窟', '肉欲食人花圃'],
+  '第二层': ['禁忌图书馆', '呻吟阅览室', '催情墨染湖', '性癖记录馆', '淫乱教职工宿舍'],
+  '第三层': ['欲望监狱', '吸血鬼古堡', '调教审判庭', '触手水牢', '人偶工坊'],
+  '第四层': ['虚空宫殿', '镜之舞厅', '双子寝宫', '春梦回廊', '极乐宴会厅'],
+  '第五层': ['交媾祭坛', '圣水之海', '苦修之路', '神谕淫纹室', '女神的产房'],
+};
+const FLOOR_ORDER = ['第一层', '第二层', '第三层', '第四层', '第五层'];
+
+function getFloorForArea(area: string): string | null {
+  for (const [floor, areas] of Object.entries(FLOOR_MAP)) {
+    if (areas.includes(area)) return floor;
+  }
+  return null;
+}
+
+function getNextFloor(currentFloor: string): string | null {
+  const idx = FLOOR_ORDER.indexOf(currentFloor);
+  if (idx < 0 || idx >= FLOOR_ORDER.length - 1) return null;
+  return FLOOR_ORDER[idx + 1];
+}
+
+// ── Portal visuals ──
+const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
+
+interface PortalVisual { icon: string; bgColor: string; borderColor: string; textColor: string; glowColor: string; }
+
+const PORTAL_ROOM_VISUALS: Record<string, PortalVisual> = {
+  '战斗房': { icon: '⚔️', bgColor: 'rgba(127,29,29,0.5)',  borderColor: '#991b1b', textColor: '#fca5a5', glowColor: '#dc2626' },
+  '宝箱房': { icon: '💎', bgColor: 'rgba(113,63,18,0.5)',  borderColor: '#a16207', textColor: '#fde68a', glowColor: '#eab308' },
+  '商店房': { icon: '🏪', bgColor: 'rgba(20,83,45,0.5)',   borderColor: '#166534', textColor: '#bbf7d0', glowColor: '#22c55e' },
+  '温泉房': { icon: '♨️', bgColor: 'rgba(22,78,99,0.5)',   borderColor: '#155e75', textColor: '#a5f3fc', glowColor: '#06b6d4' },
+  '神像房': { icon: '🗿', bgColor: 'rgba(88,28,135,0.5)',  borderColor: '#7e22ce', textColor: '#e9d5ff', glowColor: '#a855f7' },
+  '事件房': { icon: '❓', bgColor: 'rgba(63,63,70,0.5)',   borderColor: '#52525b', textColor: '#d4d4d8', glowColor: '#71717a' },
+  '陷阱房': { icon: '⚠️', bgColor: 'rgba(124,45,18,0.5)',  borderColor: '#9a3412', textColor: '#fed7aa', glowColor: '#ea580c' },
+  '领主房': { icon: '👑', bgColor: 'rgba(127,29,29,0.6)',  borderColor: '#dc2626', textColor: '#fca5a5', glowColor: '#ef4444' },
+};
+const AREA_PORTAL_VISUAL: PortalVisual = {
+  icon: '🌀', bgColor: 'rgba(79,70,229,0.5)', borderColor: '#6366f1', textColor: '#c7d2fe', glowColor: '#818cf8',
+};
+
+interface PortalChoice {
+  label: string;
+  roomType: string;
+  areaName?: string;
+  floorName?: string;
+  isFloorTransition: boolean;
+  icon: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  glowColor: string;
+}
+
+let lastLeaveState = false;
+let cachedPortals: PortalChoice[] = [];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function generatePortals(): PortalChoice[] {
+  const currentArea = (gameStore.statData._当前区域 as string) || '';
+  const currentRoomType = (gameStore.statData._当前房间类型 as string) || '';
+  const stats = (gameStore.statData.$统计 as any) || {};
+  const roomsPassed: number = stats.当前层已过房间 ?? 0;
+
+  const isStartArea = currentArea === '魔女的小窝';
+  const isBossRoom = currentRoomType === '领主房';
+
+  // ── Special: 魔女的小窝 or 领主房 → next floor area portals ──
+  if (isStartArea || isBossRoom) {
+    let targetFloor: string | null = null;
+    if (isStartArea) {
+      targetFloor = '第一层';
+    } else {
+      const currentFloor = getFloorForArea(currentArea);
+      if (currentFloor) targetFloor = getNextFloor(currentFloor);
+    }
+    if (targetFloor && FLOOR_MAP[targetFloor]) {
+      const candidates = FLOOR_MAP[targetFloor].filter(a => a !== currentArea);
+      const picked = shuffle(candidates).slice(0, 3);
+      return picked.map(areaName => ({
+        label: areaName,
+        roomType: '',
+        areaName,
+        floorName: targetFloor!,
+        isFloorTransition: true,
+        ...AREA_PORTAL_VISUAL,
+      }));
+    }
+  }
+
+  // ── Boss room probability: rooms >= 5 → (rooms - 4) * 10% ──
+  if (roomsPassed >= 5) {
+    const bossChance = (roomsPassed - 4) * 0.1;
+    if (Math.random() < bossChance) {
+      const vis = PORTAL_ROOM_VISUALS['领主房'];
+      return [{ label: '领主房', roomType: '领主房', isFloorTransition: false, ...vis }];
+    }
+  }
+
+  // ── Normal: 1-3 random room portals (20%/40%/40%) ──
+  const roll = Math.random();
+  const count = roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3;
+  const picked = shuffle(PORTAL_ROOM_TYPES).slice(0, count);
+  return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
+}
+
+const portalChoices = computed<PortalChoice[]>(() => {
+  if (!gameStore.hasLeave) { lastLeaveState = false; cachedPortals = []; return []; }
+  if (!lastLeaveState) { lastLeaveState = true; cachedPortals = generatePortals(); }
+  return cachedPortals;
+});
+
+// ── Room type → $统计 field mapping ──
+const ROOM_STAT_KEY: Record<string, string> = {
+  '战斗房': '累计经过战斗', '宝箱房': '累计经过宝箱', '商店房': '累计经过商店',
+  '温泉房': '累计经过温泉', '神像房': '累计经过神像', '事件房': '累计经过事件', '陷阱房': '累计经过陷阱',
+};
+
+const handlePortalClick = async (portal: PortalChoice) => {
+  if (gameStore.isGenerating) return;
+  try {
+    const lastId = getLastMessageId();
+    if (lastId < 0) return;
+    const mvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
+    if (!mvuData?.stat_data) return;
+    const sd = mvuData.stat_data;
+    if (!sd.$统计) sd.$统计 = {};
+
+    if (portal.isFloorTransition) {
+      // ── Floor transition: update area, reset room counter ──
+      sd._当前区域 = portal.areaName!;
+      sd._当前房间类型 = '';
+      sd.$统计.当前层已过房间 = 0;
+      gameStore.statData._当前区域 = portal.areaName!;
+      gameStore.statData._当前房间类型 = '';
+      if (!gameStore.statData.$统计) gameStore.statData.$统计 = {} as any;
+      (gameStore.statData.$统计 as any).当前层已过房间 = 0;
+      await Mvu.replaceMvuData(mvuData, { type: 'message', message_id: lastId });
+      console.info(`[Portal] Floor transition → area: ${portal.areaName}`);
+      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.areaName}`);
+    } else {
+      // ── Normal room transition: update room type + stats ──
+      sd._当前房间类型 = portal.roomType;
+      sd.$统计.当前层已过房间 = (sd.$统计.当前层已过房间 ?? 0) + 1;
+      sd.$统计.累计已过房间 = (sd.$统计.累计已过房间 ?? 0) + 1;
+      const statKey = ROOM_STAT_KEY[portal.roomType];
+      if (statKey) sd.$统计[statKey] = (sd.$统计[statKey] ?? 0) + 1;
+      gameStore.statData._当前房间类型 = portal.roomType;
+      if (!gameStore.statData.$统计) gameStore.statData.$统计 = {} as any;
+      const ls = gameStore.statData.$统计 as any;
+      ls.当前层已过房间 = sd.$统计.当前层已过房间;
+      ls.累计已过房间 = sd.$统计.累计已过房间;
+      if (statKey) ls[statKey] = sd.$统计[statKey];
+      await Mvu.replaceMvuData(mvuData, { type: 'message', message_id: lastId });
+      console.info(`[Portal] Room → type: ${portal.roomType}, rooms: ${sd.$统计.当前层已过房间}`);
+      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}的房间`);
+    }
+  } catch (err) {
+    console.error('[Portal] Error:', err);
+  }
+};
+
 
 const openSaveLoad = () => {
   gameStore.loadSaveEntries();
   gameStore.isSaveLoadOpen = !gameStore.isSaveLoadOpen;
 };
 
-const toggleFullScreen = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch((err) => {
-      console.warn(`Error attempting to enable fullscreen: ${err.message}`);
-    });
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    }
+// toggleFullScreen imported from '../fullscreen'
+
+// ── Combat Test ──
+const enterCombatTest = () => {
+  activeModal.value = null;
+  // 刷新 MVU 数据以确保读取最新值
+  gameStore.loadStatData();
+  // 从 MVU 读取 _对手名称
+  const name = gameStore.statData._对手名称;
+  if (!name) {
+    gameStore.error = '未检测到 _对手名称 变量，无法进入战斗';
+    return;
   }
+  const enemyDef = getEnemyByName(name);
+  if (!enemyDef) {
+    gameStore.error = `未在敌人库中找到「${name}」，请检查敌人注册表`;
+    return;
+  }
+  combatEnemyName.value = name;
+  showCombat.value = true;
+};
+
+const handleCombatEnd = (win: boolean) => {
+  showCombat.value = false;
+  console.log('[Combat] Result:', win ? 'WIN' : 'LOSE');
 };
 </script>
 
@@ -609,5 +972,15 @@ const toggleFullScreen = () => {
 }
 .stat-container-mana:hover {
   filter: drop-shadow(0 0 12px rgba(60, 60, 230, 0.7));
+}
+
+/* Combat overlay transition */
+.combat-fade-enter-active,
+.combat-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.combat-fade-enter-from,
+.combat-fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -1,8 +1,7 @@
 <template>
   <div
-    class="w-full bg-black/80 text-dungeon-paper font-ui relative overflow-hidden select-none"
+    class="w-full h-full bg-black/80 text-dungeon-paper font-ui relative overflow-hidden select-none"
     :class="screenShake ? 'animate-shake' : ''"
-    :style="{ aspectRatio: '16/9' }"
   >
     <!-- Background -->
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,_rgba(60,40,30,0.4),_#000000_90%)] z-0"></div>
@@ -32,7 +31,7 @@
 
         <!-- Enemy Dice -->
         <div v-if="!showClashAnimation" class="absolute -left-12 bottom-32 z-20 animate-float">
-          <DungeonDice :value="combatState.enemyDice" :rolling="isRolling" color="red" size="md" />
+          <DungeonDice :value="combatState.enemyBaseDice" :rolling="isRolling" color="red" size="md" />
         </div>
 
         <!-- Enemy Portrait -->
@@ -49,14 +48,52 @@
         <!-- Enemy Status Bar -->
         <div class="mt-4 w-72 bg-black/80 border border-red-900/30 p-3 rounded shadow-lg backdrop-blur-sm z-10">
           <div class="flex justify-between text-sm text-red-400 font-bold mb-1">
-            <span>深渊潜行者</span>
-            <span>{{ enemyStats.hp }}/{{ enemyStats.maxHp }} HP</span>
+            <span>{{ enemyDisplayName }}</span>
           </div>
-          <div class="w-full h-2 bg-gray-900 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-red-700 transition-all duration-500"
-              :style="{ width: `${(enemyStats.hp / enemyStats.maxHp) * 100}%` }"
-            ></div>
+          <!-- Armor Shield -->
+          <div v-if="enemyArmor > 0" class="flex items-center gap-1 mb-1">
+            <span class="text-[10px] text-yellow-400">🛡️</span>
+            <span class="text-[10px] text-yellow-300 font-bold">{{ enemyArmor }}</span>
+          </div>
+          <!-- HP Bar -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] text-red-400 font-bold w-6">HP</span>
+            <div class="flex-1 h-2 bg-gray-900 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-red-700 transition-all duration-500"
+                :style="{ width: `${enemyStats.maxHp > 0 ? (enemyStats.hp / enemyStats.maxHp) * 100 : 0}%` }"
+              ></div>
+            </div>
+            <span class="text-[10px] text-red-300 w-14 text-right">{{ enemyStats.hp }}/{{ enemyStats.maxHp }}</span>
+          </div>
+          <!-- MP Bar -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] text-blue-400 font-bold w-6">MP</span>
+            <div class="flex-1 h-1.5 bg-gray-900 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-blue-600 transition-all duration-500"
+                :style="{ width: `${Math.min((enemyStats.mp / 20) * 100, 100)}%` }"
+              ></div>
+            </div>
+            <span class="text-[10px] text-blue-300 w-14 text-right">{{ enemyStats.mp }}</span>
+          </div>
+          <!-- Dice Range -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] text-gray-400 font-bold w-6">🎲</span>
+            <span class="text-[10px] text-red-300">{{ enemyStats.minDice }} ~ {{ enemyStats.maxDice }}</span>
+          </div>
+          <!-- Buffs/Debuffs -->
+          <div v-if="enemyStats.effects.length > 0" class="flex flex-wrap gap-1 mt-1">
+            <span
+              v-for="(eff, i) in enemyStats.effects"
+              :key="i"
+              class="text-[9px] px-1.5 py-0.5 rounded-full border font-bold"
+              :class="effectPillClass(eff.polarity)"
+              :title="getEffectDescription(eff.type)"
+            >
+              {{ getEffectName(eff.type) }}
+              <template v-if="eff.stacks > 1">x{{ eff.stacks }}</template>
+            </span>
           </div>
         </div>
       </div>
@@ -65,7 +102,7 @@
       <div class="absolute bottom-[20%] left-[5%] md:bottom-[25%] md:left-[10%] w-64 h-80 flex flex-col items-center justify-end z-20">
         <!-- Player Dice -->
         <div v-if="!showClashAnimation" class="absolute -top-24 left-1/2 -translate-x-1/2 z-20 animate-float" style="animation-delay: 1s">
-          <DungeonDice :value="combatState.playerDice" :rolling="isRolling" color="gold" size="md" />
+          <DungeonDice :value="combatState.playerBaseDice" :rolling="isRolling" color="gold" size="md" />
         </div>
 
         <!-- Player Portrait -->
@@ -83,22 +120,51 @@
         <div class="mt-2 w-60 bg-black/90 border border-dungeon-gold/50 p-2 rounded shadow-xl backdrop-blur-sm z-10">
           <div class="flex justify-between text-xs text-dungeon-gold font-bold mb-1">
             <span>冒险者</span>
-            <div class="flex space-x-3">
-              <span class="text-dungeon-blood drop-shadow-sm">{{ playerStats.hp }} HP</span>
-              <span class="text-blue-400 drop-shadow-sm">{{ playerStats.mp }} MP</span>
+          </div>
+          <!-- Armor Shield -->
+          <div v-if="playerArmor > 0" class="flex items-center gap-1 mb-1">
+            <span class="text-[10px] text-yellow-400">🛡️</span>
+            <span class="text-[10px] text-yellow-300 font-bold">{{ playerArmor }}</span>
+          </div>
+          <!-- HP Bar -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] text-dungeon-blood font-bold w-6">HP</span>
+            <div class="flex-1 h-1.5 bg-gray-900 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-dungeon-blood transition-all duration-500"
+                :style="{ width: `${playerStats.maxHp > 0 ? (playerStats.hp / playerStats.maxHp) * 100 : 0}%` }"
+              ></div>
             </div>
+            <span class="text-[10px] text-dungeon-blood w-14 text-right">{{ playerStats.hp }}/{{ playerStats.maxHp }}</span>
           </div>
-          <div class="w-full h-1.5 bg-gray-900 rounded-full overflow-hidden mb-1">
-            <div
-              class="h-full bg-dungeon-blood transition-all duration-500"
-              :style="{ width: `${(playerStats.hp / playerStats.maxHp) * 100}%` }"
-            ></div>
+          <!-- MP Bar -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] text-blue-400 font-bold w-6">MP</span>
+            <div class="flex-1 h-1 bg-gray-900 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-blue-600 transition-all duration-500"
+                :style="{ width: `${Math.min((playerStats.mp / 20) * 100, 100)}%` }"
+              ></div>
+            </div>
+            <span class="text-[10px] text-blue-300 w-14 text-right">{{ playerStats.mp }}</span>
           </div>
-          <div class="w-full h-1 bg-gray-900 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-blue-600 transition-all duration-500"
-              :style="{ width: `${(playerStats.mp / playerStats.maxMp) * 100}%` }"
-            ></div>
+          <!-- Dice Range -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] text-gray-400 font-bold w-6">🎲</span>
+            <span class="text-[10px] text-dungeon-gold">{{ playerStats.minDice }} ~ {{ playerStats.maxDice }}</span>
+          </div>
+          <!-- Buffs/Debuffs -->
+          <div v-if="playerStats.effects.length > 0" class="flex flex-wrap gap-1 mt-1">
+            <span
+              v-for="(eff, i) in playerStats.effects"
+              :key="i"
+              class="text-[9px] px-1.5 py-0.5 rounded-full border font-bold"
+              :class="effectPillClass(eff.polarity)"
+              :title="getEffectDescription(eff.type)"
+            >
+              {{ getEffectName(eff.type) }}
+              <template v-if="eff.stacks > 1">x{{ eff.stacks }}</template>
+            </span>
           </div>
         </div>
       </div>
@@ -116,7 +182,7 @@
             :class="shatteringTarget === 'player' ? 'animate-shatter' : 'animate-clash-left'"
           >
             <DungeonDice
-              :value="combatState.playerDice"
+              :value="combatState.playerBaseDice"
               :rolling="false"
               color="gold"
               size="lg"
@@ -130,7 +196,7 @@
             :class="shatteringTarget === 'enemy' ? 'animate-shatter' : 'animate-clash-right'"
           >
             <DungeonDice
-              :value="combatState.enemyDice"
+              :value="combatState.enemyBaseDice"
               :rolling="false"
               color="red"
               size="lg"
@@ -180,7 +246,7 @@
           >
             <DungeonCard
               :card="card"
-              :disabled="combatState.phase !== CombatPhase.PLAYER_ACTION && combatState.playerSelectedCard?.id !== card.id"
+              :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT && combatState.playerSelectedCard?.id !== card.id"
               @click="handleCardSelect(card)"
             />
           </div>
@@ -268,42 +334,102 @@
 
 <script setup lang="ts">
 import { Layers, Skull, Trash2, X as XIcon } from 'lucide-vue-next';
-import { ENEMY_DECK, INITIAL_ENEMY_STATS, STARTING_DECK } from '../constants';
-import { type CardData, type CombatState, type EntityStats, CardType, CombatPhase } from '../types';
+import { applyDamageToEntity, calculateFinalDamage, calculateFinalPoint } from '../battle/algorithms';
+import { EFFECT_REGISTRY, applyEffect, processOnTurnEnd, processOnTurnStart } from '../battle/effects';
+import { getEnemyByName } from '../battle/enemyRegistry';
+import { type CardData, type CombatState, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats, CardType, CombatPhase, EffectType as ET } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 
 const props = defineProps<{
   initialPlayerStats: EntityStats;
+  enemyName: string;
+  playerDeck: CardData[];
 }>();
 
 const emit = defineEmits<{
   endCombat: [win: boolean, finalStats: EntityStats];
 }>();
 
+// --- Enemy Loading ---
+const enemyDef = getEnemyByName(props.enemyName);
+const enemyDisplayName = enemyDef?.name ?? props.enemyName;
+
+// AI flags — mutable state for enemy AI decisions (e.g. hasUsedHeal)
+const aiFlags = reactive<Record<string, any>>({});
+
 // --- State ---
 const playerStats = ref<EntityStats>({ ...props.initialPlayerStats });
-const enemyStats = ref<EntityStats>({ ...INITIAL_ENEMY_STATS });
+const enemyStats = ref<EntityStats>(
+  enemyDef
+    ? { ...enemyDef.stats, effects: [...enemyDef.stats.effects] }
+    : { hp: 1, maxHp: 1, mp: 0, minDice: 1, maxDice: 1, effects: [] },
+);
+
+// --- Effect display helpers ---
+const getEffectName = (type: EffectType): string => {
+  return EFFECT_REGISTRY[type]?.name ?? String(type);
+};
+const getEffectDescription = (type: EffectType): string => {
+  return EFFECT_REGISTRY[type]?.description ?? '';
+};
+const effectPillClass = (polarity: EffectPolarity): string => {
+  switch (polarity) {
+    case 'buff':    return 'bg-green-900/60 border-green-500/40 text-green-300';
+    case 'debuff':  return 'bg-red-900/60 border-red-500/40 text-red-300';
+    case 'trait':   return 'bg-gray-800/60 border-gray-500/40 text-gray-300';
+    case 'mixed':   return 'bg-purple-900/60 border-purple-500/40 text-purple-300';
+    case 'special': return 'bg-yellow-900/60 border-yellow-500/40 text-yellow-300';
+    default:        return 'bg-gray-800/60 border-gray-500/40 text-gray-300';
+  }
+};
+
+// --- Armor computed ---
+const playerArmor = computed(() => {
+  const eff = playerStats.value.effects.find(e => e.type === ET.ARMOR);
+  return eff?.stacks ?? 0;
+});
+const enemyArmor = computed(() => {
+  const eff = enemyStats.value.effects.find(e => e.type === ET.ARMOR);
+  return eff?.stacks ?? 0;
+});
+
+const enemyDeck = enemyDef ? [...enemyDef.deck] : [];
+
+// dummy card to prevent crash if enemy has no cards
+const PASS_CARD: CardData = {
+  id: 'pass', name: '跳过', type: CardType.FUNCTION, category: '基础', manaCost: 0,
+  calculation: { multiplier: 0, addition: 0 }, damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false }, cardEffects: [], description: '无行动'
+};
 
 const combatState = ref<CombatState>({
   turn: 1,
-  phase: CombatPhase.INIT,
-  playerDice: 1,
-  enemyDice: 1,
+  phase: CombatPhase.TURN_START,
+  actionsRemaining: 1,
+  playerBaseDice: 1,
+  enemyBaseDice: 1,
   playerHand: [],
-  playerDeck: [...STARTING_DECK].sort(() => Math.random() - 0.5),
+  playerDeck: [...props.playerDeck].sort(() => Math.random() - 0.5),
   discardPile: [],
+  enemyDeck: [...enemyDeck],
+  enemyDiscard: [],
   enemyIntentCard: null,
+  enemyPredictedPoint: 0,
   playerSelectedCard: null,
-  logs: ['战斗开始！遭遇了一只 <span class="text-red-500 font-bold">深渊潜行者</span>'],
+  lastPlayedCard: null,
+  logs: [`战斗开始！遭遇了 <span class="text-red-500 font-bold">${enemyDisplayName}</span>`],
 });
 
 const isRolling = ref(false);
 const clashResult = ref<{ message: string; winner: 'player' | 'enemy' | 'tie' | null } | null>(null);
 const showClashAnimation = ref(false);
-const shatteringTarget = ref<'player' | 'enemy' | null>(null);
+const shatteringTarget = ref<'player' | 'enemy' | 'both' | null>(null);
 const screenShake = ref(false);
 const overlayOpen = ref<'deck' | 'discard' | null>(null);
+
+// Default relic modifiers (no relics yet)
+const NO_RELIC_MOD = { globalMultiplier: 1, globalAddition: 0 };
 
 // --- Helpers ---
 const log = (msg: string) => {
@@ -332,7 +458,7 @@ const handCardClass = (card: CardData) => {
   const selected = combatState.value.playerSelectedCard;
   const isSelected = selected?.id === card.id;
   const isNotSelected = selected && !isSelected;
-  const isActionPhase = combatState.value.phase === CombatPhase.PLAYER_ACTION;
+  const isActionPhase = combatState.value.phase === CombatPhase.PLAYER_INPUT;
 
   return [
     isSelected ? '-translate-y-12 scale-110 z-50 ring-2 ring-dungeon-gold rounded-lg shadow-[0_0_30px_#d4af37]' : '',
@@ -341,10 +467,35 @@ const handCardClass = (card: CardData) => {
   ];
 };
 
+// --- Enemy AI Card Selection ---
+function selectEnemyCard(): CardData {
+  if (combatState.value.enemyDeck.length === 0) {
+    if (combatState.value.enemyDiscard.length === 0) return PASS_CARD; // Fallback
+    combatState.value.enemyDeck = [...combatState.value.enemyDiscard].sort(() => Math.random() - 0.5);
+    combatState.value.enemyDiscard = [];
+  }
+
+  if (enemyDef) {
+    // Use the enemy's custom AI logic
+    const ctx: EnemyAIContext = {
+      enemyStats: enemyStats.value,
+      playerStats: playerStats.value,
+      deck: combatState.value.enemyDeck,
+      turn: combatState.value.turn,
+      flags: aiFlags,
+    };
+    return enemyDef.selectCard(ctx);
+  }
+
+  // Fallback: random selection (should never happen with proper registry)
+  const idx = Math.floor(Math.random() * combatState.value.enemyDeck.length);
+  return combatState.value.enemyDeck[idx]!;
+}
+
 // --- Phase Management ---
 
 const startTurn = () => {
-  combatState.value.phase = CombatPhase.ROLL_PHASE;
+  combatState.value.phase = CombatPhase.DRAW_PHASE;
   combatState.value.playerSelectedCard = null;
   combatState.value.enemyIntentCard = null;
   isRolling.value = true;
@@ -357,8 +508,8 @@ const startTurn = () => {
     const eRoll = Math.floor(Math.random() * (enemyStats.value.maxDice - enemyStats.value.minDice + 1)) + enemyStats.value.minDice;
 
     isRolling.value = false;
-    combatState.value.playerDice = pRoll;
-    combatState.value.enemyDice = eRoll;
+    combatState.value.playerBaseDice = pRoll;
+    combatState.value.enemyBaseDice = eRoll;
     combatState.value.phase = CombatPhase.DRAW_PHASE;
     log(`掷骰结果：我方 [${pRoll}] vs 敌方 [${eRoll}]`);
   }, 1500);
@@ -368,7 +519,19 @@ const startTurn = () => {
 watch(
   () => combatState.value.phase,
   (phase) => {
-    if (phase === CombatPhase.INIT) {
+     if (phase === CombatPhase.TURN_START) {
+      // Process turn-start effects (poison, burn, mana spring, etc.)
+      if (combatState.value.turn > 1) {
+        for (const [label, stats] of [['我方', playerStats], ['敌方', enemyStats]] as const) {
+          const result = processOnTurnStart(stats.value);
+          if (result.hpChange !== 0) stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + result.hpChange));
+          if (result.mpChange !== 0) stats.value.mp = Math.max(0, stats.value.mp + result.mpChange);
+          if (result.trueDamage > 0) stats.value.hp = Math.max(0, stats.value.hp - result.trueDamage);
+          for (const l of result.logs) {
+            log(`<span class="text-gray-400 text-[9px]">${label}: ${l}</span>`);
+          }
+        }
+      }
       setTimeout(() => startTurn(), 1000);
     }
   },
@@ -380,28 +543,29 @@ watch(
   [() => combatState.value.phase, isRolling],
   ([phase, rolling]) => {
     if (phase === CombatPhase.DRAW_PHASE && !rolling) {
-      const eCard = ENEMY_DECK[Math.floor(Math.random() * ENEMY_DECK.length)];
+      // Use enemy AI to select card
+      const eCard = selectEnemyCard();
       const { drawn, newDeck, newDiscard } = drawCards(3, combatState.value.playerDeck, combatState.value.discardPile);
 
       combatState.value.enemyIntentCard = eCard;
       combatState.value.playerHand = drawn;
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
-      combatState.value.phase = CombatPhase.PLAYER_ACTION;
+      combatState.value.phase = CombatPhase.PLAYER_INPUT;
     }
   },
 );
 
 // Handle Card Select
 const handleCardSelect = (card: CardData) => {
-  if (combatState.value.phase !== CombatPhase.PLAYER_ACTION) return;
+  if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
 
   if (card.type === CardType.MAGIC) {
-    if (playerStats.value.mp < card.cost) {
+    if (playerStats.value.mp < card.manaCost) {
       log('<span class="text-red-400">魔力不足！</span>');
       return;
     }
-    playerStats.value.mp -= card.cost;
+    playerStats.value.mp -= card.manaCost;
   }
 
   combatState.value.playerSelectedCard = card;
@@ -473,8 +637,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     if (clashWinner === 'player') shatteringTarget.value = 'enemy';
     else if (clashWinner === 'enemy') shatteringTarget.value = 'player';
     else if (clashWinner === 'tie') {
-      shatteringTarget.value = 'player';
-      setTimeout(() => (shatteringTarget.value = 'enemy'), 100);
+      shatteringTarget.value = 'both';
     }
 
     clashResult.value = { message: resultMsg, winner: clashWinner };
@@ -488,22 +651,59 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     eSuccess = true;
   }
 
-  // Execution Phase
-  const executeCard = (source: 'player' | 'enemy', card: CardData) => {
-    if (source === 'player') {
-      if (card.type === CardType.ACTION) {
-        if (card.id === 'c5') playerStats.value.mp = Math.min(playerStats.value.maxMp, playerStats.value.mp + 5);
-        log(`我方使用了【${card.name}】`);
-      } else if (card.type !== CardType.DODGE) {
-        enemyStats.value.hp = Math.max(0, enemyStats.value.hp - card.value);
-        log(`我方【${card.name}】造成 ${card.value} 点伤害`);
+  // Execution Phase — use algorithms.ts for proper damage calculation
+  const executeCard = (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
+    const attacker = source === 'player' ? playerStats.value : enemyStats.value;
+    const defender = source === 'player' ? enemyStats.value : playerStats.value;
+    const label = source === 'player' ? '我方' : '敌方';
+
+    // Calculate final point for this card
+    const finalPoint = calculateFinalPoint({
+      baseDice,
+      card,
+      entityEffects: attacker.effects,
+      relicModifiers: NO_RELIC_MOD,
+    });
+
+    if (card.type === CardType.FUNCTION) {
+      // Process card effects (heal, apply_buff, etc.)
+      let hasEffect = false;
+      for (const ce of card.cardEffects) {
+        if (ce.kind === 'heal' && ce.target === 'self') {
+          const healAmount = ce.valueMode === 'point_scale'
+            ? Math.floor(finalPoint * (ce.scale ?? 1))
+            : (ce.fixedValue ?? 0);
+          attacker.hp = Math.min(attacker.maxHp, attacker.hp + healAmount);
+          log(`<span class="text-green-400">${label}【${card.name}】回复了 ${healAmount} 点生命</span>`);
+          hasEffect = true;
+        } else if (ce.kind === 'apply_buff') {
+          const stacks = ce.valueMode === 'point_scale'
+            ? Math.floor(finalPoint * (ce.scale ?? 1))
+            : (ce.fixedValue ?? 1);
+          const target = ce.target === 'self' ? attacker : defender;
+          applyEffect(target, ce.effectType!, stacks);
+          log(`<span class="text-yellow-400">${label}【${card.name}】获得了 ${stacks} 层${EFFECT_REGISTRY[ce.effectType!]?.name ?? ce.effectType}</span>`);
+          hasEffect = true;
+        }
       }
-    } else {
-      if (card.type === CardType.ACTION) {
-        log(`敌方使用了【${card.name}】`);
-      } else if (card.type !== CardType.DODGE) {
-        playerStats.value.hp = Math.max(0, playerStats.value.hp - card.value);
-        log(`敌方【${card.name}】造成 ${card.value} 点伤害`);
+      if (!hasEffect) {
+        // Fallback for special function cards (e.g. MP recovery)
+        if (card.id === 'c5') attacker.mp += 5;
+        log(`${label}使用了【${card.name}】`);
+      }
+    } else if (card.type !== CardType.DODGE) {
+      // Attack card: calculate damage through the full pipeline
+      const { damage, logs: dmgLogs } = calculateFinalDamage({
+        finalPoint,
+        card,
+        attackerEffects: attacker.effects,
+        defenderEffects: defender.effects,
+        relicModifiers: NO_RELIC_MOD,
+      });
+      const { actualDamage, logs: applyLogs } = applyDamageToEntity(defender, damage, false);
+      log(`${label}【${card.name}】点数${finalPoint}，造成 <span class="text-red-400 font-bold">${actualDamage}</span> 点伤害`);
+      for (const dl of [...dmgLogs, ...applyLogs]) {
+        log(`<span class="text-gray-500 text-[9px]">${dl}</span>`);
       }
     }
   };
@@ -512,14 +712,15 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     source: 'player' | 'enemy';
     card: CardData;
     type: CardType;
+    baseDice: number;
   }
 
   const queue: ActionEntry[] = [];
-  if (pSuccess) queue.push({ source: 'player', card: pCard, type: pCard.type });
-  if (eSuccess) queue.push({ source: 'enemy', card: eCard, type: eCard.type });
+  if (pSuccess) queue.push({ source: 'player', card: pCard, type: pCard.type, baseDice: pDice });
+  if (eSuccess) queue.push({ source: 'enemy', card: eCard, type: eCard.type, baseDice: eDice });
 
   const typePriority = (t: CardType) => {
-    if (t === CardType.ACTION) return 3;
+    if (t === CardType.FUNCTION) return 3;
     if (t === CardType.MAGIC) return 2;
     if (t === CardType.PHYSICAL) return 1;
     return 0;
@@ -528,15 +729,22 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   queue.sort((a, b) => typePriority(b.type) - typePriority(a.type));
 
   for (const action of queue) {
-    executeCard(action.source, action.card);
+    executeCard(action.source, action.card, action.baseDice);
     await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // End-of-turn effect processing (armor halving, stun clear, etc.)
+  const pEndLogs = processOnTurnEnd(playerStats.value);
+  const eEndLogs = processOnTurnEnd(enemyStats.value);
+  for (const l of [...pEndLogs, ...eEndLogs]) {
+    log(`<span class="text-gray-500 text-[9px]">${l}</span>`);
   }
 
   // Cleanup
   combatState.value.discardPile = [...combatState.value.discardPile, ...combatState.value.playerHand];
   combatState.value.playerHand = [];
   combatState.value.turn += 1;
-  combatState.value.phase = CombatPhase.INIT;
+  combatState.value.phase = CombatPhase.TURN_START;
 };
 
 // Watch for RESOLUTION phase
@@ -553,8 +761,8 @@ watch(
       resolveCombat(
         combatState.value.playerSelectedCard,
         combatState.value.enemyIntentCard,
-        combatState.value.playerDice,
-        combatState.value.enemyDice,
+        combatState.value.playerBaseDice,
+        combatState.value.enemyBaseDice,
       );
     }
   },

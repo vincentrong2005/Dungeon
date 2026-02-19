@@ -1,5 +1,5 @@
 import { Schema } from '../schema';
-import { extractMainText, extractOptions, extractSummary, parseResponse, type ParsedResponse } from './responseParser';
+import { detectLeave, detectOptionE, extractMainText, extractOptions, extractSummary, parseResponse, type ParsedResponse } from './responseParser';
 
 /**
  * 楼层存档条目（用于读档面板）
@@ -22,6 +22,10 @@ export const useGameStore = defineStore('game', () => {
   const streamingText = ref('');
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
+
+  // ── 特殊选项标记 ──
+  const hasOptionE = ref(false);
+  const hasLeave = ref(false);
 
   // ── 编辑模式 ──
   const isEditing = ref(false);
@@ -74,6 +78,8 @@ export const useGameStore = defineStore('game', () => {
       mainText.value = extractMainText(text);
       options.value = extractOptions(text);
       currentSummary.value = extractSummary(text);
+      hasOptionE.value = detectOptionE(text);
+      hasLeave.value = detectLeave(text);
     }
   }
 
@@ -86,8 +92,14 @@ export const useGameStore = defineStore('game', () => {
       if (lastId < 0) return;
       const mvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
       const raw = _.get(mvuData, 'stat_data');
-      if (raw) {
-        statData.value = Schema.parse(raw);
+      if (raw && typeof raw === 'object') {
+        // safeParse: if schema validation succeeds, use parsed result;
+        // otherwise fall back to raw data so UI is never empty
+        const result = Schema.safeParse(raw);
+        statData.value = result.success ? result.data : (raw as any);
+        if (!result.success) {
+          console.warn('[GameStore] stat_data schema mismatch, using raw:', result.error.issues);
+        }
       }
     } catch (err) {
       console.warn('[GameStore] Failed to load stat_data:', err);
@@ -96,11 +108,11 @@ export const useGameStore = defineStore('game', () => {
 
   /**
    * 核心游戏循环：发送用户行动
-   * 1. 创建 user 楼层（不触发生成、不刷新）
-   * 2. 调用 generate 生成 LLM 回复
-   * 3. 解析回复，提取标签
-   * 4. 解析 MVU 变量命令
-   * 5. 创建 assistant 楼层（不触发生成、不刷新）
+   * 1. 获取当前楼层 MVU 变量（作为继承基础）
+   * 2. 创建 user 楼层（不触发生成、不刷新）
+   * 3. 调用 generate 生成 LLM 回复
+   * 4. 解析回复标签 + 解析 MVU 变量命令
+   * 5. 创建 assistant 楼层（携带解析后的 MVU 数据）
    * 6. 隐藏旧楼层，更新显示
    */
   async function sendAction(userInput: string) {
@@ -111,19 +123,22 @@ export const useGameStore = defineStore('game', () => {
     streamingText.value = '';
 
     try {
-      // 1. 创建 user 楼层
+      // 1. 在创建新消息前，获取当前楼层的 MVU 变量（用于继承）
+      const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getCurrentMessageId() });
+
+      // 2. 创建 user 楼层
       console.info('[GameStore] Creating user message:', userInput);
       await createChatMessages(
         [{ role: 'user', message: userInput }],
         { refresh: 'none' },
       );
 
-      // 2. 监听流式传输（可选）
+      // 3. 监听流式传输（可选）
       const streamListener = eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, (text: string, _generation_id: string) => {
         streamingText.value = text;
       });
 
-      // 3. 调用 generate 生成回复
+      // 4. 调用 generate 生成回复
       console.info('[GameStore] Generating LLM response...');
       const result = await generate({
         user_input: userInput,
@@ -135,21 +150,24 @@ export const useGameStore = defineStore('game', () => {
       streamListener.stop();
       streamingText.value = '';
 
-      // 4. 解析回复
+      // 5. 解析回复标签
       const parsed = parseResponse(result);
       applyParsedResponse(parsed);
 
-      // 5. 创建 assistant 楼层
-      console.info('[GameStore] Creating assistant message');
+      // 6. 解析 MVU 变量命令（基于旧数据继承）
+      const newMvuData = await Mvu.parseMessage(result, oldMvuData);
+
+      // 7. 创建 assistant 楼层，携带解析后的 MVU 数据
+      console.info('[GameStore] Creating assistant message with MVU data');
       await createChatMessages(
-        [{ role: 'assistant', message: result }],
+        [{ role: 'assistant', message: result, data: newMvuData }],
         { refresh: 'none' },
       );
 
-      // 6. 解析 MVU 变量命令（assistant 楼层已创建后再解析）
-      await parseMvuVariables(result);
+      // 8. 刷新本地 stat_data
+      refreshLocalStatData(newMvuData);
 
-      // 7. 隐藏旧楼层
+      // 9. 隐藏旧楼层
       hideOldFloors();
 
       console.info('[GameStore] Action completed successfully');
@@ -169,30 +187,27 @@ export const useGameStore = defineStore('game', () => {
     mainText.value = parsed.mainText;
     options.value = parsed.options;
     currentSummary.value = parsed.summary;
+    hasOptionE.value = parsed.hasOptionE;
+    hasLeave.value = parsed.hasLeave;
   }
 
   /**
-   * 解析消息中的 MVU 变量命令并更新
+   * 从 MVU 数据中刷新本地 stat_data 显示
    */
-  async function parseMvuVariables(messageText: string) {
+  function refreshLocalStatData(mvuData: any) {
     try {
-      const lastMsgId = getLastMessageId();
-      if (lastMsgId < 0) return;
-
-      const oldData = Mvu.getMvuData({ type: 'message', message_id: lastMsgId });
-      const newData = await Mvu.parseMessage(messageText, oldData);
-      if (newData) {
-        await Mvu.replaceMvuData(newData, { type: 'message', message_id: lastMsgId });
-        console.info('[GameStore] MVU variables updated');
-
-        // 刷新本地 stat_data
-        const raw = _.get(newData, 'stat_data');
-        if (raw) {
-          statData.value = Schema.parse(raw);
+      if (!mvuData) return;
+      const raw = _.get(mvuData, 'stat_data');
+      if (raw && typeof raw === 'object') {
+        const result = Schema.safeParse(raw);
+        statData.value = result.success ? result.data : (raw as any);
+        if (!result.success) {
+          console.warn('[GameStore] stat_data schema mismatch, using raw:', result.error.issues);
         }
+        console.info('[GameStore] Local stat_data refreshed');
       }
     } catch (err) {
-      console.warn('[GameStore] MVU parse error:', err);
+      console.warn('[GameStore] refreshLocalStatData error:', err);
     }
   }
 
@@ -303,6 +318,9 @@ export const useGameStore = defineStore('game', () => {
       console.info('[GameStore] Reroll: deleting message', lastId);
       await deleteChatMessages([lastId], { refresh: 'none' });
 
+      // 获取当前楼层（删除后）的 MVU 变量作为继承基础
+      const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getCurrentMessageId() });
+
       // 监听流式传输
       const streamListener = eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, (text: string) => {
         streamingText.value = text;
@@ -318,18 +336,21 @@ export const useGameStore = defineStore('game', () => {
       streamListener.stop();
       streamingText.value = '';
 
-      // 解析回复
+      // 解析回复标签
       const parsed = parseResponse(result);
       applyParsedResponse(parsed);
 
-      // 创建新的 assistant 楼层
+      // 解析 MVU 变量命令（基于旧数据继承）
+      const newMvuData = await Mvu.parseMessage(result, oldMvuData);
+
+      // 创建新的 assistant 楼层，携带 MVU 数据
       await createChatMessages(
-        [{ role: 'assistant', message: result }],
+        [{ role: 'assistant', message: result, data: newMvuData }],
         { refresh: 'none' },
       );
 
-      // 解析 MVU 变量
-      await parseMvuVariables(result);
+      // 刷新本地 stat_data
+      refreshLocalStatData(newMvuData);
 
       // 隐藏旧楼层
       hideOldFloors();
@@ -346,16 +367,21 @@ export const useGameStore = defineStore('game', () => {
   }
 
   /**
-   * 开始编辑当前楼层
+   * 开始编辑当前楼层（显示完整原始回复，含思维链、选项、变量更新等）
    */
   function startEdit() {
     if (isEditing.value || isGenerating.value) return;
-    editingText.value = mainText.value;
+    // 从 SillyTavern 读取当前 assistant 楼层的完整原始文本
+    const lastId = getLastMessageId();
+    if (lastId < 0) return;
+    const messages = getChatMessages(`${lastId}-${lastId}`);
+    if (messages.length === 0) return;
+    editingText.value = messages[0].message;
     isEditing.value = true;
   }
 
   /**
-   * 确认编辑：将修改后的正文保存到当前 assistant 楼层
+   * 确认编辑：将修改后的完整文本保存到当前 assistant 楼层
    */
   async function saveEdit() {
     if (!isEditing.value) return;
@@ -364,23 +390,45 @@ export const useGameStore = defineStore('game', () => {
       const lastId = getLastMessageId();
       if (lastId < 0) return;
 
-      // 获取最新 assistant 消息的原始文本
-      const messages = getChatMessages(`${lastId}-${lastId}`);
-      if (messages.length === 0) return;
+      // 获取当前楼层已有的 MVU 数据（编辑前的）
+      const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
 
-      const originalMessage = messages[0].message;
+      // 获取上一条消息的 MVU 数据作为继承基础
+      const prevMvuData = lastId > 0
+        ? Mvu.getMvuData({ type: 'message', message_id: lastId - 1 })
+        : Mvu.getMvuData({ type: 'message', message_id: 0 });
 
-      // 替换 <maintext> 标签内容为编辑后的文本
-      const newMessage = originalMessage.replace(
-        /<maintext>[\s\S]*?<\/maintext>/i,
-        `<maintext>${editingText.value}</maintext>`,
-      );
+      // 用编辑后的文本重新解析 MVU 变量
+      let newMvuData = await Mvu.parseMessage(editingText.value, prevMvuData);
 
-      // 更新酒馆楼层的消息内容
-      await setChatMessages([{ message_id: lastId, message: newMessage }], { refresh: 'none' });
+      // 关键：如果重新解析后丢失了 stat_data / display_data，
+      // 则从当前楼层已有的 MVU 数据中恢复
+      if (newMvuData && currentMvuData) {
+        if (!newMvuData.stat_data && currentMvuData.stat_data) {
+          newMvuData.stat_data = currentMvuData.stat_data;
+        }
+        if (!newMvuData.display_data && currentMvuData.display_data) {
+          newMvuData.display_data = currentMvuData.display_data;
+        }
+      } else if (!newMvuData && currentMvuData) {
+        // parseMessage 完全失败时，保留原始数据
+        newMvuData = currentMvuData;
+      }
 
-      // 应用到本地显示
-      mainText.value = editingText.value;
+      // 保存编辑后的完整文本到楼层
+      await setChatMessages([{ message_id: lastId, message: editingText.value }], { refresh: 'none' });
+
+      // 将 MVU 数据写回当前楼层
+      if (newMvuData) {
+        await Mvu.replaceMvuData(newMvuData, { type: 'message', message_id: lastId });
+      }
+
+      // 从编辑后的文本重新解析显示状态
+      const parsed = parseResponse(editingText.value);
+      applyParsedResponse(parsed);
+
+      // 刷新本地 stat_data
+      refreshLocalStatData(newMvuData);
 
       isEditing.value = false;
       editingText.value = '';
@@ -415,10 +463,13 @@ export const useGameStore = defineStore('game', () => {
     isSaveLoadOpen,
     isEditing,
     editingText,
+    hasOptionE,
+    hasLeave,
 
     // Actions
     initialize,
     sendAction,
+    loadStatData,
     loadSaveEntries,
     rollbackTo,
     hideOldFloors,
