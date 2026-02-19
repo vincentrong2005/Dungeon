@@ -18,7 +18,7 @@ export const Schema = z.object({
   $最小点数: z.coerce.number().prefault(0),
   $星期: z.coerce.number().transform(v => _.clamp(v, 1, 7)).prefault(1),
   $难度: z.enum(['简单', '普通', '困难', '地狱', '自定义']).prefault('普通'),
-  $自定义影响: z.array(z.string().describe('自选buff/debuff')).prefault([]),
+  $自定义影响: z.array(z.string()).prefault([]),
 
   // 游戏状态
   _当前区域: z.string().prefault(''),
@@ -26,8 +26,8 @@ export const Schema = z.object({
   _当前事件: z.string().prefault(''),
   _对手名称: z.string().prefault(''),
   _是否已击败商人: z.boolean().prefault(false),
-  _友好的领主: z.array(z.string().describe('领主名')).prefault([]),
-  在场人物: z.array(z.string().describe('角色名')).prefault([]),
+  _友好的领主: z.array(z.string()).prefault([]),
+  _在场人物: z.array(z.string()).prefault([]),
 
   // 统计数据（AI不可见）
   $统计: z.object({

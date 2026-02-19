@@ -1,4 +1,4 @@
-import { Schema } from '../schema';
+// Schema import removed - using raw MVU data directly
 import { detectLeave, detectOptionE, extractMainText, extractOptions, extractSummary, parseResponse, type ParsedResponse } from './responseParser';
 
 /**
@@ -37,6 +37,19 @@ export const useGameStore = defineStore('game', () => {
   // ── 读档面板 ──
   const saveEntries = ref<SaveEntry[]>([]);
   const isSaveLoadOpen = ref(false);
+
+  // ── 传送门待应用变量（点击传送门时记录，在新楼层生成后应用）──
+  interface PendingPortalChanges {
+    area?: string;
+    roomType: string;
+    resetRoomCounter?: boolean;
+    incrementKeys?: string[];
+  }
+  const pendingPortalChanges = ref<PendingPortalChanges | null>(null);
+
+  function setPendingPortalChanges(changes: PendingPortalChanges) {
+    pendingPortalChanges.value = changes;
+  }
 
   /**
    * 初始化：从最新 assistant 楼层加载当前游戏状态
@@ -90,13 +103,9 @@ export const useGameStore = defineStore('game', () => {
       const mvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
       const raw = _.get(mvuData, 'stat_data');
       if (raw && typeof raw === 'object') {
-        // safeParse: if schema validation succeeds, use parsed result;
-        // otherwise fall back to raw data so UI is never empty
-        const result = Schema.safeParse(raw);
-        statData.value = result.success ? result.data : (raw as any);
-        if (!result.success) {
-          console.warn('[GameStore] stat_data schema mismatch, using raw:', result.error.issues);
-        }
+        // 直接使用原始数据，避免 Schema 转换/截断
+        statData.value = raw as any;
+        console.info('[GameStore] stat_data loaded from message', lastId);
       }
     } catch (err) {
       console.warn('[GameStore] Failed to load stat_data:', err);
@@ -120,8 +129,8 @@ export const useGameStore = defineStore('game', () => {
     streamingText.value = '';
 
     try {
-      // 1. 在创建新消息前，获取当前楼层的 MVU 变量（用于继承）
-      const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getCurrentMessageId() });
+      // 1. 在创建新消息前，获取最新楼层的 MVU 变量（用于继承）
+      const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getLastMessageId() });
 
       // 2. 创建 user 楼层
       console.info('[GameStore] Creating user message:', userInput);
@@ -151,17 +160,49 @@ export const useGameStore = defineStore('game', () => {
       const parsed = parseResponse(result);
       applyParsedResponse(parsed);
 
-      // 6. 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
-      const newMvuData = await Mvu.parseMessage(result, _.cloneDeep(oldMvuData));
+      // 6. 解析 MVU 变量命令（基于旧数据继承）
+      let newMvuData = await Mvu.parseMessage(result, _.cloneDeep(oldMvuData));
 
-      // 7. 创建 assistant 楼层，携带解析后的 MVU 数据
+      // 7. 应用传送门待定变量到新楼层的 MVU 数据
+      if (pendingPortalChanges.value) {
+        const changes = pendingPortalChanges.value;
+        // 确保有 MVU 数据对象（parseMessage 无更新时可能返回 undefined）
+        if (!newMvuData) {
+          newMvuData = _.cloneDeep(oldMvuData);
+        }
+        if (newMvuData?.stat_data) {
+          const sd = newMvuData.stat_data;
+          if (changes.area !== undefined) sd._当前区域 = changes.area;
+          sd._当前房间类型 = changes.roomType;
+
+          if (!sd.$统计) sd.$统计 = {};
+          if (changes.resetRoomCounter) {
+            sd.$统计.当前层已过房间 = 0;
+          }
+          if (changes.incrementKeys) {
+            for (const key of changes.incrementKeys) {
+              sd.$统计[key] = (Number(sd.$统计[key]) || 0) + 1;
+            }
+          }
+        }
+        console.info('[GameStore] Applied pending portal changes:', changes);
+        pendingPortalChanges.value = null;
+      }
+
+      // 8. 清理无用的 MVU 内部字段
+      if (newMvuData) {
+        delete newMvuData.display_data;
+        delete newMvuData.delta_data;
+      }
+
+      // 9. 创建 assistant 楼层，携带解析后的 MVU 数据
       console.info('[GameStore] Creating assistant message with MVU data');
       await createChatMessages(
         [{ role: 'assistant', message: result, data: newMvuData }],
         { refresh: 'none' },
       );
 
-      // 8. 刷新本地 stat_data
+      // 10. 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
 
       console.info('[GameStore] Action completed successfully');
@@ -193,12 +234,9 @@ export const useGameStore = defineStore('game', () => {
       if (!mvuData) return;
       const raw = _.get(mvuData, 'stat_data');
       if (raw && typeof raw === 'object') {
-        const result = Schema.safeParse(raw);
-        statData.value = result.success ? result.data : (raw as any);
-        if (!result.success) {
-          console.warn('[GameStore] stat_data schema mismatch, using raw:', result.error.issues);
-        }
-        console.info('[GameStore] Local stat_data refreshed');
+        // 直接使用原始数据，避免 Schema.safeParse 对数据的转换/截断
+        statData.value = raw as any;
+        console.info('[GameStore] Local stat_data refreshed:', JSON.stringify(raw.$统计));
       }
     } catch (err) {
       console.warn('[GameStore] refreshLocalStatData error:', err);
@@ -257,8 +295,7 @@ export const useGameStore = defineStore('game', () => {
         const mvuData = Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
         const raw = _.get(mvuData, 'stat_data');
         if (raw && typeof raw === 'object') {
-          const result = Schema.safeParse(raw);
-          statData.value = result.success ? result.data : (raw as any);
+          statData.value = raw as any;
           console.info('[GameStore] Rollback: loaded stat_data from message', targetMessageId);
         }
       } catch (e) {
@@ -304,8 +341,8 @@ export const useGameStore = defineStore('game', () => {
       console.info('[GameStore] Reroll: deleting message', lastId);
       await deleteChatMessages([lastId], { refresh: 'none' });
 
-      // 获取当前楼层（删除后）的 MVU 变量作为继承基础
-      const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getCurrentMessageId() });
+      // 获取当前最新楼层（删除后）的 MVU 变量作为继承基础
+      const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getLastMessageId() });
 
       // 监听流式传输
       const streamListener = eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, (text: string) => {
@@ -452,6 +489,7 @@ export const useGameStore = defineStore('game', () => {
     // Actions
     initialize,
     sendAction,
+    setPendingPortalChanges,
     loadStatData,
     loadSaveEntries,
     rollbackTo,

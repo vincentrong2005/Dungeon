@@ -106,8 +106,7 @@
       "default": [],
       "type": "array",
       "items": {
-        "type": "string",
-        "description": "自选buff/debuff"
+        "type": "string"
       }
     },
     "_当前区域": {
@@ -129,16 +128,14 @@
       "default": [],
       "type": "array",
       "items": {
-        "type": "string",
-        "description": "领主名"
+        "type": "string"
       }
     },
-    "在场人物": {
+    "_在场人物": {
       "default": [],
       "type": "array",
       "items": {
-        "type": "string",
-        "description": "角色名"
+        "type": "string"
       }
     },
     "$统计": {

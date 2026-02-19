@@ -560,17 +560,17 @@
 
 <script setup lang="ts">
 import {
-    Activity,
-    BookOpen,
-    Box,
-    ChevronDown,
-    Coins,
-    Dices,
-    Map as MapIcon,
-    Maximize,
-    Scroll,
-    Send,
-    Settings as SettingsIcon,
+  Activity,
+  BookOpen,
+  Box,
+  ChevronDown,
+  Coins,
+  Dices,
+  Map as MapIcon,
+  Maximize,
+  Scroll,
+  Send,
+  Settings as SettingsIcon,
 } from 'lucide-vue-next';
 import { resolveCardNames } from '../battle/cardRegistry';
 import { getEnemyByName } from '../battle/enemyRegistry';
@@ -882,45 +882,28 @@ const ROOM_STAT_KEY: Record<string, string> = {
 
 const handlePortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating) return;
-  try {
-    const lastId = getLastMessageId();
-    if (lastId < 0) return;
-    const mvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
-    if (!mvuData?.stat_data) return;
-    const sd = mvuData.stat_data;
-    if (!sd.$统计) sd.$统计 = {};
 
-    if (portal.isFloorTransition) {
-      // ── Floor transition: update area, reset room counter, first room = 宝箱房 ──
-      sd._当前区域 = portal.areaName!;
-      sd._当前房间类型 = '宝箱房';
-      sd.$统计.当前层已过房间 = 0;
-      gameStore.statData._当前区域 = portal.areaName!;
-      gameStore.statData._当前房间类型 = '宝箱房';
-      if (!gameStore.statData.$统计) gameStore.statData.$统计 = {} as any;
-      (gameStore.statData.$统计 as any).当前层已过房间 = 0;
-      await Mvu.replaceMvuData(mvuData, { type: 'message', message_id: lastId });
-      console.info(`[Portal] Floor transition → area: ${portal.areaName}, first room: 宝箱房`);
-      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.areaName}的宝箱房`);
-    } else {
-      // ── Normal room transition: update room type + stats ──
-      sd._当前房间类型 = portal.roomType;
-      sd.$统计.当前层已过房间 = (sd.$统计.当前层已过房间 ?? 0) + 1;
-      sd.$统计.累计已过房间 = (sd.$统计.累计已过房间 ?? 0) + 1;
-      const statKey = ROOM_STAT_KEY[portal.roomType];
-      if (statKey) sd.$统计[statKey] = (sd.$统计[statKey] ?? 0) + 1;
-      gameStore.statData._当前房间类型 = portal.roomType;
-      if (!gameStore.statData.$统计) gameStore.statData.$统计 = {} as any;
-      const ls = gameStore.statData.$统计 as any;
-      ls.当前层已过房间 = sd.$统计.当前层已过房间;
-      ls.累计已过房间 = sd.$统计.累计已过房间;
-      if (statKey) ls[statKey] = sd.$统计[statKey];
-      await Mvu.replaceMvuData(mvuData, { type: 'message', message_id: lastId });
-      console.info(`[Portal] Room → type: ${portal.roomType}, rooms: ${sd.$统计.当前层已过房间}`);
-      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}的房间`);
-    }
-  } catch (err) {
-    console.error('[Portal] Error:', err);
+  if (portal.isFloorTransition) {
+    // 记录待应用变量：进入新区域，首个房间为宝箱房，重置房间计数
+    gameStore.setPendingPortalChanges({
+      area: portal.areaName!,
+      roomType: '宝箱房',
+      resetRoomCounter: true,
+    });
+    console.info(`[Portal] Floor transition queued → area: ${portal.areaName}, first room: 宝箱房`);
+    gameStore.sendAction(`<user>选择了继续前进，进入了${portal.areaName}的宝箱房`);
+  } else {
+    // 记录待应用变量：进入新房间，更新统计
+    const incrementKeys = ['当前层已过房间', '累计已过房间'];
+    const statKey = ROOM_STAT_KEY[portal.roomType];
+    if (statKey) incrementKeys.push(statKey);
+
+    gameStore.setPendingPortalChanges({
+      roomType: portal.roomType,
+      incrementKeys,
+    });
+    console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
+    gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}的房间`);
   }
 };
 
