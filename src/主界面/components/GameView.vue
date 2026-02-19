@@ -560,17 +560,17 @@
 
 <script setup lang="ts">
 import {
-  Activity,
-  BookOpen,
-  Box,
-  ChevronDown,
-  Coins,
-  Dices,
-  Map as MapIcon,
-  Maximize,
-  Scroll,
-  Send,
-  Settings as SettingsIcon,
+    Activity,
+    BookOpen,
+    Box,
+    ChevronDown,
+    Coins,
+    Dices,
+    Map as MapIcon,
+    Maximize,
+    Scroll,
+    Send,
+    Settings as SettingsIcon,
 } from 'lucide-vue-next';
 import { resolveCardNames } from '../battle/cardRegistry';
 import { getEnemyByName } from '../battle/enemyRegistry';
@@ -727,7 +727,7 @@ const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
 // E option: no button for 事件房 / 陷阱房
 const specialOptionConfig = computed<RoomConfig | null>(() => {
   if (!gameStore.hasOptionE) return null;
-  const roomType = gameStore.statData.当前房间类型 as string;
+  const roomType = gameStore.statData._当前房间类型 as string;
   if (!roomType) return null;
   if (roomType === '事件房' || roomType === '陷阱房') return null;
   return ROOM_TYPE_CONFIG[roomType] ?? null;
@@ -808,8 +808,8 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function generatePortals(): PortalChoice[] {
-  const currentArea = (gameStore.statData.当前区域 as string) || '';
-  const currentRoomType = (gameStore.statData.当前房间类型 as string) || '';
+  const currentArea = (gameStore.statData._当前区域 as string) || '';
+  const currentRoomType = (gameStore.statData._当前房间类型 as string) || '';
   const stats = (gameStore.statData.$统计 as any) || {};
   const roomsPassed: number = stats.当前层已过房间 ?? 0;
 
@@ -863,8 +863,8 @@ const portalChoices = computed<PortalChoice[]>(() => {
     return [];
   }
   // 构建状态指纹：区域 + 房间类型 + 统计，任何变化都重新生成
-  const area = (gameStore.statData.当前区域 as string) || '';
-  const roomType = (gameStore.statData.当前房间类型 as string) || '';
+  const area = (gameStore.statData._当前区域 as string) || '';
+  const roomType = (gameStore.statData._当前房间类型 as string) || '';
   const rooms = ((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0);
   const fingerprint = `${area}|${roomType}|${rooms}`;
   if (fingerprint !== cachedPortalFingerprint) {
@@ -891,19 +891,25 @@ const handlePortalClick = async (portal: PortalChoice) => {
     if (!sd.$统计) sd.$统计 = {};
 
     if (portal.isFloorTransition) {
-      // ── Floor transition: reset room counter only (area/roomType left for AI to update) ──
+      // ── Floor transition: update area, reset room counter, first room = 宝箱房 ──
+      sd._当前区域 = portal.areaName!;
+      sd._当前房间类型 = '宝箱房';
       sd.$统计.当前层已过房间 = 0;
+      gameStore.statData._当前区域 = portal.areaName!;
+      gameStore.statData._当前房间类型 = '宝箱房';
       if (!gameStore.statData.$统计) gameStore.statData.$统计 = {} as any;
       (gameStore.statData.$统计 as any).当前层已过房间 = 0;
       await Mvu.replaceMvuData(mvuData, { type: 'message', message_id: lastId });
       console.info(`[Portal] Floor transition → area: ${portal.areaName}, first room: 宝箱房`);
       gameStore.sendAction(`<user>选择了继续前进，进入了${portal.areaName}的宝箱房`);
     } else {
-      // ── Normal room transition: update stats only (roomType left for AI to update) ──
+      // ── Normal room transition: update room type + stats ──
+      sd._当前房间类型 = portal.roomType;
       sd.$统计.当前层已过房间 = (sd.$统计.当前层已过房间 ?? 0) + 1;
       sd.$统计.累计已过房间 = (sd.$统计.累计已过房间 ?? 0) + 1;
       const statKey = ROOM_STAT_KEY[portal.roomType];
       if (statKey) sd.$统计[statKey] = (sd.$统计[statKey] ?? 0) + 1;
+      gameStore.statData._当前房间类型 = portal.roomType;
       if (!gameStore.statData.$统计) gameStore.statData.$统计 = {} as any;
       const ls = gameStore.statData.$统计 as any;
       ls.当前层已过房间 = sd.$统计.当前层已过房间;
