@@ -39,7 +39,6 @@ export const Schema = z.object({
     累计经过商店: z.coerce.number().prefault(0),
     累计经过神像: z.coerce.number().prefault(0),
     累计经过事件: z.coerce.number().prefault(0),
-    累计经过问号: z.coerce.number().prefault(0),
     累计经过陷阱: z.coerce.number().prefault(0),
   }).prefault({}),
 

@@ -330,8 +330,14 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   // 燃烧
   const burnStacks = getEffectStacks(entity, EffectType.BURN);
   if (burnStacks > 0) {
-    result.hpChange -= burnStacks;
-    result.logs.push(`[燃烧] 损失 ${burnStacks} 点生命。`);
+    let burnDamage = burnStacks;
+    const vulnerableStacks = getEffectStacks(entity, EffectType.VULNERABLE);
+    if (vulnerableStacks > 0) {
+      burnDamage += vulnerableStacks;
+      result.logs.push(`[易伤] 燃烧伤害 +${vulnerableStacks}。`);
+    }
+    result.hpChange -= burnDamage;
+    result.logs.push(`[燃烧] 损失 ${burnDamage} 点生命。`);
   }
 
   // 流血每回合 -1
@@ -439,8 +445,8 @@ export function canPlayCard(
     }
   }
 
-  // 法力不足
-  if (card.manaCost > entity.mp) {
+  // 法力不足（仅魔法卡有费用）
+  if (card.type === ('魔法' as CardType) && card.manaCost > entity.mp) {
     return { allowed: false, reason: `法力不足（需要${card.manaCost}，当前${entity.mp}）。` };
   }
 

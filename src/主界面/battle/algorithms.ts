@@ -141,19 +141,18 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   const cold = ctx.attackerEffects.find(e => e.type === EffectType.COLD)?.stacks ?? 0;
   if (cold > 0) { damage -= cold; logs.push(`[寒冷] -${cold}`); }
 
-  // 易伤增伤
-  const vuln = ctx.defenderEffects.find(e => e.type === EffectType.VULNERABLE)?.stacks ?? 0;
-  if (vuln > 0) { damage += vuln; logs.push(`[易伤] +${vuln}`); }
-
   if (isTrueDamage) {
     logs.push(`真实伤害，无视防御。`);
     return { damage: Math.max(0, Math.floor(damage)), isTrueDamage: true, logs };
   }
 
-  // 结界
+  // 易伤仅影响非真实伤害
+  const vuln = ctx.defenderEffects.find(e => e.type === EffectType.VULNERABLE)?.stacks ?? 0;
+  if (vuln > 0) { damage += vuln; logs.push(`[易伤] +${vuln}`); }
+
+  // 结界的“抵挡并消耗”在 applyDamageToEntity 里处理，这里只记录提示
   if (ctx.defenderEffects.some(e => e.type === EffectType.BARRIER && e.stacks > 0)) {
-    logs.push(`[结界] 伤害被完全抵挡！`);
-    return { damage: 0, isTrueDamage: false, logs };
+    logs.push(`[结界] 对方有结界，本次非真实伤害将被抵挡。`);
   }
 
   // 护甲的实际消耗由 applyDamageToEntity 处理，这里只做预览提示

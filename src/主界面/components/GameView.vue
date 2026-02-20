@@ -40,6 +40,13 @@
         :active="gameStore.isSaveLoadOpen"
         @click="openSaveLoad"
       />
+      <SidebarIcon
+        :icon="FileText"
+        label="变量更新"
+        tooltip-side="left"
+        :active="isVariableUpdateOpen"
+        @click="openVariableUpdate"
+      />
     </div>
 
     <!-- Main Content Area -->
@@ -512,12 +519,114 @@
             </button>
             <button
               class="p-3 border border-amber-600/40 hover:bg-amber-900/20 text-amber-400 text-sm rounded col-span-2"
-              @click="enterCombatTest"
+              @click="openCombatTestBuilder"
             >
               ⚔ 进入战斗测试
             </button>
           </div>
         </div>
+      </div>
+    </DungeonModal>
+
+    <!-- Combat Test Builder Modal -->
+    <DungeonModal title="战斗测试配置" :is-open="activeModal === 'combatTestBuilder'" @close="activeModal = null">
+      <div class="flex flex-col gap-4 w-full max-w-4xl">
+        <template v-if="combatTestStep === 'deck'">
+          <div class="flex items-center justify-between">
+            <h3 class="font-heading text-dungeon-gold text-sm tracking-widest uppercase">步骤1：组建卡组（9张）</h3>
+            <span class="text-xs font-ui text-dungeon-paper/70">{{ selectedTestDeck.length }}/9</span>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 p-3 rounded border border-dungeon-brown/60 bg-dungeon-dark/50">
+            <button
+              v-for="entry in selectedTestDeckCards"
+              :key="`selected-card-${entry.idx}`"
+              class="hover:scale-105 transition-transform flex flex-col items-center rounded border border-dungeon-gold/20 bg-[#1a0f08]/50 p-2"
+              :title="'点击移除'"
+              @click="removeCardFromTestDeck(entry.idx)"
+            >
+              <DungeonCard :card="entry.card" disabled />
+              <span class="mt-1 text-[10px] text-red-300/90">点击移除</span>
+            </button>
+            <div
+              v-for="idx in Math.max(0, 9 - selectedTestDeck.length)"
+              :key="`empty-slot-${idx}`"
+              class="min-h-[260px] rounded border border-dungeon-brown/40 bg-black/20 text-dungeon-paper/30 text-xs flex items-center justify-center"
+            >
+              空位
+            </div>
+          </div>
+
+          <div class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3 custom-scrollbar">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <button
+                v-for="card in allCardsForTest"
+                :key="`all-card-${card.id}`"
+                class="hover:scale-105 transition-transform flex flex-col items-center rounded border border-dungeon-brown/40 bg-[#1a0f08]/50 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                :disabled="selectedTestDeck.length >= 9"
+                @click="addCardToTestDeck(card.name)"
+              >
+                <DungeonCard :card="card" disabled />
+                <span class="mt-1 text-[10px] text-dungeon-gold/80">点击加入</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
+              @click="activeModal = null"
+            >
+              取消
+            </button>
+            <button
+              class="px-4 py-2 rounded border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="selectedTestDeck.length !== 9"
+              @click="confirmCombatTestDeck"
+            >
+              下一步：选择魔物
+            </button>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="flex items-center justify-between">
+            <h3 class="font-heading text-dungeon-gold text-sm tracking-widest uppercase">步骤2：选择魔物</h3>
+            <span class="text-xs font-ui text-dungeon-paper/70">已选卡组: 9张</span>
+          </div>
+
+          <div class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <button
+                v-for="enemyName in allEnemyNamesForTest"
+                :key="`enemy-${enemyName}`"
+                class="text-left px-3 py-2 rounded border text-xs transition-colors"
+                :class="selectedTestEnemy === enemyName
+                  ? 'border-dungeon-gold bg-dungeon-brown/60 text-dungeon-gold'
+                  : 'border-dungeon-brown/60 bg-[#1a0f08] text-dungeon-paper hover:border-dungeon-gold/60'"
+                @click="selectedTestEnemy = enemyName"
+              >
+                {{ enemyName }}
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-between gap-3">
+            <button
+              class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
+              @click="combatTestStep = 'deck'"
+            >
+              返回改卡组
+            </button>
+            <button
+              class="px-4 py-2 rounded border border-amber-600/40 text-amber-400 hover:bg-amber-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="!selectedTestEnemy"
+              @click="confirmCombatTestEnemyAndStart"
+            >
+              开始战斗测试
+            </button>
+          </div>
+        </template>
       </div>
     </DungeonModal>
 
@@ -527,6 +636,20 @@
       :entries="gameStore.saveEntries"
       @close="gameStore.isSaveLoadOpen = false"
     />
+
+    <!-- Variable Update Viewer -->
+    <DungeonModal title="变量更新" :is-open="isVariableUpdateOpen" @close="isVariableUpdateOpen = false">
+      <div
+        v-if="gameStore.variableUpdateText"
+        class="custom-scrollbar border-dungeon-brown/50 bg-dungeon-dark/60 max-h-[60vh]
+               overflow-y-auto rounded border p-4"
+      >
+        <pre class="text-dungeon-paper/80 font-ui text-sm break-words whitespace-pre-wrap">{{ gameStore.variableUpdateText }}</pre>
+      </div>
+      <div v-else class="text-dungeon-paper/60 font-ui py-8 text-center text-sm">
+        当前楼层没有检测到变量更新标签（&lt;UpdateVariable&gt; 或 &lt;update&gt;）。
+      </div>
+    </DungeonModal>
 
     <!-- Combat Overlay -->
     <Transition name="combat-fade">
@@ -566,14 +689,15 @@ import {
   ChevronDown,
   Coins,
   Dices,
+  FileText,
   Map as MapIcon,
   Maximize,
   Scroll,
   Send,
   Settings as SettingsIcon,
 } from 'lucide-vue-next';
-import { resolveCardNames } from '../battle/cardRegistry';
-import { getEnemyByName } from '../battle/enemyRegistry';
+import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
+import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { type CardData, EffectType } from '../types';
@@ -629,9 +753,28 @@ const SidebarIcon = defineComponent({
 const gameStore = useGameStore();
 const activeModal = ref<string | null>(null);
 const inputText = ref('');
+const isVariableUpdateOpen = ref(false);
 const isStatusOpen = ref(true);
 const showCombat = ref(false);
 const combatEnemyName = ref('');
+const combatTestStep = ref<'deck' | 'enemy'>('deck');
+const selectedTestDeck = ref<string[]>([]);
+const selectedTestEnemy = ref('');
+
+const allCardsForTest = computed(() => getAllCards().filter(card => card.category !== '敌人'));
+const cardByNameForTest = computed(() => {
+  const map = new Map<string, CardData>();
+  for (const card of allCardsForTest.value) {
+    map.set(card.name, card);
+  }
+  return map;
+});
+const selectedTestDeckCards = computed(() =>
+  selectedTestDeck.value
+    .map((cardName, idx) => ({ idx, card: cardByNameForTest.value.get(cardName) }))
+    .filter((entry): entry is { idx: number; card: CardData } => entry.card !== undefined),
+);
+const allEnemyNamesForTest = computed(() => getAllEnemyNames());
 
 // ── Resolved deck from MVU _技能 via card registry ──
 const resolvedDeck = computed<CardData[]>(() => {
@@ -763,6 +906,101 @@ function getNextFloor(currentFloor: string): string | null {
   return FLOOR_ORDER[idx + 1];
 }
 
+interface FloorMonsterConfig {
+  common: string[];
+  uniqueByArea: Record<string, string[]>;
+}
+
+// 基于 EJS魔物.txt 的楼层怪物池；结合区域条目标注的“特有魔物”建立区域限制
+const FLOOR_MONSTER_CONFIG: Record<string, FloorMonsterConfig> = {
+  '第一层': {
+    common: ['游荡粘液球', '荧光蛾', '根须潜行者'],
+    uniqueByArea: {
+      '粘液之沼': ['沼泽潜伏者', '拟态气泡怪'],
+      '发情迷雾森林': ['迷雾精怪', '藤蔓行者'],
+      '喷精泉眼': ['泉水精魄', '潜伏触手怪'],
+      '触手菌窟': ['穴居触手'],
+      '肉欲食人花圃': ['极乐蜜蜂', '花粉喷射者'],
+    },
+  },
+  '第二层': {
+    common: ['浮游书页', '墨痕鼠', '低语幽灵'],
+    uniqueByArea: {
+      '禁忌图书馆': ['书魔', '墨水史莱姆'],
+      '呻吟阅览室': ['椅子拟态怪', '桌面触手'],
+      '催情墨染湖': ['墨团怪', '触手羽毛笔'],
+      '性癖记录馆': ['窥视之眼', '羞耻阴影'],
+      '淫乱教职工宿舍': ['堕落学者', '宿舍幽灵'],
+    },
+  },
+  '第三层': {
+    common: ['巡逻铁蝠', '荆棘匍匐者', '影牢使魔'],
+    uniqueByArea: {
+      '欲望监狱': ['刺链蛇', '惩戒傀儡', '羞耻蛭'],
+      '吸血鬼古堡': ['血蝙蝠', '血仆', '梦魇驹'],
+      '调教审判庭': ['审判蛛', '证词虫', '刽子手偶'],
+      '触手水牢': ['深渊水母', '寄生水蛭'],
+      '人偶工坊': ['缝合蜘蛛', '丝线傀儡', '测试者'],
+    },
+  },
+  '第四层': {
+    common: ['虚空游光', '面具侍从', '空间裂隙虫'],
+    uniqueByArea: {
+      '虚空宫殿': ['肉壁蠕虫'],
+      '镜之舞厅': ['镜像分身', '碎镜蝠'],
+      '双子寝宫': ['梦魇蛾', '枕头精'],
+      '春梦回廊': ['画框捕食者'],
+      '极乐宴会厅': ['侍宴者'],
+    },
+  },
+  '第五层': {
+    common: ['祈祷烛灵', '圣痕蝶', '忏悔天使'],
+    uniqueByArea: {
+      '交媾祭坛': ['祭司傀儡', '神恩触手'],
+      '圣水之海': ['圣水水母', '深渊鱼群', '圣水精灵'],
+      '苦修之路': ['晶体刺猬', '苦修幽灵'],
+      '神谕淫纹室': ['符文精灵', '光球守卫'],
+      '女神的产房': ['胎儿魔物', '脐带触手'],
+    },
+  },
+};
+
+// 当前规则：70% 抽普通魔物，30% 抽区域特有魔物（若存在）
+const COMMON_MONSTER_RATE_BY_FLOOR: Record<string, number> = {
+  '第一层': 0.7,
+  '第二层': 0.7,
+  '第三层': 0.7,
+  '第四层': 0.7,
+  '第五层': 0.7,
+};
+
+function pickOne<T>(arr: T[]): T | null {
+  if (!arr.length) return null;
+  return arr[Math.floor(Math.random() * arr.length)]!;
+}
+
+function pickBattleMonsterByArea(area: string): string | null {
+  const floor = getFloorForArea(area) ?? '第一层';
+  const config = FLOOR_MONSTER_CONFIG[floor];
+  if (!config) return null;
+
+  const commonPool = config.common;
+  const uniquePool = config.uniqueByArea[area] ?? [];
+  const commonRate = COMMON_MONSTER_RATE_BY_FLOOR[floor] ?? 0.7;
+
+  let pool: string[] = [];
+  if (commonPool.length === 0 && uniquePool.length === 0) return null;
+  if (commonPool.length === 0) {
+    pool = uniquePool;
+  } else if (uniquePool.length === 0) {
+    pool = commonPool;
+  } else {
+    pool = Math.random() < commonRate ? commonPool : uniquePool;
+  }
+
+  return pickOne(pool);
+}
+
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
 
@@ -889,6 +1127,9 @@ const handlePortalClick = async (portal: PortalChoice) => {
       area: portal.areaName!,
       roomType: '宝箱房',
       resetRoomCounter: true,
+      // 新区域首个房间同样计入统计：宝箱房 +1、累计总房间 +1、当层房间 +1
+      incrementKeys: ['当前层已过房间', '累计已过房间', '累计经过宝箱'],
+      enemyName: '',
     });
     console.info(`[Portal] Floor transition queued → area: ${portal.areaName}, first room: 宝箱房`);
     gameStore.sendAction(`<user>选择了继续前进，进入了${portal.areaName}的宝箱房`);
@@ -897,13 +1138,22 @@ const handlePortalClick = async (portal: PortalChoice) => {
     const incrementKeys = ['当前层已过房间', '累计已过房间'];
     const statKey = ROOM_STAT_KEY[portal.roomType];
     if (statKey) incrementKeys.push(statKey);
+    const currentArea = (gameStore.statData._当前区域 as string) || '';
+    const encounterMonster = portal.roomType === '战斗房'
+      ? pickBattleMonsterByArea(currentArea)
+      : null;
 
     gameStore.setPendingPortalChanges({
       roomType: portal.roomType,
       incrementKeys,
+      enemyName: encounterMonster ?? '',
     });
     console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
-    gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}的房间`);
+    if (portal.roomType === '战斗房' && encounterMonster) {
+      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}并遭遇了${encounterMonster}`);
+    } else {
+      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}的房间`);
+    }
   }
 };
 
@@ -913,25 +1163,70 @@ const openSaveLoad = () => {
   gameStore.isSaveLoadOpen = !gameStore.isSaveLoadOpen;
 };
 
+const openVariableUpdate = () => {
+  isVariableUpdateOpen.value = !isVariableUpdateOpen.value;
+};
+
 // toggleFullScreen imported from '../fullscreen'
 
 // ── Combat Test ──
-const enterCombatTest = () => {
-  activeModal.value = null;
-  // 刷新 MVU 数据以确保读取最新值
+const openCombatTestBuilder = () => {
   gameStore.loadStatData();
-  // 从 MVU 读取 _对手名称
-  const name = gameStore.statData._对手名称;
-  if (!name) {
-    gameStore.error = '未检测到 _对手名称 变量，无法进入战斗';
+  const availableCardNames = new Set(allCardsForTest.value.map(c => c.name));
+  const presetDeck = Array.isArray(gameStore.statData._技能)
+    ? (gameStore.statData._技能 as string[]).filter((name) => availableCardNames.has(name)).slice(0, 9)
+    : [];
+
+  selectedTestDeck.value = [...presetDeck];
+  selectedTestEnemy.value = '';
+  combatTestStep.value = 'deck';
+  activeModal.value = 'combatTestBuilder';
+};
+
+const addCardToTestDeck = (cardName: string) => {
+  if (selectedTestDeck.value.length >= 9) return;
+  selectedTestDeck.value.push(cardName);
+};
+
+const removeCardFromTestDeck = (index: number) => {
+  if (index < 0 || index >= selectedTestDeck.value.length) return;
+  selectedTestDeck.value.splice(index, 1);
+};
+
+const confirmCombatTestDeck = async () => {
+  if (selectedTestDeck.value.length !== 9) {
+    gameStore.error = '请先组满9张测试卡组。';
     return;
   }
-  const enemyDef = getEnemyByName(name);
+  const ok = await gameStore.updateStatDataFields({
+    _技能: [...selectedTestDeck.value],
+  });
+  if (!ok) return;
+
+  if (allEnemyNamesForTest.value.length === 0) {
+    gameStore.error = '当前没有可用魔物，请先在 enemyRegistry 注册敌人。';
+    return;
+  }
+  combatTestStep.value = 'enemy';
+};
+
+const confirmCombatTestEnemyAndStart = async () => {
+  if (!selectedTestEnemy.value) {
+    gameStore.error = '请先选择一个魔物。';
+    return;
+  }
+  const enemyDef = getEnemyByName(selectedTestEnemy.value);
   if (!enemyDef) {
-    gameStore.error = `未在敌人库中找到「${name}」，请检查敌人注册表`;
+    gameStore.error = `未在敌人库中找到「${selectedTestEnemy.value}」`;
     return;
   }
-  combatEnemyName.value = name;
+  const ok = await gameStore.updateStatDataFields({
+    _对手名称: selectedTestEnemy.value,
+  });
+  if (!ok) return;
+
+  activeModal.value = null;
+  combatEnemyName.value = selectedTestEnemy.value;
   showCombat.value = true;
 };
 

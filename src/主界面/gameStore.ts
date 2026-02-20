@@ -1,5 +1,5 @@
 // Schema import removed - using raw MVU data directly
-import { detectLeave, detectOptionE, extractMainText, extractOptions, extractSummary, parseResponse, type ParsedResponse } from './responseParser';
+import { detectLeave, detectOptionE, extractMainText, extractOptions, extractSummary, extractVariableUpdate, parseResponse, type ParsedResponse } from './responseParser';
 
 /**
  * 楼层存档条目（用于读档面板）
@@ -26,6 +26,7 @@ export const useGameStore = defineStore('game', () => {
   // ── 特殊选项标记 ──
   const hasOptionE = ref(false);
   const hasLeave = ref(false);
+  const variableUpdateText = ref('');
 
   // ── 编辑模式 ──
   const isEditing = ref(false);
@@ -44,11 +45,45 @@ export const useGameStore = defineStore('game', () => {
     roomType: string;
     resetRoomCounter?: boolean;
     incrementKeys?: string[];
+    enemyName?: string;
   }
   const pendingPortalChanges = ref<PendingPortalChanges | null>(null);
 
   function setPendingPortalChanges(changes: PendingPortalChanges) {
     pendingPortalChanges.value = changes;
+  }
+
+  /**
+   * 将传送门变量变更应用到 MVU 数据（写入 user 楼层）
+   */
+  function applyPendingPortalChangesToMvu(baseMvuData: any, changes: PendingPortalChanges | null) {
+    const result = _.cloneDeep(baseMvuData ?? {});
+    if (!changes) return result;
+
+    if (!result.stat_data || typeof result.stat_data !== 'object') {
+      result.stat_data = {};
+    }
+    const sd = result.stat_data as Record<string, any>;
+
+    if (changes.area !== undefined) sd._当前区域 = changes.area;
+    sd._当前房间类型 = changes.roomType;
+    if (changes.enemyName !== undefined) sd._对手名称 = changes.enemyName;
+
+    if (!sd.$统计 || typeof sd.$统计 !== 'object') {
+      sd.$统计 = {};
+    }
+    const stat = sd.$统计 as Record<string, any>;
+
+    if (changes.resetRoomCounter) {
+      stat.当前层已过房间 = 0;
+    }
+    if (changes.incrementKeys) {
+      for (const key of changes.incrementKeys) {
+        stat[key] = (Number(stat[key]) || 0) + 1;
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -90,6 +125,7 @@ export const useGameStore = defineStore('game', () => {
       currentSummary.value = extractSummary(text);
       hasOptionE.value = detectOptionE(text);
       hasLeave.value = detectLeave(text);
+      variableUpdateText.value = extractVariableUpdate(text);
     }
   }
 
@@ -131,20 +167,27 @@ export const useGameStore = defineStore('game', () => {
     try {
       // 1. 在创建新消息前，获取最新楼层的 MVU 变量（用于继承）
       const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getLastMessageId() });
+      const currentPendingChanges = pendingPortalChanges.value;
 
-      // 2. 创建 user 楼层（携带上一楼层的 MVU 数据，避免 MVU 变量 undefined）
+      // 2. 先将传送门变量写入 user 楼层对应的 MVU 数据
+      const userMvuData = applyPendingPortalChangesToMvu(oldMvuData, currentPendingChanges);
+
+      // 3. 创建 user 楼层（携带已应用按钮变更后的 MVU 数据）
       console.info('[GameStore] Creating user message:', userInput);
       await createChatMessages(
-        [{ role: 'user', message: userInput, data: _.cloneDeep(oldMvuData) }],
+        [{ role: 'user', message: userInput, data: userMvuData }],
         { refresh: 'none' },
       );
 
-      // 3. 监听流式传输（可选）
+      // user 层已写入成功后，清空待应用变更，避免后续重复叠加
+      pendingPortalChanges.value = null;
+
+      // 4. 监听流式传输（可选）
       const streamListener = eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, (text: string, _generation_id: string) => {
         streamingText.value = text;
       });
 
-      // 4. 调用 generate 生成回复
+      // 5. 调用 generate 生成回复
       console.info('[GameStore] Generating LLM response...');
       const result = await generate({
         user_input: userInput,
@@ -156,37 +199,16 @@ export const useGameStore = defineStore('game', () => {
       streamListener.stop();
       streamingText.value = '';
 
-      // 5. 解析回复标签
+      // 6. 解析回复标签
       const parsed = parseResponse(result);
       applyParsedResponse(parsed);
 
-      // 6. 解析 MVU 变量命令（基于旧数据继承）
-      let newMvuData = await Mvu.parseMessage(result, _.cloneDeep(oldMvuData));
-
-      // 7. 应用传送门待定变量到新楼层的 MVU 数据
-      if (pendingPortalChanges.value) {
-        const changes = pendingPortalChanges.value;
-        // 确保有 MVU 数据对象（parseMessage 无更新时可能返回 undefined）
-        if (!newMvuData) {
-          newMvuData = _.cloneDeep(oldMvuData);
-        }
-        if (newMvuData?.stat_data) {
-          const sd = newMvuData.stat_data;
-          if (changes.area !== undefined) sd._当前区域 = changes.area;
-          sd._当前房间类型 = changes.roomType;
-
-          if (!sd.$统计) sd.$统计 = {};
-          if (changes.resetRoomCounter) {
-            sd.$统计.当前层已过房间 = 0;
-          }
-          if (changes.incrementKeys) {
-            for (const key of changes.incrementKeys) {
-              sd.$统计[key] = (Number(sd.$统计[key]) || 0) + 1;
-            }
-          }
-        }
-        console.info('[GameStore] Applied pending portal changes:', changes);
-        pendingPortalChanges.value = null;
+      // 7. 解析 MVU 变量命令（基于 user 楼层变量继承）
+      let newMvuData = await Mvu.parseMessage(result, _.cloneDeep(userMvuData));
+      if (!newMvuData) {
+        newMvuData = _.cloneDeep(userMvuData);
+      } else if (!newMvuData.stat_data && userMvuData?.stat_data) {
+        newMvuData.stat_data = _.cloneDeep(userMvuData.stat_data);
       }
 
       // 8. 清理无用的 MVU 内部字段
@@ -224,6 +246,7 @@ export const useGameStore = defineStore('game', () => {
     currentSummary.value = parsed.summary;
     hasOptionE.value = parsed.hasOptionE;
     hasLeave.value = parsed.hasLeave;
+    variableUpdateText.value = parsed.variableUpdate;
   }
 
   /**
@@ -469,6 +492,35 @@ export const useGameStore = defineStore('game', () => {
     editingText.value = '';
   }
 
+  /**
+   * 直接更新当前最新楼层的 stat_data 字段（用于本地测试配置等场景）
+   */
+  async function updateStatDataFields(fields: Record<string, any>): Promise<boolean> {
+    try {
+      const lastId = getLastMessageId();
+      if (lastId < 0) {
+        error.value = '当前没有可写入的楼层。';
+        return false;
+      }
+
+      const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
+      const nextMvuData = _.cloneDeep(currentMvuData ?? {});
+      if (!nextMvuData.stat_data || typeof nextMvuData.stat_data !== 'object') {
+        nextMvuData.stat_data = {};
+      }
+
+      Object.assign(nextMvuData.stat_data, _.cloneDeep(fields));
+      await Mvu.replaceMvuData(nextMvuData, { type: 'message', message_id: lastId });
+      refreshLocalStatData(nextMvuData);
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[GameStore] updateStatDataFields error:', msg);
+      error.value = `写入变量失败: ${msg}`;
+      return false;
+    }
+  }
+
   return {
     // State
     mainText,
@@ -485,6 +537,7 @@ export const useGameStore = defineStore('game', () => {
     editingText,
     hasOptionE,
     hasLeave,
+    variableUpdateText,
 
     // Actions
     initialize,
@@ -497,5 +550,6 @@ export const useGameStore = defineStore('game', () => {
     startEdit,
     saveEdit,
     cancelEdit,
+    updateStatDataFields,
   };
 });

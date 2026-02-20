@@ -4,12 +4,14 @@
  */
 
 export interface ParsedResponse {
-  /** <maintext>...</maintext> 包裹的正文 */
+  /** 正文标签（兼容 <maintext>/<maintxt>/<content>/<正文>） */
   mainText: string;
   /** <option>...</option> 包裹的普通选项列表（A-D，不含 E 和 [Leave]） */
   options: string[];
   /** <sum>...</sum> 包裹的小总结 */
   summary: string;
+  /** <UpdateVariable>/<update> 包裹的变量更新内容 */
+  variableUpdate: string;
   /** <UpdateVariable> 内 <JSONPatch>...</JSONPatch> 的变量更新指令 */
   jsonPatch: string;
   /** 原始文本（去除思维链块） */
@@ -24,26 +26,85 @@ export interface ParsedResponse {
  * 提取单个 XML 标签的内容
  */
 function extractTag(text: string, tagName: string): string {
-  const regex = new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i');
-  const match = text.match(regex);
-  return match ? match[1].trim() : '';
+  const escapedTagName = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // 仅匹配“块级位置”标签，避免把正文中示例文本误识别为真实标签
+  const regex = new RegExp(`(?:^|[\\r\\n]|>)\\s*<${escapedTagName}(?:\\s[^>]*)?>([\\s\\S]*?)</${escapedTagName}>`, 'ig');
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    const fullMatch = match[0];
+    const openTagEnd = fullMatch.indexOf('>');
+    if (openTagEnd >= 0) {
+      // 过滤“标签示例”写法，如 "<maintext>, <option>"（标签后紧跟逗号）
+      const afterOpen = fullMatch.slice(openTagEnd + 1).trimStart();
+      const firstChar = afterOpen[0];
+      if (firstChar === ',' || firstChar === '，') continue;
+    }
+    return match[1].trim();
+  }
+
+  return '';
+}
+
+/**
+ * 按顺序尝试多个标签名，返回第一个命中的内容
+ */
+function extractTagByPriority(text: string, tagNames: string[]): string {
+  for (const tagName of tagNames) {
+    const content = extractTag(text, tagName);
+    if (content) return content;
+  }
+  return '';
 }
 
 /**
  * 移除思维链块
  * 支持多种变体：<think>, <thinking>, <Think>, <Thinking> 等
+ * 支持嵌套与错误闭合（如 <thinking> ... </think>）
  * 同时处理未闭合的思维链标签（流式传输中可能出现）
  */
 function removeThinkBlock(text: string): string {
-  let result = text;
-  // 1. 移除已闭合的 <thinking>...</thinking> 块（先处理较长的标签名）
-  result = result.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
-  // 2. 移除已闭合的 <think>...</think> 块
-  result = result.replace(/<think>[\s\S]*?<\/think>/gi, '');
-  // 3. 处理未闭合的标签：从开始标签到文本末尾全部移除
-  result = result.replace(/<thinking>[\s\S]*/gi, '');
-  result = result.replace(/<think>[\s\S]*/gi, '');
+  const thinkTagRegex = /<\s*(\/?)\s*(think|thinking)\b[^>]*>/gi;
+
+  let result = '';
+  let depth = 0;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = thinkTagRegex.exec(text)) !== null) {
+    const isClosing = match[1] === '/';
+    const tagStart = match.index;
+    const tagEnd = thinkTagRegex.lastIndex;
+
+    // 仅在思维链外保留内容；思维链内（含标签本身）全部丢弃
+    // 特殊处理：孤立的 </think>/< /thinking> 也视作思维链结束符，结束符之前的段落丢弃
+    if (depth === 0 && !isClosing) {
+      result += text.slice(lastIndex, tagStart);
+    }
+
+    if (isClosing) {
+      // 允许错误闭合：只要处于思维链内，遇到任意 think/thinking 结束标签就减一层
+      if (depth > 0) depth -= 1;
+    } else {
+      depth += 1;
+    }
+
+    lastIndex = tagEnd;
+  }
+
+  // 仅在未进入未闭合思维链时追加尾部文本
+  if (depth === 0) {
+    result += text.slice(lastIndex);
+  }
+
   return result.trim();
+}
+
+/**
+ * 移除正文中的 HTML 注释块（用于隐藏正文内思维链）
+ */
+function removeHtmlComments(text: string): string {
+  return text.replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim();
 }
 
 /**
@@ -66,13 +127,15 @@ export function parseResponse(text: string): ParsedResponse {
   const cleanText = removeThinkBlock(text);
 
   // 提取各标签
-  const mainText = extractTag(cleanText, 'maintext');
+  const mainTextRaw = extractTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
+  const mainText = removeHtmlComments(mainTextRaw);
   const optionRaw = extractTag(cleanText, 'option');
   const summary = extractTag(cleanText, 'sum');
 
-  // 提取 UpdateVariable 中的 JSONPatch
-  const updateVarBlock = extractTag(cleanText, 'UpdateVariable');
+  // 提取 UpdateVariable / update 中的内容
+  const updateVarBlock = extractTagByPriority(cleanText, ['UpdateVariable', 'update']);
   const jsonPatch = extractTag(updateVarBlock, 'JSONPatch');
+  const variableUpdate = updateVarBlock || jsonPatch;
 
   // 解析所有选项行
   const allOptions = parseOptions(optionRaw);
@@ -92,6 +155,7 @@ export function parseResponse(text: string): ParsedResponse {
     mainText,
     options: normalOptions,
     summary,
+    variableUpdate,
     jsonPatch,
     rawText: cleanText,
     hasOptionE,
@@ -113,7 +177,16 @@ export function extractSummary(messageText: string): string {
  */
 export function extractMainText(messageText: string): string {
   const clean = removeThinkBlock(messageText);
-  return extractTag(clean, 'maintext');
+  const mainTextRaw = extractTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
+  return removeHtmlComments(mainTextRaw);
+}
+
+/**
+ * 从已有消息文本中快速提取变量更新块（<UpdateVariable> / <update>）
+ */
+export function extractVariableUpdate(messageText: string): string {
+  const clean = removeThinkBlock(messageText);
+  return extractTagByPriority(clean, ['UpdateVariable', 'update']);
 }
 
 /**
