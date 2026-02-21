@@ -84,10 +84,19 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     type: EffectType.POISON,
     name: '中毒',
     polarity: 'debuff',
+    timings: ['onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合结束时：自身中毒量 + 当前层数，然后中毒层数 -1。',
+  },
+  [EffectType.POISON_AMOUNT]: {
+    type: EffectType.POISON_AMOUNT,
+    name: '\u4e2d\u6bd2\u91cf',
+    polarity: 'special',
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '致死判定：每回合开始增加中毒量，若≥当前生命值则造成等量真实伤害。每回合-1。',
+    description: '致死判定值：回合开始时若中毒量≥当前生命值，则造成等量真实伤害。',
   },
   [EffectType.BURN]: {
     type: EffectType.BURN,
@@ -147,10 +156,10 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     type: EffectType.CHARGE,
     name: '蓄力',
     polarity: 'buff',
-    timings: ['onDiceRoll', 'onTurnEnd'],
+    timings: ['onDiceRoll'],
     stackable: true,
     maxStacks: 0,
-    description: '点数增益：下一次投掷骰子时点数直接增加对应数值。一回合后消失。',
+    description: '点数增益：下一次投掷骰子时将层数加到原始骰子上，并清空全部层数。',
   },
   [EffectType.COLD]: {
     type: EffectType.COLD,
@@ -188,6 +197,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始时自身魔力+层数，无时限。',
   },
+  [EffectType.SWARM]: {
+    type: EffectType.SWARM,
+    name: '群集',
+    polarity: 'buff',
+    timings: ['onAfterDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '生命值≤0时，消耗1层并恢复至生命上限。',
+  },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -224,7 +242,7 @@ export function applyEffect(
   entity: EntityStats,
   type: EffectType,
   stacks: number = 1,
-  options?: { restrictedTypes?: CardType[]; source?: string },
+  options?: { restrictedTypes?: CardType[]; source?: string; lockDecayThisTurn?: boolean },
 ): boolean {
   // 非生物免疫检查
   if (hasEffect(entity, EffectType.NON_LIVING)) {
@@ -247,6 +265,9 @@ export function applyEffect(
     if (type === EffectType.BIND && options?.restrictedTypes) {
       existing.restrictedTypes = options.restrictedTypes;
     }
+    if (type === EffectType.BIND && options?.lockDecayThisTurn) {
+      existing.lockDecayThisTurn = true;
+    }
     return true;
   }
 
@@ -255,6 +276,7 @@ export function applyEffect(
     type,
     stacks: def.maxStacks > 0 ? Math.min(stacks, def.maxStacks) : stacks,
     polarity: def.polarity,
+    lockDecayThisTurn: type === EffectType.BIND ? !!options?.lockDecayThisTurn : undefined,
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
   };
@@ -317,14 +339,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     reduceEffectStacks(entity, EffectType.MANA_DRAIN);
   }
 
-  // 中毒
-  const poisonStacks = getEffectStacks(entity, EffectType.POISON);
-  if (poisonStacks > 0) {
-    if (poisonStacks >= entity.hp) {
-      result.trueDamage += poisonStacks;
-      result.logs.push(`[中毒] 中毒量(${poisonStacks}) ≥ 当前生命(${entity.hp})，造成 ${poisonStacks} 真实伤害！`);
+  // 中毒量
+  const poisonAmount = getEffectStacks(entity, EffectType.POISON_AMOUNT);
+  if (poisonAmount > 0) {
+    if (poisonAmount >= entity.hp) {
+      result.trueDamage += poisonAmount;
+      result.logs.push(`[中毒量] 中毒量(${poisonAmount}) ≥ 当前生命(${entity.hp})，造成 ${poisonAmount} 真实伤害！`);
     }
-    reduceEffectStacks(entity, EffectType.POISON);
   }
 
   // 燃烧
@@ -379,15 +400,29 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
 
 /**
  * 处理回合结束时所有效果触发
- * 调用顺序：束缚(-1) → 护甲(减半) → 蓄力(清除) → 眩晕(清除)
+ * 调用顺序：束缚(-1) → 护甲(减半) → 眩晕(清除)
  */
 export function processOnTurnEnd(entity: EntityStats): string[] {
   const logs: string[] = [];
 
+  // 中毒：转化为中毒量，然后中毒-1
+  const poisonStacks = getEffectStacks(entity, EffectType.POISON);
+  if (poisonStacks > 0) {
+    applyEffect(entity, EffectType.POISON_AMOUNT, poisonStacks);
+    reduceEffectStacks(entity, EffectType.POISON, 1);
+    logs.push(`[中毒] 本回合中毒量 +${poisonStacks}，中毒层数衰减 1。`);
+  }
+
   // 束缚
-  if (hasEffect(entity, EffectType.BIND)) {
-    reduceEffectStacks(entity, EffectType.BIND);
-    logs.push(`[束缚] 层数衰减。`);
+  const bindEffect = findEffect(entity, EffectType.BIND);
+  if (bindEffect && bindEffect.stacks > 0) {
+    if (bindEffect.lockDecayThisTurn) {
+      bindEffect.lockDecayThisTurn = false;
+      logs.push(`[束缚] 新施加，本回合不衰减。`);
+    } else {
+      reduceEffectStacks(entity, EffectType.BIND);
+      logs.push(`[束缚] 层数衰减。`);
+    }
   }
 
   // 护甲每回合减半
@@ -398,12 +433,6 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
       removeEffect(entity, EffectType.ARMOR);
     }
     logs.push(`[护甲] 层数减半。`);
-  }
-
-  // 蓄力消失
-  if (hasEffect(entity, EffectType.CHARGE)) {
-    removeEffect(entity, EffectType.CHARGE);
-    logs.push(`[蓄力] 效果消失。`);
   }
 
   // 眩晕消失

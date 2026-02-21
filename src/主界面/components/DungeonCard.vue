@@ -2,7 +2,7 @@
   <!-- Face Down Card -->
   <div
     v-if="faceDown"
-    class="w-40 h-60 rounded-lg bg-dungeon-brown border-2 border-[#5c3a21] shadow-xl relative overflow-hidden group transition-transform duration-300 hover:-translate-y-2"
+    class="w-40 h-60 rounded-xl bg-[#252030] border-2 border-[#3a3040] shadow-xl relative overflow-hidden group transition-transform duration-300 hover:-translate-y-2"
     :class="className"
   >
     <div class="absolute inset-2 flex items-center justify-center border border-[#4a2e1a] opacity-50">
@@ -13,7 +13,7 @@
   <!-- Face Up Card -->
   <div
     v-else
-    class="relative w-40 h-60 rounded-lg shadow-2xl transition-all duration-300 transform bg-[#1a110d] border-2 cursor-pointer"
+    class="relative w-40 h-60 rounded-xl shadow-2xl transition-all duration-300 transform bg-[#16121e] border-2 cursor-pointer"
     :class="[
       typeColorClass,
       selected ? 'ring-4 ring-dungeon-gold -translate-y-6 scale-105 z-20' : 'hover:-translate-y-2 hover:z-10',
@@ -25,10 +25,10 @@
     <!-- Header -->
     <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
       <div
-        class="bg-black/60 px-2 py-0.5 rounded text-dungeon-gold font-bold font-heading text-xs border border-dungeon-gold/30"
+        class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-400/40 shadow-md"
         :class="card.type !== CardType.MAGIC || card.manaCost === 0 ? 'opacity-0' : ''"
       >
-        MP {{ card.manaCost }}
+        {{ card.manaCost }}
       </div>
       <div class="bg-black/60 p-1 rounded-full border border-white/10">
         <component :is="typeIcon" class="size-5" :class="typeIconColor" />
@@ -37,7 +37,7 @@
 
     <!-- Image Placeholder -->
     <div
-      class="absolute top-8 left-2 right-2 h-24 bg-black/40 rounded border border-white/5 flex items-center justify-center overflow-hidden"
+      class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
     >
       <div class="size-full opacity-60" :class="typeGradient"></div>
       <span class="absolute font-heading text-white/20 text-4xl select-none">
@@ -53,11 +53,11 @@
         {{ card.name }}
       </h3>
       <div
-        class="bg-[#0f0f0f]/80 border border-dungeon-gold/20 p-2 rounded text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
+        class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
       >
         {{ card.description }}
       </div>
-      <div class="mt-1 text-center text-dungeon-gold font-bold text-xs font-ui">
+      <div class="mt-1 text-center text-white/50 font-bold text-[10px] font-ui tracking-wider">
         {{ card.type }}
       </div>
     </div>
@@ -97,9 +97,9 @@ const typeColorClass = computed(() => {
     case CardType.MAGIC:
       return 'border-purple-900 bg-purple-950/30';
     case CardType.FUNCTION:
-      return 'border-emerald-900 bg-emerald-950/30';
+      return 'border-yellow-800 bg-yellow-950/30';
     case CardType.DODGE:
-      return 'border-blue-900 bg-blue-950/30';
+      return 'border-emerald-900 bg-emerald-950/30';
     default:
       return 'border-gray-700 bg-gray-800';
   }
@@ -127,9 +127,9 @@ const typeIconColor = computed(() => {
     case CardType.MAGIC:
       return 'text-purple-400';
     case CardType.FUNCTION:
-      return 'text-emerald-400';
+      return 'text-yellow-400';
     case CardType.DODGE:
-      return 'text-blue-400';
+      return 'text-emerald-400';
     default:
       return 'text-gray-400';
   }
@@ -151,10 +151,12 @@ const typeGradient = computed(() => {
       return 'bg-gradient-to-tr from-red-900 to-black';
     case CardType.MAGIC:
       return 'bg-gradient-to-tr from-purple-900 to-black';
+    case CardType.FUNCTION:
+      return 'bg-gradient-to-tr from-yellow-900 to-black';
     case CardType.DODGE:
-      return 'bg-gradient-to-tr from-blue-900 to-black';
-    default:
       return 'bg-gradient-to-tr from-emerald-900 to-black';
+    default:
+      return 'bg-gradient-to-tr from-gray-800 to-black';
   }
 });
 </script>

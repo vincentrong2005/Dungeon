@@ -2,6 +2,18 @@
   <div
     class="w-full h-screen bg-[#050505] font-body text-dungeon-paper overflow-hidden relative"
   >
+    <!-- Dynamic Background -->
+    <div class="absolute inset-0 z-0">
+      <img
+        v-if="bgImageUrl"
+        :src="bgImageUrl"
+        class="absolute inset-0 w-full h-full object-cover"
+        alt=""
+        @error="onBgError"
+      />
+      <div class="absolute inset-0" :style="{ backgroundColor: `rgba(0,0,0,${bgOverlayOpacity})` }"></div>
+    </div>
+
     <!-- Sidebar: Individual Icons Top-Left (no back button, settings already has exit) -->
     <div class="absolute top-6 left-6 z-50 flex flex-col space-y-4">
       <SidebarIcon :icon="MapIcon" label="地图" tooltip-side="right" :active="activeModal === 'map'" @click="activeModal = 'map'" />
@@ -496,6 +508,22 @@
                 <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ textSettings.containerWidth }}px</span>
               </div>
             </div>
+
+            <!-- Background Clarity -->
+            <div class="flex items-center justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">背景清晰度</label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model.number="bgOverlayOpacity"
+                  type="range"
+                  min="0"
+                  max="0.8"
+                  step="0.05"
+                  class="w-28 accent-dungeon-gold"
+                />
+                <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -611,6 +639,11 @@
             </div>
           </div>
 
+          <label class="flex items-center gap-2 px-3 py-2 rounded border border-dungeon-brown/60 bg-dungeon-dark/40 text-sm text-dungeon-paper/80">
+            <input v-model="combatTestStartAt999" type="checkbox" class="accent-amber-500" />
+            <span>本场测试启用 999 开局（敌我双方 HP/MP=999）</span>
+          </label>
+
           <div class="flex justify-between gap-3">
             <button
               class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
@@ -658,6 +691,7 @@
           class="w-full h-full"
           :enemy-name="combatEnemyName"
           :player-deck="resolvedDeck"
+          :test-start-at-999="combatTestStartAt999CurrentBattle"
           :initial-player-stats="{
             hp: displayHp,
             maxHp: displayMaxHp,
@@ -667,6 +701,8 @@
             effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' as const }],
           }"
           @end-combat="handleCombatEnd"
+          @open-deck="activeModal = 'deck'"
+          @open-relics="activeModal = 'relics'"
         />
         <!-- Exit combat button -->
         <button
@@ -683,18 +719,18 @@
 
 <script setup lang="ts">
 import {
-  Activity,
-  BookOpen,
-  Box,
-  ChevronDown,
-  Coins,
-  Dices,
-  FileText,
-  Map as MapIcon,
-  Maximize,
-  Scroll,
-  Send,
-  Settings as SettingsIcon,
+    Activity,
+    BookOpen,
+    Box,
+    ChevronDown,
+    Coins,
+    Dices,
+    FileText,
+    Map as MapIcon,
+    Maximize,
+    Scroll,
+    Send,
+    Settings as SettingsIcon,
 } from 'lucide-vue-next';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
@@ -760,6 +796,32 @@ const combatEnemyName = ref('');
 const combatTestStep = ref<'deck' | 'enemy'>('deck');
 const selectedTestDeck = ref<string[]>([]);
 const selectedTestEnemy = ref('');
+const combatTestStartAt999 = ref(false);
+const combatTestStartAt999CurrentBattle = ref(false);
+
+// --- Dynamic Background ---
+const bgIsLordFallback = ref(false);
+const bgImageError = ref(false);
+const HF_BG_BASE = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF';
+const bgArea = computed(() => (gameStore.statData._当前区域 as string) || '');
+const bgRoomType = computed(() => (gameStore.statData._当前房间类型 as string) || '');
+const bgImageUrl = computed(() => {
+  if (!bgArea.value || bgImageError.value) return '';
+  const isLord = bgRoomType.value === '领主' && !bgIsLordFallback.value;
+  const suffix = isLord ? `${bgArea.value}_领主` : bgArea.value;
+  return `${HF_BG_BASE}/${encodeURIComponent(suffix)}.png`;
+});
+function onBgError() {
+  if (bgRoomType.value === '领主' && !bgIsLordFallback.value) {
+    bgIsLordFallback.value = true;
+  } else {
+    bgImageError.value = true;
+  }
+}
+
+const BG_OPACITY_KEY = 'dungeon.bg_overlay_opacity';
+const bgOverlayOpacity = ref(parseFloat(localStorage.getItem(BG_OPACITY_KEY) ?? '0.5'));
+watch(bgOverlayOpacity, (v) => localStorage.setItem(BG_OPACITY_KEY, String(v)));
 
 const allCardsForTest = computed(() => getAllCards().filter(card => card.category !== '敌人'));
 const cardByNameForTest = computed(() => {
@@ -1179,6 +1241,7 @@ const openCombatTestBuilder = () => {
 
   selectedTestDeck.value = [...presetDeck];
   selectedTestEnemy.value = '';
+  combatTestStartAt999.value = false;
   combatTestStep.value = 'deck';
   activeModal.value = 'combatTestBuilder';
 };
@@ -1227,11 +1290,13 @@ const confirmCombatTestEnemyAndStart = async () => {
 
   activeModal.value = null;
   combatEnemyName.value = selectedTestEnemy.value;
+  combatTestStartAt999CurrentBattle.value = combatTestStartAt999.value;
   showCombat.value = true;
 };
 
 const handleCombatEnd = (win: boolean) => {
   showCombat.value = false;
+  combatTestStartAt999CurrentBattle.value = false;
   console.log('[Combat] Result:', win ? 'WIN' : 'LOSE');
 };
 </script>

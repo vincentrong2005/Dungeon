@@ -28,19 +28,15 @@ import {
  * FinalPoint = (BaseDice * Multiplier + Addition) * BuffMod * RelicMod + BuffAdd + RelicAdd
  */
 export function calculateFinalPoint(ctx: PointCalculationContext): number {
-  const { baseDice, card, entityEffects, relicModifiers } = ctx;
+  const { baseDice, card, relicModifiers } = ctx;
 
   // Step 1-2: 卡牌基础计算
   let point = baseDice * card.calculation.multiplier + card.calculation.addition;
 
-  // Step 3: 蓄力加成
-  const chargeStacks = entityEffects.find(e => e.type === EffectType.CHARGE)?.stacks ?? 0;
-  if (chargeStacks > 0) point += chargeStacks;
-
-  // Step 4-5: 全局乘算修正
+  // Step 3-4: 全局乘算修正
   point *= relicModifiers.globalMultiplier;
 
-  // Step 6-7: 全局加算修正
+  // Step 5-6: 全局加算修正
   point += relicModifiers.globalAddition;
 
   return Math.max(0, Math.floor(point));
@@ -165,6 +161,44 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
 /**
  * 应用伤害到实体（含效果层数消耗），返回实际伤害
  */
+export function triggerSwarmReviveIfNeeded(target: EntityStats): { revived: boolean; logs: string[] } {
+  const logs: string[] = [];
+  if (target.hp > 0) return { revived: false, logs };
+
+  const swarmStacks = getEffectStacks(target, EffectType.SWARM);
+  if (swarmStacks <= 0) return { revived: false, logs };
+
+  reduceEffectStacks(target, EffectType.SWARM, 1);
+  target.hp = target.maxHp;
+  logs.push(`[群集] 触发复苏，消耗1层并恢复至${target.maxHp}生命。`);
+  return { revived: true, logs };
+}
+
+/**
+ * 攻击段结算后处理攻击者寒冷：每次攻击段后层数减半（向下取整）
+ * 即使该段实际伤害为 0 也会消耗寒冷。
+ */
+export function consumeColdAfterDealingDamage(attacker: EntityStats, actualDamage: number): string[] {
+  const logs: string[] = [];
+  void actualDamage;
+
+  const cold = findEffect(attacker, EffectType.COLD);
+  if (!cold || cold.stacks <= 0) return logs;
+
+  const before = cold.stacks;
+  cold.stacks = Math.floor(cold.stacks / 2);
+  if (cold.stacks <= 0) {
+    removeEffect(attacker, EffectType.COLD);
+    logs.push(`[寒冷] ${before} -> 0（已消失）`);
+  } else {
+    logs.push(`[寒冷] ${before} -> ${cold.stacks}`);
+  }
+  return logs;
+}
+
+/**
+ * 应用伤害到实体（含结界/护甲/群集），返回实际伤害
+ */
 export function applyDamageToEntity(target: EntityStats, damage: number, isTrueDamage: boolean): { actualDamage: number; logs: string[] } {
   const logs: string[] = [];
   if (!isTrueDamage) {
@@ -184,6 +218,8 @@ export function applyDamageToEntity(target: EntityStats, damage: number, isTrueD
   const actual = Math.min(damage, target.hp);
   target.hp -= actual;
   logs.push(`受到${actual}点伤害(HP: ${target.hp}/${target.maxHp})。`);
+  const reviveResult = triggerSwarmReviveIfNeeded(target);
+  logs.push(...reviveResult.logs);
   return { actualDamage: actual, logs };
 }
 
@@ -203,13 +239,7 @@ export function processClashEffects(winner: EntityStats, loser: EntityStats): st
 /** 攻击后：蓄力清除, 寒冷减半 */
 export function processPostAttackEffects(attacker: EntityStats): string[] {
   const logs: string[] = [];
-  if (hasEffect(attacker, EffectType.CHARGE)) { removeEffect(attacker, EffectType.CHARGE); logs.push(`[蓄力] 已消费。`); }
-  const ce = findEffect(attacker, EffectType.COLD);
-  if (ce && ce.stacks > 0) {
-    ce.stacks = Math.floor(ce.stacks / 2);
-    if (ce.stacks <= 0) removeEffect(attacker, EffectType.COLD);
-    logs.push(`[寒冷] 层数减半。`);
-  }
+  // 蓄力改为“下次掷骰时消耗”，寒冷改为“每次实际造成伤害后消耗”，这里不再处理。
   return logs;
 }
 

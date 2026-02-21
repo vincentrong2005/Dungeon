@@ -8,23 +8,28 @@ import {
     type ClashResult,
     type CombatState,
     type EntityStats,
+    EffectType,
     type RelicModifiers,
 } from '../types';
 import {
     applyDamageToEntity,
     calculateFinalDamage,
     calculateFinalPoint,
+    consumeColdAfterDealingDamage,
     processClashEffects,
     processPostAttackEffects,
     resolveClash,
     rollDice,
     shouldClash,
+    triggerSwarmReviveIfNeeded,
 } from './algorithms';
 import {
     applyEffect,
     canPlayCard,
+    getEffectStacks,
     processOnTurnEnd,
     processOnTurnStart,
+    removeEffect,
     type TurnStartResult,
 } from './effects';
 
@@ -219,8 +224,8 @@ export class BattleStateMachine {
     this.addLog(`══ 回合 ${this.state.turn} 开始 ══`);
 
     // 投骰
-    this.state.playerBaseDice = rollDice(this.playerStats.minDice, this.playerStats.maxDice);
-    this.state.enemyBaseDice = rollDice(this.enemyStats.minDice, this.enemyStats.maxDice);
+    this.state.playerBaseDice = this.consumeChargeOnRoll(this.playerStats, rollDice(this.playerStats.minDice, this.playerStats.maxDice), '玩家');
+    this.state.enemyBaseDice = this.consumeChargeOnRoll(this.enemyStats, rollDice(this.enemyStats.minDice, this.enemyStats.maxDice), '敌人');
     this.addLog(`玩家投骰: ${this.state.playerBaseDice} | 敌人投骰: ${this.state.enemyBaseDice}`);
 
     // 玩家回合开始效果
@@ -306,7 +311,7 @@ export class BattleStateMachine {
       this.resolveNonClashDamage(pCard, eCard, pFinal, eFinal);
     }
 
-    // 攻击后效果
+    // 攻击后效果（兼容旧流程，当前为空）
     this.state.logs.push(...processPostAttackEffects(this.playerStats));
     this.state.logs.push(...processPostAttackEffects(this.enemyStats));
 
@@ -356,28 +361,12 @@ export class BattleStateMachine {
   ): void {
     switch (clash.outcome) {
       case 'player_win': {
-        const dmg = calculateFinalDamage({
-          finalPoint: pFinal, card: pCard,
-          attackerEffects: this.playerStats.effects,
-          defenderEffects: this.enemyStats.effects,
-          relicModifiers: this.playerRelics,
-        });
-        this.state.logs.push(...dmg.logs);
-        const result = applyDamageToEntity(this.enemyStats, dmg.damage, dmg.isTrueDamage);
-        this.state.logs.push(...result.logs);
+        this.resolveAttackHits(this.playerStats, this.enemyStats, pCard, pFinal, this.playerRelics);
         this.state.logs.push(...processClashEffects(this.playerStats, this.enemyStats));
         break;
       }
       case 'enemy_win': {
-        const dmg = calculateFinalDamage({
-          finalPoint: eFinal, card: eCard,
-          attackerEffects: this.enemyStats.effects,
-          defenderEffects: this.playerStats.effects,
-          relicModifiers: this.enemyRelics,
-        });
-        this.state.logs.push(...dmg.logs);
-        const result = applyDamageToEntity(this.playerStats, dmg.damage, dmg.isTrueDamage);
-        this.state.logs.push(...result.logs);
+        this.resolveAttackHits(this.enemyStats, this.playerStats, eCard, eFinal, this.enemyRelics);
         this.state.logs.push(...processClashEffects(this.enemyStats, this.playerStats));
         break;
       }
@@ -397,27 +386,64 @@ export class BattleStateMachine {
     // 双方各自对对手结算伤害
     // 玩家 → 敌人
     if (pCard.type !== '功能' as any) {
-      const dmg = calculateFinalDamage({
-        finalPoint: pFinal, card: pCard,
-        attackerEffects: this.playerStats.effects,
-        defenderEffects: this.enemyStats.effects,
-        relicModifiers: this.playerRelics,
-      });
-      this.state.logs.push(...dmg.logs);
-      const result = applyDamageToEntity(this.enemyStats, dmg.damage, dmg.isTrueDamage);
-      this.state.logs.push(...result.logs);
+      this.resolveAttackHits(this.playerStats, this.enemyStats, pCard, pFinal, this.playerRelics);
     }
     // 敌人 → 玩家
     if (eCard.type !== '功能' as any) {
+      this.resolveAttackHits(this.enemyStats, this.playerStats, eCard, eFinal, this.enemyRelics);
+    }
+  }
+
+  private consumeChargeOnRoll(entity: EntityStats, rolled: number, label: string): number {
+    const chargeStacks = getEffectStacks(entity, EffectType.CHARGE);
+    if (chargeStacks <= 0) return rolled;
+    removeEffect(entity, EffectType.CHARGE);
+    const boosted = Math.max(0, Math.floor(rolled + chargeStacks));
+    this.addLog(`[${label}][蓄力] +${chargeStacks}，原始骰子 ${rolled} -> ${boosted}`);
+    return boosted;
+  }
+
+  private resolveAttackHits(
+    attacker: EntityStats,
+    defender: EntityStats,
+    card: CardData,
+    finalPoint: number,
+    relicModifiers: RelicModifiers,
+  ): void {
+    const baseHitCount = Math.max(1, Math.floor(card.hitCount ?? 1));
+    const extraHitCount = card.id === 'enemy_moth_swarm_burst'
+      ? Math.max(0, getEffectStacks(attacker, EffectType.SWARM))
+      : 0;
+    const totalHitCount = baseHitCount + extraHitCount;
+
+    for (let hit = 0; hit < totalHitCount; hit++) {
+      let cardForDamage = card;
+      const burnStacksOnDefender = getEffectStacks(defender, EffectType.BURN);
+      const customDamage =
+        card.id === 'burn_scorch_wind'
+          ? Math.floor(finalPoint * 0.5) + burnStacksOnDefender
+          : card.id === 'burn_detonation'
+            ? Math.floor(burnStacksOnDefender)
+            : null;
+      if (customDamage !== null) {
+        cardForDamage = {
+          ...card,
+          damageLogic: { mode: 'fixed', value: Math.floor(customDamage) },
+        };
+      }
+
       const dmg = calculateFinalDamage({
-        finalPoint: eFinal, card: eCard,
-        attackerEffects: this.enemyStats.effects,
-        defenderEffects: this.playerStats.effects,
-        relicModifiers: this.enemyRelics,
+        finalPoint,
+        card: cardForDamage,
+        attackerEffects: attacker.effects,
+        defenderEffects: defender.effects,
+        relicModifiers,
       });
       this.state.logs.push(...dmg.logs);
-      const result = applyDamageToEntity(this.playerStats, dmg.damage, dmg.isTrueDamage);
+      const result = applyDamageToEntity(defender, dmg.damage, dmg.isTrueDamage);
       this.state.logs.push(...result.logs);
+      this.state.logs.push(...consumeColdAfterDealingDamage(attacker, result.actualDamage));
+      if (defender.hp <= 0) break;
     }
   }
 
@@ -438,10 +464,17 @@ export class BattleStateMachine {
     if (r.mpChange !== 0) entity.mp = Math.max(0, entity.mp + r.mpChange);
     if (r.hpChange !== 0) entity.hp = Math.min(entity.maxHp, Math.max(0, entity.hp + r.hpChange));
     if (r.trueDamage > 0) entity.hp = Math.max(0, entity.hp - r.trueDamage);
+    const reviveResult = triggerSwarmReviveIfNeeded(entity);
     this.state.logs.push(...r.logs.map(l => `[${label}] ${l}`));
+    this.state.logs.push(...reviveResult.logs.map(l => `[${label}] ${l}`));
   }
 
   private checkDeath(): boolean {
+    const playerRevive = triggerSwarmReviveIfNeeded(this.playerStats);
+    const enemyRevive = triggerSwarmReviveIfNeeded(this.enemyStats);
+    this.state.logs.push(...playerRevive.logs.map(l => `[玩家] ${l}`));
+    this.state.logs.push(...enemyRevive.logs.map(l => `[敌人] ${l}`));
+
     if (this.playerStats.hp <= 0) { this.state.phase = CombatPhase.LOSE; this.addLog('玩家倒下了…'); return true; }
     if (this.enemyStats.hp <= 0) { this.state.phase = CombatPhase.WIN; this.addLog('敌人被击败！'); return true; }
     return false;

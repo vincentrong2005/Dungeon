@@ -124,21 +124,21 @@
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: #14111a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3d2b1f;
+  background: #2a2535;
   border-radius: 4px;
-  border: 1px solid #d4af37;
+  border: 1px solid #3a3545;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #553e2d;
+  background: #3a3545;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -151,11 +151,11 @@
 
 /* Glass Panel */
 .glass-panel {
-  background: rgba(20, 10, 5, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(212, 175, 55, 0.2);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  background: rgba(18, 14, 24, 0.8);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
 }
 
 /* CRT Scanline Overlay */
@@ -179,7 +179,7 @@
 }
 
 body {
-  background-color: #050505;
+  background-color: #0a0a10;
   color: #eaddcf;
   margin: 0;
   padding: 0;

@@ -100,6 +100,8 @@ export interface CardData {
   calculation: CardCalculation;
   /** 伤害逻辑 */
   damageLogic: DamageLogic;
+  /** 攻击段数（仅攻击牌生效，默认1） */
+  hitCount?: number;
   /** 特性开关 */
   traits: CardTraits;
   /** 打出时附带的效果列表（按顺序执行） */
@@ -122,6 +124,8 @@ export enum EffectType {
   DEVOUR = '吞食',
   /** 中毒 — 致死判定 */
   POISON = '中毒',
+  /** 中毒量 — 与当前生命比较的判定值 */
+  POISON_AMOUNT = '\u4e2d\u6bd2\u91cf',
   /** 燃烧 — 每回合固定减少生命 */
   BURN = '燃烧',
   /** 流血 — 拼点时造成真实伤害 */
@@ -144,6 +148,8 @@ export enum EffectType {
   MANA_DRAIN = '法力枯竭',
   /** 魔力源泉 — 每回合开始魔力+层数 */
   MANA_SPRING = '魔力源泉',
+  /** 群集 — 生命值归零时消耗1层并复活至满血 */
+  SWARM = '群集',
 }
 
 /** 效果极性分类 */
@@ -156,6 +162,8 @@ export interface EffectInstance {
   stacks: number;
   /** 效果极性 */
   polarity: EffectPolarity;
+  /** 本回合新施加，回合结束时先不衰减（用于束缚等） */
+  lockDecayThisTurn?: boolean;
   /**
    * 束缚特有：限制的卡牌类型列表
    * 例如 ['物理', '闪避'] 表示该束缚禁止使用物理和闪避牌

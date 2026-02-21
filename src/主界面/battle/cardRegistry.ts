@@ -6,6 +6,39 @@
 
 import { CardType, EffectType, type CardData } from '../types';
 
+/**
+ * =====================================================================
+ * 卡牌编写条件（请在新增/修改卡牌时严格对照）
+ * =====================================================================
+ * 1) 费用规则
+ *    - 仅 `CardType.MAGIC` 使用 `manaCost`。
+ *    - 其他类型（PHYSICAL / FUNCTION / DODGE）固定 `manaCost: 0`。
+ *
+ * 2) 点数与伤害是两条链路，不要混写
+ *    - 点数：`calculation = { multiplier, addition }`
+ *      公式：FinalPoint = floor(BaseDice * multiplier + addition + 其他点数修正)
+ *    - 伤害：`damageLogic`
+ *      relative: damage = floor(FinalPoint * scale + scaleAddition)
+ *      fixed:    damage = floor(value)
+ *      mixed:    damage = floor(baseValue + FinalPoint * scale + scaleAddition)
+ *
+ * 3) “+N”语义约定
+ *    - 若描述是“点数+N”，应写在 `calculation.addition = N`。
+ *    - 若描述是“伤害+N”，应写在 `damageLogic.scaleAddition = N`
+ *      （或使用 mixed/fixed，按设计意图表达）。
+ *
+ * 4) 数值取整规则
+ *    - 所有战斗数值按向下取整（floor）结算，避免小数。
+ *
+ * 5) 攻击段数规则
+ *    - 攻击牌应填写 `hitCount`（默认建议为 1）。
+ *    - 多段伤害统一通过 `hitCount` 结算，不要在 UI 里硬编码重复攻击。
+ *
+ * 6) 描述同步规则
+ *    - description 必须与实际字段一致（尤其是点数+N 与 伤害+N）。
+ * =====================================================================
+ */
+
 // ── 基础卡牌定义 ────────────────────────────────────────────────
 
 /** 普通物理攻击 */
@@ -17,6 +50,7 @@ const 普通物理攻击: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '造成1倍点数的伤害',
@@ -31,6 +65,7 @@ const 普通物理攻击加2: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 2 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '点数+2，造成1倍最终点数的伤害',
@@ -45,6 +80,7 @@ const 普通物理攻击加4: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 4 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '点数+4，造成1倍最终点数的伤害',
@@ -59,6 +95,7 @@ const 普通魔法攻击: CardData = {
   manaCost: 2,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '消耗2MP，造成1.5倍点数的伤害',
@@ -73,9 +110,10 @@ const 聚焦魔法攻击: CardData = {
   manaCost: 3,
   calculation: { multiplier: 1.5, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗3MP，造成1.5倍点数的伤害',
+  description: '消耗3MP，骰子点数*1.5，造成1倍最终点数的伤害',
 };
 
 /** 普通护盾 */
@@ -158,6 +196,7 @@ const 焚风术: CardData = {
   manaCost: 2,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '对敌方造成0.5倍最终点数伤害并叠加目标当前燃烧层数',
@@ -172,6 +211,7 @@ const 烧伤: CardData = {
   manaCost: 2,
   calculation: { multiplier: 1.0, addition: -2 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
@@ -188,6 +228,7 @@ const 烈焰打击: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
@@ -204,6 +245,7 @@ const 灼魂飞弹: CardData = {
   manaCost: 2,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
@@ -220,6 +262,7 @@ const 焚身突刺: CardData = {
   manaCost: 0,
   calculation: { multiplier: 2.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
@@ -236,6 +279,7 @@ const 爆燃术: CardData = {
   manaCost: 6,
   calculation: { multiplier: 0.8, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
@@ -252,6 +296,7 @@ const 炎狱判决: CardData = {
   manaCost: 4,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '敌方每有2层燃烧点数额外+1，随后造成1倍最终点数伤害',
@@ -291,6 +336,127 @@ const 炭化转化: CardData = {
 
 // ── 敌人卡牌定义 ────────────────────────────────────────────────
 
+/** 催情鳞粉：造成0.5倍点数伤害，并施加易伤+1 */
+const 催情鳞粉: CardData = {
+  id: 'enemy_moth_aphro_powder',
+  name: '催情鳞粉',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成0.5倍最终点数伤害，并施加易伤+1',
+};
+
+/** 敏感化标记：造成0.5倍点数伤害，并施加1倍点数寒冷 */
+const 敏感化标记: CardData = {
+  id: 'enemy_moth_sensitive_mark',
+  name: '敏感化标记',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '造成0.5倍最终点数伤害，并施加1倍最终点数的寒冷',
+};
+
+/** 荧光信息素：获得1倍点数蓄力 */
+const 荧光信息素: CardData = {
+  id: 'enemy_moth_pheromone',
+  name: '荧光信息素',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '自身增加1倍最终点数的蓄力',
+};
+
+/** 群体效应：造成1倍点数伤害；群集每层额外造成一次同等伤害（结算逻辑在 CombatView） */
+const 群体效应: CardData = {
+  id: 'enemy_moth_swarm_burst',
+  name: '群体效应',
+  type: CardType.MAGIC,
+  category: '敌人',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗6MP，造成1倍最终点数伤害；自身每有1层群集额外造成一次同等伤害',
+};
+
+/** 震动感知：为自身增加2倍点数护甲 */
+const 震动感知: CardData = {
+  id: 'enemy_root_tremor_sense',
+  name: '震动感知',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 2.0 },
+  ],
+  description: '为自身增加2倍最终点数的护甲',
+};
+
+/** 润滑分泌：为敌方增加0.5倍点数的中毒 */
+const 润滑分泌: CardData = {
+  id: 'enemy_root_lube_secretion',
+  name: '润滑分泌',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '为敌方增加0.5倍最终点数的中毒',
+};
+
+/** 渗透攀爬：造成1倍点数伤害并附加1回合束缚（当回合不衰减） */
+const 渗透攀爬: CardData = {
+  id: 'enemy_root_infiltrate_climb',
+  name: '渗透攀爬',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.MAGIC, CardType.FUNCTION, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '造成1倍最终点数伤害，并为敌方附加1回合束缚',
+};
+
 /** 冲撞 — 游荡粘液球等魔物的基础物理攻击 */
 const 冲撞: CardData = {
   id: 'enemy_charge',
@@ -300,6 +466,7 @@ const 冲撞: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1, addition: 1 },
   damageLogic: { mode: 'relative', scale: 1, scaleAddition: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '点数+1，造成1倍最终点数的伤害',
@@ -365,6 +532,13 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [炎狱判决.name, 炎狱判决],
   [炼狱波及.name, 炼狱波及],
   [炭化转化.name, 炭化转化],
+  [催情鳞粉.name, 催情鳞粉],
+  [敏感化标记.name, 敏感化标记],
+  [荧光信息素.name, 荧光信息素],
+  [群体效应.name, 群体效应],
+  [震动感知.name, 震动感知],
+  [润滑分泌.name, 润滑分泌],
+  [渗透攀爬.name, 渗透攀爬],
   [冲撞.name, 冲撞],
   [粘液闪避.name, 粘液闪避],
   [回复.name, 回复],
@@ -393,4 +567,3 @@ export function getAllCardNames(): string[] {
 export function getAllCards(): CardData[] {
   return [...CARD_REGISTRY.values()];
 }
-

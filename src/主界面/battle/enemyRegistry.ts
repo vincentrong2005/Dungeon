@@ -73,6 +73,76 @@ const 游荡粘液球: EnemyDefinition = {
   },
 };
 
+// ── 荧光蛾 ────────────────────────────────────────────────────
+
+const 荧光蛾: EnemyDefinition = {
+  name: '荧光蛾',
+
+  stats: {
+    hp: 5,
+    maxHp: 5,
+    mp: 1,
+    minDice: 1,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
+    ],
+  },
+
+  deck: [
+    getCardByName('催情鳞粉')!,
+    getCardByName('敏感化标记')!,
+    getCardByName('荧光信息素')!,
+    getCardByName('群体效应')!,
+  ],
+
+  /**
+   * AI 逻辑：
+   * - MP >= 6：使用【群体效应】
+   * - MP < 6：从【催情鳞粉 / 敏感化标记 / 荧光信息素】中等概率随机一张
+   */
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp >= 6) {
+      return pickCard(ctx, '群体效应');
+    }
+
+    const normalCards = ['催情鳞粉', '敏感化标记', '荧光信息素'] as const;
+    const chosen = normalCards[Math.floor(Math.random() * normalCards.length)]!;
+    return pickCard(ctx, chosen);
+  },
+};
+
+// ── 根须潜行者 ────────────────────────────────────────────────
+
+const 根须潜行者: EnemyDefinition = {
+  name: '根须潜行者',
+
+  stats: {
+    hp: 10,
+    maxHp: 10,
+    mp: 0,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.SWARM, stacks: 2, polarity: 'buff' },
+    ],
+  },
+
+  deck: [
+    getCardByName('震动感知')!,
+    getCardByName('润滑分泌')!,
+    getCardByName('渗透攀爬')!,
+  ],
+
+  /** AI 逻辑：三张卡等概率随机使用一张 */
+  selectCard(ctx: EnemyAIContext) {
+    const pool = ['震动感知', '润滑分泌', '渗透攀爬'] as const;
+    const chosen = pool[Math.floor(Math.random() * pool.length)]!;
+    return pickCard(ctx, chosen);
+  },
+};
+
 // ── 敌人注册表 ────────────────────────────────────────────────
 
 /**
@@ -81,6 +151,8 @@ const 游荡粘液球: EnemyDefinition = {
  */
 const ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
+  [荧光蛾.name, 荧光蛾],
+  [根须潜行者.name, 根须潜行者],
 ]);
 
 // ── 公共 API ────────────────────────────────────────────────────
