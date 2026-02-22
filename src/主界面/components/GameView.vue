@@ -24,15 +24,16 @@
         @click="activeModal = 'settings'"
       />
       <SidebarIcon :icon="Scroll" label="卡组" tooltip-side="right" :active="activeModal === 'deck'" @click="activeModal = 'deck'" />
-      <SidebarIcon
-        :icon="Book"
-        label="魔法书"
-        tooltip-side="right"
-        :active="activeModal === 'magicBooks'"
-        @click="activeModal = 'magicBooks'"
-      />
       <SidebarIcon :icon="Box" label="物品" tooltip-side="right" :active="activeModal === 'relics'" @click="activeModal = 'relics'" />
       <SidebarIcon :icon="MapIcon" label="地图" tooltip-side="right" :active="activeModal === 'map'" @click="activeModal = 'map'" />
+      <SidebarIcon
+        :icon="magicBookSidebarIcon"
+        :label="canEditMagicBooks ? '魔法书' : '魔法书（锁定）'"
+        tooltip-side="right"
+        :active="canEditMagicBooks && activeModal === 'magicBooks'"
+        :disabled="!canEditMagicBooks"
+        @click="openMagicBookModal"
+      />
     </div>
 
     <!-- Sidebar: Right side icons (top right) -->
@@ -434,40 +435,45 @@
       </div>
     </DungeonModal>
 
-    <DungeonModal title="魔法书" :is-open="activeModal === 'magicBooks'" @close="activeModal = null">
-      <div class="w-full max-w-xl mx-auto flex flex-col gap-4">
-        <div class="rounded border border-dungeon-gold/25 bg-dungeon-dark/40 px-3 py-2 text-xs text-dungeon-paper/70">
-          <span class="text-dungeon-gold/90">基础</span>
-          魔法书默认携带并自动进入牌库，无需手动选择。
-        </div>
+    <DungeonModal
+      title="魔法书"
+      :is-open="activeModal === 'magicBooks'"
+      panel-class="max-w-[92rem] max-h-[94%]"
+      @close="activeModal = null"
+    >
+      <div class="w-full max-w-[90rem] mx-auto flex flex-col gap-4">
         <div
           v-if="carryableMagicBookNames.length > 0"
-          class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[58vh] overflow-y-auto custom-scrollbar pr-1"
+          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1"
         >
           <button
             v-for="bookName in carryableMagicBookNames"
             :key="`magic-book-${bookName}`"
             type="button"
-            class="rounded border p-3 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="relative rounded-lg border p-3 text-left transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-[#130c08]/80"
             :class="carriedMagicBookSet.has(bookName)
-              ? 'border-dungeon-gold/70 bg-dungeon-brown/50 text-dungeon-gold'
-              : 'border-dungeon-brown/60 bg-[#1a0f08]/70 text-dungeon-paper hover:border-dungeon-gold/50'"
+              ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.45)] ring-1 ring-dungeon-gold/70'
+              : 'border-dungeon-brown/70 hover:border-dungeon-gold/45'"
             :disabled="isUpdatingMagicBooks"
             @click="toggleMagicBook(bookName)"
           >
-            <div class="flex items-center justify-between gap-2">
-              <span class="font-heading text-sm tracking-wide truncate">{{ bookName }}</span>
-              <span
-                class="text-[10px] rounded border px-1.5 py-0.5"
+            <div
+              class="relative w-full overflow-hidden rounded-md border"
+              :class="carriedMagicBookSet.has(bookName) ? 'border-dungeon-gold/60' : 'border-dungeon-brown/60'"
+            >
+              <img
+                :src="getMagicBookCoverUrl(bookName)"
+                :alt="`${bookName} 魔法书封面`"
+                class="w-full [aspect-ratio:832/1216] object-cover transition-all duration-300"
                 :class="carriedMagicBookSet.has(bookName)
-                  ? 'border-dungeon-gold/70 text-dungeon-gold'
-                  : 'border-dungeon-brown/70 text-dungeon-paper/60'"
-              >
-                {{ carriedMagicBookSet.has(bookName) ? '已携带' : '未携带' }}
-              </span>
-            </div>
-            <div class="mt-2 text-[11px] text-dungeon-paper/70">
-              含 {{ getMagicBookCardCount(bookName) }} 张可用卡牌
+                  ? 'brightness-100 saturate-110'
+                  : 'brightness-50 saturate-60'"
+                loading="lazy"
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/38"></div>
+              <div class="absolute inset-x-2 top-2 z-10">
+                <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
+              </div>
             </div>
           </button>
         </div>
@@ -510,8 +516,6 @@
       :style="{ left: `${relicTooltip.x}px`, top: `${relicTooltip.y}px` }"
     >
       <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
-      <div class="relic-tooltip-meta">{{ relicTooltip.rarity }}｜{{ relicTooltip.category }}｜拥有 {{ relicTooltip.count }}</div>
-      <div class="relic-tooltip-effect">{{ relicTooltip.effect }}</div>
       <div class="relic-tooltip-desc">{{ relicTooltip.description }}</div>
     </div>
 
@@ -552,6 +556,8 @@
                 <option value="'Cinzel', serif">Cinzel (默认)</option>
                 <option value="'Inter', sans-serif">Inter</option>
                 <option value="'MedievalSharp', cursive">MedievalSharp</option>
+                <option value="'MaShanZheng', 'KaiTi', serif">马善政体</option>
+                <option value="'MagicBookTitle', 'KaiTi', serif">江湖琅琊体</option>
                 <option value="serif">Serif</option>
                 <option value="sans-serif">Sans-serif</option>
                 <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
@@ -874,6 +880,164 @@
       </div>
     </DungeonModal>
 
+    <!-- Shop Overlay -->
+    <Transition name="combat-fade">
+      <div v-if="showShopView" class="absolute inset-0 z-[94] bg-black">
+        <img
+          :src="shopBackgroundUrl"
+          class="absolute inset-0 h-full w-full object-cover"
+          alt="商店背景"
+        />
+        <div class="absolute inset-0 bg-black/22"></div>
+
+        <img
+          :src="shopMerchantPortraitUrl"
+          class="pointer-events-none absolute left-0 bottom-0 z-[99] h-[92vh] max-h-[1216px] w-auto object-contain"
+          alt="沐芯兰"
+        />
+
+        <div class="shop-layout absolute inset-y-0 right-0 z-[96] flex items-center px-4 md:px-7">
+          <div class="shop-panel ml-auto w-full max-w-[48rem] h-[84vh] max-h-[860px]">
+            <div class="shop-panel-head">
+              <div class="font-heading text-xl text-amber-100">沐芯兰的商店</div>
+            </div>
+
+            <div class="shop-goods-grid custom-scrollbar">
+              <button
+                v-for="item in shopProducts"
+                :key="item.key"
+                type="button"
+                class="shop-item-card"
+                :class="{ 'is-sold': item.sold }"
+                :disabled="item.sold || shopBuying"
+                @click="buyShopProduct(item)"
+                @mouseenter="showShopProductTooltip($event, item)"
+                @mouseleave="hideRelicTooltip"
+                @focus="showShopProductTooltip($event, item)"
+                @blur="hideRelicTooltip"
+                @touchstart.passive="handleShopProductTouchStart($event, item)"
+                @touchend="handleRelicTouchEnd"
+                @touchcancel="handleRelicTouchEnd"
+              >
+                <div class="shop-item-icon-wrap">
+                  <Box class="shop-item-icon" />
+                </div>
+                <div class="shop-item-price">
+                  <Coins class="size-3.5" />
+                  <span>{{ item.finalPrice }}</span>
+                </div>
+              </button>
+
+              <div
+                v-if="shopProducts.length === 0"
+                class="rounded border border-amber-200/15 bg-black/25 py-10 text-center text-sm text-amber-100/65"
+              >
+                暂无可售商品
+              </div>
+            </div>
+
+            <div class="shop-panel-foot">
+              <button
+                class="shop-rob-btn px-5 py-2 font-ui text-xs tracking-wider text-amber-50"
+                :disabled="shopBuying || gameStore.isGenerating || shopRobbing"
+                :style="{ opacity: shopRobBtnOpacity }"
+                @click="handleShopRobClick"
+              >
+                抢夺
+              </button>
+              <button
+                class="shop-exit-btn px-7 py-3 font-ui text-sm tracking-wider text-amber-50"
+                :disabled="shopBuying || gameStore.isGenerating || shopRobbing"
+                @click="exitShop"
+              >
+                退出商店
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Treasure Chest Overlay -->
+    <Transition name="combat-fade">
+      <div v-if="showChestView" class="absolute inset-0 z-[95] bg-black">
+        <img
+          :src="chestBackgroundUrl"
+          class="absolute inset-0 h-full w-full object-cover"
+          alt="宝箱界面背景"
+          @load="handleChestBgLoaded"
+        />
+
+        <div
+          v-if="chestStage === 'opened'"
+          class="pointer-events-none absolute inset-0"
+        >
+          <div class="chest-reward-anchor">
+            <button
+              v-if="chestRewardRelic && chestRewardVisible"
+              type="button"
+              class="pointer-events-auto chest-reward-btn"
+              :class="{ 'is-collected': chestRewardCollected }"
+              :disabled="chestCollecting || chestRewardCollected"
+              @click="collectChestReward"
+              @mouseenter="showChestRewardTooltip"
+              @mouseleave="hideRelicTooltip"
+              @focus="showChestRewardTooltip"
+              @blur="hideRelicTooltip"
+              @touchstart.passive="handleChestRewardTouchStart"
+              @touchend="handleRelicTouchEnd"
+              @touchcancel="handleRelicTouchEnd"
+            >
+              <Box class="chest-reward-icon" />
+            </button>
+          </div>
+
+          <div class="pointer-events-auto chest-portals-anchor w-full">
+            <div class="flex justify-center gap-4 flex-wrap">
+              <button
+                v-for="(portal, i) in chestPortalChoices"
+                :key="`chest-portal-${i}`"
+                class="portal-btn group relative flex flex-col items-center justify-center
+                       w-24 h-24 rounded-lg border-2 backdrop-blur-sm
+                       transition-all duration-500 hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                :style="{
+                  backgroundColor: portal.bgColor,
+                  borderColor: portal.borderColor,
+                  boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
+                }"
+                :disabled="chestCollecting"
+                @click="handleChestPortalClick(portal)"
+              >
+                <div
+                  class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
+                  :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
+                ></div>
+                <span class="text-2xl mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
+                <span
+                  class="text-[10px] font-ui tracking-wide relative z-10 text-center leading-tight"
+                  :style="{ color: portal.textColor }"
+                >{{ portal.label }}</span>
+                <div
+                  class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70
+                         animate-[spin_8s_linear_infinite] transition-opacity"
+                  :style="{ borderColor: portal.borderColor }"
+                ></div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button
+          v-if="chestStage === 'closed'"
+          type="button"
+          aria-label="开启宝箱"
+          class="absolute left-1/2 top-1/2 h-[42vh] max-h-[360px] min-h-[220px] w-[36vw] max-w-[540px] min-w-[260px] -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-2xl border-0 bg-transparent p-0 opacity-0"
+          :disabled="chestRolling"
+          @click="handleChestCenterClick"
+        ></button>
+      </div>
+    </Transition>
+
     <!-- Combat Overlay -->
     <Transition name="combat-fade">
       <div v-if="showCombat" class="absolute inset-0 z-[100] bg-black">
@@ -910,26 +1074,27 @@
 
 <script setup lang="ts">
 import {
-    Activity,
-    Book,
-    BookOpen,
-    Box,
-    ChevronDown,
-    Coins,
-    Dices,
-    FileText,
-    Map as MapIcon,
-    Maximize,
-    Scroll,
-    Send,
-    Settings as SettingsIcon,
+  Activity,
+  Book,
+  BookOpen,
+  Box,
+  ChevronDown,
+  Coins,
+  Dices,
+  FileText,
+  Lock,
+  Map as MapIcon,
+  Maximize,
+  Scroll,
+  Send,
+  Settings as SettingsIcon,
 } from 'lucide-vue-next';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicByName, type RelicData } from '../battle/relicRegistry';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
-import { CardType, type CardData, EffectType } from '../types';
+import { CardType, EffectType, type CardData } from '../types';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
@@ -945,6 +1110,7 @@ const SidebarIcon = defineComponent({
     active: { type: Boolean, default: false },
     label: { type: String, default: '' },
     tooltipSide: { type: String, default: 'right' },
+    disabled: { type: Boolean, default: false },
   },
   emits: ['click'],
   setup(props, { emit }) {
@@ -952,13 +1118,20 @@ const SidebarIcon = defineComponent({
       h(
         'button',
         {
+          disabled: props.disabled,
           class: [
-            'w-12 h-12 rounded-lg flex items-center justify-center transition-all duration-300 shadow-lg border relative group',
-            props.active
+            'w-12 h-12 rounded-lg flex items-center justify-center transition-all duration-300 shadow-lg border relative group disabled:cursor-not-allowed',
+            props.disabled
+              ? 'bg-[#120d0a] text-dungeon-paper/35 border-dungeon-brown/70'
+              : props.active
               ? 'bg-dungeon-gold text-black border-dungeon-paper shadow-[0_0_15px_#d4af37]'
               : 'bg-[#1a0f08] text-dungeon-gold-dim border-dungeon-brown hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50',
           ],
-          onClick: () => emit('click'),
+          onClick: () => {
+            if (!props.disabled) {
+              emit('click');
+            }
+          },
         },
         [
           h(props.icon as any, { class: 'size-6' }),
@@ -986,6 +1159,22 @@ const isVariableUpdateOpen = ref(false);
 const isStatusOpen = ref(true);
 const showCombat = ref(false);
 const combatEnemyName = ref('');
+const showShopView = ref(false);
+const shopProducts = ref<ShopProduct[]>([]);
+const shopBuying = ref(false);
+const shopSpentGold = ref(0);
+const shopPurchasedItems = ref<Array<{ name: string; rarity: string; price: number }>>([]);
+const shopRobClickCount = ref(0);
+const shopRobbing = ref(false);
+const showChestView = ref(false);
+const chestStage = ref<'closed' | 'opened' | 'mimic'>('closed');
+const chestRolling = ref(false);
+const chestRewardRelic = ref<RelicData | null>(null);
+const chestRewardCollected = ref(false);
+const chestCollecting = ref(false);
+const chestRewardVisible = ref(false);
+const chestOpenedBgReady = ref(false);
+const chestPortalChoices = ref<PortalChoice[]>([]);
 const combatTestStep = ref<'deck' | 'enemy'>('deck');
 const selectedTestDeck = ref<string[]>([]);
 const selectedTestEnemy = ref('');
@@ -1004,8 +1193,19 @@ const relicTooltip = ref<{
 } | null>(null);
 const combatTestStartAt999 = ref(false);
 const combatTestStartAt999CurrentBattle = ref(false);
+let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
+let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
+let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
 let relicTooltipLongPressTimer: ReturnType<typeof setTimeout> | null = null;
 let relicTooltipAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+interface ShopProduct {
+  key: string;
+  relic: RelicData;
+  basePrice: number;
+  finalPrice: number;
+  sold: boolean;
+}
 
 // --- Dynamic Background ---
 const bgIsLordFallback = ref(false);
@@ -1030,6 +1230,19 @@ function onBgError() {
 const BG_OPACITY_KEY = 'dungeon.bg_overlay_opacity';
 const bgOverlayOpacity = ref(parseFloat(localStorage.getItem(BG_OPACITY_KEY) ?? '0.5'));
 watch(bgOverlayOpacity, (v) => localStorage.setItem(BG_OPACITY_KEY, String(v)));
+
+const CHEST_BG_CLOSED = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B11.png';
+const CHEST_BG_OPENED = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B12.png';
+const CHEST_BG_MIMIC = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B13.png';
+const SHOP_BG_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png';
+const SHOP_MERCHANT_PORTRAIT_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/%E6%B2%90%E8%8A%AF%E5%85%B0/%E6%B2%90%E8%8A%AF%E5%85%B04.png';
+const shopBackgroundUrl = SHOP_BG_URL;
+const shopMerchantPortraitUrl = SHOP_MERCHANT_PORTRAIT_URL;
+const chestBackgroundUrl = computed(() => {
+  if (chestStage.value === 'opened') return CHEST_BG_OPENED;
+  if (chestStage.value === 'mimic') return CHEST_BG_MIMIC;
+  return CHEST_BG_CLOSED;
+});
 
 const allCardsForTest = computed(() => getAllCards().filter(card => card.category !== '敌人'));
 const CATEGORY_ORDER: Record<string, number> = {
@@ -1065,13 +1278,8 @@ const filteredCardCategoryGroupsForTest = computed<Array<{ category: string; car
   if (selectedCardCategoryTab.value === '全部') return cardCategoryGroupsForTest.value;
   return cardCategoryGroupsForTest.value.filter((group) => group.category === selectedCardCategoryTab.value);
 });
-const magicBookCardCountMap = computed<Record<string, number>>(() => {
-  const map: Record<string, number> = {};
-  for (const card of allCardsForTest.value) {
-    map[card.category] = (map[card.category] ?? 0) + 1;
-  }
-  return map;
-});
+const MAGIC_BOOK_COVER_BASE = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E9%AD%94%E6%B3%95%E4%B9%A6%E5%B0%81%E9%9D%A2';
+const getMagicBookCoverUrl = (bookName: string) => `${MAGIC_BOOK_COVER_BASE}/${encodeURIComponent(bookName)}.png`;
 const carryableMagicBookNames = computed<string[]>(() => (
   cardCategoryGroupsForTest.value
     .map((group) => group.category)
@@ -1087,8 +1295,36 @@ const carriedMagicBooks = computed<string[]>(() => {
   return rawCarriedMagicBooks.value.filter((name) => available.has(name));
 });
 const carriedMagicBookSet = computed(() => new Set(carriedMagicBooks.value));
+const selectableRelicPool = computed<RelicData[]>(() => {
+  const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
+  let pool = getAllRelics().filter((relic) => categorySet.has(relic.category));
+  if (pool.length === 0) {
+    pool = getAllRelics().filter((relic) => relic.category === '基础');
+  }
+  return [...pool];
+});
+const muxinlanFavor = computed<number>(() => {
+  const roles = (gameStore.statData.角色 ?? {}) as Record<string, any>;
+  const raw = Number(roles?.['沐芯兰']?.['好感度'] ?? 0);
+  const safe = Number.isFinite(raw) ? raw : 0;
+  return Math.max(-1000, Math.min(1000, safe));
+});
+const muxinlanFavorDisplay = computed(() => Math.max(0, muxinlanFavor.value));
+const shopDiscountRate = computed(() => Math.max(0, Math.min(1000, muxinlanFavor.value)) * 0.0002);
+const shopDiscountPercentText = computed(() => `${(shopDiscountRate.value * 100).toFixed(2)}%`);
+const shopRobBtnOpacity = computed(() => {
+  const revealed = Math.min(5, shopRobClickCount.value);
+  return (0.32 + revealed * 0.13).toFixed(2);
+});
+const canEditMagicBooks = computed(() => (
+  ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝'
+));
+const magicBookSidebarIcon = computed(() => (canEditMagicBooks.value ? Book : Lock));
 const isUpdatingMagicBooks = ref(false);
-const getMagicBookCardCount = (bookName: string) => magicBookCardCountMap.value[bookName] ?? 0;
+const openMagicBookModal = () => {
+  if (!canEditMagicBooks.value) return;
+  activeModal.value = 'magicBooks';
+};
 const toggleMagicBook = async (bookName: string) => {
   if (isUpdatingMagicBooks.value) return;
   const current = rawCarriedMagicBooks.value;
@@ -1207,6 +1443,18 @@ const relicEntries = computed(() => {
 });
 
 type RelicEntryView = (typeof relicEntries.value)[number];
+const chestRewardEntry = computed<RelicEntryView | null>(() => {
+  const relic = chestRewardRelic.value;
+  if (!relic) return null;
+  return {
+    name: relic.name,
+    count: 1,
+    rarity: relic.rarity,
+    category: relic.category,
+    effect: relic.effect,
+    description: relic.description ?? relic.effect ?? '',
+  };
+});
 
 const clearRelicTooltipTimers = () => {
   if (relicTooltipLongPressTimer) {
@@ -1269,6 +1517,16 @@ const handleRelicTouchEnd = () => {
   }
 };
 
+const showChestRewardTooltip = (event: MouseEvent | FocusEvent) => {
+  if (!chestRewardEntry.value) return;
+  showRelicTooltip(event, chestRewardEntry.value);
+};
+
+const handleChestRewardTouchStart = (event: TouchEvent) => {
+  if (!chestRewardEntry.value) return;
+  handleRelicTouchStart(event, chestRewardEntry.value);
+};
+
 const combatRelicMap = computed<Record<string, number>>(() => {
   const raw: Record<string, number> = gameStore.statData._圣遗物 ?? {};
   const normalized: Record<string, number> = {};
@@ -1286,6 +1544,11 @@ watch(activeModal, (modal) => {
   }
   if (modal !== 'relics') {
     hideRelicTooltip();
+  }
+});
+watch(canEditMagicBooks, (editable) => {
+  if (!editable && activeModal.value === 'magicBooks') {
+    activeModal.value = null;
   }
 });
 
@@ -1372,13 +1635,320 @@ const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
 // E option: no button for 事件房 / 陷阱房
 const specialOptionConfig = computed<RoomConfig | null>(() => {
   if (!gameStore.hasOptionE) return null;
+  if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
+  if (isShopContext.value) return ROOM_TYPE_CONFIG['商店房'];
   const roomType = gameStore.statData._当前房间类型 as string;
   if (!roomType) return null;
   if (roomType === '事件房' || roomType === '陷阱房') return null;
   return ROOM_TYPE_CONFIG[roomType] ?? null;
 });
 
+const isTreasureRoomContext = computed(() => {
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  const area = ((gameStore.statData._当前区域 as string) || '').trim();
+  return roomType === '宝箱房' || area === '宝箱' || area === '宝箱房';
+});
+const isShopContext = computed(() => {
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  const area = ((gameStore.statData._当前区域 as string) || '').trim();
+  return roomType === '商店房' || area === '商店';
+});
+
+const getRarityBasePrice = (rarity: RelicData['rarity']) => {
+  if (rarity === '传奇') return 15;
+  if (rarity === '稀有') return 10;
+  return 5;
+};
+
+const formatRarityLabel = (rarity: RelicData['rarity']) => (rarity === '传奇' ? '传说' : rarity);
+
+const rollShopRarity = (): RelicData['rarity'] => {
+  const r = Math.random();
+  if (r < 0.8) return '普通';
+  if (r < 0.95) return '稀有';
+  return '传奇';
+};
+
+const toRelicTooltipEntry = (relic: RelicData): RelicEntryView => ({
+  name: relic.name,
+  count: 1,
+  rarity: relic.rarity,
+  category: relic.category,
+  effect: relic.effect,
+  description: relic.description ?? relic.effect ?? '',
+});
+
+const showShopProductTooltip = (event: MouseEvent | FocusEvent, item: ShopProduct) => {
+  showRelicTooltip(event, toRelicTooltipEntry(item.relic));
+};
+
+const handleShopProductTouchStart = (event: TouchEvent, item: ShopProduct) => {
+  handleRelicTouchStart(event, toRelicTooltipEntry(item.relic));
+};
+
+const generateShopProducts = () => {
+  const pool = [...selectableRelicPool.value];
+  const favorForCount = Math.max(0, muxinlanFavor.value);
+  const targetCount = Math.max(0, 3 + Math.floor(favorForCount / 200));
+  const count = Math.min(targetCount, pool.length);
+  const usedNames = new Set<string>();
+  const discountRate = shopDiscountRate.value;
+  const next: ShopProduct[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const targetRarity = rollShopRarity();
+    let candidates = pool.filter((relic) => !usedNames.has(relic.name) && relic.rarity === targetRarity);
+    if (candidates.length === 0) {
+      candidates = pool.filter((relic) => !usedNames.has(relic.name));
+    }
+    if (candidates.length === 0) break;
+    const relic = pickOne(candidates);
+    if (!relic) break;
+    usedNames.add(relic.name);
+
+    const basePrice = getRarityBasePrice(relic.rarity);
+    const finalPrice = Math.max(1, Math.ceil(basePrice * (1 - discountRate)));
+    next.push({
+      key: `${relic.id}-${i}`,
+      relic,
+      basePrice,
+      finalPrice,
+      sold: false,
+    });
+  }
+
+  shopProducts.value = next;
+};
+
+const openShopView = () => {
+  hideRelicTooltip();
+  clearShopRobTimer();
+  shopBuying.value = false;
+  shopSpentGold.value = 0;
+  shopPurchasedItems.value = [];
+  shopRobClickCount.value = 0;
+  shopRobbing.value = false;
+  generateShopProducts();
+  showShopView.value = true;
+};
+
+const closeShopView = () => {
+  hideRelicTooltip();
+  clearShopRobTimer();
+  shopBuying.value = false;
+  shopRobbing.value = false;
+  showShopView.value = false;
+};
+
+const buildNextRelicInventory = (pickedRelic: RelicData): Record<string, number> => {
+  const rawRelics = gameStore.statData._圣遗物 ?? {};
+  const nextRelics: Record<string, number> = {};
+  for (const [name, value] of Object.entries(rawRelics as Record<string, number>)) {
+    const count = Math.max(0, Math.floor(Number(value ?? 0)));
+    if (!name || count <= 0) continue;
+    nextRelics[name] = count;
+  }
+  nextRelics[pickedRelic.name] = (nextRelics[pickedRelic.name] ?? 0) + 1;
+  return nextRelics;
+};
+
+const buyShopProduct = async (item: ShopProduct) => {
+  if (shopBuying.value || item.sold) return;
+  const currentGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+  if (currentGold < item.finalPrice) {
+    return;
+  }
+
+  shopBuying.value = true;
+  const nextGold = currentGold - item.finalPrice;
+  const nextRelics = buildNextRelicInventory(item.relic);
+  const ok = await gameStore.updateStatDataFields({
+    _金币: nextGold,
+    _圣遗物: nextRelics,
+  });
+  shopBuying.value = false;
+  if (!ok) return;
+
+  item.sold = true;
+  shopSpentGold.value += item.finalPrice;
+  shopPurchasedItems.value.push({
+    name: item.relic.name,
+    rarity: formatRarityLabel(item.relic.rarity),
+    price: item.finalPrice,
+  });
+  hideRelicTooltip();
+};
+
+const exitShop = () => {
+  if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
+  const purchased = [...shopPurchasedItems.value];
+  const total = shopSpentGold.value;
+  closeShopView();
+  if (purchased.length === 0) return;
+  const purchasedText = purchased.map((item) => `${item.name}（${item.rarity}）`).join('，');
+  gameStore.sendAction(`<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`);
+};
+
+const handleShopRobClick = async () => {
+  if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
+  if (shopRobClickCount.value < 5) {
+    shopRobClickCount.value += 1;
+    return;
+  }
+
+  shopRobbing.value = true;
+  const ok = await gameStore.updateStatDataFields({ _对手名称: '沐芯兰' });
+  if (!ok) {
+    shopRobbing.value = false;
+    return;
+  }
+
+  clearShopRobTimer();
+  shopRobTimer = setTimeout(() => {
+    closeShopView();
+    combatEnemyName.value = '沐芯兰';
+    showCombat.value = true;
+    shopRobTimer = null;
+  }, 1000);
+};
+
+const clearShopRobTimer = () => {
+  if (!shopRobTimer) return;
+  clearTimeout(shopRobTimer);
+  shopRobTimer = null;
+};
+
+const clearChestMimicTimer = () => {
+  if (!chestMimicTimer) return;
+  clearTimeout(chestMimicTimer);
+  chestMimicTimer = null;
+};
+
+const clearChestRewardFadeTimer = () => {
+  if (!chestRewardFadeTimer) return;
+  clearTimeout(chestRewardFadeTimer);
+  chestRewardFadeTimer = null;
+};
+
+const handleChestBgLoaded = () => {
+  if (!showChestView.value) return;
+  if (chestStage.value !== 'opened') return;
+  if (chestBackgroundUrl.value !== CHEST_BG_OPENED) return;
+  chestOpenedBgReady.value = true;
+  if (chestRewardRelic.value && !chestRewardCollected.value) {
+    chestRewardVisible.value = true;
+  }
+};
+
+const openChestView = () => {
+  clearChestMimicTimer();
+  clearChestRewardFadeTimer();
+  chestStage.value = 'closed';
+  chestRolling.value = false;
+  chestRewardRelic.value = null;
+  chestRewardCollected.value = false;
+  chestCollecting.value = false;
+  chestRewardVisible.value = false;
+  chestOpenedBgReady.value = false;
+  chestPortalChoices.value = [];
+  showChestView.value = true;
+};
+
+const closeChestView = () => {
+  clearChestMimicTimer();
+  clearChestRewardFadeTimer();
+  hideRelicTooltip();
+  showChestView.value = false;
+  chestRolling.value = false;
+  chestRewardVisible.value = false;
+  chestOpenedBgReady.value = false;
+};
+
+const pickChestRewardRelic = (): RelicData | null => {
+  const candidatePool = [...selectableRelicPool.value];
+  if (candidatePool.length === 0) return null;
+
+  const rarityRoll = Math.random();
+  const targetRarity = rarityRoll < 0.6 ? '普通' : rarityRoll < 0.9 ? '稀有' : '传奇';
+  let rarityPool = candidatePool.filter((relic) => relic.rarity === targetRarity);
+  if (rarityPool.length === 0) {
+    rarityPool = candidatePool;
+  }
+  return pickOne(rarityPool);
+};
+
+const grantRelicToPlayer = async (relic: RelicData): Promise<boolean> => {
+  const rawRelics = gameStore.statData._圣遗物 ?? {};
+  const nextRelics: Record<string, number> = {};
+  for (const [name, value] of Object.entries(rawRelics as Record<string, number>)) {
+    const count = Math.max(0, Math.floor(Number(value ?? 0)));
+    if (!name || count <= 0) continue;
+    nextRelics[name] = count;
+  }
+  nextRelics[relic.name] = (nextRelics[relic.name] ?? 0) + 1;
+  return gameStore.updateStatDataFields({ _圣遗物: nextRelics });
+};
+
+const collectChestReward = async () => {
+  if (!chestRewardRelic.value || chestRewardCollected.value || chestCollecting.value) return;
+  chestCollecting.value = true;
+  const ok = await grantRelicToPlayer(chestRewardRelic.value);
+  chestCollecting.value = false;
+  if (!ok) return;
+  chestRewardCollected.value = true;
+  clearChestRewardFadeTimer();
+  chestRewardFadeTimer = setTimeout(() => {
+    chestRewardVisible.value = false;
+    hideRelicTooltip();
+    chestRewardFadeTimer = null;
+  }, 260);
+};
+
+const handleChestCenterClick = async () => {
+  if (chestRolling.value || chestStage.value !== 'closed') return;
+  chestRolling.value = true;
+  const openSuccess = Math.random() < 0.9;
+
+  if (openSuccess) {
+    chestStage.value = 'opened';
+    chestOpenedBgReady.value = false;
+    chestRewardVisible.value = false;
+    const reward = pickChestRewardRelic();
+    if (!reward) {
+      chestRolling.value = false;
+      return;
+    }
+    chestRewardRelic.value = reward;
+    chestRewardCollected.value = false;
+    chestCollecting.value = false;
+    chestPortalChoices.value = generateChestLeavePortals();
+    if (chestOpenedBgReady.value) {
+      chestRewardVisible.value = true;
+    }
+    chestRolling.value = false;
+    return;
+  }
+
+  chestStage.value = 'mimic';
+  await gameStore.updateStatDataFields({ _对手名称: '宝箱怪' });
+  clearChestMimicTimer();
+  chestMimicTimer = setTimeout(() => {
+    showChestView.value = false;
+    combatEnemyName.value = '宝箱怪';
+    showCombat.value = true;
+    chestMimicTimer = null;
+  }, 1000);
+};
+
 const handleSpecialOption = () => {
+  if (isTreasureRoomContext.value) {
+    openChestView();
+    return;
+  }
+  if (isShopContext.value) {
+    openShopView();
+    return;
+  }
   toastr.info('功能开发中...');
 };
 
@@ -1620,9 +2190,12 @@ const ROOM_STAT_KEY: Record<string, string> = {
   '温泉房': '累计经过温泉', '神像房': '累计经过神像', '事件房': '累计经过事件', '陷阱房': '累计经过陷阱',
 };
 
-const handlePortalClick = async (portal: PortalChoice) => {
-  if (gameStore.isGenerating) return;
+interface QueuedPortalAction {
+  actionText: string;
+  enterText: string;
+}
 
+const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   if (portal.isFloorTransition) {
     // 记录待应用变量：进入新区域，首个房间为宝箱房，重置房间计数
     gameStore.setPendingPortalChanges({
@@ -1634,29 +2207,65 @@ const handlePortalClick = async (portal: PortalChoice) => {
       enemyName: '',
     });
     console.info(`[Portal] Floor transition queued → area: ${portal.areaName}, first room: 宝箱房`);
-    gameStore.sendAction(`<user>选择了继续前进，进入了${portal.areaName}的宝箱房`);
-  } else {
-    // 记录待应用变量：进入新房间，更新统计
-    const incrementKeys = ['当前层已过房间', '累计已过房间'];
-    const statKey = ROOM_STAT_KEY[portal.roomType];
-    if (statKey) incrementKeys.push(statKey);
-    const currentArea = (gameStore.statData._当前区域 as string) || '';
-    const encounterMonster = portal.roomType === '战斗房'
-      ? pickBattleMonsterByArea(currentArea)
-      : null;
-
-    gameStore.setPendingPortalChanges({
-      roomType: portal.roomType,
-      incrementKeys,
-      enemyName: encounterMonster ?? '',
-    });
-    console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
-    if (portal.roomType === '战斗房' && encounterMonster) {
-      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}并遭遇了${encounterMonster}`);
-    } else {
-      gameStore.sendAction(`<user>选择了继续前进，进入了${portal.roomType}的房间`);
-    }
+    const enterText = `进入了${portal.areaName}的宝箱房`;
+    return {
+      enterText,
+      actionText: `<user>选择了继续前进，${enterText}`,
+    };
   }
+
+  // 记录待应用变量：进入新房间，更新统计
+  const incrementKeys = ['当前层已过房间', '累计已过房间'];
+  const statKey = ROOM_STAT_KEY[portal.roomType];
+  if (statKey) incrementKeys.push(statKey);
+  const currentArea = (gameStore.statData._当前区域 as string) || '';
+  const encounterMonster = portal.roomType === '战斗房'
+    ? pickBattleMonsterByArea(currentArea)
+    : null;
+
+  gameStore.setPendingPortalChanges({
+    roomType: portal.roomType,
+    incrementKeys,
+    enemyName: encounterMonster ?? '',
+  });
+  console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
+
+  const enterText = portal.roomType === '战斗房' && encounterMonster
+    ? `进入了${portal.roomType}并遭遇了${encounterMonster}`
+    : `进入了${portal.roomType}的房间`;
+
+  return {
+    enterText,
+    actionText: `<user>选择了继续前进，${enterText}`,
+  };
+};
+
+function generateChestLeavePortals(): PortalChoice[] {
+  const generated = generatePortals();
+  if (generated.length > 0) return generated;
+
+  const roll = Math.random();
+  const count = roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3;
+  const picked = shuffle(PORTAL_ROOM_TYPES).slice(0, count);
+  return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
+}
+
+const handlePortalClick = async (portal: PortalChoice) => {
+  if (gameStore.isGenerating) return;
+  const { actionText } = buildQueuedPortalAction(portal);
+  gameStore.sendAction(actionText);
+};
+
+const handleChestPortalClick = async (portal: PortalChoice) => {
+  if (gameStore.isGenerating || chestCollecting.value || chestStage.value !== 'opened') return;
+  const { actionText, enterText } = buildQueuedPortalAction(portal);
+  const relicName = chestRewardCollected.value ? chestRewardRelic.value?.name : '';
+  closeChestView();
+  if (relicName) {
+    gameStore.sendAction(`<user>打开了箱子并从中获取了圣遗物${relicName}，随后${enterText}`);
+    return;
+  }
+  gameStore.sendAction(actionText);
 };
 
 
@@ -1784,9 +2393,36 @@ const handleCombatEnd = (win: boolean) => {
   combatTestStartAt999CurrentBattle.value = false;
   console.log('[Combat] Result:', win ? 'WIN' : 'LOSE');
 };
+
+onBeforeUnmount(() => {
+  clearShopRobTimer();
+  clearChestMimicTimer();
+  clearChestRewardFadeTimer();
+});
 </script>
 
 <style scoped>
+@font-face {
+  font-family: 'MaShanZheng';
+  src: url('../font/MaShanZheng-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MagicBookTitle';
+  src: url('../font/平方赖江湖琅琊体.ttf') format('truetype');
+  font-display: swap;
+}
+
+.magic-book-title {
+  font-family: 'MaShanZheng', 'KaiTi', serif;
+  color: rgba(253, 230, 138, 0.95);
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.9),
+    0 0 10px rgba(212, 175, 55, 0.35);
+}
+
 .status-slide-enter-active,
 .status-slide-leave-active {
   transition: all 0.3s ease;
@@ -1842,24 +2478,233 @@ const handleCombatEnd = (win: boolean) => {
   line-height: 1.2;
 }
 
-.relic-tooltip-meta {
-  margin-top: 0.25rem;
-  color: rgba(250, 204, 21, 0.9);
-  font-size: 10px;
-  line-height: 1.2;
-}
-
-.relic-tooltip-effect {
-  margin-top: 0.35rem;
-  color: rgba(229, 231, 235, 0.95);
-  font-size: 10px;
-  line-height: 1.35;
-}
-
 .relic-tooltip-desc {
   margin-top: 0.28rem;
   color: rgba(209, 213, 219, 0.9);
   font-size: 10px;
   line-height: 1.35;
+}
+
+.chest-reward-anchor {
+  position: absolute;
+  left: 51%;
+  top: 56.5%;
+  transform: translate(-50%, -50%);
+}
+
+.chest-portals-anchor {
+  position: absolute;
+  left: 50%;
+  bottom: 1.75rem;
+  transform: translateX(-50%);
+}
+
+.chest-reward-icon {
+  width: 6.5rem;
+  height: 6.5rem;
+  color: rgba(252, 211, 77, 0.98);
+  transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+  filter:
+    drop-shadow(0 0 14px rgba(251, 191, 36, 0.8))
+    drop-shadow(0 0 28px rgba(245, 158, 11, 0.55))
+    drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
+}
+
+.chest-reward-btn {
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  padding: 0.25rem;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.chest-reward-btn:hover .chest-reward-icon {
+  transform: scale(1.05);
+}
+
+.chest-reward-btn.is-collected {
+  opacity: 1;
+}
+
+.chest-reward-btn.is-collected .chest-reward-icon {
+  opacity: 0;
+  transform: scale(0.82);
+  filter:
+    drop-shadow(0 0 8px rgba(251, 191, 36, 0.45))
+    drop-shadow(0 0 16px rgba(245, 158, 11, 0.25))
+    drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+}
+
+.shop-panel {
+  border: 1px solid rgba(217, 119, 6, 0.4);
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(145deg, rgba(23, 14, 8, 0.92), rgba(35, 21, 11, 0.9)),
+    radial-gradient(circle at 70% 10%, rgba(180, 83, 9, 0.2), transparent 52%);
+  box-shadow:
+    0 0 28px rgba(180, 83, 9, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  padding: 1.1rem 1.2rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.shop-layout {
+  left: 30%;
+}
+
+.shop-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  padding-bottom: 0.55rem;
+}
+
+.shop-goods-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 1rem;
+  row-gap: 1.28rem;
+  margin-top: 1.44rem;
+  padding-right: 0.15rem;
+  align-content: start;
+}
+
+.shop-item-card {
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  width: 100%;
+  min-height: 132px;
+  padding: 0.28rem 0.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  transition: transform 0.2s ease, opacity 0.25s ease, filter 0.2s ease;
+}
+
+.shop-item-card:hover {
+  transform: translateY(-1px) scale(1.02);
+  filter: brightness(1.04);
+}
+
+.shop-item-card.is-sold {
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.shop-item-icon-wrap {
+  margin-top: 0;
+}
+
+.shop-item-icon {
+  width: 3.4rem;
+  height: 3.4rem;
+  color: rgba(251, 191, 36, 0.98);
+  filter: drop-shadow(0 0 11px rgba(245, 158, 11, 0.65));
+}
+
+.shop-item-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  border-radius: 9999px;
+  padding: 0.14rem 0.5rem;
+  color: rgba(255, 237, 213, 0.96);
+  background: rgba(38, 22, 11, 0.82);
+  font-size: 10px;
+}
+
+.shop-panel-foot {
+  margin-top: 0.35rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shop-rob-btn {
+  border-radius: 9999px;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  background:
+    radial-gradient(circle at 22% 20%, rgba(255, 237, 213, 0.16), transparent 45%),
+    linear-gradient(120deg, rgba(41, 24, 12, 0.8), rgba(92, 47, 14, 0.75) 50%, rgba(34, 19, 9, 0.82));
+  box-shadow:
+    0 0 10px rgba(245, 158, 11, 0.25),
+    inset 0 1px 0 rgba(255, 237, 213, 0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.shop-rob-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 14px rgba(245, 158, 11, 0.42),
+    inset 0 1px 0 rgba(255, 237, 213, 0.2);
+}
+
+.shop-rob-btn:disabled {
+  cursor: not-allowed;
+}
+
+.shop-exit-btn {
+  border-radius: 9999px;
+  border: 1px solid rgba(251, 191, 36, 0.72);
+  background:
+    radial-gradient(circle at 22% 20%, rgba(255, 237, 213, 0.22), transparent 45%),
+    linear-gradient(120deg, rgba(41, 24, 12, 0.94), rgba(92, 47, 14, 0.92) 50%, rgba(34, 19, 9, 0.95));
+  box-shadow:
+    0 0 14px rgba(245, 158, 11, 0.45),
+    0 0 30px rgba(180, 83, 9, 0.35),
+    inset 0 1px 0 rgba(255, 237, 213, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.shop-exit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(251, 191, 36, 0.62),
+    0 0 36px rgba(217, 119, 6, 0.42),
+    inset 0 1px 0 rgba(255, 237, 213, 0.24);
+}
+
+.shop-exit-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .shop-layout {
+    left: 2%;
+    right: 2%;
+  }
+
+  .shop-panel {
+    height: 82vh;
+    max-height: none;
+    padding: 0.9rem;
+  }
+
+  .shop-goods-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 0.7rem;
+    row-gap: 0.95rem;
+    margin-top: 1.2rem;
+  }
+
+  .chest-reward-anchor {
+    left: 46%;
+    top: 57.5%;
+  }
+
+  .chest-portals-anchor {
+    bottom: 1.1rem;
+  }
 }
 </style>
