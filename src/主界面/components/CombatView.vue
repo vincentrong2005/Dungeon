@@ -1,7 +1,8 @@
-<template>
+﻿<template>
   <div
+    ref="combatRootEl"
     class="combat-root w-full h-full bg-[#1a1a22] text-dungeon-paper font-ui relative overflow-hidden select-none"
-    :class="screenShake ? 'animate-shake' : ''"
+    :class="[screenShake ? 'animate-shake' : '', impactShake ? 'animate-impact-shake' : '']"
     :style="combatRootStyle"
   >
     <!-- Background -->
@@ -25,7 +26,7 @@
     ></div>
 
     <!-- Top Left: Settings -->
-    <div class="absolute top-4 left-4 z-50 pointer-events-auto flex flex-col gap-2">
+    <div class="absolute top-4 left-4 z-50 pointer-events-auto flex flex-col gap-2 scale-[1.1] origin-top-left">
       <button
         class="w-10 h-10 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
         @click="settingsOpen = !settingsOpen"
@@ -51,15 +52,23 @@
         v-if="settingsOpen"
         class="mt-1 w-52 bg-[#1a1520]/95 border border-white/10 rounded-xl p-3 text-xs text-dungeon-paper shadow-xl backdrop-blur-md"
       >
-        <label class="flex items-center gap-2 cursor-pointer select-none">
-          <input v-model="battleSpeedUp" type="checkbox" class="accent-dungeon-gold" />
-          <span>战斗加速（2x）</span>
-        </label>
+        <div class="flex flex-col gap-3">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input v-model="battleSpeedUp" type="checkbox" class="accent-dungeon-gold" />
+            <span>战斗加速（2x）</span>
+          </label>
+          <button
+            class="h-8 rounded-lg border border-white/20 bg-[#252030]/80 px-2 text-xs text-dungeon-gold hover:border-dungeon-gold/60 hover:bg-[#352a40] transition-colors"
+            @click="toggleFullScreen"
+          >
+            切换全屏
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- Top Center: Turn Counter -->
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none scale-[1.1] origin-top">
       <div class="flex flex-col items-center">
         <span class="text-xs text-white/60 tracking-widest">回合</span>
         <span class="text-lg font-heading font-bold text-white/90">{{ combatState.turn }}</span>
@@ -69,31 +78,55 @@
     <!-- Battlefield Layer -->
     <div class="absolute inset-0 z-10 pointer-events-none">
       <!-- Enemy Position: Top Right -->
-      <div class="absolute top-[3%] right-[2%] md:top-[5%] md:right-[3%] w-96 h-[32rem] flex flex-col items-center justify-end group transition-transform duration-1000">
+      <div class="absolute top-[3%] right-[2%] md:top-[5%] md:right-[3%] w-96 h-[32rem] flex flex-col items-center justify-end group transition-transform duration-1000 scale-[1.1] origin-top-right">
         <!-- Enemy Intent Card -->
         <div
-          v-if="combatState.enemyIntentCard"
+          v-if="showEnemyIntentCard && combatState.enemyIntentCard"
           class="absolute -left-48 top-8"
         >
           <div class="relative">
             <div class="absolute -top-5 left-0 text-amber-200/80 text-[10px] px-2 py-0.5 rounded">
               敌方意图
             </div>
-            <div class="rotate-[-3deg] scale-90 shadow-[0_0_20px_rgba(200,120,0,0.15)]">
-              <DungeonCard :card="combatState.enemyIntentCard" is-enemy disabled />
+            <div class="rotate-[-3deg] shadow-[0_0_20px_rgba(200,120,0,0.15)]">
+              <DungeonCard :card="combatState.enemyIntentCard!" is-enemy disabled />
             </div>
           </div>
         </div>
 
         <!-- Enemy Dice -->
-        <div v-if="!showClashAnimation" class="absolute -left-24 bottom-20 z-20 animate-float">
-          <DungeonDice :value="displayEnemyDice" :rolling="isRolling" color="red" size="md" />
+        <div
+          v-if="!showClashAnimation"
+          class="absolute -left-24 bottom-20 z-20 animate-float pointer-events-auto"
+          @mouseenter="handleEnemyDiceHoverStart"
+          @mouseleave="handleEnemyDiceHoverEnd"
+          @touchstart.passive="handleEnemyDiceTouchStart"
+          @touchend="handleEnemyDiceTouchEnd"
+          @touchcancel="handleEnemyDiceTouchEnd"
+        >
+          <DungeonDice
+            :value="displayEnemyDice"
+            :rolling="isRolling"
+            :rolling-min="enemyStats.minDice"
+            :rolling-max="enemyStats.maxDice"
+            :number-class="enemyDicePreviewChanged ? 'text-[#b08a2e]' : ''"
+            color="red"
+            size="md"
+          />
+          <div
+            v-if="enemyDicePreviewChanged"
+            class="absolute left-1/2 top-[4.6rem] -translate-x-1/2 rounded-md border border-white/15 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap pointer-events-none"
+          >
+            <span class="text-white/70">原始 {{ combatState.enemyBaseDice }}</span>
+            <span class="mx-1 text-white/45">→</span>
+            <span class="font-bold text-[#b08a2e]">最终 {{ displayEnemyDice }}</span>
+          </div>
         </div>
 
         <!-- Enemy Portrait -->
         <div class="relative w-full h-full">
           <div
-            class="absolute bottom-4 left-1/2 -translate-x-1/2 w-64 h-80 flex items-end justify-center overflow-hidden"
+            class="absolute bottom-0 left-1/2 -translate-x-1/2 scale-[1.2] origin-bottom w-64 h-80 flex items-end justify-center overflow-hidden"
           >
             <!-- Placeholder icon (shown when portrait fails to load) -->
             <Skull v-if="enemyPortraitError" class="w-48 h-48 text-red-900/20 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
@@ -109,7 +142,7 @@
         </div>
 
         <!-- Enemy Status Bar -->
-        <div class="relative overflow-visible mt-3 w-72 bg-[#18141e]/90 border border-white/8 p-3 rounded-xl shadow-lg backdrop-blur-sm z-10">
+        <div class="relative overflow-visible mt-3 w-72 scale-[1.2] origin-top bg-[#18141e]/90 border border-white/8 p-3 rounded-xl shadow-lg backdrop-blur-sm z-10 pointer-events-auto">
           <div class="flex justify-between text-sm text-white/90 font-bold mb-1.5">
             <span>{{ enemyDisplayName }}</span>
           </div>
@@ -130,14 +163,38 @@
           </div>
           <!-- Armor Shield -->
           <div v-if="enemyArmor > 0 || enemyPoisonAmount > 0" class="flex items-center gap-3 mb-1">
-            <div v-if="enemyArmor > 0" class="flex items-center gap-1">
+            <button
+              v-if="enemyArmor > 0"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`护甲: ${enemyArmor}. ${getEffectDescription(ET.ARMOR)}`"
+              @mouseenter="showEffectTooltip($event, createStatusEffectPreview(ET.ARMOR, enemyArmor))"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, createStatusEffectPreview(ET.ARMOR, enemyArmor))"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, createStatusEffectPreview(ET.ARMOR, enemyArmor))"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
               <span class="text-[10px] text-yellow-400">🛡️</span>
               <span class="text-[10px] text-yellow-300 font-bold">{{ enemyArmor }}</span>
-            </div>
-            <div v-if="enemyPoisonAmount > 0" class="flex items-center gap-1">
+            </button>
+            <button
+              v-if="enemyPoisonAmount > 0"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`中毒量: ${enemyPoisonAmount}. ${getEffectDescription(ET.POISON_AMOUNT)}`"
+              @mouseenter="showEffectTooltip($event, createStatusEffectPreview(ET.POISON_AMOUNT, enemyPoisonAmount))"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, createStatusEffectPreview(ET.POISON_AMOUNT, enemyPoisonAmount))"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, createStatusEffectPreview(ET.POISON_AMOUNT, enemyPoisonAmount))"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
               <span class="text-[10px] text-green-400">☠</span>
               <span class="text-[10px] text-green-300 font-bold">{{ enemyPoisonAmount }}</span>
-            </div>
+            </button>
           </div>
           <!-- HP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
@@ -171,32 +228,70 @@
             <span class="text-[10px] text-red-300">{{ enemyStats.minDice }} ~ {{ enemyStats.maxDice }}</span>
           </div>
           <!-- Buffs/Debuffs -->
-          <div v-if="enemyVisibleEffects.length > 0" class="flex flex-wrap gap-1 mt-1">
-            <span
+          <div v-if="enemyVisibleEffects.length > 0" class="flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto">
+            <button
               v-for="(eff, i) in enemyVisibleEffects"
-              :key="i"
-              class="text-[9px] px-1.5 py-0.5 rounded-full border font-bold"
-              :class="effectPillClass(eff.polarity)"
-              :title="getEffectDescription(eff.type)"
+              :key="`enemy-${eff.type}-${i}`"
+              type="button"
+              class="effect-icon-btn"
+              :class="effectIconBoxClass(eff.polarity)"
+              :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
+              @mouseenter="showEffectTooltip($event, eff)"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, eff)"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, eff)"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
             >
-              {{ getEffectName(eff.type) }}
-              <template v-if="eff.stacks > 1">x{{ eff.stacks }}</template>
-            </span>
+              <component :is="getEffectIconComponent(eff.type)" class="size-3.5" />
+              <span v-if="eff.stacks > 1" class="effect-stack-badge">{{ eff.stacks }}</span>
+            </button>
           </div>
         </div>
       </div>
 
       <!-- Player Position: Bottom Left -->
-      <div class="absolute bottom-[18%] left-[3%] md:bottom-[22%] md:left-[6%] w-64 h-80 flex flex-col items-center justify-end z-20 translate-y-28 md:translate-y-32">
+      <div class="absolute bottom-[18%] left-[3%] md:bottom-[22%] md:left-[6%] w-64 h-80 flex flex-col items-center justify-end z-20 translate-y-28 md:translate-y-32 scale-[1.1] origin-bottom-left">
         <!-- Player Dice -->
-        <div v-if="!showClashAnimation" class="absolute -top-24 left-[140%] -translate-x-1/2 z-20 animate-float" style="animation-delay: 1s">
-          <DungeonDice :value="displayPlayerDice" :rolling="isRolling" color="gold" size="md" />
+        <div
+          v-if="!showClashAnimation"
+          class="absolute -top-[1rem] left-[140%] -translate-x-1/2 z-20 animate-float pointer-events-auto"
+          :class="canPlayerRerollDice ? 'cursor-pointer' : 'cursor-default'"
+          :title="playerDiceRerollHint"
+          style="animation-delay: 1s"
+          @click="handlePlayerDiceClick"
+        >
+          <DungeonDice
+            :value="displayPlayerDice"
+            :rolling="isRolling"
+            :rolling-min="playerStats.minDice"
+            :rolling-max="playerStats.maxDice"
+            :number-class="playerDicePreviewChanged ? 'text-red-800' : ''"
+            color="gold"
+            size="md"
+          />
+          <div
+            v-if="playerDicePreviewChanged"
+            class="absolute left-1/2 top-[4.6rem] -translate-x-1/2 rounded-md border border-white/15 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap pointer-events-none"
+          >
+            <span class="text-white/70">原始 {{ combatState.playerBaseDice }}</span>
+            <span class="mx-1 text-white/45">→</span>
+            <span class="font-bold text-red-800">最终 {{ displayPlayerDice }}</span>
+          </div>
+          <div
+            v-if="playerDiceRerollCharges > 0"
+            class="absolute left-1/2 top-[5.9rem] -translate-x-1/2 rounded-md border border-amber-300/35 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap"
+            :class="canPlayerRerollDice ? 'text-amber-200' : 'text-amber-200/70'"
+          >
+            重掷次数：{{ playerDiceRerollCharges }}
+          </div>
         </div>
 
         <!-- Player Portrait -->
         <div class="relative w-full h-full">
           <div
-            class="absolute bottom-0 left-1/2 -translate-x-1/2 w-64 h-80 flex items-end justify-center overflow-hidden"
+            class="absolute bottom-4 left-1/2 -translate-x-1/2 scale-[1.2] origin-bottom w-64 h-80 flex items-end justify-center overflow-hidden"
           >
             <!-- Placeholder glow (shown when portrait fails to load) -->
             <div v-if="playerPortraitError" class="size-20 bg-dungeon-gold/15 blur-2xl rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
@@ -212,9 +307,9 @@
         </div>
 
         <!-- Player Status Bar -->
-        <div class="relative overflow-visible mt-2 w-60 bg-[#18141e]/90 border border-white/8 p-2.5 rounded-xl shadow-xl backdrop-blur-sm z-10">
+        <div class="relative overflow-visible mt-2 w-60 scale-[1.2] origin-bottom bg-[#18141e]/90 border border-white/8 p-2.5 rounded-xl shadow-xl backdrop-blur-sm z-10 pointer-events-auto">
           <div class="flex justify-between text-xs text-white/80 font-bold mb-1.5">
-            <span>冒险者</span>
+              <span>冒险者</span>
           </div>
           <div class="pointer-events-none absolute inset-0 z-30 overflow-visible">
             <div
@@ -233,14 +328,38 @@
           </div>
           <!-- Armor Shield -->
           <div v-if="playerArmor > 0 || playerPoisonAmount > 0" class="flex items-center gap-3 mb-1">
-            <div v-if="playerArmor > 0" class="flex items-center gap-1">
+            <button
+              v-if="playerArmor > 0"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`护甲: ${playerArmor}. ${getEffectDescription(ET.ARMOR)}`"
+              @mouseenter="showEffectTooltip($event, createStatusEffectPreview(ET.ARMOR, playerArmor), 'right')"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, createStatusEffectPreview(ET.ARMOR, playerArmor), 'right')"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, createStatusEffectPreview(ET.ARMOR, playerArmor), 'right')"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
               <span class="text-[10px] text-yellow-400">🛡️</span>
               <span class="text-[10px] text-yellow-300 font-bold">{{ playerArmor }}</span>
-            </div>
-            <div v-if="playerPoisonAmount > 0" class="flex items-center gap-1">
+            </button>
+            <button
+              v-if="playerPoisonAmount > 0"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`中毒量: ${playerPoisonAmount}. ${getEffectDescription(ET.POISON_AMOUNT)}`"
+              @mouseenter="showEffectTooltip($event, createStatusEffectPreview(ET.POISON_AMOUNT, playerPoisonAmount), 'right')"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, createStatusEffectPreview(ET.POISON_AMOUNT, playerPoisonAmount), 'right')"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, createStatusEffectPreview(ET.POISON_AMOUNT, playerPoisonAmount), 'right')"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
               <span class="text-[10px] text-green-400">☠</span>
               <span class="text-[10px] text-green-300 font-bold">{{ playerPoisonAmount }}</span>
-            </div>
+            </button>
           </div>
           <!-- HP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
@@ -274,18 +393,49 @@
             <span class="text-[10px] text-dungeon-gold">{{ playerStats.minDice }} ~ {{ playerStats.maxDice }}</span>
           </div>
           <!-- Buffs/Debuffs -->
-          <div v-if="playerVisibleEffects.length > 0" class="flex flex-wrap gap-1 mt-1">
-            <span
+          <div v-if="playerVisibleEffects.length > 0" class="flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto">
+            <button
               v-for="(eff, i) in playerVisibleEffects"
-              :key="i"
-              class="text-[9px] px-1.5 py-0.5 rounded-full border font-bold"
-              :class="effectPillClass(eff.polarity)"
-              :title="getEffectDescription(eff.type)"
+              :key="`player-${eff.type}-${i}`"
+              type="button"
+              class="effect-icon-btn"
+              :class="effectIconBoxClass(eff.polarity)"
+              :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
+              @mouseenter="showEffectTooltip($event, eff, 'right')"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, eff, 'right')"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, eff, 'right')"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
             >
-              {{ getEffectName(eff.type) }}
-              <template v-if="eff.stacks > 1">x{{ eff.stacks }}</template>
-            </span>
+              <component :is="getEffectIconComponent(eff.type)" class="size-3.5" />
+              <span v-if="eff.stacks > 1" class="effect-stack-badge">{{ eff.stacks }}</span>
+            </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card Animation Layer -->
+    <div class="absolute inset-0 z-[45] pointer-events-none overflow-hidden">
+      <div
+        v-if="playerPlayedCardVisual"
+        class="absolute player-played-card"
+        :style="playerPlayedCardStyle"
+      >
+        <div :class="playerPlayedCardVisual.entered ? 'player-played-card-bob' : ''">
+          <DungeonCard :card="playerPlayedCardVisual.card" disabled />
+        </div>
+      </div>
+
+      <div
+        v-if="resolvedCardVisual"
+        class="resolved-card-visual"
+        :class="resolvedCardVisual.source === 'player' ? 'resolved-card-visual--player' : 'resolved-card-visual--enemy'"
+      >
+        <div class="resolved-card-visual-inner" :class="resolvedCardVisualInnerClass">
+          <DungeonCard :card="resolvedCardVisual.card" disabled />
         </div>
       </div>
     </div>
@@ -305,6 +455,8 @@
             <DungeonDice
               :value="displayPlayerDice"
               :rolling="false"
+              :rolling-min="playerStats.minDice"
+              :rolling-max="playerStats.maxDice"
               color="gold"
               size="lg"
             />
@@ -319,6 +471,8 @@
             <DungeonDice
               :value="displayEnemyDice"
               :rolling="false"
+              :rolling-min="enemyStats.minDice"
+              :rolling-max="enemyStats.maxDice"
               color="red"
               size="lg"
             />
@@ -329,15 +483,15 @@
 
       <!-- Bottom Bar: Hand & Piles -->
       <div
-        class="pointer-events-auto min-h-[200px] w-full flex items-end justify-center pb-6 px-4 space-x-4 relative"
+        class="pointer-events-none min-h-[200px] w-full flex items-end justify-center pb-6 px-4 space-x-4 relative"
       >
         <!-- Center: Hand Cards -->
-        <div class="flex space-x-4 items-end mb-2 z-40">
+        <div class="flex space-x-4 items-end mb-2 z-40 scale-[1.1] origin-bottom pointer-events-auto">
           <div
             v-for="(card, idx) in combatState.playerHand"
             :key="handCardKey(card)"
             class="transition-all duration-500 origin-bottom"
-            :class="handCardClass(card)"
+            :class="[handCardClass(card), isCardShaking(card) ? 'invalid-card-shake' : '']"
             :style="transitionStyle(500)"
             @mouseenter="handlePlayerCardHoverStart(card)"
             @mouseleave="handlePlayerCardHoverEnd"
@@ -354,7 +508,7 @@
         </div>
 
         <!-- Right Corner: Skip + Deck/Discard -->
-        <div class="absolute right-6 bottom-6 flex flex-col items-end gap-2.5 z-50">
+        <div class="absolute right-6 bottom-6 flex flex-col items-end gap-2.5 z-50 scale-[1.1] origin-bottom-right pointer-events-auto">
           <button
             class="h-8 px-5 bg-[#252030]/90 border border-white/15 rounded-lg text-xs text-white/80 hover:border-amber-400 hover:text-amber-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT"
@@ -398,14 +552,14 @@
       </div>
 
       <!-- Log Feed Overlay: top-right, below parent "退出战斗" button -->
-      <div class="absolute right-0 top-14 z-40 pointer-events-auto select-none">
+      <div class="absolute right-0 top-14 z-40 pointer-events-auto select-none scale-[1.1] origin-top-right">
         <div class="flex items-start">
           <button
             class="h-7 px-2 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[10px] text-white/50 hover:text-white/80 transition-colors"
             :title="logsCollapsed ? '展开日志' : '折叠日志'"
             @click="logsCollapsed = !logsCollapsed"
           >
-            {{ logsCollapsed ? '日志 ◀' : '日志 ▶' }}
+            {{ logsCollapsed ? '日志 ▼' : '日志 ▲' }}
           </button>
           <div
             v-if="!logsCollapsed"
@@ -435,6 +589,16 @@
       >
         {{ battleResultBanner === 'win' ? '胜利' : '败北' }}
       </div>
+    </div>
+    <div
+      v-if="effectTooltip"
+      class="effect-tooltip absolute z-[72] pointer-events-none"
+      :class="effectTooltip.align === 'right' ? 'effect-tooltip--right text-right' : 'effect-tooltip--center'"
+      :style="{ left: `${effectTooltip.x}px`, top: `${effectTooltip.y}px` }"
+    >
+      <div class="effect-tooltip-name">{{ effectTooltip.name }}</div>
+      <div class="effect-tooltip-desc">{{ effectTooltip.description }}</div>
+      <div v-if="effectTooltip.stacks > 1" class="effect-tooltip-stacks">层数: {{ effectTooltip.stacks }}</div>
     </div>
 
     <!-- Deck/Discard Overlay -->
@@ -471,12 +635,50 @@
 </template>
 
 <script setup lang="ts">
-import { Box, Layers, Scroll, Settings2, Skull, Trash2, X as XIcon } from 'lucide-vue-next';
+import {
+  Ban,
+  Battery,
+  Bone,
+  Box,
+  Bug,
+  Droplet,
+  Flame,
+  Heart,
+  Layers,
+  Link2,
+  Scroll,
+  Settings2,
+  Shield,
+  ShieldCheck,
+  Skull,
+  Snowflake,
+  Sparkles,
+  Trash2,
+  TriangleAlert,
+  Waves,
+  X as XIcon,
+  Zap,
+} from 'lucide-vue-next';
 import { applyDamageToEntity, calculateFinalDamage, calculateFinalPoint, consumeColdAfterDealingDamage, triggerSwarmReviveIfNeeded } from '../battle/algorithms';
-import { EFFECT_REGISTRY, applyEffect, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
+import { EFFECT_REGISTRY, applyEffect, canPlayCard, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
+import {
+  resolveRelicMap,
+  type RelicAfterBurnDamageTakenHookContext,
+  type RelicApplyEffectOptions,
+  type RelicBeforeApplyEffectHookContext,
+  type RelicBurnDamageHookContext,
+  type RelicData,
+  type RelicDiceClickHookContext,
+  type RelicHitHookContext,
+  type RelicLifecycleHookContext,
+  type RelicPointHookContext,
+  type RelicSide,
+  type ResolvedRelicEntry,
+} from '../battle/relicRegistry';
+import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
-import { type CardData, type CombatState, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats, CardType, CombatPhase, EffectType as ET } from '../types';
+import { type CardData, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats, CardType, CombatPhase, EffectType as ET } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 
@@ -484,8 +686,10 @@ const props = withDefaults(defineProps<{
   initialPlayerStats: EntityStats;
   enemyName: string;
   playerDeck: CardData[];
+  playerRelics?: Record<string, number>;
   testStartAt999?: boolean;
 }>(), {
+  playerRelics: () => ({}),
   testStartAt999: false,
 });
 
@@ -527,7 +731,7 @@ function onBgError() {
   }
 }
 
-// AI flags — mutable state for enemy AI decisions (e.g. hasUsedHeal)
+// AI flags - mutable state for enemy AI decisions (e.g. hasUsedHeal)
 const aiFlags = reactive<Record<string, any>>({});
 
 // --- State ---
@@ -563,14 +767,43 @@ const getEffectName = (type: EffectType): string => {
 const getEffectDescription = (type: EffectType): string => {
   return EFFECT_REGISTRY[type]?.description ?? '';
 };
-const effectPillClass = (polarity: EffectPolarity): string => {
+const createStatusEffectPreview = (type: EffectType, stacks: number): EffectInstance => ({
+  type,
+  stacks: Math.max(1, Math.floor(stacks)),
+  polarity: EFFECT_REGISTRY[type]?.polarity ?? 'special',
+});
+const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
+  [ET.BARRIER]: ShieldCheck,
+  [ET.ARMOR]: Shield,
+  [ET.BIND]: Link2,
+  [ET.DEVOUR]: Skull,
+  [ET.POISON]: Bug,
+  [ET.POISON_AMOUNT]: Droplet,
+  [ET.BURN]: Flame,
+  [ET.BLEED]: Droplet,
+  [ET.VULNERABLE]: TriangleAlert,
+  [ET.REGEN]: Heart,
+  [ET.IGNITE_AURA]: Sparkles,
+  [ET.STUN]: Ban,
+  [ET.CHARGE]: Zap,
+  [ET.COLD]: Snowflake,
+  [ET.NON_LIVING]: Bone,
+  [ET.MANA_DRAIN]: Battery,
+  [ET.MANA_SPRING]: Waves,
+  [ET.SWARM]: Bug,
+  [ET.INDOMITABLE]: Heart,
+};
+const getEffectIconComponent = (type: EffectType) => {
+  return EFFECT_ICON_COMPONENTS[type] ?? Sparkles;
+};
+const effectIconBoxClass = (polarity: EffectPolarity): string => {
   switch (polarity) {
-    case 'buff':    return 'bg-green-900/60 border-green-500/40 text-green-300';
-    case 'debuff':  return 'bg-red-900/60 border-red-500/40 text-red-300';
-    case 'trait':   return 'bg-gray-800/60 border-gray-500/40 text-gray-300';
-    case 'mixed':   return 'bg-purple-900/60 border-purple-500/40 text-purple-300';
-    case 'special': return 'bg-yellow-900/60 border-yellow-500/40 text-yellow-300';
-    default:        return 'bg-gray-800/60 border-gray-500/40 text-gray-300';
+    case 'buff':    return 'bg-emerald-900/65 border-emerald-400/50 text-emerald-200';
+    case 'debuff':  return 'bg-red-900/65 border-red-400/55 text-red-200';
+    case 'trait':   return 'bg-slate-800/70 border-slate-400/45 text-slate-200';
+    case 'mixed':   return 'bg-indigo-900/70 border-indigo-400/55 text-indigo-200';
+    case 'special': return 'bg-amber-900/70 border-amber-400/55 text-amber-200';
+    default:        return 'bg-slate-800/70 border-slate-400/45 text-slate-200';
   }
 };
 
@@ -623,9 +856,9 @@ const enemyDeck = enemyDef ? toBattleDeck(enemyDef.deck) : [];
 
 // dummy card to prevent crash if enemy has no cards
 const PASS_CARD: CardData = {
-  id: 'pass', name: '跳过', type: CardType.FUNCTION, category: '基础', manaCost: 0,
+  id: 'pass', name: '跳过', type: CardType.FUNCTION, category: '基础', rarity: '普通', manaCost: 0,
   calculation: { multiplier: 0, addition: 0 }, damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false }, cardEffects: [], description: '无行动'
+  traits: { combo: false, reroll: 'none', draw: false }, cardEffects: [], description: '无行动',
 };
 
 const combatState = ref<CombatState>({
@@ -650,15 +883,28 @@ const isRolling = ref(false);
 const showClashAnimation = ref(false);
 const shatteringTarget = ref<'player' | 'enemy' | 'both' | null>(null);
 const screenShake = ref(false);
+const impactShake = ref(false);
 const overlayOpen = ref<'deck' | 'discard' | null>(null);
 const settingsOpen = ref(false);
 const battleSpeedUp = ref(false);
 const logsCollapsed = ref(true);
 const battleResultBanner = ref<'win' | 'lose' | null>(null);
 const endCombatPending = ref(false);
+const enemyIntentConsumedThisTurn = ref(false);
+const combatRootEl = ref<HTMLElement | null>(null);
+const effectTooltip = ref<{
+  x: number;
+  y: number;
+  name: string;
+  description: string;
+  stacks: number;
+  align: 'center' | 'right';
+} | null>(null);
 
 type BattleSide = 'player' | 'enemy';
-type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana';
+type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana' | 'true';
+type ResolvedCardAnimVariant = 'attack' | 'self' | 'fade';
+type TooltipAlign = 'center' | 'right';
 
 interface FloatingNumberEntry {
   id: number;
@@ -670,6 +916,19 @@ interface FloatingNumberEntry {
   duration: number;
 }
 
+interface PlayerPlayedCardVisual {
+  id: number;
+  card: CardData;
+  entered: boolean;
+}
+
+interface ResolvedCardVisual {
+  id: number;
+  source: BattleSide;
+  card: CardData;
+  variant: ResolvedCardAnimVariant;
+}
+
 const SPEED_SETTING_KEY = 'dungeon.combat.speed_up';
 const speedMultiplier = computed(() => (battleSpeedUp.value ? 2 : 1));
 const combatRootStyle = computed(() => ({ '--combat-speed-multiplier': String(speedMultiplier.value) }));
@@ -678,13 +937,321 @@ const previewPlayerDice = ref<number | null>(null);
 const previewEnemyDice = ref<number | null>(null);
 const displayPlayerDice = computed(() => previewPlayerDice.value ?? combatState.value.playerBaseDice);
 const displayEnemyDice = computed(() => previewEnemyDice.value ?? combatState.value.enemyBaseDice);
+const canPlayerRerollDice = computed(() => (
+  playerDiceRerollCharges.value > 0
+  && combatState.value.phase === CombatPhase.PLAYER_INPUT
+  && !isRolling.value
+  && !showClashAnimation.value
+  && !endCombatPending.value
+));
+const playerDiceRerollHint = computed(() => {
+  if (playerDiceRerollCharges.value <= 0) return '无可用重掷次数';
+  return `可点击重掷（剩余${playerDiceRerollCharges.value}次）`;
+});
+const playerDicePreviewChanged = computed(() => (
+  previewPlayerDice.value !== null && previewPlayerDice.value !== combatState.value.playerBaseDice
+));
+const enemyDicePreviewChanged = computed(() => (
+  previewEnemyDice.value !== null && previewEnemyDice.value !== combatState.value.enemyBaseDice
+));
+const playerPlayedCardVisual = ref<PlayerPlayedCardVisual | null>(null);
+const resolvedCardVisual = ref<ResolvedCardVisual | null>(null);
 let hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+let enemyDicePreviewTimer: ReturnType<typeof setTimeout> | null = null;
+let effectTooltipLongPressTimer: ReturnType<typeof setTimeout> | null = null;
+let effectTooltipAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
 let floatingNumberId = 0;
 let handCardKeySeed = 0;
+let playerPlayedCardVisualId = 0;
+let resolvedCardVisualId = 0;
+let animationStopToken = 0;
+let endCombatSequenceToken = 0;
 const handCardKeys = new WeakMap<CardData, string>();
+const invalidCardShakeKeys = ref<Set<string>>(new Set());
 
 // Default relic modifiers (no relics yet)
 const NO_RELIC_MOD = { globalMultiplier: 1, globalAddition: 0 };
+const activePlayerRelics = resolveRelicMap(props.playerRelics);
+const playerDiceRerollCharges = ref(0);
+const relicRuntimeState = reactive<Record<string, Record<string, unknown>>>({});
+
+const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
+
+const getRelicRuntimeState = (relicId: string) => {
+  if (!relicRuntimeState[relicId]) {
+    relicRuntimeState[relicId] = {};
+  }
+  return relicRuntimeState[relicId]!;
+};
+
+const hasActiveRelic = (id: string) => activePlayerRelics.some((entry) => entry.relic.id === id && entry.count > 0);
+const getActiveRelicCount = (id: string) => (
+  activePlayerRelics.find((entry) => entry.relic.id === id)?.count ?? 0
+);
+
+const changeRerollCharges = (side: RelicSide, delta: number) => {
+  if (side !== 'player') return;
+  playerDiceRerollCharges.value = Math.max(0, playerDiceRerollCharges.value + Math.floor(delta));
+};
+
+const consumeRerollCharge = (side: RelicSide, amount: number = 1): boolean => {
+  if (side !== 'player') return false;
+  const need = Math.max(1, Math.floor(amount));
+  if (playerDiceRerollCharges.value < need) return false;
+  playerDiceRerollCharges.value -= need;
+  return true;
+};
+
+const getRerollCharges = (side: RelicSide): number => {
+  if (side !== 'player') return 0;
+  return playerDiceRerollCharges.value;
+};
+
+const forEachPlayerRelic = (
+  callback: (entry: ResolvedRelicEntry, relic: RelicData, state: Record<string, unknown>) => void,
+) => {
+  for (const entry of activePlayerRelics) {
+    callback(entry, entry.relic, getRelicRuntimeState(entry.relic.id));
+  }
+};
+
+const logRelicMessage = (message: string) => {
+  log(`<span class="text-amber-300 text-[9px]">[圣遗物] ${message}</span>`);
+};
+
+const addArmorForSide = (side: RelicSide, amount: number): number => {
+  const value = Math.max(0, Math.floor(amount));
+  if (value <= 0) return 0;
+  const target = getEntityBySide(side);
+  const added = applyEffect(target, ET.ARMOR, value, { source: 'relic' }) ? value : 0;
+  if (added > 0) {
+    pushFloatingNumber(side, added, 'shield', '+');
+  }
+  return added;
+};
+
+const restoreManaForSide = (side: RelicSide, amount: number): number => {
+  const value = Math.max(0, Math.floor(amount));
+  if (value <= 0) return 0;
+  const target = getEntityBySide(side);
+  const before = target.mp;
+  target.mp = Math.max(0, target.mp + value);
+  const delta = target.mp - before;
+  if (delta > 0) {
+    pushFloatingNumber(side, delta, 'mana', '+');
+  }
+  return delta;
+};
+
+const healForSide = (
+  side: RelicSide,
+  amount: number,
+  options?: { overflowToArmor?: boolean },
+): { healed: number; overflow: number } => {
+  const value = Math.max(0, Math.floor(amount));
+  if (value <= 0) return { healed: 0, overflow: 0 };
+
+  const target = getEntityBySide(side);
+  const before = target.hp;
+  target.hp = Math.max(0, Math.min(target.maxHp, target.hp + value));
+  const healed = target.hp - before;
+  const overflowRaw = Math.max(0, value - healed);
+  if (healed > 0) {
+    pushFloatingNumber(side, healed, 'heal', '+');
+  }
+  if (options?.overflowToArmor && overflowRaw > 0) {
+    addArmorForSide(side, overflowRaw);
+  }
+  return { healed, overflow: overflowRaw };
+};
+
+const shouldAllowStatusEffectWithRelics = (
+  targetSide: RelicSide,
+  effectType: EffectType,
+  stacks: number,
+  options?: RelicApplyEffectOptions,
+) => {
+  let allowed = true;
+  const target = getEntityBySide(targetSide);
+  forEachPlayerRelic((entry, relic, state) => {
+    if (!allowed) return;
+    const hook = relic.hooks?.onBeforeApplyEffect;
+    if (!hook) return;
+
+    const ctx: RelicBeforeApplyEffectHookContext = {
+      count: entry.count,
+      side: 'player',
+      self: playerStats.value,
+      opponent: enemyStats.value,
+      state,
+      addLog: logRelicMessage,
+      hasRelic: hasActiveRelic,
+      getRelicCount: getActiveRelicCount,
+      addStatusEffect: (side, targetEffectType, targetStacks, applyOptions) => (
+        applyStatusEffectWithRelics(side, targetEffectType, targetStacks, applyOptions)
+      ),
+      addArmor: addArmorForSide,
+      restoreMana: restoreManaForSide,
+      heal: healForSide,
+      addRerollCharges: changeRerollCharges,
+      getRerollCharges,
+      targetSide,
+      target,
+      effectType,
+      stacks,
+      source: options?.source,
+      restrictedTypes: options?.restrictedTypes,
+    };
+    const result = hook(ctx);
+    if (result === false) {
+      allowed = false;
+    }
+  });
+  return allowed;
+};
+
+const applyStatusEffectWithRelics = (
+  side: RelicSide,
+  effectType: EffectType,
+  stacks: number,
+  options?: RelicApplyEffectOptions,
+): boolean => {
+  const value = Math.max(0, Math.floor(stacks));
+  if (value <= 0) return false;
+  if (!shouldAllowStatusEffectWithRelics(side, effectType, value, options)) return false;
+  const target = getEntityBySide(side);
+  return applyEffect(target, effectType, value, {
+    restrictedTypes: options?.restrictedTypes,
+    source: options?.source,
+    lockDecayThisTurn: options?.lockDecayThisTurn,
+  });
+};
+
+const createPlayerLifecycleContext = (
+  relic: RelicData,
+  count: number,
+  state: Record<string, unknown>,
+): RelicLifecycleHookContext => ({
+  count,
+  side: 'player',
+  self: playerStats.value,
+  opponent: enemyStats.value,
+  state,
+  addLog: logRelicMessage,
+  hasRelic: hasActiveRelic,
+  getRelicCount: getActiveRelicCount,
+  addStatusEffect: (side, effectType, stacks, options) => (
+    applyStatusEffectWithRelics(side, effectType, stacks, {
+      source: options?.source ?? `relic:${relic.id}`,
+      restrictedTypes: options?.restrictedTypes,
+      lockDecayThisTurn: options?.lockDecayThisTurn,
+    })
+  ),
+  addArmor: addArmorForSide,
+  restoreMana: restoreManaForSide,
+  heal: healForSide,
+  addRerollCharges: changeRerollCharges,
+  getRerollCharges,
+});
+
+const triggerPlayerRelicLifecycleHooks = (
+  hookName: keyof Pick<NonNullable<RelicData['hooks']>, 'onBattleStart' | 'onTurnStart' | 'onTurnEnd' | 'onDeckShuffle'>,
+) => {
+  forEachPlayerRelic((entry, relic, state) => {
+    const hook = relic.hooks?.[hookName];
+    if (!hook) return;
+    hook(createPlayerLifecycleContext(relic, entry.count, state));
+  });
+};
+
+const triggerPlayerRelicBeforeBurnDamageHooks = (
+  targetSide: RelicSide,
+  burnStacks: number,
+  damage: number,
+  turn: number,
+) => {
+  let currentDamage = Math.max(0, Math.floor(damage));
+  let isTrueDamage = false;
+  const target = getEntityBySide(targetSide);
+
+  forEachPlayerRelic((entry, relic, state) => {
+    const hook = relic.hooks?.onBeforeBurnDamage;
+    if (!hook) return;
+    const shared = createPlayerLifecycleContext(relic, entry.count, state);
+    const ctx: RelicBurnDamageHookContext = {
+      ...shared,
+      targetSide,
+      target,
+      turn,
+      burnStacks,
+      damage: currentDamage,
+      isTrueDamage,
+    };
+    hook(ctx);
+    currentDamage = Math.max(0, Math.floor(ctx.damage));
+    isTrueDamage = !!ctx.isTrueDamage;
+  });
+
+  return { damage: currentDamage, isTrueDamage };
+};
+
+const triggerPlayerRelicAfterBurnDamageTakenHooks = (
+  targetSide: RelicSide,
+  burnStacks: number,
+  damage: number,
+  isTrueDamage: boolean,
+  turn: number,
+) => {
+  const target = getEntityBySide(targetSide);
+  forEachPlayerRelic((entry, relic, state) => {
+    const hook = relic.hooks?.onAfterBurnDamageTaken;
+    if (!hook) return;
+    const shared = createPlayerLifecycleContext(relic, entry.count, state);
+    const ctx: RelicAfterBurnDamageTakenHookContext = {
+      ...shared,
+      targetSide,
+      target,
+      turn,
+      burnStacks,
+      damage: Math.max(0, Math.floor(damage)),
+      isTrueDamage,
+    };
+    hook(ctx);
+  });
+};
+
+const triggerPlayerRelicHitHooks = (
+  sourceSide: RelicSide,
+  targetSide: RelicSide,
+  card: CardData,
+  finalPoint: number,
+  hitIndex: number,
+  hitCount: number,
+  attemptedDamage: number,
+  actualDamage: number,
+) => {
+  const source = getEntityBySide(sourceSide);
+  const target = getEntityBySide(targetSide);
+
+  forEachPlayerRelic((entry, relic, state) => {
+    const shared = createPlayerLifecycleContext(relic, entry.count, state);
+    const ctx: RelicHitHookContext = {
+      ...shared,
+      sourceSide,
+      targetSide,
+      source,
+      target,
+      card,
+      finalPoint,
+      hitIndex,
+      hitCount,
+      attemptedDamage: Math.max(0, Math.floor(attemptedDamage)),
+      actualDamage: Math.max(0, Math.floor(actualDamage)),
+    };
+    relic.hooks?.onAfterHitDealt?.(ctx);
+    relic.hooks?.onAfterHitTaken?.(ctx);
+  });
+};
 
 // --- Helpers ---
 const scaleDuration = (ms: number) => Math.max(60, Math.floor(ms / speedMultiplier.value));
@@ -694,6 +1261,42 @@ const withTransition = (style: Record<string, string>, ms: number) => ({
   ...style,
   transitionDuration: `${scaleDuration(ms)}ms`,
 });
+const HP_BAR_ANIMATION_MS = 500;
+const RESULT_DELAY_MS = 500;
+const RESULT_BANNER_STAY_MS = 1500;
+
+const playerPlayedCardStyle = computed(() => {
+  const visual = playerPlayedCardVisual.value;
+  const entered = !!visual?.entered;
+  return {
+    left: entered ? '29%' : '50%',
+    top: entered ? '23%' : '84%',
+    transform: `translate(-50%, -50%) scale(${entered ? 1 : 0.96})`,
+    opacity: entered ? '1' : '0',
+    transitionProperty: 'left, top, transform, opacity',
+    transitionDuration: `${scaleDuration(540)}ms`,
+    transitionTimingFunction: 'cubic-bezier(0.22, 0.9, 0.2, 1)',
+  };
+});
+
+const resolvedCardVisualInnerClass = computed(() => {
+  if (!resolvedCardVisual.value) return '';
+  const sideClass = resolvedCardVisual.value.source === 'player'
+    ? 'resolved-card-visual-inner--player'
+    : 'resolved-card-visual-inner--enemy';
+  const variantClass = resolvedCardVisual.value.variant === 'attack'
+    ? 'resolved-card-visual-inner--attack'
+    : (resolvedCardVisual.value.variant === 'self'
+      ? 'resolved-card-visual-inner--self'
+      : 'resolved-card-visual-inner--fade');
+  return `${sideClass} ${variantClass}`;
+});
+
+const showEnemyIntentCard = computed(() => {
+  if (!combatState.value.enemyIntentCard) return false;
+  if (enemyIntentConsumedThisTurn.value) return false;
+  return !(resolvedCardVisual.value && resolvedCardVisual.value.source === 'enemy');
+});
 
 const floatingColors: Record<FloatingNumberKind, string> = {
   physical: 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.85)]',
@@ -701,6 +1304,7 @@ const floatingColors: Record<FloatingNumberKind, string> = {
   shield: 'text-gray-300 drop-shadow-[0_0_8px_rgba(209,213,219,0.85)]',
   heal: 'text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.85)]',
   mana: 'text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.85)]',
+  true: 'text-zinc-500 drop-shadow-[0_0_8px_rgba(39,39,42,0.9)]',
 };
 
 const floatingNumbersFor = (side: BattleSide) => floatingNumbers.value.filter((entry) => entry.side === side);
@@ -712,6 +1316,26 @@ const handCardKey = (card: CardData) => {
     handCardKeys.set(card, key);
   }
   return key;
+};
+
+const isCardShaking = (card: CardData) => invalidCardShakeKeys.value.has(handCardKey(card));
+
+const triggerInvalidCardShake = (card: CardData) => {
+  const key = handCardKey(card);
+  const withoutKey = new Set(invalidCardShakeKeys.value);
+  withoutKey.delete(key);
+  invalidCardShakeKeys.value = withoutKey;
+
+  requestAnimationFrame(() => {
+    const next = new Set(invalidCardShakeKeys.value);
+    next.add(key);
+    invalidCardShakeKeys.value = next;
+    setTimeout(() => {
+      const removed = new Set(invalidCardShakeKeys.value);
+      removed.delete(key);
+      invalidCardShakeKeys.value = removed;
+    }, scaleDuration(360));
+  });
 };
 
 const resolveTargetSide = (source: BattleSide, target: 'self' | 'enemy') => {
@@ -735,9 +1359,80 @@ const clearDicePreview = () => {
     clearTimeout(hoverPreviewTimer);
     hoverPreviewTimer = null;
   }
+  if (enemyDicePreviewTimer) {
+    clearTimeout(enemyDicePreviewTimer);
+    enemyDicePreviewTimer = null;
+  }
 };
 
-const getCardFinalPoint = (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
+const clearPlayerPlayedCard = () => {
+  playerPlayedCardVisual.value = null;
+};
+
+const clearResolvedCardVisual = () => {
+  resolvedCardVisual.value = null;
+};
+
+const stopAllCardAnimations = () => {
+  animationStopToken += 1;
+  clearPlayerPlayedCard();
+  clearResolvedCardVisual();
+  impactShake.value = false;
+  showClashAnimation.value = false;
+  shatteringTarget.value = null;
+};
+
+const showPlayerPlayedCard = (card: CardData) => {
+  if (endCombatPending.value) return;
+  const token = animationStopToken;
+  const id = ++playerPlayedCardVisualId;
+  playerPlayedCardVisual.value = { id, card, entered: false };
+  requestAnimationFrame(() => {
+    if (token !== animationStopToken || endCombatPending.value) return;
+    if (playerPlayedCardVisual.value?.id === id) {
+      playerPlayedCardVisual.value.entered = true;
+    }
+  });
+};
+
+const playResolvedCardAnimation = async (source: BattleSide, card: CardData) => {
+  if (card.id === PASS_CARD.id || endCombatPending.value) return;
+
+  const token = animationStopToken;
+
+  const variant: ResolvedCardAnimVariant =
+    (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
+      ? 'attack'
+      : (card.type === CardType.DODGE ? 'fade' : 'self');
+  const id = ++resolvedCardVisualId;
+  resolvedCardVisual.value = { id, source, card, variant };
+
+  if (variant === 'attack') {
+    const impactDelay = scaleDuration(720);
+    setTimeout(() => {
+      if (token !== animationStopToken || endCombatPending.value) return;
+      impactShake.value = true;
+      setTimeout(() => {
+        if (token !== animationStopToken) return;
+        impactShake.value = false;
+      }, scaleDuration(220));
+    }, impactDelay);
+  }
+
+  const animDuration = variant === 'attack' ? 930 : 570;
+  await wait(animDuration);
+  if (token !== animationStopToken || endCombatPending.value) return;
+  if (resolvedCardVisual.value?.id === id) {
+    resolvedCardVisual.value = null;
+  }
+};
+
+const getCardFinalPoint = (
+  source: 'player' | 'enemy',
+  card: CardData,
+  baseDice: number,
+  isPreview: boolean = false,
+) => {
   const attacker = source === 'player' ? playerStats.value : enemyStats.value;
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
 
@@ -753,11 +1448,33 @@ const getCardFinalPoint = (source: 'player' | 'enemy', card: CardData, baseDice:
     finalPoint += Math.floor(getEffectStacks(defender, ET.BURN) / 2);
   }
 
+  if (source === 'player') {
+    forEachPlayerRelic((entry, relic, state) => {
+      const hook = relic.hooks?.modifyFinalPoint;
+      if (!hook) return;
+      const ctx: RelicPointHookContext = {
+        count: entry.count,
+        side: 'player',
+        card,
+        baseDice,
+        currentPoint: finalPoint,
+        self: attacker,
+        opponent: defender,
+        state,
+        isPreview,
+        addLog: logRelicMessage,
+        hasRelic: hasActiveRelic,
+        getRelicCount: getActiveRelicCount,
+      };
+      finalPoint = hook(ctx);
+    });
+  }
+
   return Math.max(0, Math.floor(finalPoint));
 };
 
 const getCardPreviewPoint = (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
-  return getCardFinalPoint(source, card, baseDice);
+  return getCardFinalPoint(source, card, baseDice, true);
 };
 
 const handlePlayerCardHoverStart = (card: CardData) => {
@@ -785,6 +1502,169 @@ const handlePlayerCardTouchEnd = () => {
   previewPlayerDice.value = null;
 };
 
+const rollDiceInRange = (min: number, max: number) => {
+  const low = Math.floor(Math.min(min, max));
+  const high = Math.floor(Math.max(min, max));
+  if (high <= low) return low;
+  return Math.floor(Math.random() * (high - low + 1)) + low;
+};
+
+const handlePlayerDiceClick = () => {
+  if (!canPlayerRerollDice.value) return;
+
+  let rerolled: number | null = null;
+  forEachPlayerRelic((entry, relic, state) => {
+    if (rerolled !== null) return;
+    const hook = relic.hooks?.onDiceClick;
+    if (!hook) return;
+    const ctx: RelicDiceClickHookContext = {
+      count: entry.count,
+      side: 'player',
+      currentDice: combatState.value.playerBaseDice,
+      minDice: playerStats.value.minDice,
+      maxDice: playerStats.value.maxDice,
+      state,
+      roll: rollDiceInRange,
+      consumeRerollCharge,
+      getRerollCharges,
+      addLog: logRelicMessage,
+    };
+    rerolled = hook(ctx);
+  });
+
+  if (rerolled === null) return;
+  const before = combatState.value.playerBaseDice;
+  const after = consumeChargeOnRoll(playerStats.value, '我方', Math.max(0, Math.floor(rerolled)));
+  combatState.value.playerBaseDice = after;
+  previewPlayerDice.value = null;
+  log(`<span class="text-amber-200">我方骰子重掷：${before} → ${after}</span>`);
+};
+
+const canPreviewEnemyDice = () => {
+  return (
+    combatState.value.phase === CombatPhase.PLAYER_INPUT &&
+    !isRolling.value &&
+    !showClashAnimation.value &&
+    !!combatState.value.enemyIntentCard
+  );
+};
+
+const getEnemyIntentFinalPoint = () => {
+  const card = combatState.value.enemyIntentCard;
+  if (!card) return null;
+  return getCardPreviewPoint('enemy', card, combatState.value.enemyBaseDice);
+};
+
+const showEnemyDicePreview = () => {
+  if (!canPreviewEnemyDice()) return;
+  const preview = getEnemyIntentFinalPoint();
+  if (preview === null) return;
+  previewEnemyDice.value = preview;
+};
+
+const hideEnemyDicePreview = () => {
+  if (showClashAnimation.value) return;
+  previewEnemyDice.value = null;
+};
+
+const handleEnemyDiceHoverStart = () => {
+  showEnemyDicePreview();
+};
+
+const handleEnemyDiceHoverEnd = () => {
+  hideEnemyDicePreview();
+};
+
+const handleEnemyDiceTouchStart = () => {
+  if (enemyDicePreviewTimer) {
+    clearTimeout(enemyDicePreviewTimer);
+    enemyDicePreviewTimer = null;
+  }
+  enemyDicePreviewTimer = setTimeout(() => {
+    showEnemyDicePreview();
+  }, 260);
+};
+
+const handleEnemyDiceTouchEnd = () => {
+  if (enemyDicePreviewTimer) {
+    clearTimeout(enemyDicePreviewTimer);
+    enemyDicePreviewTimer = null;
+  }
+  hideEnemyDicePreview();
+};
+
+const clearEffectTooltipTimers = () => {
+  if (effectTooltipLongPressTimer) {
+    clearTimeout(effectTooltipLongPressTimer);
+    effectTooltipLongPressTimer = null;
+  }
+  if (effectTooltipAutoHideTimer) {
+    clearTimeout(effectTooltipAutoHideTimer);
+    effectTooltipAutoHideTimer = null;
+  }
+};
+
+const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance, align: TooltipAlign = 'center') => {
+  const rootRect = combatRootEl.value?.getBoundingClientRect();
+  if (!rootRect) return;
+
+  const rect = target.getBoundingClientRect();
+  const top = Math.max(8, rect.top - rootRect.top - 8);
+  const tooltipMaxWidth = 256;
+  const x = align === 'right'
+    ? Math.max(8, Math.min(rect.right - rootRect.left + 10, rootRect.width - tooltipMaxWidth - 8))
+    : Math.max(100, Math.min(rect.left + rect.width / 2 - rootRect.left, rootRect.width - 100));
+  effectTooltip.value = {
+    x,
+    y: top,
+    name: getEffectName(effect.type),
+    description: getEffectDescription(effect.type),
+    stacks: effect.stacks,
+    align,
+  };
+};
+
+const showEffectTooltip = (
+  event: MouseEvent | FocusEvent,
+  effect: EffectInstance,
+  align: TooltipAlign = 'center',
+) => {
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) return;
+  clearEffectTooltipTimers();
+  showEffectTooltipForTarget(target, effect, align);
+};
+
+const hideEffectTooltip = () => {
+  clearEffectTooltipTimers();
+  effectTooltip.value = null;
+};
+
+const handleEffectTouchStart = (
+  event: TouchEvent,
+  effect: EffectInstance,
+  align: TooltipAlign = 'center',
+) => {
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) return;
+
+  clearEffectTooltipTimers();
+  effectTooltipLongPressTimer = setTimeout(() => {
+    showEffectTooltipForTarget(target, effect, align);
+    effectTooltipAutoHideTimer = setTimeout(() => {
+      effectTooltip.value = null;
+      effectTooltipAutoHideTimer = null;
+    }, scaleDuration(1800));
+  }, scaleDuration(320));
+};
+
+const handleEffectTouchEnd = () => {
+  if (effectTooltipLongPressTimer) {
+    clearTimeout(effectTooltipLongPressTimer);
+    effectTooltipLongPressTimer = null;
+  }
+};
+
 const pushFloatingNumber = (side: BattleSide, value: number, kind: FloatingNumberKind, sign: '+' | '-' = '+') => {
   const amount = Math.max(0, Math.floor(value));
   if (amount <= 0) return;
@@ -808,11 +1688,30 @@ const pushFloatingNumber = (side: BattleSide, value: number, kind: FloatingNumbe
 };
 
 const log = (msg: string) => {
-  combatState.value.logs = [msg, ...combatState.value.logs].slice(0, 5);
+  combatState.value.logs = [msg, ...combatState.value.logs].slice(0, 240);
 };
+
+if (activePlayerRelics.length > 0) {
+  const relicSummary = activePlayerRelics
+    .map((entry) => (entry.count > 1 ? `${entry.relic.name}x${entry.count}` : entry.relic.name))
+    .join('、');
+  log(`<span class="text-amber-300">本场圣遗物：${relicSummary}</span>`);
+}
+triggerPlayerRelicLifecycleHooks('onBattleStart');
 
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
+});
+onUnmounted(() => {
+  if (hoverPreviewTimer) {
+    clearTimeout(hoverPreviewTimer);
+    hoverPreviewTimer = null;
+  }
+  if (enemyDicePreviewTimer) {
+    clearTimeout(enemyDicePreviewTimer);
+    enemyDicePreviewTimer = null;
+  }
+  clearEffectTooltipTimers();
 });
 watch(battleSpeedUp, (enabled) => {
   localStorage.setItem(SPEED_SETTING_KEY, enabled ? '1' : '0');
@@ -829,6 +1728,7 @@ const drawCards = (count: number, currentDeck: CardData[], currentDiscard: CardD
       deck = [...discard].sort(() => Math.random() - 0.5);
       discard = [];
       log('<span class="text-yellow-500">弃牌堆已洗入牌库。</span>');
+      triggerPlayerRelicLifecycleHooks('onDeckShuffle');
     }
     const card = deck.pop();
     if (card) drawn.push(card);
@@ -863,6 +1763,7 @@ function selectEnemyCard(): CardData {
     combatState.value.enemyDiscard = [];
   }
 
+  let selectedCard: CardData;
   if (enemyDef) {
     // Use the enemy's custom AI logic
     const ctx: EnemyAIContext = {
@@ -872,12 +1773,19 @@ function selectEnemyCard(): CardData {
       turn: combatState.value.turn,
       flags: aiFlags,
     };
-    return enemyDef.selectCard(ctx);
+    selectedCard = enemyDef.selectCard(ctx);
+  } else {
+    // Fallback: random selection (should never happen with proper registry)
+    const idx = Math.floor(Math.random() * combatState.value.enemyDeck.length);
+    selectedCard = combatState.value.enemyDeck[idx]!;
   }
 
-  // Fallback: random selection (should never happen with proper registry)
-  const idx = Math.floor(Math.random() * combatState.value.enemyDeck.length);
-  return combatState.value.enemyDeck[idx]!;
+  const check = canPlayCard(enemyStats.value, selectedCard, combatState.value.enemyBaseDice);
+  if (!check.allowed) {
+    log(`<span class="text-gray-400">敌方无法出牌：${check.reason ?? '本回合跳过。'}</span>`);
+    return PASS_CARD;
+  }
+  return selectedCard;
 }
 
 // --- Phase Management ---
@@ -885,12 +1793,15 @@ function selectEnemyCard(): CardData {
 const startTurn = () => {
   if (endCombatPending.value) return;
   clearDicePreview();
+  stopAllCardAnimations();
   combatState.value.phase = CombatPhase.DRAW_PHASE;
   combatState.value.playerSelectedCard = null;
   combatState.value.enemyIntentCard = null;
+  enemyIntentConsumedThisTurn.value = false;
   isRolling.value = true;
   shatteringTarget.value = null;
   showClashAnimation.value = false;
+  triggerPlayerRelicLifecycleHooks('onTurnStart');
 
   setTimeout(() => {
     if (endCombatPending.value) return;
@@ -916,20 +1827,56 @@ watch(
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
         for (const [side, label, stats] of [['player', '我方', playerStats], ['enemy', '敌方', enemyStats]] as const) {
+          const targetSide = side as RelicSide;
+          const opponentSide: RelicSide = side === 'player' ? 'enemy' : 'player';
           const result = processOnTurnStart(stats.value);
-          let turnStartLogs = result.logs;
-          // 燃烧伤害单独提示，并支持结界抵挡一次非真实伤害
+          let turnStartLogs = [...result.logs];
+          let burnDamageTaken = 0;
+          let shownTrueDamage = 0;
+          let burnIsTrueDamage = false;
+
+          for (const pending of result.applyToOpponent) {
+            applyStatusEffectWithRelics(opponentSide, pending.type, pending.stacks, { source: 'effect:ignite_aura' });
+          }
+
+          // 燃烧伤害单独结算，以支持圣遗物修改
           const burnLog = result.logs.find((entry) => entry.includes('[燃烧]'));
           if (burnLog) {
             const burnMatch = burnLog.match(/损失\s+(\d+)\s+点生命/);
-            const burnDamage = burnMatch ? Number(burnMatch[1]) : 0;
-            if (burnDamage > 0 && getEffectStacks(stats.value, ET.BARRIER) > 0) {
-              reduceEffectStacks(stats.value, ET.BARRIER, 1);
-              result.hpChange += burnDamage;
-              turnStartLogs = result.logs.filter((entry) => entry !== burnLog);
-              log(`<span class="text-gray-400 text-[9px]">${label}: [结界] 抵挡了 ${burnDamage} 点燃烧伤害。</span>`);
-            } else if (burnDamage > 0) {
-              pushFloatingNumber(side, burnDamage, 'magic', '-');
+            const rawBurnDamage = burnMatch ? Number(burnMatch[1]) : 0;
+            const burnStacks = getEffectStacks(stats.value, ET.BURN);
+            turnStartLogs = turnStartLogs.filter((entry) => entry !== burnLog);
+
+            if (rawBurnDamage > 0) {
+              const burnResult = triggerPlayerRelicBeforeBurnDamageHooks(
+                targetSide,
+                burnStacks,
+                rawBurnDamage,
+                combatState.value.turn,
+              );
+
+              result.hpChange += rawBurnDamage; // 移除 processOnTurnStart 的基础燃烧伤害
+
+                if (burnResult.damage > 0) {
+                  if (burnResult.isTrueDamage) {
+                    pushFloatingNumber(side, burnResult.damage, 'true', '-');
+                    burnDamageTaken = burnResult.damage;
+                    shownTrueDamage += burnResult.damage;
+                    burnIsTrueDamage = true;
+                    result.trueDamage += burnResult.damage;
+                    turnStartLogs.push(`[燃烧] 受到 ${burnResult.damage} 点真实伤害。`);
+                  } else if (getEffectStacks(stats.value, ET.BARRIER) > 0) {
+                  reduceEffectStacks(stats.value, ET.BARRIER, 1);
+                  turnStartLogs.push(`[结界] 抵挡了 ${burnResult.damage} 点燃烧伤害。`);
+                } else {
+                  burnDamageTaken = burnResult.damage;
+                  result.hpChange -= burnResult.damage;
+                  pushFloatingNumber(side, burnResult.damage, 'magic', '-');
+                  turnStartLogs.push(`[燃烧] 损失 ${burnResult.damage} 点生命。`);
+                }
+              } else {
+                turnStartLogs.push('[燃烧] 伤害为 0。');
+              }
             }
           }
 
@@ -949,7 +1896,22 @@ watch(
               pushFloatingNumber(side, mpDelta, 'mana', '+');
             }
           }
-          if (result.trueDamage > 0) stats.value.hp = Math.max(0, stats.value.hp - result.trueDamage);
+          if (result.trueDamage > 0) {
+            stats.value.hp = Math.max(0, stats.value.hp - result.trueDamage);
+            const pendingTrueDamage = Math.max(0, result.trueDamage - shownTrueDamage);
+            if (pendingTrueDamage > 0) {
+              pushFloatingNumber(side, pendingTrueDamage, 'true', '-');
+            }
+          }
+          if (burnDamageTaken > 0) {
+            triggerPlayerRelicAfterBurnDamageTakenHooks(
+              targetSide,
+              getEffectStacks(stats.value, ET.BURN),
+              burnDamageTaken,
+              burnIsTrueDamage,
+              combatState.value.turn,
+            );
+          }
           const reviveResult = triggerSwarmReviveIfNeeded(stats.value);
           for (const reviveLog of reviveResult.logs) {
             log(`<span class="text-violet-300 text-[9px]">${label}: ${reviveLog}</span>`);
@@ -979,6 +1941,7 @@ watch(
       const { drawn, newDeck, newDiscard } = drawCards(3, combatState.value.playerDeck, combatState.value.discardPile);
 
       combatState.value.enemyIntentCard = eCard;
+      enemyIntentConsumedThisTurn.value = false;
       combatState.value.playerHand = drawn;
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
@@ -993,11 +1956,14 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (handIdx < 0 || handIdx >= combatState.value.playerHand.length) return;
   if (combatState.value.playerHand[handIdx] !== card) return;
 
+  const check = canPlayCard(playerStats.value, card, combatState.value.playerBaseDice);
+  if (!check.allowed) {
+    triggerInvalidCardShake(card);
+    log(`<span class="text-red-400">${check.reason ?? '当前无法使用该卡牌。'}</span>`);
+    return;
+  }
+
   if (card.type === CardType.MAGIC) {
-    if (playerStats.value.mp < card.manaCost) {
-      log('<span class="text-red-400">魔力不足！</span>');
-      return;
-    }
     playerStats.value.mp -= card.manaCost;
   }
 
@@ -1005,6 +1971,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   const [played] = combatState.value.playerHand.splice(handIdx, 1);
   if (!played) return;
   clearDicePreview();
+  showPlayerPlayedCard(played);
   combatState.value.discardPile.push(played);
   combatState.value.playerSelectedCard = played;
   combatState.value.phase = CombatPhase.RESOLUTION;
@@ -1015,6 +1982,7 @@ const handleSkipTurn = () => {
   if (!combatState.value.enemyIntentCard) return;
 
   clearDicePreview();
+  clearPlayerPlayedCard();
   combatState.value.playerSelectedCard = PASS_CARD;
   combatState.value.phase = CombatPhase.RESOLUTION;
   log('<span class="text-gray-400">你选择了跳过当前回合。</span>');
@@ -1031,6 +1999,7 @@ const isClashable = (t1: CardType, t2: CardType): boolean => {
 
 // Resolution
 const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eDice: number) => {
+  if (endCombatPending.value) return;
   let resolvedEnemyCard = eCard;
   if (resolvedEnemyCard.type === CardType.MAGIC && resolvedEnemyCard.id !== PASS_CARD.id) {
     if (enemyStats.value.mp >= resolvedEnemyCard.manaCost) {
@@ -1123,6 +2092,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     if (resultMsg) {
       log(`<span class="text-gray-300">${resultMsg}</span>`);
     }
+    if (clashWinner === 'enemy') {
+      changeRerollCharges('player', 1);
+      log('<span class="text-amber-300">拼点失败：重掷次数 +1</span>');
+    }
 
     if (clashWinner === 'player') {
       clearBurnForSide('player', '拼点胜利。');
@@ -1140,12 +2113,23 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     eSuccess = true;
   }
 
-  // Execution Phase — use algorithms.ts for proper damage calculation
-  const executeCard = (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
+  // Execution Phase - use algorithms.ts for proper damage calculation
+  const executeCard = async (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
+    if (endCombatPending.value) return;
     const attacker = source === 'player' ? playerStats.value : enemyStats.value;
     const defender = source === 'player' ? enemyStats.value : playerStats.value;
     const label = source === 'player' ? '我方' : '敌方';
     const defenderSide = source === 'player' ? 'enemy' : 'player';
+
+    if (source === 'enemy' && card.id !== PASS_CARD.id) {
+      enemyIntentConsumedThisTurn.value = true;
+    }
+
+    if (source === 'player') {
+      clearPlayerPlayedCard();
+    }
+    await playResolvedCardAnimation(source, card);
+    if (endCombatPending.value) return;
 
     // Calculate final point for this card
     const finalPoint = getCardFinalPoint(source, card, baseDice);
@@ -1187,7 +2171,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           const stacks = ce.valueMode === 'point_scale'
             ? Math.floor(finalPoint * (ce.scale ?? 1))
             : Math.floor(ce.fixedValue ?? 1);
-          applyEffect(targetEntity, ce.effectType!, stacks, {
+          applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
             restrictedTypes: ce.restrictedTypes,
             source: card.id,
             lockDecayThisTurn: ce.effectType === ET.BIND,
@@ -1279,18 +2263,21 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           };
         }
 
-        const { damage, logs: dmgLogs } = calculateFinalDamage({
+        const { damage, isTrueDamage, logs: dmgLogs } = calculateFinalDamage({
           finalPoint,
           card: cardForCalculation,
           attackerEffects: attacker.effects,
           defenderEffects: defender.effects,
           relicModifiers: NO_RELIC_MOD,
         });
-        const { actualDamage, logs: applyLogs } = applyDamageToEntity(defender, damage, false);
+        const { actualDamage, logs: applyLogs } = applyDamageToEntity(defender, damage, isTrueDamage);
         const hitPrefix = totalHitCount > 1 ? `第${hit + 1}段` : '';
-        log(`${label}【${card.name}】${hitPrefix}点数${finalPoint}，造成 <span class="text-red-400 font-bold">${actualDamage}</span> 点伤害`);
+        const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
+        log(`${label}【${card.name}】${hitPrefix}点数${finalPoint}，造成 <span class="${damageLogColorClass} font-bold">${actualDamage}</span> 点伤害`);
         if (actualDamage > 0) {
-          const damageKind: FloatingNumberKind = card.type === CardType.MAGIC ? 'magic' : 'physical';
+          const damageKind: FloatingNumberKind = isTrueDamage
+            ? 'true'
+            : (card.type === CardType.MAGIC ? 'magic' : 'physical');
           pushFloatingNumber(defenderSide, actualDamage, damageKind, '-');
         }
 
@@ -1302,6 +2289,16 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         for (const dl of [...dmgLogs, ...applyLogs]) {
           log(`<span class="text-gray-500 text-[9px]">${dl}</span>`);
         }
+        triggerPlayerRelicHitHooks(
+          source,
+          defenderSide,
+          card,
+          finalPoint,
+          hit + 1,
+          totalHitCount,
+          damage,
+          actualDamage,
+        );
         if (defender.hp <= 0) break;
       }
 
@@ -1340,9 +2337,13 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   queue.sort((a, b) => typePriority(b.type) - typePriority(a.type));
 
   for (const action of queue) {
-    executeCard(action.source, action.card, action.baseDice);
-    await wait(500);
+    if (endCombatPending.value) break;
+    await executeCard(action.source, action.card, action.baseDice);
+    if (endCombatPending.value) break;
+    await wait(630);
   }
+  stopAllCardAnimations();
+  if (endCombatPending.value) return;
 
   // 连击：本次打出后，若带 draw 则补抽 1 张；并允许继续从剩余手牌出牌
   if (pCard.traits.combo) {
@@ -1362,8 +2363,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
     // 连击无法继续时，再补结算一次敌方行动
     if (deferredEnemyAction && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
-      executeCard(deferredEnemyAction.source, deferredEnemyAction.card, deferredEnemyAction.baseDice);
-      await wait(500);
+      if (endCombatPending.value) return;
+      await executeCard(deferredEnemyAction.source, deferredEnemyAction.card, deferredEnemyAction.baseDice);
+      if (endCombatPending.value) return;
+      await wait(630);
     }
   }
 
@@ -1375,6 +2378,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   for (const l of [...pEndLogs, ...eEndLogs]) {
     log(`<span class="text-gray-500 text-[9px]">${l}</span>`);
   }
+  triggerPlayerRelicLifecycleHooks('onTurnEnd');
 
   // Cleanup
   combatState.value.discardPile = [...combatState.value.discardPile, ...combatState.value.playerHand];
@@ -1404,6 +2408,23 @@ watch(
   },
 );
 
+const runEndCombatSequence = async (win: boolean) => {
+  const token = ++endCombatSequenceToken;
+  await wait(HP_BAR_ANIMATION_MS);
+  if (token !== endCombatSequenceToken) return;
+
+  await wait(RESULT_DELAY_MS);
+  if (token !== endCombatSequenceToken) return;
+
+  stopAllCardAnimations();
+  battleResultBanner.value = win ? 'win' : 'lose';
+  combatState.value.phase = win ? CombatPhase.WIN : CombatPhase.LOSE;
+
+  await wait(RESULT_BANNER_STAY_MS);
+  if (token !== endCombatSequenceToken) return;
+  emit('endCombat', win, playerStats.value);
+};
+
 // Win/Lose check
 watch(
   [() => playerStats.value.hp, () => enemyStats.value.hp],
@@ -1416,11 +2437,7 @@ watch(
     if (win === null) return;
 
     endCombatPending.value = true;
-    battleResultBanner.value = win ? 'win' : 'lose';
-    combatState.value.phase = win ? CombatPhase.WIN : CombatPhase.LOSE;
-    setTimeout(() => {
-      emit('endCombat', win!, playerStats.value);
-    }, scaleDuration(1200));
+    void runEndCombatSequence(win);
   },
 );
 </script>
@@ -1431,6 +2448,159 @@ watch(
   animation-timing-function: ease-out;
   animation-fill-mode: forwards;
   line-height: 1;
+}
+
+.player-played-card {
+  width: 10rem;
+  z-index: 56;
+  will-change: left, top, transform, opacity;
+}
+
+.player-played-card-bob {
+  animation: player-played-card-bob calc(1.2s / var(--combat-speed-multiplier)) ease-in-out infinite;
+}
+
+@keyframes player-played-card-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.resolved-card-visual {
+  position: absolute;
+  width: 10rem;
+  transform: translate(-50%, -50%);
+  z-index: 58;
+  pointer-events: none;
+}
+
+.resolved-card-visual--player {
+  left: 29%;
+  top: 23%;
+}
+
+.resolved-card-visual--enemy {
+  left: 63%;
+  top: 23%;
+}
+
+.resolved-card-visual-inner {
+  opacity: 0.96;
+  transform: scale(1);
+  will-change: transform, opacity, filter;
+  filter: drop-shadow(0 0 18px rgba(0, 0, 0, 0.45));
+}
+
+.resolved-card-visual-inner--player.resolved-card-visual-inner--attack {
+  animation: card-attack-player calc(0.93s / var(--combat-speed-multiplier)) cubic-bezier(0.18, 0.9, 0.2, 1) forwards;
+}
+
+.resolved-card-visual-inner--enemy.resolved-card-visual-inner--attack {
+  animation: card-attack-enemy calc(0.93s / var(--combat-speed-multiplier)) cubic-bezier(0.18, 0.9, 0.2, 1) forwards;
+}
+
+.resolved-card-visual-inner--player.resolved-card-visual-inner--self {
+  animation: card-self-player calc(0.57s / var(--combat-speed-multiplier)) ease-out forwards;
+}
+
+.resolved-card-visual-inner--enemy.resolved-card-visual-inner--self {
+  animation: card-self-enemy calc(0.57s / var(--combat-speed-multiplier)) ease-out forwards;
+}
+
+.resolved-card-visual-inner--player.resolved-card-visual-inner--fade,
+.resolved-card-visual-inner--enemy.resolved-card-visual-inner--fade {
+  animation: card-fade-only calc(0.57s / var(--combat-speed-multiplier)) ease-out forwards;
+}
+
+@keyframes card-attack-player {
+  0% {
+    opacity: 0.96;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  38% {
+    opacity: 1;
+    transform: translate3d(-90px, 40px, 0) scale(1.03);
+  }
+  78% {
+    opacity: 1;
+    transform: translate3d(56vw, 15vh, 0) scale(0.79);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(58vw, 16vh, 0) scale(0.74);
+  }
+}
+
+@keyframes card-attack-enemy {
+  0% {
+    opacity: 0.96;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  38% {
+    opacity: 1;
+    transform: translate3d(90px, -40px, 0) scale(1.03);
+  }
+  78% {
+    opacity: 1;
+    transform: translate3d(-50vw, 33vh, 0) scale(0.79);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-52vw, 34vh, 0) scale(0.74);
+  }
+}
+
+@keyframes card-self-player {
+  0% {
+    opacity: 0.96;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  35% {
+    opacity: 1;
+    transform: translate3d(24px, -10px, 0) scale(1.02);
+  }
+  76% {
+    opacity: 1;
+    transform: translate3d(-170px, 300px, 0) scale(0.78);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-178px, 308px, 0) scale(0.74);
+  }
+}
+
+@keyframes card-self-enemy {
+  0% {
+    opacity: 0.96;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  35% {
+    opacity: 1;
+    transform: translate3d(-24px, 10px, 0) scale(1.02);
+  }
+  76% {
+    opacity: 1;
+    transform: translate3d(180px, 120px, 0) scale(0.78);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(188px, 126px, 0) scale(0.74);
+  }
+}
+
+@keyframes card-fade-only {
+  0% {
+    opacity: 0.96;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 @keyframes combat-float-up {
@@ -1461,6 +2631,121 @@ watch(
   animation-duration: calc(0.5s / var(--combat-speed-multiplier));
 }
 
+.combat-root :deep(.animate-impact-shake) {
+  animation: impact-nudge calc(0.2s / var(--combat-speed-multiplier)) ease-out;
+}
+
+@keyframes impact-nudge {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  25% {
+    transform: translate3d(-3px, 2px, 0);
+  }
+  50% {
+    transform: translate3d(3px, -2px, 0);
+  }
+  75% {
+    transform: translate3d(-2px, 1px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.effect-icon-btn {
+  position: relative;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.35rem;
+  border-width: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform calc(0.14s / var(--combat-speed-multiplier)) ease, filter calc(0.14s / var(--combat-speed-multiplier)) ease;
+}
+
+.effect-icon-btn:hover,
+.effect-icon-btn:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+  outline: none;
+}
+
+.status-effect-value-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  border-radius: 0.25rem;
+  cursor: help;
+  transition: filter calc(0.12s / var(--combat-speed-multiplier)) ease;
+}
+
+.status-effect-value-btn:hover,
+.status-effect-value-btn:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.effect-stack-badge {
+  position: absolute;
+  right: -0.28rem;
+  bottom: -0.28rem;
+  min-width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 999px;
+  background: rgba(8, 12, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+}
+
+.effect-tooltip {
+  max-width: 16rem;
+  background: rgba(8, 10, 16, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+  padding: 0.5rem 0.6rem;
+}
+
+.effect-tooltip--center {
+  transform: translate(-50%, calc(-100% - 8px));
+}
+
+.effect-tooltip--right {
+  transform: translate(0, calc(-100% - 8px));
+}
+
+.effect-tooltip-name {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.effect-tooltip-desc {
+  margin-top: 0.25rem;
+  color: rgba(229, 231, 235, 0.92);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.effect-tooltip-stacks {
+  margin-top: 0.25rem;
+  color: rgba(250, 204, 21, 0.92);
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
 .poison-wave-bar {
   background-image:
     linear-gradient(180deg, rgba(16, 185, 129, 0.28), rgba(22, 163, 74, 0.8)),
@@ -1483,5 +2768,19 @@ watch(
   to {
     background-position: 0 0, 220% 0;
   }
+}
+
+.invalid-card-shake {
+  position: relative;
+  animation: invalid-card-shake calc(0.32s / var(--combat-speed-multiplier)) ease;
+}
+
+@keyframes invalid-card-shake {
+  0% { left: 0; }
+  18% { left: -8px; }
+  36% { left: 7px; }
+  54% { left: -5px; }
+  72% { left: 4px; }
+  100% { left: 0; }
 }
 </style>

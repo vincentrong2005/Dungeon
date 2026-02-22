@@ -12,6 +12,7 @@ export const Schema = z.object({
   $被动: z.string().prefault(''),
   $主动: z.array(z.string()).length(2).prefault(['', '']),
   _圣遗物: z.record(z.string().describe('圣遗物名'), z.coerce.number().describe('数量')).prefault({}),
+  _携带的魔法书: z.array(z.string()).prefault([]),
 
   // 计算属性（由其他脚本操控）
   $最大点数: z.coerce.number().prefault(0),

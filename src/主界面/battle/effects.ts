@@ -51,7 +51,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onBeforeDamage'],
     stackable: true,
     maxStacks: 0,
-    description: '伤害免疫：抵挡任何来源的伤害判定。触发后层数-1。',
+    description: '抵挡任何来源的伤害判定。触发后层数-1',
   },
   [EffectType.ARMOR]: {
     type: EffectType.ARMOR,
@@ -60,7 +60,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onBeforeDamage', 'onTurnEnd'],
     stackable: true,
     maxStacks: 0,
-    description: '伤害减免：在最终伤害结算阶段减去等量数值。',
+    description: '在最终伤害结算阶段减去等量数值',
   },
   [EffectType.BIND]: {
     type: EffectType.BIND,
@@ -69,7 +69,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onCardPlay', 'onTurnEnd'],
     stackable: true,
     maxStacks: 0,
-    description: '行为限制：无法使用指定类型卡牌。每回合结束层数-1。',
+    description: '无法使用物理与闪避卡牌。每回合结束层数-1',
   },
   [EffectType.DEVOUR]: {
     type: EffectType.DEVOUR,
@@ -78,7 +78,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onCardPlay'],
     stackable: false,
     maxStacks: 1,
-    description: '点数限制：若骰子基础点数≤3，禁用物理/闪避卡牌。',
+    description: '点数限制：若骰子基础点数≤3，禁用物理/魔法/闪避卡牌。',
   },
   [EffectType.POISON]: {
     type: EffectType.POISON,
@@ -87,16 +87,16 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnEnd'],
     stackable: true,
     maxStacks: 0,
-    description: '每回合结束时：自身中毒量 + 当前层数，然后中毒层数 -1。',
+    description: '每回合结束时，增加等量层数的中毒量，中毒层数-1',
   },
   [EffectType.POISON_AMOUNT]: {
     type: EffectType.POISON_AMOUNT,
-    name: '\u4e2d\u6bd2\u91cf',
+    name: '中毒量',
     polarity: 'special',
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '致死判定值：回合开始时若中毒量≥当前生命值，则造成等量真实伤害。',
+    description: '回合开始时若中毒量≥当前生命值，则造成等量真实伤害并清空中毒量',
   },
   [EffectType.BURN]: {
     type: EffectType.BURN,
@@ -105,7 +105,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart', 'onClash'],
     stackable: true,
     maxStacks: 0,
-    description: '血量流失：每回合减少等量层数的生命。己方拼点成功时消失。',
+    description: '每回合减少等量层数的生命。己方拼点成功时消失',
   },
   [EffectType.BLEED]: {
     type: EffectType.BLEED,
@@ -114,7 +114,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onClash', 'onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '真实伤害：拼点时造成等量层数的真实伤害。每回合-1。',
+    description: '拼点时造成等量层数的真实伤害。每回合-1',
   },
   [EffectType.VULNERABLE]: {
     type: EffectType.VULNERABLE,
@@ -123,7 +123,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onBeforeDamage'],
     stackable: true,
     maxStacks: 0,
-    description: '伤害放大：增加受到伤害的结算系数（加算）。',
+    description: '每次受到伤害的伤害增加等量层数',
   },
   [EffectType.REGEN]: {
     type: EffectType.REGEN,
@@ -132,7 +132,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '持续回血：每回合开始时回复等量层数的生命。',
+    description: '每回合开始时回复等量层数的生命',
   },
   [EffectType.IGNITE_AURA]: {
     type: EffectType.IGNITE_AURA,
@@ -141,7 +141,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '环境效果：每回合开始时为战斗双方施加一层燃烧。',
+    description: '每回合开始时为战斗双方施加一层燃烧',
   },
   [EffectType.STUN]: {
     type: EffectType.STUN,
@@ -150,7 +150,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart', 'onTurnEnd'],
     stackable: false,
     maxStacks: 1,
-    description: '行动剥夺：无法执行任何出牌或拼点行动。一回合后消失。',
+    description: '无法执行任何出牌或拼点行动。一回合后消失',
   },
   [EffectType.CHARGE]: {
     type: EffectType.CHARGE,
@@ -159,7 +159,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onDiceRoll'],
     stackable: true,
     maxStacks: 0,
-    description: '点数增益：下一次投掷骰子时将层数加到原始骰子上，并清空全部层数。',
+    description: '下一次投掷骰子时增加等量层数的点数并清空全部层数',
   },
   [EffectType.COLD]: {
     type: EffectType.COLD,
@@ -168,7 +168,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onBeforeAttack', 'onAfterAttack'],
     stackable: true,
     maxStacks: 0,
-    description: '威力削弱：降低造成的伤害数值。攻击结算后层数减半。',
+    description: '降低造成的伤害数值。攻击结算后层数减半',
   },
   [EffectType.NON_LIVING]: {
     type: EffectType.NON_LIVING,
@@ -177,7 +177,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: false,
     maxStacks: 1,
-    description: '异常免疫：完全免疫流血与中毒效果。',
+    description: '完全免疫流血与中毒效果',
   },
   [EffectType.MANA_DRAIN]: {
     type: EffectType.MANA_DRAIN,
@@ -186,7 +186,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '资源封锁：每回合开始时强制将当前法力值清零。每回合-1。',
+    description: '每回合开始时强制将当前法力值清零。每回合-1',
   },
   [EffectType.MANA_SPRING]: {
     type: EffectType.MANA_SPRING,
@@ -195,7 +195,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '每回合开始时自身魔力+层数，无时限。',
+    description: '每回合开始时自身增加等量层数的魔力',
   },
   [EffectType.SWARM]: {
     type: EffectType.SWARM,
@@ -204,7 +204,16 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['onAfterDamage'],
     stackable: true,
     maxStacks: 0,
-    description: '生命值≤0时，消耗1层并恢复至生命上限。',
+    description: '生命值≤0时，消耗1层并恢复至生命上限',
+  },
+  [EffectType.INDOMITABLE]: {
+    type: EffectType.INDOMITABLE,
+    name: '不屈',
+    polarity: 'buff',
+    timings: ['onAfterDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '生命值≤0时，消耗1层并恢复至1点生命',
   },
 };
 
@@ -344,7 +353,8 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (poisonAmount > 0) {
     if (poisonAmount >= entity.hp) {
       result.trueDamage += poisonAmount;
-      result.logs.push(`[中毒量] 中毒量(${poisonAmount}) ≥ 当前生命(${entity.hp})，造成 ${poisonAmount} 真实伤害！`);
+      removeEffect(entity, EffectType.POISON_AMOUNT);
+      result.logs.push(`[中毒量] 中毒量(${poisonAmount}) ≥ 当前生命(${entity.hp})，造成 ${poisonAmount} 真实伤害并清空中毒量！`);
     }
   }
 
@@ -418,7 +428,12 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
   if (bindEffect && bindEffect.stacks > 0) {
     if (bindEffect.lockDecayThisTurn) {
       bindEffect.lockDecayThisTurn = false;
-      logs.push(`[束缚] 新施加，本回合不衰减。`);
+      if (bindEffect.stacks <= 1) {
+        logs.push(`[束缚] 新施加且层数为1，本回合不衰减。`);
+      } else {
+        reduceEffectStacks(entity, EffectType.BIND);
+        logs.push(`[束缚] 新施加但层数大于1，本回合仍衰减。`);
+      }
     } else {
       reduceEffectStacks(entity, EffectType.BIND);
       logs.push(`[束缚] 层数衰减。`);
@@ -463,8 +478,13 @@ export function canPlayCard(
 
   // 束缚：检查卡牌类型限制
   const bindEffect = findEffect(entity, EffectType.BIND);
-  if (bindEffect && bindEffect.restrictedTypes?.includes(card.type)) {
-    return { allowed: false, reason: `束缚中，无法使用${card.type}类型卡牌。` };
+  if (bindEffect) {
+    const restrictedTypes = bindEffect.restrictedTypes && bindEffect.restrictedTypes.length > 0
+      ? bindEffect.restrictedTypes
+      : (['物理', '闪避'] as CardType[]);
+    if (restrictedTypes.includes(card.type)) {
+      return { allowed: false, reason: `束缚中，无法使用${card.type}类型卡牌。` };
+    }
   }
 
   // 吞食：骰子≤3 时禁用物理/闪避

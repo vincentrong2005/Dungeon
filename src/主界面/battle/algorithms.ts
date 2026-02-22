@@ -166,12 +166,22 @@ export function triggerSwarmReviveIfNeeded(target: EntityStats): { revived: bool
   if (target.hp > 0) return { revived: false, logs };
 
   const swarmStacks = getEffectStacks(target, EffectType.SWARM);
-  if (swarmStacks <= 0) return { revived: false, logs };
+  if (swarmStacks > 0) {
+    reduceEffectStacks(target, EffectType.SWARM, 1);
+    target.hp = target.maxHp;
+    logs.push(`[群集] 触发复苏，消耗1层并恢复至${target.maxHp}生命。`);
+    return { revived: true, logs };
+  }
 
-  reduceEffectStacks(target, EffectType.SWARM, 1);
-  target.hp = target.maxHp;
-  logs.push(`[群集] 触发复苏，消耗1层并恢复至${target.maxHp}生命。`);
-  return { revived: true, logs };
+  const indomitableStacks = getEffectStacks(target, EffectType.INDOMITABLE);
+  if (indomitableStacks > 0) {
+    reduceEffectStacks(target, EffectType.INDOMITABLE, 1);
+    target.hp = 1;
+    logs.push(`[不屈] 触发，消耗1层并恢复至1点生命。`);
+    return { revived: true, logs };
+  }
+
+  return { revived: false, logs };
 }
 
 /**
@@ -197,7 +207,7 @@ export function consumeColdAfterDealingDamage(attacker: EntityStats, actualDamag
 }
 
 /**
- * 应用伤害到实体（含结界/护甲/群集），返回实际伤害
+ * 应用伤害到实体（含结界/护甲/群集/不屈），返回实际伤害
  */
 export function applyDamageToEntity(target: EntityStats, damage: number, isTrueDamage: boolean): { actualDamage: number; logs: string[] } {
   const logs: string[] = [];

@@ -4,6 +4,30 @@
     :class="isVisible ? 'opacity-100' : 'opacity-0'"
     :style="{ aspectRatio: '16/9' }"
   >
+    <div
+      class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+      :style="{ backgroundImage: `url('${currentBackgroundUrl}')` }"
+    ></div>
+    <div
+      v-if="incomingBackgroundUrl"
+      class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out"
+      :class="isIncomingVisible ? 'opacity-100' : 'opacity-0'"
+      :style="{ backgroundImage: `url('${incomingBackgroundUrl}')` }"
+    ></div>
+    <div
+      v-if="outgoingBackgroundUrl"
+      class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out"
+      :class="isOutgoingVisible ? 'opacity-100' : 'opacity-0'"
+      :style="{ backgroundImage: `url('${outgoingBackgroundUrl}')` }"
+    ></div>
+
+    <button
+      type="button"
+      class="absolute inset-0 z-[1] bg-transparent cursor-pointer focus:outline-none"
+      aria-label="点击切换背景"
+      @click="switchBackground"
+    ></button>
+
     <!-- Dynamic Background -->
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,_rgba(60,40,30,0.3),_#000000_90%)] z-0"></div>
     <div class="absolute inset-0 opacity-30 z-0 mix-blend-overlay animate-pulse-slow bg-[length:200px] bg-repeat" style="background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png')"></div>
@@ -18,7 +42,6 @@
              bg-dungeon-dark/60 border border-dungeon-brown/50 text-dungeon-gold-dim
              hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
              transition-all duration-300"
-      title="全屏模式"
       @click="$emit('toggleFullscreen')"
     >
       <Maximize class="size-4" />
@@ -41,9 +64,9 @@
           欲望地牢
         </h1>
         <h2
-          class="text-xl md:text-2xl font-body text-dungeon-gold-dim tracking-[0.5em] uppercase border-t border-dungeon-brown pt-4 mt-2"
+          class="text-xl md:text-2xl font-body text-[#f9e6a0] tracking-[0.35em] uppercase border-t border-dungeon-brown pt-4 mt-2"
         >
-          Desire Dungeon
+          Created by Vin
         </h2>
       </div>
 
@@ -70,22 +93,11 @@
       </div>
     </div>
 
-    <!-- Footer -->
-    <div
-      class="absolute bottom-6 text-dungeon-brown text-xs font-mono tracking-widest flex flex-col items-center space-y-2 opacity-60 hover:opacity-100 transition-opacity"
-    >
-      <div class="w-12 h-[1px] bg-dungeon-brown mb-2"></div>
-      <p>VER 0.2.0 // TAVERN ENGINE</p>
-      <div class="flex items-center space-x-2">
-        <Github class="size-3" />
-        <span>POWERED BY LLM</span>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Github, Maximize, Play, Star } from 'lucide-vue-next';
+import { Maximize, Play, Star } from 'lucide-vue-next';
 
 defineEmits<{
   start: [];
@@ -93,7 +105,89 @@ defineEmits<{
 }>();
 
 const isVisible = ref(false);
+const splashBackgrounds: string[] = [
+  'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF1.png',
+  'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF2.png',
+  'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF3.png',
+  'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF4.png',
+  'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF5.png',
+] ;
+const currentBackgroundUrl = ref<string>(splashBackgrounds[0]);
+const incomingBackgroundUrl = ref<string | null>(null);
+const outgoingBackgroundUrl = ref<string | null>(null);
+const isIncomingVisible = ref(false);
+const isOutgoingVisible = ref(true);
+const isBackgroundTransitioning = ref(false);
+const BACKGROUND_FADE_MS = 700;
+let backgroundFadeTimer: ReturnType<typeof setTimeout> | null = null;
+let backgroundTransitionToken = 0;
+
+const pickRandomBackground = (exclude?: string) => {
+  const candidates = exclude
+    ? splashBackgrounds.filter((url) => url !== exclude)
+    : splashBackgrounds;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? splashBackgrounds[0];
+};
+
+const preloadImage = (url: string) => new Promise<void>((resolve) => {
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    resolve();
+  };
+  const img = new Image();
+  img.onload = finish;
+  img.onerror = finish;
+  img.src = url;
+  setTimeout(finish, 1200);
+});
+
+const switchBackground = async () => {
+  if (isBackgroundTransitioning.value) return;
+  const nextUrl = pickRandomBackground(currentBackgroundUrl.value);
+  if (nextUrl === currentBackgroundUrl.value) return;
+  const token = ++backgroundTransitionToken;
+
+  if (backgroundFadeTimer) {
+    clearTimeout(backgroundFadeTimer);
+    backgroundFadeTimer = null;
+  }
+
+  await preloadImage(nextUrl);
+  if (token !== backgroundTransitionToken) return;
+
+  isBackgroundTransitioning.value = true;
+  outgoingBackgroundUrl.value = currentBackgroundUrl.value;
+  incomingBackgroundUrl.value = nextUrl;
+  isOutgoingVisible.value = true;
+  isIncomingVisible.value = false;
+  await nextTick();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  if (token !== backgroundTransitionToken) return;
+  isIncomingVisible.value = true;
+  isOutgoingVisible.value = false;
+
+  backgroundFadeTimer = setTimeout(() => {
+    if (token !== backgroundTransitionToken) return;
+    currentBackgroundUrl.value = nextUrl;
+    incomingBackgroundUrl.value = null;
+    outgoingBackgroundUrl.value = null;
+    isBackgroundTransitioning.value = false;
+    backgroundFadeTimer = null;
+  }, BACKGROUND_FADE_MS);
+};
+
 onMounted(() => {
+  currentBackgroundUrl.value = pickRandomBackground();
   isVisible.value = true;
+});
+
+onBeforeUnmount(() => {
+  backgroundTransitionToken += 1;
+  if (backgroundFadeTimer) {
+    clearTimeout(backgroundFadeTimer);
+    backgroundFadeTimer = null;
+  }
 });
 </script>

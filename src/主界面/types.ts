@@ -10,6 +10,8 @@ export enum CardType {
   DODGE = '闪避',
 }
 
+export type CardRarity = '普通' | '稀有';
+
 // ── 伤害逻辑模式 ──────────────────────────────────────────────
 /** 伤害计算模式 */
 export type DamageMode = 'relative' | 'fixed' | 'mixed';
@@ -94,6 +96,8 @@ export interface CardData {
   type: CardType;
   /** 卡牌类别（大分类）：基础、敌人、火魔法、冰魔法等 */
   category: string;
+  /** 稀有度 */
+  rarity: CardRarity;
   /** 法力消耗（仅 Type == 魔法 时有效，其余为 0） */
   manaCost: number;
   /** 点数计算参数 */
@@ -150,6 +154,8 @@ export enum EffectType {
   MANA_SPRING = '魔力源泉',
   /** 群集 — 生命值归零时消耗1层并复活至满血 */
   SWARM = '群集',
+  /** 不屈 — 生命值归零时消耗1层并恢复至1点生命 */
+  INDOMITABLE = '不屈',
 }
 
 /** 效果极性分类 */

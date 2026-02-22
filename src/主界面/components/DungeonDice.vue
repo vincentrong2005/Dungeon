@@ -39,7 +39,7 @@
       </svg>
       <span
         class="relative z-10 font-heading font-bold drop-shadow-sm"
-        :class="[textColor, numberSizeClass]"
+        :class="[numberTextClass, numberSizeClass]"
       >
         {{ displayValue }}
       </span>
@@ -55,11 +55,17 @@ const props = withDefaults(
     color?: 'gold' | 'red';
     size?: 'sm' | 'md' | 'lg';
     className?: string;
+    rollingMin?: number;
+    rollingMax?: number;
+    numberClass?: string;
   }>(),
   {
     color: 'gold',
     size: 'md',
     className: '',
+    rollingMin: 1,
+    rollingMax: 6,
+    numberClass: '',
   },
 );
 
@@ -80,9 +86,25 @@ const numberSizeClass = computed(() => {
 
 const borderColor = computed(() => (props.color === 'gold' ? '#4d331f' : '#2a0505'));
 const textColor = computed(() => (props.color === 'gold' ? 'text-[#2c1a0e]' : 'text-[#2c0e0e]'));
+const numberTextClass = computed(() => props.numberClass || textColor.value);
+
+const getRollingRange = () => {
+  const min = Math.floor(Math.min(props.rollingMin, props.rollingMax));
+  const max = Math.floor(Math.max(props.rollingMin, props.rollingMax));
+  return {
+    min: Number.isFinite(min) ? min : 1,
+    max: Number.isFinite(max) ? max : 6,
+  };
+};
+
+const rollRandomInRange = () => {
+  const { min, max } = getRollingRange();
+  if (max <= min) return min;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
 
 watch(
-  () => [props.rolling, props.value],
+  () => [props.rolling, props.value, props.rollingMin, props.rollingMax],
   ([rolling]) => {
     if (interval) {
       clearInterval(interval);
@@ -90,7 +112,7 @@ watch(
     }
     if (rolling) {
       interval = setInterval(() => {
-        displayValue.value = Math.floor(Math.random() * 6) + 1;
+        displayValue.value = rollRandomInRange();
       }, 80);
     } else {
       displayValue.value = props.value;

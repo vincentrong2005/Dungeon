@@ -119,8 +119,8 @@ const 根须潜行者: EnemyDefinition = {
   name: '根须潜行者',
 
   stats: {
-    hp: 10,
-    maxHp: 10,
+    hp: 8,
+    maxHp: 8,
     mp: 0,
     minDice: 2,
     maxDice: 5,

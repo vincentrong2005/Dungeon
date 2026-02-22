@@ -81,6 +81,13 @@
         "description": "数量"
       }
     },
+    "_携带的魔法书": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "$最大点数": {
       "type": "number"
     },
