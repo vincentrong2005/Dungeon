@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import {
+    CardType,
     CombatPhase,
     type CardData,
     type ClashResult,
@@ -53,6 +54,7 @@ export class BattleStateMachine {
   private enemyStats: EntityStats;
   private playerRelics: RelicModifiers;
   private enemyRelics: RelicModifiers;
+  private playerTurnRawDice: number = 0;
 
   constructor(
     playerStats: EntityStats,
@@ -153,7 +155,7 @@ export class BattleStateMachine {
     }
 
     // 效果限制检查
-    const check = canPlayCard(this.playerStats, card, this.state.playerBaseDice);
+    const check = canPlayCard(this.playerStats, card, this.playerTurnRawDice);
     if (!check.allowed) {
       return { success: false, reason: check.reason };
     }
@@ -224,8 +226,11 @@ export class BattleStateMachine {
     this.addLog(`══ 回合 ${this.state.turn} 开始 ══`);
 
     // 投骰
-    this.state.playerBaseDice = this.consumeChargeOnRoll(this.playerStats, rollDice(this.playerStats.minDice, this.playerStats.maxDice), '玩家');
-    this.state.enemyBaseDice = this.consumeChargeOnRoll(this.enemyStats, rollDice(this.enemyStats.minDice, this.enemyStats.maxDice), '敌人');
+    const playerRawRoll = rollDice(this.playerStats.minDice, this.playerStats.maxDice);
+    const enemyRawRoll = rollDice(this.enemyStats.minDice, this.enemyStats.maxDice);
+    this.playerTurnRawDice = playerRawRoll;
+    this.state.playerBaseDice = this.consumeChargeOnRoll(this.playerStats, playerRawRoll, '玩家');
+    this.state.enemyBaseDice = this.consumeChargeOnRoll(this.enemyStats, enemyRawRoll, '敌人');
     this.addLog(`玩家投骰: ${this.state.playerBaseDice} | 敌人投骰: ${this.state.enemyBaseDice}`);
 
     // 玩家回合开始效果
@@ -385,11 +390,11 @@ export class BattleStateMachine {
   ): void {
     // 双方各自对对手结算伤害
     // 玩家 → 敌人
-    if (pCard.type !== '功能' as any) {
+    if (pCard.type === CardType.PHYSICAL || pCard.type === CardType.MAGIC) {
       this.resolveAttackHits(this.playerStats, this.enemyStats, pCard, pFinal, this.playerRelics);
     }
     // 敌人 → 玩家
-    if (eCard.type !== '功能' as any) {
+    if (eCard.type === CardType.PHYSICAL || eCard.type === CardType.MAGIC) {
       this.resolveAttackHits(this.enemyStats, this.playerStats, eCard, eFinal, this.enemyRelics);
     }
   }

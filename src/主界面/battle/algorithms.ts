@@ -137,6 +137,18 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   const cold = ctx.attackerEffects.find(e => e.type === EffectType.COLD)?.stacks ?? 0;
   if (cold > 0) { damage -= cold; logs.push(`[寒冷] -${cold}`); }
 
+  // 非实体：仅影响当前卡牌造成的直接物理/魔法伤害
+  const defenderHasNonEntity = ctx.defenderEffects.some((e) => e.type === EffectType.NON_ENTITY && e.stacks > 0);
+  if (defenderHasNonEntity) {
+    if (ctx.card.type === CardType.PHYSICAL) {
+      damage *= 0.5;
+      logs.push('[非实体] 物理伤害 x0.5');
+    } else if (ctx.card.type === CardType.MAGIC) {
+      damage *= 1.5;
+      logs.push('[非实体] 魔法伤害 x1.5');
+    }
+  }
+
   if (isTrueDamage) {
     logs.push(`真实伤害，无视防御。`);
     return { damage: Math.max(0, Math.floor(damage)), isTrueDamage: true, logs };
@@ -145,6 +157,10 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   // 易伤仅影响非真实伤害
   const vuln = ctx.defenderEffects.find(e => e.type === EffectType.VULNERABLE)?.stacks ?? 0;
   if (vuln > 0) { damage += vuln; logs.push(`[易伤] +${vuln}`); }
+
+  // 坚固固定减伤
+  const sturdy = ctx.defenderEffects.find(e => e.type === EffectType.STURDY)?.stacks ?? 0;
+  if (sturdy > 0) { damage -= sturdy; logs.push(`[坚固] -${sturdy}`); }
 
   // 结界的“抵挡并消耗”在 applyDamageToEntity 里处理，这里只记录提示
   if (ctx.defenderEffects.some(e => e.type === EffectType.BARRIER && e.stacks > 0)) {
@@ -164,6 +180,7 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
 export function triggerSwarmReviveIfNeeded(target: EntityStats): { revived: boolean; logs: string[] } {
   const logs: string[] = [];
   if (target.hp > 0) return { revived: false, logs };
+  if (target.maxHp <= 0) return { revived: false, logs };
 
   const swarmStacks = getEffectStacks(target, EffectType.SWARM);
   if (swarmStacks > 0) {
@@ -247,7 +264,7 @@ export function processClashEffects(winner: EntityStats, loser: EntityStats): st
 }
 
 /** 攻击后：蓄力清除, 寒冷减半 */
-export function processPostAttackEffects(attacker: EntityStats): string[] {
+export function processPostAttackEffects(_attacker: EntityStats): string[] {
   const logs: string[] = [];
   // 蓄力改为“下次掷骰时消耗”，寒冷改为“每次实际造成伤害后消耗”，这里不再处理。
   return logs;

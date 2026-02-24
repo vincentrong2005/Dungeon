@@ -89,7 +89,12 @@
               敌方意图
             </div>
             <div class="rotate-[-3deg] shadow-[0_0_20px_rgba(200,120,0,0.15)]">
-              <DungeonCard :card="combatState.enemyIntentCard!" is-enemy disabled />
+              <DungeonCard
+                :card="combatState.enemyIntentCard!"
+                :mask-level="enemyIntentMaskLevel"
+                is-enemy
+                disabled
+              />
             </div>
           </div>
         </div>
@@ -109,15 +114,15 @@
             :rolling="isRolling"
             :rolling-min="enemyStats.minDice"
             :rolling-max="enemyStats.maxDice"
-            :number-class="enemyDicePreviewChanged ? 'text-[#b08a2e]' : ''"
+            :number-class="enemyDiceNumberClass"
             color="red"
             size="md"
           />
           <div
-            v-if="enemyDicePreviewChanged"
+            v-if="enemyDicePreviewChanged && !isEnemyDiceObscured"
             class="absolute left-1/2 top-[4.6rem] -translate-x-1/2 rounded-md border border-white/15 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap pointer-events-none"
           >
-            <span class="text-white/70">原始 {{ combatState.enemyBaseDice }}</span>
+            <span class="text-white/70">原始 {{ enemyTurnRawDice }}</span>
             <span class="mx-1 text-white/45">→</span>
             <span class="font-bold text-[#b08a2e]">最终 {{ displayEnemyDice }}</span>
           </div>
@@ -267,15 +272,15 @@
             :rolling="isRolling"
             :rolling-min="playerStats.minDice"
             :rolling-max="playerStats.maxDice"
-            :number-class="playerDicePreviewChanged ? 'text-red-800' : ''"
+            :number-class="playerDiceNumberClass"
             color="gold"
             size="md"
           />
           <div
-            v-if="playerDicePreviewChanged"
+            v-if="playerDicePreviewChanged && !isPlayerDiceObscured"
             class="absolute left-1/2 top-[4.6rem] -translate-x-1/2 rounded-md border border-white/15 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap pointer-events-none"
           >
-            <span class="text-white/70">原始 {{ combatState.playerBaseDice }}</span>
+            <span class="text-white/70">原始 {{ playerTurnRawDice }}</span>
             <span class="mx-1 text-white/45">→</span>
             <span class="font-bold text-red-800">最终 {{ displayPlayerDice }}</span>
           </div>
@@ -430,12 +435,13 @@
       </div>
 
       <div
-        v-if="resolvedCardVisual"
+        v-for="visual in resolvedCardVisualEntries"
+        :key="visual.id"
         class="resolved-card-visual"
-        :class="resolvedCardVisual.source === 'player' ? 'resolved-card-visual--player' : 'resolved-card-visual--enemy'"
+        :class="visual.source === 'player' ? 'resolved-card-visual--player' : 'resolved-card-visual--enemy'"
       >
-        <div class="resolved-card-visual-inner" :class="resolvedCardVisualInnerClass">
-          <DungeonCard :card="resolvedCardVisual.card" disabled />
+        <div class="resolved-card-visual-inner" :class="resolvedCardVisualInnerClass(visual)">
+          <DungeonCard :card="visual.card" disabled />
         </div>
       </div>
     </div>
@@ -501,6 +507,7 @@
           >
             <DungeonCard
               :card="card"
+              :mask-level="playerHandMaskLevel"
               :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT && combatState.playerSelectedCard !== card"
               @click="handleCardSelect(card, idx)"
             />
@@ -638,10 +645,13 @@
 import {
   Ban,
   Battery,
+  Brain,
   Bone,
   Box,
   Bug,
   Droplet,
+  Eye,
+  EyeOff,
   Flame,
   Heart,
   Layers,
@@ -660,7 +670,8 @@ import {
   Zap,
 } from 'lucide-vue-next';
 import { applyDamageToEntity, calculateFinalDamage, calculateFinalPoint, consumeColdAfterDealingDamage, triggerSwarmReviveIfNeeded } from '../battle/algorithms';
-import { EFFECT_REGISTRY, applyEffect, canPlayCard, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
+import { getCardByName } from '../battle/cardRegistry';
+import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import {
   resolveRelicMap,
@@ -677,6 +688,7 @@ import {
   type ResolvedRelicEntry,
 } from '../battle/relicRegistry';
 import { toggleFullScreen } from '../fullscreen';
+import { getFloorNumberForArea } from '../floor';
 import { useGameStore } from '../gameStore';
 import { type CardData, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats, CardType, CombatPhase, EffectType as ET } from '../types';
 import DungeonCard from './DungeonCard.vue';
@@ -694,23 +706,150 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  endCombat: [win: boolean, finalStats: EntityStats];
+  endCombat: [win: boolean, finalStats: EntityStats, logs: string[]];
   openDeck: [];
   openRelics: [];
 }>();
 
+const gameStore = useGameStore();
+const resolveCurrentFloorNumber = () => {
+  const area = (gameStore.statData._当前区域 as string) || '';
+  const floorFromArea = getFloorNumberForArea(area);
+  const fallback = Math.max(1, Math.floor(Number(gameStore.statData._楼层数 ?? 1)));
+  const floor = area ? floorFromArea : fallback;
+  gameStore.statData._楼层数 = floor;
+  return floor;
+};
+const currentFloorNumber = resolveCurrentFloorNumber();
+
 // --- Enemy Loading ---
-const enemyDef = getEnemyByName(props.enemyName);
+const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
 const enemyDisplayName = enemyDef?.name ?? props.enemyName;
 
 // --- Portrait URLs ---
-const playerPortraitUrl = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/user/%E7%AB%8B%E7%BB%98.png';
-const enemyPortraitUrl = computed(() => `https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/${encodeURIComponent(enemyDisplayName)}.png`);
+const HF_DATASET_REPO = 'Vin05/AI-Gallery';
+const HF_RESOLVE_ROOT = `https://huggingface.co/datasets/${HF_DATASET_REPO}/resolve/main`;
+const HF_TREE_API_ROOT = `https://huggingface.co/api/datasets/${HF_DATASET_REPO}/tree/main`;
+const HF_USER_DIR = '地牢/user';
+const HF_MONSTER_DIR = '地牢/魔物';
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|avif|bmp|svg)$/i;
+const BOSS_FOLDER_NAMES = new Set([
+  '普莉姆', '宁芙', '温蒂尼', '玛塔', '罗丝', '厄休拉',
+  '希尔薇', '因克', '阿卡夏', '多萝西', '维罗妮卡',
+  '伊丽莎白', '尤斯蒂娅', '克拉肯', '布偶',
+  '赛琳娜', '米拉', '梦魔双子', '贝希摩斯',
+  '佩恩', '西格尔', '摩尔', '利维坦', '奥赛罗', '盖亚',
+]);
+
+type HfTreeEntry = {
+  type?: string;
+  path?: string;
+};
+
+const folderImageCache = new Map<string, string[]>();
+const folderImagePromiseCache = new Map<string, Promise<string[]>>();
+
+const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+const encodeRepoPath = (path: string) => normalizeRepoPath(path).split('/').map((seg) => encodeURIComponent(seg)).join('/');
+const toResolveUrl = (repoPath: string) => `${HF_RESOLVE_ROOT}/${encodeRepoPath(repoPath)}`;
+const pickRandom = <T,>(items: T[]): T | null => (items.length > 0 ? items[Math.floor(Math.random() * items.length)]! : null);
+const parseNextLink = (linkHeader: string | null): string | null => {
+  if (!linkHeader) return null;
+  const match = linkHeader.match(/<([^>]+)>\s*;\s*rel="next"/i);
+  return match?.[1] ?? null;
+};
+
+const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
+  const folder = normalizeRepoPath(repoFolderPath);
+  const cached = folderImageCache.get(folder);
+  if (cached) return cached;
+  const pending = folderImagePromiseCache.get(folder);
+  if (pending) return pending;
+
+  const task = (async () => {
+    const images: string[] = [];
+    let nextUrl: string | null = `${HF_TREE_API_ROOT}/${encodeRepoPath(folder)}?recursive=true&limit=1000`;
+
+    while (nextUrl) {
+      let response: Response;
+      try {
+        response = await fetch(nextUrl);
+      } catch {
+        break;
+      }
+      if (!response.ok) break;
+
+      let entries: HfTreeEntry[] = [];
+      try {
+        entries = await response.json() as HfTreeEntry[];
+      } catch {
+        break;
+      }
+
+      for (const entry of entries) {
+        if (entry.type !== 'file' || !entry.path) continue;
+        if (!IMAGE_EXT_RE.test(entry.path)) continue;
+        images.push(entry.path);
+      }
+
+      nextUrl = parseNextLink(response.headers.get('link'));
+    }
+
+    folderImageCache.set(folder, images);
+    return images;
+  })();
+
+  folderImagePromiseCache.set(folder, task);
+  try {
+    return await task;
+  } finally {
+    folderImagePromiseCache.delete(folder);
+  }
+};
+
+const playerPortraitUrl = ref(toResolveUrl(`${HF_USER_DIR}/立绘.png`));
+const enemyPortraitUrl = ref(toResolveUrl(`${HF_MONSTER_DIR}/${enemyDisplayName}.png`));
 const playerPortraitError = ref(false);
 const enemyPortraitError = ref(false);
 
+let portraitLoaderDisposed = false;
+
+const resolveRandomPortrait = async (
+  folderPath: string,
+  fallbackFilePath: string,
+): Promise<string> => {
+  const images = await fetchFolderImages(folderPath);
+  const randomPath = pickRandom(images);
+  return randomPath ? toResolveUrl(randomPath) : toResolveUrl(fallbackFilePath);
+};
+
+const initPortraitUrls = async () => {
+  const playerUrl = await resolveRandomPortrait(HF_USER_DIR, `${HF_USER_DIR}/立绘.png`);
+  if (!portraitLoaderDisposed) {
+    playerPortraitError.value = false;
+    playerPortraitUrl.value = playerUrl;
+  }
+
+  const enemyFolderPath = `${HF_MONSTER_DIR}/${enemyDisplayName}`;
+  const enemyFallback = `${HF_MONSTER_DIR}/${enemyDisplayName}.png`;
+  const shouldPreferFolder = BOSS_FOLDER_NAMES.has(enemyDisplayName);
+  let enemyUrl = toResolveUrl(enemyFallback);
+  if (shouldPreferFolder) {
+    enemyUrl = await resolveRandomPortrait(enemyFolderPath, enemyFallback);
+  } else {
+    const folderImages = await fetchFolderImages(enemyFolderPath);
+    const randomEnemy = pickRandom(folderImages);
+    if (randomEnemy) {
+      enemyUrl = toResolveUrl(randomEnemy);
+    }
+  }
+  if (!portraitLoaderDisposed) {
+    enemyPortraitError.value = false;
+    enemyPortraitUrl.value = enemyUrl;
+  }
+};
+
 // --- Dynamic Background ---
-const gameStore = useGameStore();
 const bgIsLordFallback = ref(false);
 const bgImageError = ref(false);
 
@@ -779,6 +918,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.DEVOUR]: Skull,
   [ET.POISON]: Bug,
   [ET.POISON_AMOUNT]: Droplet,
+  [ET.CORROSION]: Droplet,
   [ET.BURN]: Flame,
   [ET.BLEED]: Droplet,
   [ET.VULNERABLE]: TriangleAlert,
@@ -788,10 +928,28 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.CHARGE]: Zap,
   [ET.COLD]: Snowflake,
   [ET.NON_LIVING]: Bone,
+  [ET.NON_ENTITY]: Sparkles,
+  [ET.MAX_HP_REDUCTION]: Heart,
+  [ET.POINT_GROWTH_BIG]: Layers,
+  [ET.POINT_GROWTH_SMALL]: Layers,
   [ET.MANA_DRAIN]: Battery,
   [ET.MANA_SPRING]: Waves,
   [ET.SWARM]: Bug,
   [ET.INDOMITABLE]: Heart,
+  [ET.PEEP_FORBIDDEN]: Eye,
+  [ET.BLIND_ASH]: EyeOff,
+  [ET.COGNITIVE_INTERFERENCE]: Brain,
+  [ET.MEMORY_FOG]: EyeOff,
+  [ET.SILENCE]: Ban,
+  [ET.STURDY]: Shield,
+  [ET.SHOCK]: Zap,
+  [ET.FLAME_ATTACH]: Flame,
+  [ET.POISON_ATTACH]: Bug,
+  [ET.TOXIN_SPREAD]: Bug,
+  [ET.AMBUSH]: Link2,
+  [ET.FROST_ATTACH]: Snowflake,
+  [ET.BLOODBLADE_ATTACH]: Droplet,
+  [ET.LIGHTNING_ATTACH]: Zap,
 };
 const getEffectIconComponent = (type: EffectType) => {
   return EFFECT_ICON_COMPONENTS[type] ?? Sparkles;
@@ -879,6 +1037,10 @@ const combatState = ref<CombatState>({
   logs: [`战斗开始！遭遇了 <span class="text-red-500 font-bold">${enemyDisplayName}</span>`],
 });
 
+// 用于“吞食”判定：仅记录每回合最初投出的裸骰点数（不含卡牌/圣遗物/后续点数改动）
+const playerTurnRawDice = ref(1);
+const enemyTurnRawDice = ref(1);
+
 const isRolling = ref(false);
 const showClashAnimation = ref(false);
 const shatteringTarget = ref<'player' | 'enemy' | 'both' | null>(null);
@@ -933,10 +1095,37 @@ const SPEED_SETTING_KEY = 'dungeon.combat.speed_up';
 const speedMultiplier = computed(() => (battleSpeedUp.value ? 2 : 1));
 const combatRootStyle = computed(() => ({ '--combat-speed-multiplier': String(speedMultiplier.value) }));
 const floatingNumbers = ref<FloatingNumberEntry[]>([]);
+const lightningAmbushFirstUseConsumed = ref<Record<BattleSide, boolean>>({
+  player: false,
+  enemy: false,
+});
 const previewPlayerDice = ref<number | null>(null);
 const previewEnemyDice = ref<number | null>(null);
-const displayPlayerDice = computed(() => previewPlayerDice.value ?? combatState.value.playerBaseDice);
-const displayEnemyDice = computed(() => previewEnemyDice.value ?? combatState.value.enemyBaseDice);
+const playerDiceUiNoise = ref(0);
+const enemyDiceUiNoise = ref(0);
+const comboUiMaskBridge = ref(false);
+const isUiMaskingActive = computed(() => (
+  combatState.value.phase === CombatPhase.PLAYER_INPUT || comboUiMaskBridge.value
+));
+const isPlayerDiceObscured = computed(() => (
+  isUiMaskingActive.value
+  && getEffectStacks(playerStats.value, ET.BLIND_ASH) > 0
+));
+const isEnemyDiceObscured = computed(() => (
+  isUiMaskingActive.value
+  && getEffectStacks(playerStats.value, ET.PEEP_FORBIDDEN) > 0
+));
+const rerollUiNoise = () => Math.floor(Math.random() * 3) - 1;
+const displayPlayerDice = computed(() => {
+  const base = previewPlayerDice.value ?? combatState.value.playerBaseDice;
+  if (!isPlayerDiceObscured.value) return base;
+  return Math.max(0, base + playerDiceUiNoise.value);
+});
+const displayEnemyDice = computed(() => {
+  const base = previewEnemyDice.value ?? combatState.value.enemyBaseDice;
+  if (!isEnemyDiceObscured.value) return base;
+  return Math.max(0, base + enemyDiceUiNoise.value);
+});
 const canPlayerRerollDice = computed(() => (
   playerDiceRerollCharges.value > 0
   && combatState.value.phase === CombatPhase.PLAYER_INPUT
@@ -946,6 +1135,9 @@ const canPlayerRerollDice = computed(() => (
 ));
 const playerDiceRerollHint = computed(() => {
   if (playerDiceRerollCharges.value <= 0) return '无可用重掷次数';
+  if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return '当前阶段不可重掷';
+  if (isRolling.value || showClashAnimation.value) return '结算中暂不可重掷';
+  if (endCombatPending.value) return '战斗结束中不可重掷';
   return `可点击重掷（剩余${playerDiceRerollCharges.value}次）`;
 });
 const playerDicePreviewChanged = computed(() => (
@@ -954,8 +1146,33 @@ const playerDicePreviewChanged = computed(() => (
 const enemyDicePreviewChanged = computed(() => (
   previewEnemyDice.value !== null && previewEnemyDice.value !== combatState.value.enemyBaseDice
 ));
+const playerDiceNumberClass = computed(() => {
+  if (isPlayerDiceObscured.value) return 'text-violet-400';
+  return playerDicePreviewChanged.value ? 'text-red-800' : '';
+});
+const enemyDiceNumberClass = computed(() => {
+  if (isEnemyDiceObscured.value) return 'text-violet-400';
+  return enemyDicePreviewChanged.value ? 'text-[#b08a2e]' : '';
+});
+const enemyIntentMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
+  isUiMaskingActive.value
+    && getEffectStacks(playerStats.value, ET.COGNITIVE_INTERFERENCE) > 0
+    ? 'full'
+    : 'none'
+));
+const playerHandMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
+  isUiMaskingActive.value
+    && getEffectStacks(playerStats.value, ET.MEMORY_FOG) > 0
+    ? 'partial'
+    : 'none'
+));
 const playerPlayedCardVisual = ref<PlayerPlayedCardVisual | null>(null);
-const resolvedCardVisual = ref<ResolvedCardVisual | null>(null);
+const resolvedPlayerCardVisual = ref<ResolvedCardVisual | null>(null);
+const resolvedEnemyCardVisual = ref<ResolvedCardVisual | null>(null);
+const resolvedCardVisualEntries = computed(() => (
+  [resolvedPlayerCardVisual.value, resolvedEnemyCardVisual.value]
+    .filter((visual): visual is ResolvedCardVisual => !!visual)
+));
 let hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
 let enemyDicePreviewTimer: ReturnType<typeof setTimeout> | null = null;
 let effectTooltipLongPressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -966,6 +1183,7 @@ let playerPlayedCardVisualId = 0;
 let resolvedCardVisualId = 0;
 let animationStopToken = 0;
 let endCombatSequenceToken = 0;
+let enemyManaLackHintTurn = -1;
 const handCardKeys = new WeakMap<CardData, string>();
 const invalidCardShakeKeys = ref<Set<string>>(new Set());
 
@@ -1279,23 +1497,22 @@ const playerPlayedCardStyle = computed(() => {
   };
 });
 
-const resolvedCardVisualInnerClass = computed(() => {
-  if (!resolvedCardVisual.value) return '';
-  const sideClass = resolvedCardVisual.value.source === 'player'
+const resolvedCardVisualInnerClass = (visual: ResolvedCardVisual) => {
+  const sideClass = visual.source === 'player'
     ? 'resolved-card-visual-inner--player'
     : 'resolved-card-visual-inner--enemy';
-  const variantClass = resolvedCardVisual.value.variant === 'attack'
+  const variantClass = visual.variant === 'attack'
     ? 'resolved-card-visual-inner--attack'
-    : (resolvedCardVisual.value.variant === 'self'
+    : (visual.variant === 'self'
       ? 'resolved-card-visual-inner--self'
       : 'resolved-card-visual-inner--fade');
   return `${sideClass} ${variantClass}`;
-});
+};
 
 const showEnemyIntentCard = computed(() => {
   if (!combatState.value.enemyIntentCard) return false;
   if (enemyIntentConsumedThisTurn.value) return false;
-  return !(resolvedCardVisual.value && resolvedCardVisual.value.source === 'enemy');
+  return !resolvedEnemyCardVisual.value;
 });
 
 const floatingColors: Record<FloatingNumberKind, string> = {
@@ -1343,6 +1560,344 @@ const resolveTargetSide = (source: BattleSide, target: 'self' | 'enemy') => {
   return source === 'player' ? 'enemy' : 'player';
 };
 
+const removeCardsById = (cards: CardData[], cardId: string): CardData[] => (
+  cards.filter((card) => card.id !== cardId)
+);
+
+const removeSingleCardById = (cards: CardData[], cardId: string): CardData[] => {
+  let removed = false;
+  return cards.filter((card) => {
+    if (!removed && card.id === cardId) {
+      removed = true;
+      return false;
+    }
+    return true;
+  });
+};
+
+const insertCardIntoDeckRandomly = (deck: CardData[], card: CardData): CardData[] => {
+  const index = Math.floor(Math.random() * (deck.length + 1));
+  return [...deck.slice(0, index), card, ...deck.slice(index)];
+};
+
+const applyPurgeTraitAfterUse = (source: BattleSide, card: CardData) => {
+  if (!card.traits.purgeOnUse) return;
+  if (source === 'player') {
+    combatState.value.discardPile = removeSingleCardById(combatState.value.discardPile, card.id);
+  } else {
+    combatState.value.enemyDeck = removeSingleCardById(combatState.value.enemyDeck, card.id);
+    combatState.value.enemyDiscard = removeSingleCardById(combatState.value.enemyDiscard, card.id);
+  }
+  log(`<span class="text-zinc-300">【${card.name}】触发移除，自我销毁。</span>`);
+};
+
+const applyInsertTrait = (source: BattleSide, card: CardData) => {
+  const toInsert = card.traits.insertCardsToEnemyDeck ?? [];
+  if (toInsert.length <= 0) return;
+  const sourceLabel = source === 'player' ? '我方' : '敌方';
+  const targetSide: BattleSide = source === 'player' ? 'enemy' : 'player';
+  for (const cardName of toInsert) {
+    const inserted = getCardByName(cardName);
+    if (!inserted) continue;
+    const battleCard = cloneCardForBattle(inserted);
+    if (targetSide === 'player') {
+      combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, battleCard);
+      log(`<span class="text-fuchsia-300">${sourceLabel}【${card.name}】向对方牌库插入了【${cardName}】（牌库${combatState.value.playerDeck.length} / 弃牌${combatState.value.discardPile.length}）。</span>`);
+    } else {
+      combatState.value.enemyDeck = insertCardIntoDeckRandomly(combatState.value.enemyDeck, battleCard);
+      log(`<span class="text-fuchsia-300">${sourceLabel}【${card.name}】向对方牌库插入了【${cardName}】（敌方牌库${combatState.value.enemyDeck.length} / 弃牌${combatState.value.enemyDiscard.length}）。</span>`);
+    }
+  }
+};
+
+const destroyOpponentCardByTrait = (winnerSide: BattleSide, loserCard: CardData) => {
+  if (loserCard.id === PASS_CARD.id) return;
+  if (winnerSide === 'player') {
+    combatState.value.enemyDeck = removeCardsById(combatState.value.enemyDeck, loserCard.id);
+    combatState.value.enemyDiscard = removeCardsById(combatState.value.enemyDiscard, loserCard.id);
+  } else {
+    combatState.value.playerDeck = removeCardsById(combatState.value.playerDeck, loserCard.id);
+    combatState.value.playerHand = removeCardsById(combatState.value.playerHand, loserCard.id);
+    combatState.value.discardPile = removeCardsById(combatState.value.discardPile, loserCard.id);
+    if (combatState.value.playerSelectedCard?.id === loserCard.id) {
+      combatState.value.playerSelectedCard = null;
+    }
+  }
+  log(`<span class="text-violet-300">【销毁】${loserCard.name}在本次战斗中被临时移除。</span>`);
+};
+
+const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) => {
+  const loss = Math.max(0, Math.floor(lostMp));
+  if (loss <= 0) return;
+
+  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  const label = side === 'player' ? '我方' : '敌方';
+  const shockStacks = getEffectStacks(target, ET.SHOCK);
+  if (shockStacks <= 0) return;
+
+  target.hp = Math.max(0, target.hp - shockStacks);
+  pushFloatingNumber(side, shockStacks, 'true', '-');
+
+  const nextStacks = Math.floor(shockStacks / 2);
+  if (nextStacks <= 0) {
+    removeEffect(target, ET.SHOCK);
+  } else {
+    const shockEffect = target.effects.find((effect) => effect.type === ET.SHOCK);
+    if (shockEffect) {
+      shockEffect.stacks = nextStacks;
+    }
+  }
+
+  log(`<span class="text-violet-300">${label}因${reason}触发电击，损失 ${shockStacks} 点生命（电击 ${shockStacks}→${nextStacks}）。</span>`);
+};
+
+const changeManaWithShock = (
+  side: BattleSide,
+  delta: number,
+  reason: string,
+  options?: { requireEnoughForDecrease?: boolean; showPositiveFloating?: boolean },
+): { ok: boolean; actualDelta: number } => {
+  const value = Math.floor(delta);
+  if (value === 0) return { ok: true, actualDelta: 0 };
+
+  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  const before = target.mp;
+
+  if (value < 0 && options?.requireEnoughForDecrease && before < -value) {
+    return { ok: false, actualDelta: 0 };
+  }
+
+  target.mp = Math.max(0, before + value);
+  const actualDelta = target.mp - before;
+
+  if (actualDelta > 0 && options?.showPositiveFloating !== false) {
+    pushFloatingNumber(side, actualDelta, 'mana', '+');
+  }
+  if (actualDelta < 0) {
+    applyShockOnManaLoss(side, -actualDelta, reason);
+  }
+
+  return { ok: true, actualDelta };
+};
+
+const spendManaWithShock = (side: BattleSide, amount: number, reason: string): boolean => {
+  const cost = Math.max(0, Math.floor(amount));
+  if (cost <= 0) return true;
+  return changeManaWithShock(side, -cost, reason, { requireEnoughForDecrease: true }).ok;
+};
+
+const applyBloodbladeAttachOnClash = (sourceSide: BattleSide, targetSide: BattleSide) => {
+  const sourceStats = sourceSide === 'player' ? playerStats.value : enemyStats.value;
+  const stacks = getEffectStacks(sourceStats, ET.BLOODBLADE_ATTACH);
+  if (stacks <= 0) return;
+  applyStatusEffectWithRelics(targetSide, ET.BLEED, stacks, { source: 'effect:bloodblade_attach' });
+  const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
+  log(`<span class="text-rose-300">${sourceLabel}[血刃附加] 为对方施加了 ${stacks} 层流血。</span>`);
+};
+
+const applyLightningAttachOnDodge = (dodgerSide: BattleSide, targetSide: BattleSide) => {
+  const sourceStats = dodgerSide === 'player' ? playerStats.value : enemyStats.value;
+  const stacks = getEffectStacks(sourceStats, ET.LIGHTNING_ATTACH);
+  if (stacks <= 0) return;
+  applyStatusEffectWithRelics(targetSide, ET.SHOCK, stacks, { source: 'effect:lightning_attach' });
+  const sourceLabel = dodgerSide === 'player' ? '我方' : '敌方';
+  log(`<span class="text-indigo-300">${sourceLabel}[雷电附加] 为对方施加了 ${stacks} 层电击。</span>`);
+};
+
+const applyLifeMaxReduction = (targetSide: BattleSide, stacks: number, sourceTag: string, sourceLabel: string) => {
+  const target = targetSide === 'player' ? playerStats.value : enemyStats.value;
+  const value = Math.max(0, Math.floor(stacks));
+  if (value <= 0) return 0;
+
+  const beforeMaxHp = target.maxHp;
+  const beforeHp = target.hp;
+  const applied = applyStatusEffectWithRelics(targetSide, ET.MAX_HP_REDUCTION, value, { source: sourceTag })
+    ? Math.max(0, beforeMaxHp - target.maxHp)
+    : 0;
+
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  if (applied <= 0) {
+    log(`<span class="text-gray-400">${sourceLabel}对${targetLabel}的生命上限削减未生效</span>`);
+    return 0;
+  }
+
+  const hpLossByCap = Math.max(0, beforeHp - target.hp);
+  if (hpLossByCap > 0) {
+    pushFloatingNumber(targetSide, hpLossByCap, 'true', '-');
+  }
+
+  log(`<span class="text-fuchsia-300">${sourceLabel}使${targetLabel}生命上限 -${applied}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
+  return applied;
+};
+
+const applyDodgeSuccessCardBonus = (dodgerSide: BattleSide, dodgeCard: CardData, dodgePoint: number) => {
+  const dodger = dodgerSide === 'player' ? playerStats.value : enemyStats.value;
+  const label = dodgerSide === 'player' ? '我方' : '敌方';
+  const point = Math.max(0, Math.floor(dodgePoint));
+
+  if (dodgeCard.id === 'basic_breathing_technique') {
+    const beforeHp = dodger.hp;
+    dodger.hp = Math.min(dodger.maxHp, dodger.hp + point);
+    const actualHeal = dodger.hp - beforeHp;
+    if (actualHeal > 0) {
+      pushFloatingNumber(dodgerSide, actualHeal, 'heal', '+');
+    }
+    log(`<span class="text-green-300">${label}【${dodgeCard.name}】闪避成功，回复 ${point} 点生命</span>`);
+    return;
+  }
+
+  if (dodgeCard.id === 'basic_mirror_phantom') {
+    applyStatusEffectWithRelics(dodgerSide, ET.BARRIER, 1, { source: dodgeCard.id });
+    log(`<span class="text-sky-300">${label}【${dodgeCard.name}】闪避成功，获得 1 层结界</span>`);
+    return;
+  }
+
+  if (dodgeCard.id === 'enemy_mimicbubble_iridescent_float') {
+    const targetSide: BattleSide = dodgerSide === 'player' ? 'enemy' : 'player';
+    const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+    applyStatusEffectWithRelics(targetSide, ET.BIND, 1, {
+      source: dodgeCard.id,
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      lockDecayThisTurn: true,
+    });
+    log(`<span class="text-indigo-300">${label}【${dodgeCard.name}】闪避成功，为${targetLabel}施加 1 层束缚</span>`);
+    return;
+  }
+
+  if (dodgeCard.id === 'enemy_mist_sprite_illusion_lure') {
+    const targetSide: BattleSide = dodgerSide === 'player' ? 'enemy' : 'player';
+    applyLifeMaxReduction(targetSide, 2, dodgeCard.id, `${label}【${dodgeCard.name}】闪避成功，`);
+    return;
+  }
+
+  if (dodgeCard.id === 'enemy_vinewalker_lubricated_shrink') {
+    if (point > 0) {
+      applyStatusEffectWithRelics(dodgerSide, ET.CHARGE, point, { source: dodgeCard.id });
+    }
+    log(`<span class="text-cyan-300">${label}【${dodgeCard.name}】闪避成功，获得 ${point} 层蓄力</span>`);
+    return;
+  }
+
+  if (dodgeCard.id === 'enemy_springspirit_silent_infiltration') {
+    const targetSide: BattleSide = dodgerSide === 'player' ? 'enemy' : 'player';
+    applyStatusEffectWithRelics(targetSide, ET.CORROSION, 2, { source: dodgeCard.id });
+    log(`<span class="text-emerald-300">${label}【${dodgeCard.name}】闪避成功，对手侵蚀 +2</span>`);
+    return;
+  }
+
+  if (dodgeCard.id === 'basic_mana_shift') {
+    const beforeMp = dodger.mp;
+    dodger.mp = Math.max(0, dodger.mp + point);
+    const actualRestore = dodger.mp - beforeMp;
+    if (actualRestore > 0) {
+      pushFloatingNumber(dodgerSide, actualRestore, 'mana', '+');
+    }
+    log(`<span class="text-blue-300">${label}【${dodgeCard.name}】闪避成功，回复 ${point} 点魔力</span>`);
+  }
+};
+
+const applyToxinSpreadOnPhysicalPlay = (source: BattleSide, card: CardData) => {
+  if (card.id === PASS_CARD.id || card.type !== CardType.PHYSICAL) return;
+
+  const spreadOwnerSide: BattleSide = source === 'player' ? 'enemy' : 'player';
+  const spreadOwner = spreadOwnerSide === 'player' ? playerStats.value : enemyStats.value;
+  const spreadStacks = getEffectStacks(spreadOwner, ET.TOXIN_SPREAD);
+  if (spreadStacks <= 0) return;
+
+  applyStatusEffectWithRelics(source, ET.POISON, spreadStacks, { source: 'effect:toxin_spread' });
+  const sourceLabel = source === 'player' ? '我方' : '敌方';
+  const spreadOwnerLabel = spreadOwnerSide === 'player' ? '我方' : '敌方';
+  log(`<span class="text-emerald-300">${spreadOwnerLabel}[毒素蔓延] ${sourceLabel}打出物理牌，获得 ${spreadStacks} 层中毒。</span>`);
+};
+
+const applyAmbushOnCardPlay = (source: BattleSide, card: CardData) => {
+  if (card.id === PASS_CARD.id) return;
+  if (card.type !== CardType.PHYSICAL && card.type !== CardType.DODGE) return;
+
+  const ambushOwnerSide: BattleSide = source === 'player' ? 'enemy' : 'player';
+  const ambushOwner = ambushOwnerSide === 'player' ? playerStats.value : enemyStats.value;
+  const ambushStacks = getEffectStacks(ambushOwner, ET.AMBUSH);
+  if (ambushStacks <= 0) return;
+
+  applyStatusEffectWithRelics(source, ET.BIND, 1, {
+    source: 'effect:ambush',
+    restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+    lockDecayThisTurn: true,
+  });
+  reduceEffectStacks(ambushOwner, ET.AMBUSH, 1);
+
+  const sourceLabel = source === 'player' ? '我方' : '敌方';
+  const ambushOwnerLabel = ambushOwnerSide === 'player' ? '我方' : '敌方';
+  log(`<span class="text-violet-300">${ambushOwnerLabel}[伏击] 触发：${sourceLabel}获得 1 层束缚。</span>`);
+};
+
+const withFirstUseLightningAmbushBonus = (
+  source: BattleSide,
+  card: CardData,
+  options?: { consume?: boolean; announce?: boolean },
+): CardData => {
+  if (card.id !== 'enemy_vinewalker_lightning_ambush') return card;
+  if (lightningAmbushFirstUseConsumed.value[source]) return card;
+
+  const shouldConsume = options?.consume ?? true;
+  const shouldAnnounce = options?.announce ?? shouldConsume;
+  if (shouldConsume) {
+    lightningAmbushFirstUseConsumed.value[source] = true;
+  }
+  const boosted = cloneCardForBattle(card);
+  boosted.calculation.addition += 4;
+
+  if (shouldAnnounce) {
+    const sourceLabel = source === 'player' ? '我方' : '敌方';
+    log(`<span class="text-indigo-300">${sourceLabel}【${card.name}】首次使用，点数 +4</span>`);
+  }
+  return boosted;
+};
+
+let poisonAmountImmediateCheckRunning = false;
+const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
+  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  if (target.hp <= 0) return;
+
+  const poisonAmount = getEffectStacks(target, ET.POISON_AMOUNT);
+  if (poisonAmount <= 0 || poisonAmount < target.hp) return;
+
+  removeEffect(target, ET.POISON_AMOUNT);
+  const { actualDamage, logs: poisonLogs } = applyDamageToEntity(target, poisonAmount, true);
+  if (actualDamage > 0) {
+    pushFloatingNumber(side, actualDamage, 'true', '-');
+  }
+
+  const label = side === 'player' ? '我方' : '敌方';
+  log(`<span class="text-zinc-300">${label}[中毒量] 即时致死判定触发，造成 ${actualDamage} 点真实伤害</span>`);
+  for (const poisonLog of poisonLogs) {
+    log(`<span class="text-gray-500 text-[9px]">${poisonLog}</span>`);
+  }
+};
+
+const applyHitAttachEffects = (
+  source: BattleSide,
+  card: CardData,
+  attacker: EntityStats,
+  defenderSide: RelicSide,
+) => {
+  const flameStacks = getEffectStacks(attacker, ET.FLAME_ATTACH);
+  if (flameStacks > 0 && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)) {
+    applyStatusEffectWithRelics(defenderSide, ET.BURN, flameStacks, { source: 'effect:flame_attach' });
+  }
+
+  const poisonStacks = getEffectStacks(attacker, ET.POISON_ATTACH);
+  if (poisonStacks > 0 && card.type === CardType.MAGIC) {
+    applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: 'effect:poison_attach' });
+  }
+
+  const totalApplied = flameStacks + (card.type === CardType.MAGIC ? poisonStacks : 0);
+  if (totalApplied > 0) {
+    const label = source === 'player' ? '我方' : '敌方';
+    log(`<span class="text-orange-300">${label}[附加效果] 命中后追加了状态效果。</span>`);
+  }
+};
+
 const consumeChargeOnRoll = (stats: EntityStats, label: string, rolled: number) => {
   const chargeStacks = getEffectStacks(stats, ET.CHARGE);
   if (chargeStacks <= 0) return rolled;
@@ -1370,7 +1925,8 @@ const clearPlayerPlayedCard = () => {
 };
 
 const clearResolvedCardVisual = () => {
-  resolvedCardVisual.value = null;
+  resolvedPlayerCardVisual.value = null;
+  resolvedEnemyCardVisual.value = null;
 };
 
 const stopAllCardAnimations = () => {
@@ -1405,7 +1961,8 @@ const playResolvedCardAnimation = async (source: BattleSide, card: CardData) => 
       ? 'attack'
       : (card.type === CardType.DODGE ? 'fade' : 'self');
   const id = ++resolvedCardVisualId;
-  resolvedCardVisual.value = { id, source, card, variant };
+  const slot = source === 'player' ? resolvedPlayerCardVisual : resolvedEnemyCardVisual;
+  slot.value = { id, source, card, variant };
 
   if (variant === 'attack') {
     const impactDelay = scaleDuration(720);
@@ -1422,8 +1979,8 @@ const playResolvedCardAnimation = async (source: BattleSide, card: CardData) => 
   const animDuration = variant === 'attack' ? 930 : 570;
   await wait(animDuration);
   if (token !== animationStopToken || endCombatPending.value) return;
-  if (resolvedCardVisual.value?.id === id) {
-    resolvedCardVisual.value = null;
+  if (slot.value?.id === id) {
+    slot.value = null;
   }
 };
 
@@ -1512,6 +2069,7 @@ const rollDiceInRange = (min: number, max: number) => {
 const handlePlayerDiceClick = () => {
   if (!canPlayerRerollDice.value) return;
 
+  const chargesBeforeHooks = getRerollCharges('player');
   let rerolled: number | null = null;
   forEachPlayerRelic((entry, relic, state) => {
     if (rerolled !== null) return;
@@ -1532,7 +2090,13 @@ const handlePlayerDiceClick = () => {
     rerolled = hook(ctx);
   });
 
-  if (rerolled === null) return;
+  if (rerolled === null) {
+    if (getRerollCharges('player') < chargesBeforeHooks) return;
+    if (!consumeRerollCharge('player', 1)) return;
+    rerolled = rollDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
+    log(`<span class="text-amber-300">[基础重掷] 消耗1次重掷，剩余 ${getRerollCharges('player')} 次。</span>`);
+  }
+
   const before = combatState.value.playerBaseDice;
   const after = consumeChargeOnRoll(playerStats.value, '我方', Math.max(0, Math.floor(rerolled)));
   combatState.value.playerBaseDice = after;
@@ -1552,7 +2116,11 @@ const canPreviewEnemyDice = () => {
 const getEnemyIntentFinalPoint = () => {
   const card = combatState.value.enemyIntentCard;
   if (!card) return null;
-  return getCardPreviewPoint('enemy', card, combatState.value.enemyBaseDice);
+  const previewCard = withFirstUseLightningAmbushBonus('enemy', card, {
+    consume: false,
+    announce: false,
+  });
+  return getCardPreviewPoint('enemy', previewCard, combatState.value.enemyBaseDice);
 };
 
 const showEnemyDicePreview = () => {
@@ -1687,6 +2255,34 @@ const pushFloatingNumber = (side: BattleSide, value: number, kind: FloatingNumbe
   }, duration);
 };
 
+const pushFloatingText = (
+  side: BattleSide,
+  text: string,
+  colorClass: string = 'text-sky-300',
+  duration: number = scaleDuration(1050),
+) => {
+  const id = ++floatingNumberId;
+  floatingNumbers.value.push({
+    id,
+    side,
+    text,
+    colorClass,
+    leftOffset: Math.floor((Math.random() - 0.5) * 90),
+    topOffset: 18 + Math.floor(Math.random() * 18),
+    duration,
+  });
+  setTimeout(() => {
+    floatingNumbers.value = floatingNumbers.value.filter((entry) => entry.id !== id);
+  }, duration);
+};
+
+const notifyEnemyManaInsufficient = () => {
+  if (enemyManaLackHintTurn === combatState.value.turn) return;
+  enemyManaLackHintTurn = combatState.value.turn;
+  pushFloatingText('enemy', '魔力不足', 'text-blue-300');
+  log('<span class="text-blue-300">敌方魔力不足，本回合视为跳过。</span>');
+};
+
 const log = (msg: string) => {
   combatState.value.logs = [msg, ...combatState.value.logs].slice(0, 240);
 };
@@ -1701,8 +2297,10 @@ triggerPlayerRelicLifecycleHooks('onBattleStart');
 
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
+  void initPortraitUrls();
 });
 onUnmounted(() => {
+  portraitLoaderDisposed = true;
   if (hoverPreviewTimer) {
     clearTimeout(hoverPreviewTimer);
     hoverPreviewTimer = null;
@@ -1716,6 +2314,21 @@ onUnmounted(() => {
 watch(battleSpeedUp, (enabled) => {
   localStorage.setItem(SPEED_SETTING_KEY, enabled ? '1' : '0');
 });
+watch(
+  [
+    () => combatState.value.phase,
+    () => combatState.value.turn,
+    () => combatState.value.playerBaseDice,
+    () => combatState.value.enemyBaseDice,
+    isPlayerDiceObscured,
+    isEnemyDiceObscured,
+  ],
+  () => {
+    playerDiceUiNoise.value = isPlayerDiceObscured.value ? rerollUiNoise() : 0;
+    enemyDiceUiNoise.value = isEnemyDiceObscured.value ? rerollUiNoise() : 0;
+  },
+  { immediate: true },
+);
 
 const drawCards = (count: number, currentDeck: CardData[], currentDiscard: CardData[]) => {
   let deck = [...currentDeck];
@@ -1780,7 +2393,7 @@ function selectEnemyCard(): CardData {
     selectedCard = combatState.value.enemyDeck[idx]!;
   }
 
-  const check = canPlayCard(enemyStats.value, selectedCard, combatState.value.enemyBaseDice);
+  const check = canPlayCard(enemyStats.value, selectedCard, enemyTurnRawDice.value);
   if (!check.allowed) {
     log(`<span class="text-gray-400">敌方无法出牌：${check.reason ?? '本回合跳过。'}</span>`);
     return PASS_CARD;
@@ -1792,6 +2405,7 @@ function selectEnemyCard(): CardData {
 
 const startTurn = () => {
   if (endCombatPending.value) return;
+  enemyManaLackHintTurn = -1;
   clearDicePreview();
   stopAllCardAnimations();
   combatState.value.phase = CombatPhase.DRAW_PHASE;
@@ -1809,6 +2423,8 @@ const startTurn = () => {
     const eRawRoll = Math.floor(Math.random() * (enemyStats.value.maxDice - enemyStats.value.minDice + 1)) + enemyStats.value.minDice;
     const pRoll = consumeChargeOnRoll(playerStats.value, '我方', pRawRoll);
     const eRoll = consumeChargeOnRoll(enemyStats.value, '敌方', eRawRoll);
+    playerTurnRawDice.value = pRawRoll;
+    enemyTurnRawDice.value = eRawRoll;
 
     isRolling.value = false;
     combatState.value.playerBaseDice = pRoll;
@@ -1835,6 +2451,23 @@ watch(
           let shownTrueDamage = 0;
           let burnIsTrueDamage = false;
 
+          if (combatState.value.turn % 3 === 0) {
+            const growthBigStacks = getEffectStacks(stats.value, ET.POINT_GROWTH_BIG);
+            if (growthBigStacks > 0) {
+              stats.value.maxDice += growthBigStacks;
+              turnStartLogs.push(`[点数成长（大）] 最大骰子点数 +${growthBigStacks}（当前 ${stats.value.maxDice}）`);
+            }
+
+            const growthSmallStacks = getEffectStacks(stats.value, ET.POINT_GROWTH_SMALL);
+            if (growthSmallStacks > 0) {
+              stats.value.minDice += growthSmallStacks;
+              if (stats.value.minDice > stats.value.maxDice) {
+                stats.value.maxDice = stats.value.minDice;
+              }
+              turnStartLogs.push(`[点数成长（小）] 最小骰子点数 +${growthSmallStacks}（当前 ${stats.value.minDice}）`);
+            }
+          }
+
           for (const pending of result.applyToOpponent) {
             applyStatusEffectWithRelics(opponentSide, pending.type, pending.stacks, { source: 'effect:ignite_aura' });
           }
@@ -1857,22 +2490,42 @@ watch(
 
               result.hpChange += rawBurnDamage; // 移除 processOnTurnStart 的基础燃烧伤害
 
-                if (burnResult.damage > 0) {
-                  if (burnResult.isTrueDamage) {
-                    pushFloatingNumber(side, burnResult.damage, 'true', '-');
-                    burnDamageTaken = burnResult.damage;
-                    shownTrueDamage += burnResult.damage;
-                    burnIsTrueDamage = true;
-                    result.trueDamage += burnResult.damage;
-                    turnStartLogs.push(`[燃烧] 受到 ${burnResult.damage} 点真实伤害。`);
-                  } else if (getEffectStacks(stats.value, ET.BARRIER) > 0) {
-                  reduceEffectStacks(stats.value, ET.BARRIER, 1);
-                  turnStartLogs.push(`[结界] 抵挡了 ${burnResult.damage} 点燃烧伤害。`);
-                } else {
+              if (burnResult.damage > 0) {
+                if (burnResult.isTrueDamage) {
+                  pushFloatingNumber(side, burnResult.damage, 'true', '-');
                   burnDamageTaken = burnResult.damage;
-                  result.hpChange -= burnResult.damage;
-                  pushFloatingNumber(side, burnResult.damage, 'magic', '-');
-                  turnStartLogs.push(`[燃烧] 损失 ${burnResult.damage} 点生命。`);
+                  shownTrueDamage += burnResult.damage;
+                  burnIsTrueDamage = true;
+                  result.trueDamage += burnResult.damage;
+                  turnStartLogs.push(`[燃烧] 受到 ${burnResult.damage} 点真实伤害。`);
+                } else {
+                  let pendingBurnDamage = burnResult.damage;
+                  if (getEffectStacks(stats.value, ET.BARRIER) > 0) {
+                    reduceEffectStacks(stats.value, ET.BARRIER, 1);
+                    pendingBurnDamage = 0;
+                    turnStartLogs.push(`[结界] 抵挡了 ${burnResult.damage} 点燃烧伤害。`);
+                  }
+
+                  if (pendingBurnDamage > 0) {
+                    const armorStacks = getEffectStacks(stats.value, ET.ARMOR);
+                    if (armorStacks > 0) {
+                      const absorbed = Math.min(armorStacks, pendingBurnDamage);
+                      if (absorbed > 0) {
+                        reduceEffectStacks(stats.value, ET.ARMOR, absorbed);
+                        pendingBurnDamage -= absorbed;
+                        turnStartLogs.push(`[护甲] 抵挡了 ${absorbed} 点燃烧伤害。`);
+                      }
+                    }
+                  }
+
+                  if (pendingBurnDamage > 0) {
+                    burnDamageTaken = pendingBurnDamage;
+                    result.hpChange -= pendingBurnDamage;
+                    pushFloatingNumber(side, pendingBurnDamage, 'magic', '-');
+                    turnStartLogs.push(`[燃烧] 损失 ${pendingBurnDamage} 点生命。`);
+                  } else {
+                    turnStartLogs.push('[燃烧] 伤害被完全抵挡。');
+                  }
                 }
               } else {
                 turnStartLogs.push('[燃烧] 伤害为 0。');
@@ -1889,12 +2542,7 @@ watch(
             }
           }
           if (result.mpChange !== 0) {
-            const mpBefore = stats.value.mp;
-            stats.value.mp = Math.max(0, stats.value.mp + result.mpChange);
-            const mpDelta = stats.value.mp - mpBefore;
-            if (mpDelta > 0) {
-              pushFloatingNumber(side, mpDelta, 'mana', '+');
-            }
+            changeManaWithShock(side, result.mpChange, '法力变化（回合开始）', { showPositiveFloating: true });
           }
           if (result.trueDamage > 0) {
             stats.value.hp = Math.max(0, stats.value.hp - result.trueDamage);
@@ -1956,7 +2604,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (handIdx < 0 || handIdx >= combatState.value.playerHand.length) return;
   if (combatState.value.playerHand[handIdx] !== card) return;
 
-  const check = canPlayCard(playerStats.value, card, combatState.value.playerBaseDice);
+  const check = canPlayCard(playerStats.value, card, playerTurnRawDice.value);
   if (!check.allowed) {
     triggerInvalidCardShake(card);
     log(`<span class="text-red-400">${check.reason ?? '当前无法使用该卡牌。'}</span>`);
@@ -1964,7 +2612,12 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   }
 
   if (card.type === CardType.MAGIC) {
-    playerStats.value.mp -= card.manaCost;
+    const canSpend = spendManaWithShock('player', card.manaCost, `使用【${card.name}】`);
+    if (!canSpend) {
+      triggerInvalidCardShake(card);
+      log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+      return;
+    }
   }
 
   // 出牌后立即离开手牌（卡牌“消失”），并进入弃牌堆
@@ -2000,21 +2653,55 @@ const isClashable = (t1: CardType, t2: CardType): boolean => {
 // Resolution
 const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eDice: number) => {
   if (endCombatPending.value) return;
+  try {
+  let resolvedPlayerCard = pCard;
   let resolvedEnemyCard = eCard;
   if (resolvedEnemyCard.type === CardType.MAGIC && resolvedEnemyCard.id !== PASS_CARD.id) {
-    if (enemyStats.value.mp >= resolvedEnemyCard.manaCost) {
-      enemyStats.value.mp -= resolvedEnemyCard.manaCost;
-    } else {
+    const cost = Math.max(0, Math.floor(resolvedEnemyCard.manaCost));
+    if (enemyStats.value.mp < cost) {
       resolvedEnemyCard = PASS_CARD;
-      log('<span class="text-gray-400">敌方魔力不足，本回合视为跳过。</span>');
+      notifyEnemyManaInsufficient();
     }
   }
 
-  const shouldClash = isClashable(pCard.type, resolvedEnemyCard.type);
-  const playerSkippedTurn = pCard.id === PASS_CARD.id;
+  resolvedPlayerCard = withFirstUseLightningAmbushBonus('player', resolvedPlayerCard);
+  resolvedEnemyCard = withFirstUseLightningAmbushBonus('enemy', resolvedEnemyCard);
+
+  if (resolvedPlayerCard.traits.combo) {
+    comboUiMaskBridge.value = true;
+  }
+
+  const shouldClash = isClashable(resolvedPlayerCard.type, resolvedEnemyCard.type);
+  const playerSkippedTurn = resolvedPlayerCard.id === PASS_CARD.id;
   const enemySkippedTurn = resolvedEnemyCard.id === PASS_CARD.id;
-  const pClashPoint = getCardPreviewPoint('player', pCard, pDice);
-  const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, eDice);
+  let resolvedPlayerDice = pDice;
+  let resolvedEnemyDice = eDice;
+  const rerollByTrait = (source: BattleSide, card: CardData) => {
+    if (card.id === PASS_CARD.id || card.traits.reroll === 'none') return;
+    const sourceLabel = source === 'player' ? '我方' : '敌方';
+    let target: BattleSide = source;
+    if (card.traits.reroll === 'enemy') {
+      target = source === 'player' ? 'enemy' : 'player';
+    }
+    const targetLabel = target === 'player' ? '我方' : '敌方';
+    const targetStats = target === 'player' ? playerStats.value : enemyStats.value;
+    const rerolled = rollDiceInRange(targetStats.minDice, targetStats.maxDice);
+    const before = target === 'player' ? resolvedPlayerDice : resolvedEnemyDice;
+
+    if (target === 'player') {
+      resolvedPlayerDice = rerolled;
+      combatState.value.playerBaseDice = rerolled;
+    } else {
+      resolvedEnemyDice = rerolled;
+      combatState.value.enemyBaseDice = rerolled;
+    }
+    log(`<span class="text-amber-300">${sourceLabel}【${card.name}】触发重掷：${targetLabel}骰子 ${before} → ${rerolled}</span>`);
+  };
+  rerollByTrait('player', resolvedPlayerCard);
+  rerollByTrait('enemy', resolvedEnemyCard);
+
+  const pClashPoint = getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice);
+  const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
 
   const clearBurnForSide = (side: 'player' | 'enemy', reason: string) => {
     const target = side === 'player' ? playerStats.value : enemyStats.value;
@@ -2032,6 +2719,11 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     clearBurnForSide('enemy', '我方跳过回合。');
   }
 
+  applyToxinSpreadOnPhysicalPlay('player', resolvedPlayerCard);
+  applyToxinSpreadOnPhysicalPlay('enemy', resolvedEnemyCard);
+  applyAmbushOnCardPlay('player', resolvedPlayerCard);
+  applyAmbushOnCardPlay('enemy', resolvedEnemyCard);
+
   let pSuccess = true;
   let eSuccess = true;
   let resultMsg = '';
@@ -2046,7 +2738,13 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     screenShake.value = true;
     setTimeout(() => (screenShake.value = false), scaleDuration(500));
 
-    if (pCard.type === resolvedEnemyCard.type) {
+    // 血刃附加：进入拼点即触发
+    applyBloodbladeAttachOnClash('player', 'enemy');
+    applyBloodbladeAttachOnClash('enemy', 'player');
+
+    let successfulDodger: BattleSide | null = null;
+
+    if (resolvedPlayerCard.type === resolvedEnemyCard.type) {
       if (pClashPoint > eClashPoint) {
         eSuccess = false;
         clashWinner = 'player';
@@ -2061,11 +2759,12 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         clashWinner = 'tie';
         resultMsg = '势均力敌！';
       }
-    } else if (pCard.type === CardType.DODGE) {
+    } else if (resolvedPlayerCard.type === CardType.DODGE) {
       if (eClashPoint > pClashPoint) {
         eSuccess = false;
         clashWinner = 'player';
         resultMsg = '闪避成功！';
+        successfulDodger = 'player';
       } else {
         pSuccess = false;
         clashWinner = 'enemy';
@@ -2076,6 +2775,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         pSuccess = false;
         clashWinner = 'enemy';
         resultMsg = '攻击被闪避！';
+        successfulDodger = 'enemy';
       } else {
         eSuccess = false;
         clashWinner = 'player';
@@ -2103,6 +2803,20 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       clearBurnForSide('enemy', '拼点胜利。');
     }
 
+    if (successfulDodger === 'player') {
+      applyLightningAttachOnDodge('player', 'enemy');
+      applyDodgeSuccessCardBonus('player', resolvedPlayerCard, pClashPoint);
+    } else if (successfulDodger === 'enemy') {
+      applyLightningAttachOnDodge('enemy', 'player');
+      applyDodgeSuccessCardBonus('enemy', resolvedEnemyCard, eClashPoint);
+    }
+
+    if (clashWinner === 'player' && resolvedPlayerCard.traits.destroyOnClashWin) {
+      destroyOpponentCardByTrait('player', resolvedEnemyCard);
+    } else if (clashWinner === 'enemy' && resolvedEnemyCard.traits.destroyOnClashWin) {
+      destroyOpponentCardByTrait('enemy', resolvedPlayerCard);
+    }
+
     await wait(650);
     showClashAnimation.value = false;
     clearDicePreview();
@@ -2113,6 +2827,14 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     eSuccess = true;
   }
 
+  // “移除”特性：打出即销毁，若该行动未进入执行阶段，则在此处兜底清理
+  if (!pSuccess && resolvedPlayerCard.traits.purgeOnUse && resolvedPlayerCard.id !== PASS_CARD.id) {
+    applyPurgeTraitAfterUse('player', resolvedPlayerCard);
+  }
+  if (!eSuccess && resolvedEnemyCard.traits.purgeOnUse && resolvedEnemyCard.id !== PASS_CARD.id) {
+    applyPurgeTraitAfterUse('enemy', resolvedEnemyCard);
+  }
+
   // Execution Phase - use algorithms.ts for proper damage calculation
   const executeCard = async (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
     if (endCombatPending.value) return;
@@ -2120,9 +2842,18 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     const defender = source === 'player' ? enemyStats.value : playerStats.value;
     const label = source === 'player' ? '我方' : '敌方';
     const defenderSide = source === 'player' ? 'enemy' : 'player';
+    const opponentSkippedTurn = source === 'player' ? enemySkippedTurn : playerSkippedTurn;
 
     if (source === 'enemy' && card.id !== PASS_CARD.id) {
       enemyIntentConsumedThisTurn.value = true;
+    }
+
+    if (source === 'enemy' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id) {
+      const canSpend = spendManaWithShock('enemy', card.manaCost, `使用【${card.name}】`);
+      if (!canSpend) {
+        notifyEnemyManaInsufficient();
+        return;
+      }
     }
 
     if (source === 'player') {
@@ -2133,6 +2864,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
     // Calculate final point for this card
     const finalPoint = getCardFinalPoint(source, card, baseDice);
+    const finalizeCardExecution = () => {
+      applyInsertTrait(source, card);
+      applyPurgeTraitAfterUse(source, card);
+    };
 
     const syncCurrentPointForUi = () => {
       if (card.type !== CardType.FUNCTION || card.id === PASS_CARD.id) return;
@@ -2185,14 +2920,23 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           const restoreAmount = ce.valueMode === 'point_scale'
             ? Math.floor(finalPoint * (ce.scale ?? 1))
             : Math.floor(ce.fixedValue ?? 0);
-          const beforeMp = targetEntity.mp;
-          targetEntity.mp = Math.max(0, targetEntity.mp + restoreAmount);
-          const actualRestore = targetEntity.mp - beforeMp;
+          const manaResult = changeManaWithShock(
+            targetSide,
+            restoreAmount,
+            `法力变化（${label}【${card.name}】）`,
+            { showPositiveFloating: true },
+          );
+          const actualRestore = Math.max(0, manaResult.actualDelta);
           if (actualRestore > 0) {
-            pushFloatingNumber(targetSide, actualRestore, 'mana', '+');
+            log(`<span class="text-blue-400">${label}【${card.name}】回复了 ${actualRestore} 点魔力</span>`);
+            hasEffect = true;
+          } else if (manaResult.actualDelta < 0) {
+            log(`<span class="text-blue-400">${label}【${card.name}】使目标法力减少 ${Math.abs(manaResult.actualDelta)} 点</span>`);
+            hasEffect = true;
+          } else if (restoreAmount !== 0) {
+            log(`<span class="text-blue-400">${label}【${card.name}】未造成法力变化</span>`);
+            hasEffect = true;
           }
-          log(`<span class="text-blue-400">${label}【${card.name}】回复了 ${restoreAmount} 点魔力</span>`);
-          hasEffect = true;
         } else if (ce.kind === 'cleanse') {
           const cleanseTargets = ce.cleanseTypes && ce.cleanseTypes.length > 0
             ? ce.cleanseTypes
@@ -2208,6 +2952,159 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       return hasEffect;
     };
 
+    if (card.id === 'enemy_muxinlan_liquidation') {
+      const cleanseTargets: EffectType[] = [...ELEMENTAL_DEBUFF_TYPES];
+      let removedStacks = 0;
+      for (const et of cleanseTargets) {
+        const stacks = getEffectStacks(defender, et);
+        if (stacks > 0) {
+          removedStacks += stacks;
+          removeEffect(defender, et);
+        }
+      }
+      const trueDamage = removedStacks * 2;
+      if (trueDamage > 0) {
+        defender.hp = Math.max(0, defender.hp - trueDamage);
+        pushFloatingNumber(defenderSide, trueDamage, 'true', '-');
+        log(`<span class="text-zinc-300">${label}【${card.name}】清算了 ${removedStacks} 层状态，造成 ${trueDamage} 点真实伤害</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未清算到可移除状态</span>`);
+      }
+      const reviveResult = triggerSwarmReviveIfNeeded(defender);
+      for (const reviveLog of reviveResult.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_liquid_fire') {
+      const coldStacks = getEffectStacks(defender, ET.COLD);
+      if (coldStacks > 0) {
+        removeEffect(defender, ET.COLD);
+        applyStatusEffectWithRelics(defenderSide, ET.BURN, coldStacks, { source: card.id });
+        log(`<span class="text-orange-300">${label}【${card.name}】将 ${coldStacks} 层寒冷转化为燃烧</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未找到可转化的寒冷</span>`);
+      }
+      applyHitAttachEffects(source, card, attacker, defenderSide);
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_activated_slime') {
+      const currentElementals = ELEMENTAL_DEBUFF_TYPES
+        .map((et) => ({ type: et, stacks: getEffectStacks(defender, et) }))
+        .filter((entry) => entry.stacks > 0);
+      if (currentElementals.length > 0) {
+        const picked = currentElementals[Math.floor(Math.random() * currentElementals.length)]!;
+        applyStatusEffectWithRelics(defenderSide, picked.type, picked.stacks, { source: card.id });
+        log(`<span class="text-teal-300">${label}【${card.name}】使${EFFECT_REGISTRY[picked.type]?.name ?? picked.type}层数翻倍</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】目标无可翻倍的元素debuff</span>`);
+      }
+      applyHitAttachEffects(source, card, attacker, defenderSide);
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_premium_shield') {
+      const x = Math.max(0, Math.floor(defender.mp));
+      if (x > 0) {
+        applyStatusEffectWithRelics(source, ET.STURDY, x, { source: card.id });
+        attacker.mp += x;
+        pushFloatingNumber(source, x, 'shield', '+');
+        pushFloatingNumber(source, x, 'mana', '+');
+      }
+      log(`<span class="text-cyan-300">${label}【${card.name}】获得 ${x} 层坚固与 ${x} 点魔力</span>`);
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_set_ambush') {
+      if (opponentSkippedTurn) {
+        applyStatusEffectWithRelics(defenderSide, ET.MANA_DRAIN, 1, { source: card.id });
+        log(`<span class="text-indigo-300">${label}【${card.name}】生效：对方获得1层法力枯竭</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】埋伏未触发（对方未跳过）</span>`);
+      }
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_cunning') {
+      applyStatusEffectWithRelics(defenderSide, ET.PEEP_FORBIDDEN, 1, { source: card.id });
+      applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
+      log(`<span class="text-violet-300">${label}【${card.name}】使对手陷入窥视禁忌与认知干涉</span>`);
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_mimicbubble_iridescent_float') {
+      if (opponentSkippedTurn) {
+        applyStatusEffectWithRelics(defenderSide, ET.BIND, 1, {
+          source: card.id,
+          restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+          lockDecayThisTurn: true,
+        });
+        log(`<span class="text-indigo-300">${label}【${card.name}】触发：对方跳过回合，施加 1 层束缚</span>`);
+      }
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_mist_sprite_illusion_lure') {
+      if (opponentSkippedTurn) {
+        applyLifeMaxReduction(defenderSide, 2, card.id, `${label}【${card.name}】触发（对方跳过回合），`);
+      }
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_vinewalker_lubricated_shrink') {
+      if (opponentSkippedTurn) {
+        const chargeStacks = Math.max(0, Math.floor(finalPoint));
+        if (chargeStacks > 0) {
+          applyStatusEffectWithRelics(source, ET.CHARGE, chargeStacks, { source: card.id });
+        }
+        log(`<span class="text-cyan-300">${label}【${card.name}】触发：对方跳过回合，获得 ${chargeStacks} 层蓄力</span>`);
+      }
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_springspirit_internal_manipulation') {
+      const currentCorrosion = Math.max(0, getEffectStacks(defender, ET.CORROSION));
+      const addStacks = Math.min(10, currentCorrosion);
+      if (addStacks > 0) {
+        applyStatusEffectWithRelics(defenderSide, ET.CORROSION, addStacks, { source: card.id });
+        log(`<span class="text-emerald-300">${label}【${card.name}】使对手侵蚀 +${addStacks}</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未检测到可翻倍的侵蚀层数</span>`);
+      }
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_springspirit_undead_condense') {
+      const selfElementals = ELEMENTAL_DEBUFF_TYPES
+        .map((type) => ({ type, stacks: getEffectStacks(attacker, type) }))
+        .filter((entry) => entry.stacks > 0);
+      if (selfElementals.length > 0) {
+        const picked = selfElementals[Math.floor(Math.random() * selfElementals.length)]!;
+        removeEffect(attacker, picked.type);
+        log(`<span class="text-cyan-300">${label}【${card.name}】清除了自身的${EFFECT_REGISTRY[picked.type]?.name ?? picked.type}</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】自身没有可清除的元素debuff</span>`);
+      }
+
+      const healAmount = Math.max(0, Math.floor(finalPoint));
+      const { healed } = healForSide(source, healAmount);
+      log(`<span class="text-green-300">${label}【${card.name}】回复了 ${healed} 点生命</span>`);
+      finalizeCardExecution();
+      return;
+    }
+
     if (card.type === CardType.FUNCTION) {
       if (card.id === 'burn_char_convert') {
         const burned = getEffectStacks(attacker, ET.BURN);
@@ -2220,6 +3117,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】未检测到燃烧层数</span>`);
         }
+        finalizeCardExecution();
         return;
       }
 
@@ -2234,7 +3132,8 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         }
         log(`${label}使用了【${card.name}】`);
       }
-    } else if (card.type !== CardType.DODGE) {
+      finalizeCardExecution();
+    } else if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) {
       const burnStacksOnDefender = getEffectStacks(defender, ET.BURN);
       const baseHitCount = Math.max(1, Math.floor(card.hitCount ?? 1));
       const extraHitCount = card.id === 'enemy_moth_swarm_burst'
@@ -2299,11 +3198,24 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           damage,
           actualDamage,
         );
+        applyHitAttachEffects(source, card, attacker, defenderSide);
         if (defender.hp <= 0) break;
       }
 
       // 攻击牌结算后同样触发附带效果（燃烧、易伤等）
       applyCardEffects();
+
+      if (card.id === 'enemy_muxinlan_unstable_reagent') {
+        const stacks = Math.max(0, Math.floor(finalPoint * 0.5));
+        if (stacks > 0) {
+          const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
+          applyStatusEffectWithRelics(defenderSide, picked, stacks, { source: card.id });
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】附加了 ${stacks} 层${EFFECT_REGISTRY[picked]?.name ?? picked}</span>`);
+        }
+      }
+      finalizeCardExecution();
+    } else {
+      finalizeCardExecution();
     }
   };
 
@@ -2316,10 +3228,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
   const queue: ActionEntry[] = [];
   let deferredEnemyAction: ActionEntry | null = null;
-  if (pSuccess) queue.push({ source: 'player', card: pCard, type: pCard.type, baseDice: pDice });
+  if (pSuccess) queue.push({ source: 'player', card: resolvedPlayerCard, type: resolvedPlayerCard.type, baseDice: resolvedPlayerDice });
   if (eSuccess) {
-    const enemyAction: ActionEntry = { source: 'enemy', card: resolvedEnemyCard, type: resolvedEnemyCard.type, baseDice: eDice };
-    if (pCard.traits.combo) {
+    const enemyAction: ActionEntry = { source: 'enemy', card: resolvedEnemyCard, type: resolvedEnemyCard.type, baseDice: resolvedEnemyDice };
+    if (resolvedPlayerCard.traits.combo) {
       // 连击过程中，敌方行动延后到“连击结束”时再结算一次
       deferredEnemyAction = enemyAction;
     } else {
@@ -2336,18 +3248,29 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
   queue.sort((a, b) => typePriority(b.type) - typePriority(a.type));
 
-  for (const action of queue) {
-    if (endCombatPending.value) break;
-    await executeCard(action.source, action.card, action.baseDice);
-    if (endCombatPending.value) break;
+  const shouldRunSimultaneousVisuals = (
+    queue.length === 2
+    && queue.every((action) => action.type === CardType.DODGE || action.type === CardType.FUNCTION)
+  );
+
+  if (shouldRunSimultaneousVisuals) {
+    await Promise.all(queue.map((action) => executeCard(action.source, action.card, action.baseDice)));
+    if (endCombatPending.value) return;
     await wait(630);
+  } else {
+    for (const action of queue) {
+      if (endCombatPending.value) break;
+      await executeCard(action.source, action.card, action.baseDice);
+      if (endCombatPending.value) break;
+      await wait(630);
+    }
   }
   stopAllCardAnimations();
   if (endCombatPending.value) return;
 
   // 连击：本次打出后，若带 draw 则补抽 1 张；并允许继续从剩余手牌出牌
-  if (pCard.traits.combo) {
-    if (pCard.traits.draw) {
+  if (resolvedPlayerCard.traits.combo) {
+    if (resolvedPlayerCard.traits.draw) {
       const { drawn, newDeck, newDiscard } = drawCards(1, combatState.value.playerDeck, combatState.value.discardPile);
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
@@ -2385,6 +3308,9 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   combatState.value.playerHand = [];
   combatState.value.turn += 1;
   combatState.value.phase = CombatPhase.TURN_START;
+  } finally {
+    comboUiMaskBridge.value = false;
+  }
 };
 
 // Watch for RESOLUTION phase
@@ -2422,8 +3348,28 @@ const runEndCombatSequence = async (win: boolean) => {
 
   await wait(RESULT_BANNER_STAY_MS);
   if (token !== endCombatSequenceToken) return;
-  emit('endCombat', win, playerStats.value);
+  emit('endCombat', win, playerStats.value, [...combatState.value.logs]);
 };
+
+// 任何生命值/中毒量变化后，立即执行中毒量致死判定。
+watch(
+  [
+    () => playerStats.value.hp,
+    () => enemyStats.value.hp,
+    () => getEffectStacks(playerStats.value, ET.POISON_AMOUNT),
+    () => getEffectStacks(enemyStats.value, ET.POISON_AMOUNT),
+  ],
+  () => {
+    if (endCombatPending.value || poisonAmountImmediateCheckRunning) return;
+    poisonAmountImmediateCheckRunning = true;
+    try {
+      applyImmediatePoisonAmountLethalCheck('player');
+      applyImmediatePoisonAmountLethalCheck('enemy');
+    } finally {
+      poisonAmountImmediateCheckRunning = false;
+    }
+  },
+);
 
 // Win/Lose check
 watch(
@@ -2784,3 +3730,4 @@ watch(
   100% { left: 0; }
 }
 </style>
+

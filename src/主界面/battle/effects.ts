@@ -98,6 +98,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '回合开始时若中毒量≥当前生命值，则造成等量真实伤害并清空中毒量',
   },
+  [EffectType.CORROSION]: {
+    type: EffectType.CORROSION,
+    name: '侵蚀',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '达到30层时，目标生命上限归零并立即死亡（无视复活）',
+  },
   [EffectType.BURN]: {
     type: EffectType.BURN,
     name: '燃烧',
@@ -179,6 +188,42 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 1,
     description: '完全免疫流血与中毒效果',
   },
+  [EffectType.NON_ENTITY]: {
+    type: EffectType.NON_ENTITY,
+    name: '非实体',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '受到物理伤害减少50%，受到魔法伤害增加50%',
+  },
+  [EffectType.MAX_HP_REDUCTION]: {
+    type: EffectType.MAX_HP_REDUCTION,
+    name: '生命上限削减',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每层立即使最大生命值-1',
+  },
+  [EffectType.POINT_GROWTH_BIG]: {
+    type: EffectType.POINT_GROWTH_BIG,
+    name: '点数成长（大）',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每3回合，自身最大骰子点数+1',
+  },
+  [EffectType.POINT_GROWTH_SMALL]: {
+    type: EffectType.POINT_GROWTH_SMALL,
+    name: '点数成长（小）',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每3回合，自身最小骰子点数+1',
+  },
   [EffectType.MANA_DRAIN]: {
     type: EffectType.MANA_DRAIN,
     name: '法力枯竭',
@@ -215,7 +260,142 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '生命值≤0时，消耗1层并恢复至1点生命',
   },
+  [EffectType.PEEP_FORBIDDEN]: {
+    type: EffectType.PEEP_FORBIDDEN,
+    name: '窥视禁忌',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '对方骰子点数UI显示会随机偏移',
+  },
+  [EffectType.BLIND_ASH]: {
+    type: EffectType.BLIND_ASH,
+    name: '盲目之蚀',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '自身骰子点数UI显示会随机偏移',
+  },
+  [EffectType.COGNITIVE_INTERFERENCE]: {
+    type: EffectType.COGNITIVE_INTERFERENCE,
+    name: '认知干涉',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '无法识别对方意图卡',
+  },
+  [EffectType.MEMORY_FOG]: {
+    type: EffectType.MEMORY_FOG,
+    name: '失忆迷雾',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '自身手牌名称与描述被隐藏',
+  },
+  [EffectType.SILENCE]: {
+    type: EffectType.SILENCE,
+    name: '禁言',
+    polarity: 'debuff',
+    timings: ['onCardPlay', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '无法使用魔法卡牌。每回合结束层数-1',
+  },
+  [EffectType.STURDY]: {
+    type: EffectType.STURDY,
+    name: '坚固',
+    polarity: 'buff',
+    timings: ['onBeforeDamage', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每次受到伤害时固定减伤，持续1回合并在回合结束清空',
+  },
+  [EffectType.SHOCK]: {
+    type: EffectType.SHOCK,
+    name: '电击',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每次法力减少时，受到等同层数的生命损失，随后层数减半（向下取整）',
+  },
+  [EffectType.FLAME_ATTACH]: {
+    type: EffectType.FLAME_ATTACH,
+    name: '火焰附加',
+    polarity: 'buff',
+    timings: ['onAfterAttack'],
+    stackable: true,
+    maxStacks: 0,
+    description: '攻击卡命中后为对手施加燃烧',
+  },
+  [EffectType.POISON_ATTACH]: {
+    type: EffectType.POISON_ATTACH,
+    name: '毒素附加',
+    polarity: 'buff',
+    timings: ['onAfterAttack'],
+    stackable: true,
+    maxStacks: 0,
+    description: '魔法卡命中后为对手施加中毒',
+  },
+  [EffectType.TOXIN_SPREAD]: {
+    type: EffectType.TOXIN_SPREAD,
+    name: '毒素蔓延',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '对手每次打出物理牌时，获得等量层数的中毒',
+  },
+  [EffectType.AMBUSH]: {
+    type: EffectType.AMBUSH,
+    name: '伏击',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '对手每次打出物理或闪避牌时，对其施加1层束缚并消耗1层自身层数',
+  },
+  [EffectType.FROST_ATTACH]: {
+    type: EffectType.FROST_ATTACH,
+    name: '冰霜附加',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始时为对手施加寒冷',
+  },
+  [EffectType.BLOODBLADE_ATTACH]: {
+    type: EffectType.BLOODBLADE_ATTACH,
+    name: '血刃附加',
+    polarity: 'buff',
+    timings: ['onClash'],
+    stackable: true,
+    maxStacks: 0,
+    description: '拼点时为对手施加流血',
+  },
+  [EffectType.LIGHTNING_ATTACH]: {
+    type: EffectType.LIGHTNING_ATTACH,
+    name: '雷电附加',
+    polarity: 'buff',
+    timings: ['onClash'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每次成功闪避时为对手施加电击',
+  },
 };
+
+// 元素debuff分组：用于随机附加、转换、翻倍等效果
+export const ELEMENTAL_DEBUFF_TYPES: EffectType[] = [
+  EffectType.COLD,
+  EffectType.BURN,
+  EffectType.POISON,
+  EffectType.BLEED,
+  EffectType.SHOCK,
+];
 
 // ═══════════════════════════════════════════════════════════════
 //  效果工具函数
@@ -253,6 +433,9 @@ export function applyEffect(
   stacks: number = 1,
   options?: { restrictedTypes?: CardType[]; source?: string; lockDecayThisTurn?: boolean },
 ): boolean {
+  const normalizedStacks = Math.max(0, Math.floor(stacks));
+  if (normalizedStacks <= 0) return false;
+
   // 非生物免疫检查
   if (hasEffect(entity, EffectType.NON_LIVING)) {
     if (type === EffectType.POISON || type === EffectType.BLEED) {
@@ -262,10 +445,20 @@ export function applyEffect(
 
   const def = EFFECT_REGISTRY[type];
   const existing = findEffect(entity, type);
+  let nextStacks = normalizedStacks;
+
+  // 生命上限削减：施加时立即降低最大生命值（最低为0）
+  if (type === EffectType.MAX_HP_REDUCTION) {
+    const maxReducible = Math.max(0, entity.maxHp);
+    if (maxReducible <= 0) return false;
+    nextStacks = Math.min(nextStacks, maxReducible);
+    entity.maxHp -= nextStacks;
+    entity.hp = Math.min(entity.hp, entity.maxHp);
+  }
 
   if (existing) {
     if (def.stackable) {
-      existing.stacks += stacks;
+      existing.stacks += nextStacks;
       if (def.maxStacks > 0) {
         existing.stacks = Math.min(existing.stacks, def.maxStacks);
       }
@@ -277,19 +470,27 @@ export function applyEffect(
     if (type === EffectType.BIND && options?.lockDecayThisTurn) {
       existing.lockDecayThisTurn = true;
     }
+    if (type === EffectType.CORROSION && existing.stacks >= 30) {
+      entity.maxHp = 0;
+      entity.hp = 0;
+    }
     return true;
   }
 
   // 新增效果
   const instance: EffectInstance = {
     type,
-    stacks: def.maxStacks > 0 ? Math.min(stacks, def.maxStacks) : stacks,
+    stacks: def.maxStacks > 0 ? Math.min(nextStacks, def.maxStacks) : nextStacks,
     polarity: def.polarity,
     lockDecayThisTurn: type === EffectType.BIND ? !!options?.lockDecayThisTurn : undefined,
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
   };
   entity.effects.push(instance);
+  if (type === EffectType.CORROSION && instance.stacks >= 30) {
+    entity.maxHp = 0;
+    entity.hp = 0;
+  }
   return true;
 }
 
@@ -405,6 +606,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     result.logs.push(`[魔力源泉] 魔力 +${manaSpringStacks}。`);
   }
 
+  // 冰霜附加
+  const frostAttachStacks = getEffectStacks(entity, EffectType.FROST_ATTACH);
+  if (frostAttachStacks > 0) {
+    result.applyToOpponent.push({ type: EffectType.COLD, stacks: frostAttachStacks });
+    result.logs.push(`[冰霜附加] 为对手施加 ${frostAttachStacks} 层寒冷。`);
+  }
+
   return result;
 }
 
@@ -450,6 +658,18 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     logs.push(`[护甲] 层数减半。`);
   }
 
+  // 禁言
+  if (hasEffect(entity, EffectType.SILENCE)) {
+    reduceEffectStacks(entity, EffectType.SILENCE);
+    logs.push(`[禁言] 层数衰减。`);
+  }
+
+  // 坚固：1回合后清空
+  if (hasEffect(entity, EffectType.STURDY)) {
+    removeEffect(entity, EffectType.STURDY);
+    logs.push(`[坚固] 回合结束后清空。`);
+  }
+
   // 眩晕消失
   if (hasEffect(entity, EffectType.STUN)) {
     removeEffect(entity, EffectType.STUN);
@@ -469,8 +689,13 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
 export function canPlayCard(
   entity: EntityStats,
   card: CardData,
-  baseDice: number,
+  baseRawDice: number,
 ): { allowed: boolean; reason?: string } {
+  // 无法打出
+  if (card.traits.unplayable) {
+    return { allowed: false, reason: '该卡牌当前无法打出。' };
+  }
+
   // 眩晕：完全不能出牌
   if (hasEffect(entity, EffectType.STUN)) {
     return { allowed: false, reason: '眩晕状态，无法行动。' };
@@ -487,16 +712,25 @@ export function canPlayCard(
     }
   }
 
-  // 吞食：骰子≤3 时禁用物理/闪避
-  if (hasEffect(entity, EffectType.DEVOUR) && baseDice <= 3) {
-    if (card.type === '物理' as CardType || card.type === '闪避' as CardType) {
-      return { allowed: false, reason: `吞食效果生效（骰子≤3），无法使用${card.type}卡牌。` };
+  // 吞食：基础骰值≤3 时禁用物理/魔法/闪避
+  if (hasEffect(entity, EffectType.DEVOUR) && baseRawDice <= 3) {
+    if (
+      card.type === '物理' as CardType
+      || card.type === '魔法' as CardType
+      || card.type === '闪避' as CardType
+    ) {
+      return { allowed: false, reason: `吞食效果生效（基础骰值≤3），无法使用${card.type}卡牌。` };
     }
   }
 
   // 法力不足（仅魔法卡有费用）
   if (card.type === ('魔法' as CardType) && card.manaCost > entity.mp) {
     return { allowed: false, reason: `法力不足（需要${card.manaCost}，当前${entity.mp}）。` };
+  }
+
+  // 禁言：禁用魔法
+  if (card.type === ('魔法' as CardType) && hasEffect(entity, EffectType.SILENCE)) {
+    return { allowed: false, reason: '禁言中，无法使用魔法卡牌。' };
   }
 
   return { allowed: true };

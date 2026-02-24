@@ -26,7 +26,7 @@
     <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
       <div
         class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-400/40 shadow-md"
-        :class="card.type !== CardType.MAGIC || card.manaCost === 0 ? 'opacity-0' : ''"
+        :class="!showManaBadge ? 'opacity-0' : ''"
       >
         {{ card.manaCost }}
       </div>
@@ -41,7 +41,7 @@
     >
       <div class="size-full opacity-60" :class="typeGradient"></div>
       <span class="absolute font-heading text-white/20 text-4xl select-none">
-        {{ card.name[0] }}
+        {{ displayInitial }}
       </span>
     </div>
 
@@ -50,22 +50,22 @@
       <h3
         class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md"
       >
-        {{ card.name }}
+        {{ displayName }}
       </h3>
       <div
         class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
       >
-        {{ card.description }}
+        {{ displayDescription }}
       </div>
       <div class="mt-1 text-center text-white/50 font-bold text-[10px] font-ui tracking-wider">
-        {{ card.type }}
+        {{ displayTypeText }}
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Footprints, RefreshCcw, Sparkles, Sword } from 'lucide-vue-next';
+import { CircleHelp, Footprints, RefreshCcw, Skull, Sparkles, Sword } from 'lucide-vue-next';
 import { type CardData, CardType } from '../types';
 
 const props = withDefaults(
@@ -76,6 +76,7 @@ const props = withDefaults(
     faceDown?: boolean;
     isEnemy?: boolean;
     className?: string;
+    maskLevel?: 'none' | 'partial' | 'full';
   }>(),
   {
     disabled: false,
@@ -83,6 +84,7 @@ const props = withDefaults(
     faceDown: false,
     isEnemy: false,
     className: '',
+    maskLevel: 'none',
   },
 );
 
@@ -91,6 +93,9 @@ defineEmits<{
 }>();
 
 const typeColorClass = computed(() => {
+  if (props.maskLevel === 'full') {
+    return 'border-gray-600 bg-gray-900/40';
+  }
   switch (props.card.type) {
     case CardType.PHYSICAL:
       return 'border-red-900 bg-red-950/30';
@@ -100,12 +105,17 @@ const typeColorClass = computed(() => {
       return 'border-yellow-800 bg-yellow-950/30';
     case CardType.DODGE:
       return 'border-emerald-900 bg-emerald-950/30';
+    case CardType.CURSE:
+      return 'border-violet-900 bg-violet-950/35';
     default:
       return 'border-gray-700 bg-gray-800';
   }
 });
 
 const typeIcon = computed(() => {
+  if (props.maskLevel === 'full') {
+    return CircleHelp;
+  }
   switch (props.card.type) {
     case CardType.PHYSICAL:
       return Sword;
@@ -115,12 +125,17 @@ const typeIcon = computed(() => {
       return RefreshCcw;
     case CardType.DODGE:
       return Footprints;
+    case CardType.CURSE:
+      return Skull;
     default:
       return Sword;
   }
 });
 
 const typeIconColor = computed(() => {
+  if (props.maskLevel === 'full') {
+    return 'text-gray-400';
+  }
   switch (props.card.type) {
     case CardType.PHYSICAL:
       return 'text-red-400';
@@ -130,6 +145,8 @@ const typeIconColor = computed(() => {
       return 'text-yellow-400';
     case CardType.DODGE:
       return 'text-emerald-400';
+    case CardType.CURSE:
+      return 'text-violet-400';
     default:
       return 'text-gray-400';
   }
@@ -146,6 +163,9 @@ const cardStrengthLabel = computed(() => {
 });
 
 const typeGradient = computed(() => {
+  if (props.maskLevel === 'full') {
+    return 'bg-gradient-to-tr from-gray-700 to-black';
+  }
   switch (props.card.type) {
     case CardType.PHYSICAL:
       return 'bg-gradient-to-tr from-red-900 to-black';
@@ -155,8 +175,20 @@ const typeGradient = computed(() => {
       return 'bg-gradient-to-tr from-yellow-900 to-black';
     case CardType.DODGE:
       return 'bg-gradient-to-tr from-emerald-900 to-black';
+    case CardType.CURSE:
+      return 'bg-gradient-to-tr from-violet-900 to-black';
     default:
       return 'bg-gradient-to-tr from-gray-800 to-black';
   }
 });
+
+const displayName = computed(() => (props.maskLevel === 'none' ? props.card.name : '???'));
+const displayDescription = computed(() => (props.maskLevel === 'none' ? props.card.description : '???'));
+const displayTypeText = computed(() => (props.maskLevel === 'full' ? '?' : props.card.type));
+const displayInitial = computed(() => (displayName.value[0] ?? '?'));
+const showManaBadge = computed(() => (
+  props.maskLevel !== 'full'
+  && props.card.type === CardType.MAGIC
+  && props.card.manaCost > 0
+));
 </script>

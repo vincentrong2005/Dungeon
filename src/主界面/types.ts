@@ -8,6 +8,7 @@ export enum CardType {
   MAGIC = '魔法',
   FUNCTION = '功能',
   DODGE = '闪避',
+  CURSE = '诅咒',
 }
 
 export type CardRarity = '普通' | '稀有';
@@ -44,6 +45,14 @@ export interface CardTraits {
   reroll: RerollTarget;
   /** 过牌：配合连击实现快速过牌 */
   draw: boolean;
+  /** 无法打出（通常用于诅咒卡）。 */
+  unplayable?: boolean;
+  /** 销毁：拼点胜利时，临时移除对方拼点失败的卡牌（仅本次战斗生效）。 */
+  destroyOnClashWin?: boolean;
+  /** 插入：卡牌生效后向对方牌库插入指定卡牌。 */
+  insertCardsToEnemyDeck?: string[];
+  /** 移除：打出后自我销毁（不进入弃牌堆）。 */
+  purgeOnUse?: boolean;
 }
 
 // ── 卡牌点数计算参数 ──────────────────────────────────────────
@@ -130,6 +139,8 @@ export enum EffectType {
   POISON = '中毒',
   /** 中毒量 — 与当前生命比较的判定值 */
   POISON_AMOUNT = '\u4e2d\u6bd2\u91cf',
+  /** 侵蚀 — 达到30层时将目标生命上限归0（无视复活） */
+  CORROSION = '侵蚀',
   /** 燃烧 — 每回合固定减少生命 */
   BURN = '燃烧',
   /** 流血 — 拼点时造成真实伤害 */
@@ -148,6 +159,14 @@ export enum EffectType {
   COLD = '寒冷',
   /** 非生物 — 免疫流血与中毒 */
   NON_LIVING = '非生物',
+  /** 非实体 — 受到物理伤害减半，受到魔法伤害增加50%（仅直接伤害） */
+  NON_ENTITY = '非实体',
+  /** 生命上限削减 — 立即降低最大生命值 */
+  MAX_HP_REDUCTION = '生命上限削减',
+  /** 点数成长（大）— 每3回合最大骰子点数+1 */
+  POINT_GROWTH_BIG = '点数成长（大）',
+  /** 点数成长（小）— 每3回合最小骰子点数+1 */
+  POINT_GROWTH_SMALL = '点数成长（小）',
   /** 法力枯竭 — 每回合清零法力 */
   MANA_DRAIN = '法力枯竭',
   /** 魔力源泉 — 每回合开始魔力+层数 */
@@ -156,6 +175,34 @@ export enum EffectType {
   SWARM = '群集',
   /** 不屈 — 生命值归零时消耗1层并恢复至1点生命 */
   INDOMITABLE = '不屈',
+  /** 窥视禁忌 — 仅在出牌阶段干扰对方骰子UI显示（永久debuff） */
+  PEEP_FORBIDDEN = '窥视禁忌',
+  /** 盲目之蚀 — 仅在出牌阶段干扰自身骰子UI显示（永久debuff） */
+  BLIND_ASH = '盲目之蚀',
+  /** 认知干涉 — 仅在出牌阶段隐藏对方意图卡信息（永久debuff） */
+  COGNITIVE_INTERFERENCE = '认知干涉',
+  /** 失忆迷雾 — 仅在出牌阶段隐藏自身手牌名称/描述（永久debuff） */
+  MEMORY_FOG = '失忆迷雾',
+  /** 禁言 — 无法使用魔法卡牌，每回合结束层数-1 */
+  SILENCE = '禁言',
+  /** 坚固 — 每次受击固定减伤，持续1回合（回合结束清空） */
+  STURDY = '坚固',
+  /** 电击 — 每次法力减少时，损失等同层数生命并层数减半 */
+  SHOCK = '电击',
+  /** 火焰附加 — 攻击卡命中后为对手施加燃烧 */
+  FLAME_ATTACH = '火焰附加',
+  /** 毒素附加 — 魔法卡命中后为对手施加中毒 */
+  POISON_ATTACH = '毒素附加',
+  /** 毒素蔓延 — 对手每次打出物理牌时获得中毒 */
+  TOXIN_SPREAD = '毒素蔓延',
+  /** 伏击 — 对手打出物理/闪避牌时施加1层束缚，触发后自身层数-1 */
+  AMBUSH = '伏击',
+  /** 冰霜附加 — 每回合开始时为对手施加寒冷 */
+  FROST_ATTACH = '冰霜附加',
+  /** 血刃附加 — 拼点时为对手施加流血 */
+  BLOODBLADE_ATTACH = '血刃附加',
+  /** 雷电附加 — 每次成功闪避时为对手施加电击 */
+  LIGHTNING_ATTACH = '雷电附加',
 }
 
 /** 效果极性分类 */

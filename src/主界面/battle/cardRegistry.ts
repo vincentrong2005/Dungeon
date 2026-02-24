@@ -57,6 +57,22 @@ const 普通物理攻击: CardData = {
   description: '造成1倍点数的伤害',
 };
 
+/** 普通物理攻击+1 */
+const 普通物理攻击加1: CardData = {
+  id: 'basic_physical_plus_1',
+  name: '普通物理攻击+1',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+1，造成1倍最终点数的伤害',
+};
+
 /** 普通物理攻击+2 */
 const 普通物理攻击加2: CardData = {
   id: 'basic_physical_plus_2',
@@ -79,7 +95,7 @@ const 普通物理攻击加4: CardData = {
   name: '普通物理攻击+4',
   type: CardType.PHYSICAL,
   category: '基础',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 4 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
@@ -129,7 +145,7 @@ const 普通护盾: CardData = {
   category: '基础',
   rarity: '普通',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
+  calculation: { multiplier: 1.0, addition: 1 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
@@ -141,7 +157,7 @@ const 普通护盾: CardData = {
       scale: 1.0,           // 护甲层数 = FinalPoint * 1.0
     },
   ],
-  description: '获得1倍点数的护甲',
+  description: '点数+1，获得1倍点数的护甲',
 };
 
 /** 普通闪避 */
@@ -156,7 +172,100 @@ const 普通闪避: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '若敌方攻击点数高于我方，则敌方攻击无效',
+  description: '闪避',
+};
+
+/** 休眠：增加0.6倍点数的护甲与生命值 */
+const 休眠: CardData = {
+  id: 'basic_rest',
+  name: '休眠',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.6 },
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 0.6 },
+  ],
+  description: '增加0.6倍点数的护甲与0.6倍点数的生命值',
+};
+
+/** 侧身闪避：点数-1，闪避 */
+const 侧身闪避: CardData = {
+  id: 'basic_side_step_dodge',
+  name: '侧身闪避',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，闪避',
+};
+
+/** 吐纳法：闪避，若闪避成功则回复1倍点数的生命值 */
+const 吐纳法: CardData = {
+  id: 'basic_breathing_technique',
+  name: '吐纳法',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，若闪避成功则回复1倍点数的生命值',
+};
+
+/** 虚实步法：重掷，闪避 */
+const 虚实步法: CardData = {
+  id: 'basic_void_step',
+  name: '虚实步法',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'self', draw: false },
+  cardEffects: [],
+  description: '重掷，闪避',
+};
+
+/** 镜面幻像：点数+2，闪避，若闪避成功为自己施加1层结界 */
+const 镜面幻像: CardData = {
+  id: 'basic_mirror_phantom',
+  name: '镜面幻像',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+2，闪避，若闪避成功为自己施加1层结界',
+};
+
+/** 魔力偏移：闪避，若闪避成功则回复1倍点数的魔力 */
+const 魔力偏移: CardData = {
+  id: 'basic_mana_shift',
+  name: '魔力偏移',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，若闪避成功则回复1倍点数的魔力',
 };
 
 // ── 燃烧体系卡牌 ────────────────────────────────────────────────
@@ -354,6 +463,100 @@ const 炭化转化: CardData = {
 
 // ── 敌人卡牌定义 ────────────────────────────────────────────────
 
+/** 滑腻触手：点数+2，造成1倍最终点数伤害并附加1层束缚 */
+const 滑腻触手: CardData = {
+  id: 'enemy_mimic_slimy_tentacle',
+  name: '滑腻触手',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数+2，造成1倍最终点数伤害并附加1层束缚',
+};
+
+/** 灵巧长舌：点数*1.3，造成1.5倍最终点数伤害 */
+const 灵巧长舌: CardData = {
+  id: 'enemy_mimic_agile_tongue',
+  name: '灵巧长舌',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.3, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.3，造成1.5倍最终点数的伤害',
+};
+
+/** 血盆大口：造成1倍最终点数伤害，附加吞食+1，双方易伤+2 */
+const 血盆大口: CardData = {
+  id: 'enemy_mimic_maw',
+  name: '血盆大口',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DEVOUR, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '造成1倍最终点数的伤害与1层吞食，对双方附加2层易伤',
+};
+
+/** 挤压：点数*3，造成0.5倍最终点数伤害 */
+const 挤压: CardData = {
+  id: 'enemy_mimic_crush',
+  name: '挤压',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*3，造成0.5倍最终点数伤害',
+};
+
+/** 消化：点数+2，施加0.5倍点数中毒 */
+const 消化: CardData = {
+  id: 'enemy_mimic_digest',
+  name: '消化',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+2，施加0.5倍点数中毒',
+};
+
 /** 催情鳞粉：造成0.5倍点数伤害，并施加易伤+1 */
 const 催情鳞粉: CardData = {
   id: 'enemy_moth_aphro_powder',
@@ -498,6 +701,279 @@ const 冲撞: CardData = {
   description: '点数+1，造成1倍最终点数的伤害',
 };
 
+/** 无感蔓延：点数+1，造成0.5倍点数伤害并施加1层束缚 */
+const 无感蔓延: CardData = {
+  id: 'enemy_swamp_numb_spread',
+  name: '无感蔓延',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数+1，造成0.5倍点数伤害并施加1层束缚',
+};
+
+/** 流体包裹：点数+2，造成0.5倍点数伤害，若玩家已被束缚，则施加吞食 */
+const 流体包裹: CardData = {
+  id: 'enemy_swamp_fluid_wrap',
+  name: '流体包裹',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DEVOUR, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数+2，造成0.5倍点数伤害，若玩家已被束缚，则施加吞食',
+};
+
+/** 选择性溶解：施加2层中毒 */
+const 选择性溶解: CardData = {
+  id: 'enemy_swamp_corrode',
+  name: '选择性溶解',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '施加2层中毒',
+};
+
+/** 催情气体：点数*1.5，无伤害，施加1层中毒与1层束缚 */
+const 催情气体: CardData = {
+  id: 'enemy_mimicbubble_aphro_gas',
+  name: '催情气体',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数*1.5，无伤害，施加1层中毒与1层束缚',
+};
+
+/** 弹性吸附：自身增加1倍点数的护甲，为对方施加1层中毒 */
+const 弹性吸附: CardData = {
+  id: 'enemy_mimicbubble_elastic_adsorb',
+  name: '弹性吸附',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '自身增加1倍点数的护甲，为对方施加1层中毒',
+};
+
+/** 虹色漂浮：闪避，若闪避成功或对方跳过回合则施加1层束缚（结算逻辑在 CombatView） */
+const 虹色漂浮: CardData = {
+  id: 'enemy_mimicbubble_iridescent_float',
+  name: '虹色漂浮',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，若闪避成功或对方跳过回合则施加1层束缚',
+};
+
+/** 幻象诱导：闪避，若闪避成功或对方跳过回合，则施加2层生命上限削减（结算逻辑在 CombatView） */
+const 幻象诱导: CardData = {
+  id: 'enemy_mist_sprite_illusion_lure',
+  name: '幻象诱导',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，若闪避成功或对方跳过回合，则对对方施加2层生命上限削减',
+};
+
+/** 潜伏：给自己添加1层伏击 */
+const 潜伏: CardData = {
+  id: 'enemy_vinewalker_lurk',
+  name: '潜伏',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.AMBUSH, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '给自己添加1层伏击',
+};
+
+/** 闪电伏击：造成1倍点数伤害，且本场首次使用时点数+4（结算逻辑在 CombatView） */
+const 闪电伏击: CardData = {
+  id: 'enemy_vinewalker_lightning_ambush',
+  name: '闪电伏击',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，若这是本次战斗首次使用该牌，则点数+4',
+};
+
+/** 麻痹毒素：造成0.5倍点数伤害并施加1倍点数的寒冷与电击 */
+const 麻痹毒素: CardData = {
+  id: 'enemy_vinewalker_paralytic_toxin',
+  name: '麻痹毒素',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '造成0.5倍点数伤害并施加1倍点数的寒冷与电击',
+};
+
+/** 润滑收缩：闪避，若闪避成功或对方跳过回合，则为自身施加1倍点数的蓄力（结算逻辑在 CombatView） */
+const 润滑收缩: CardData = {
+  id: 'enemy_vinewalker_lubricated_shrink',
+  name: '润滑收缩',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，若闪避成功或对方跳过回合，则为自身施加1倍点数的蓄力',
+};
+
+/** 液化渗透：施加3层侵蚀与1层束缚 */
+const 液化渗透: CardData = {
+  id: 'enemy_springspirit_liquefied_infiltration',
+  name: '液化渗透',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '施加3层侵蚀与1层束缚',
+};
+
+/** 体内操控：将对方侵蚀翻倍，最多增加10（结算逻辑在 CombatView） */
+const 体内操控: CardData = {
+  id: 'enemy_springspirit_internal_manipulation',
+  name: '体内操控',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '将对方的侵蚀翻倍，最多增加10',
+};
+
+/** 不死凝聚：清除自身随机一种元素debuff并回复1倍点数生命（结算逻辑在 CombatView） */
+const 不死凝聚: CardData = {
+  id: 'enemy_springspirit_undead_condense',
+  name: '不死凝聚',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '清除自身随机一种元素debuff并回复1倍点数生命',
+};
+
+/** 无声渗入：闪避，闪避成功后为对手增加2层侵蚀（结算逻辑在 CombatView） */
+const 无声渗入: CardData = {
+  id: 'enemy_springspirit_silent_infiltration',
+  name: '无声渗入',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，闪避成功后为对手增加2层侵蚀',
+};
+
 /** 粘液闪避 — 与普通闪避完全一致 */
 const 粘液闪避: CardData = {
   id: 'enemy_slime_dodge',
@@ -535,6 +1011,161 @@ const 回复: CardData = {
   description: '回复1倍点数的生命值',
 };
 
+/** 炼金废料：诅咒卡，污染牌库并附带抽牌 */
+const 炼金废料: CardData = {
+  id: 'curse_alchemy_waste',
+  name: '炼金废料',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [],
+  description: '点数-2，连击，抽1张牌',
+};
+
+/** 惑心咒：开局仅使用一次，为对手施加窥视禁忌与认知干涉（结算逻辑在 CombatView） */
+const 惑心咒: CardData = {
+  id: 'enemy_muxinlan_cunning',
+  name: '惑心咒',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '为对手施加1层窥视禁忌与1层认知干涉',
+};
+
+/** 强制收购：造成0.5倍最终点数的伤害，销毁 */
+const 强制收购: CardData = {
+  id: 'enemy_muxinlan_forced_acquisition',
+  name: '强制收购',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, destroyOnClashWin: true },
+  cardEffects: [],
+  description: '造成0.5倍最终点数的伤害，销毁',
+};
+
+/** 清算：点数*2，移除对方所有元素debuff并按层数造成真实伤害（结算逻辑在 CombatView） */
+const 清算: CardData = {
+  id: 'enemy_muxinlan_liquidation',
+  name: '清算',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*2，移除对方所有元素debuff，每移除1层造成2点真实伤害',
+};
+
+/** 不稳定试剂：点数*1.5，造成0.5倍最终点数伤害并随机附加元素debuff（结算逻辑在 CombatView） */
+const 不稳定试剂: CardData = {
+  id: 'enemy_muxinlan_unstable_reagent',
+  name: '不稳定试剂',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.5，造成0.5倍最终点数伤害，并随机附加一种元素debuff',
+};
+
+/** 液态火：点数*1.5，无伤害，将对方寒冷按1:1转化为燃烧（结算逻辑在 CombatView） */
+const 液态火: CardData = {
+  id: 'enemy_muxinlan_liquid_fire',
+  name: '液态火',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.5，无伤害，将对方所有寒冷按1:1转化为燃烧',
+};
+
+/** 活化粘液：点数+3，无伤害，随机将对方一种已有元素debuff层数翻倍（结算逻辑在 CombatView） */
+const 活化粘液: CardData = {
+  id: 'enemy_muxinlan_activated_slime',
+  name: '活化粘液',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+3，无伤害，随机将对方一个已有元素debuff层数翻倍',
+};
+
+/** 等价交换：向对方牌库插入炼金废料，并按点数回复自身生命 */
+const 等价交换: CardData = {
+  id: 'enemy_muxinlan_take_it',
+  name: '等价交换',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['炼金废料'] },
+  cardEffects: [
+    { kind: 'heal', valueMode: 'point_scale', scale: 2.0, target: 'self' },
+  ],
+  description: '插入一张炼金废料到对方牌库，同时回复2倍点数的生命',
+};
+
+/** 溢价护盾：增加自身x层坚固与x点魔力，x为对方魔力值（结算逻辑在 CombatView） */
+const 溢价护盾: CardData = {
+  id: 'enemy_muxinlan_premium_shield',
+  name: '溢价护盾',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '增加自身x层坚固与x点魔力，x为对方魔力值',
+};
+
+/** 设下埋伏：点数*0.5，闪避。若对方跳过回合，则为对方施加一层法力枯竭（结算逻辑在 CombatView） */
+const 设下埋伏: CardData = {
+  id: 'enemy_muxinlan_set_ambush',
+  name: '设下埋伏',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*0.5，闪避。若对方跳过回合，则为对方施加1层法力枯竭',
+};
+
 // ── 卡牌注册表 ──────────────────────────────────────────────────
 
 /**
@@ -543,12 +1174,19 @@ const 回复: CardData = {
  */
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [普通物理攻击.name, 普通物理攻击],
+  [普通物理攻击加1.name, 普通物理攻击加1],
   [普通物理攻击加2.name, 普通物理攻击加2],
   [普通物理攻击加4.name, 普通物理攻击加4],
   [普通魔法攻击.name, 普通魔法攻击],
   [聚焦魔法攻击.name, 聚焦魔法攻击],
   [普通护盾.name, 普通护盾],
   [普通闪避.name, 普通闪避],
+  [休眠.name, 休眠],
+  [侧身闪避.name, 侧身闪避],
+  [吐纳法.name, 吐纳法],
+  [虚实步法.name, 虚实步法],
+  [镜面幻像.name, 镜面幻像],
+  [魔力偏移.name, 魔力偏移],
   [火花烙印.name, 火花烙印],
   [焦油泼洒.name, 焦油泼洒],
   [焚风术.name, 焚风术],
@@ -560,6 +1198,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [炎狱判决.name, 炎狱判决],
   [炼狱波及.name, 炼狱波及],
   [炭化转化.name, 炭化转化],
+  [滑腻触手.name, 滑腻触手],
+  [灵巧长舌.name, 灵巧长舌],
+  [血盆大口.name, 血盆大口],
+  [挤压.name, 挤压],
+  [消化.name, 消化],
   [催情鳞粉.name, 催情鳞粉],
   [敏感化标记.name, 敏感化标记],
   [荧光信息素.name, 荧光信息素],
@@ -568,8 +1211,33 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [润滑分泌.name, 润滑分泌],
   [渗透攀爬.name, 渗透攀爬],
   [冲撞.name, 冲撞],
+  [无感蔓延.name, 无感蔓延],
+  [流体包裹.name, 流体包裹],
+  [选择性溶解.name, 选择性溶解],
+  [催情气体.name, 催情气体],
+  [弹性吸附.name, 弹性吸附],
+  [虹色漂浮.name, 虹色漂浮],
+  [幻象诱导.name, 幻象诱导],
+  [潜伏.name, 潜伏],
+  [闪电伏击.name, 闪电伏击],
+  [麻痹毒素.name, 麻痹毒素],
+  [润滑收缩.name, 润滑收缩],
+  [液化渗透.name, 液化渗透],
+  [体内操控.name, 体内操控],
+  [不死凝聚.name, 不死凝聚],
+  [无声渗入.name, 无声渗入],
   [粘液闪避.name, 粘液闪避],
   [回复.name, 回复],
+  [炼金废料.name, 炼金废料],
+  [惑心咒.name, 惑心咒],
+  [强制收购.name, 强制收购],
+  [清算.name, 清算],
+  [不稳定试剂.name, 不稳定试剂],
+  [液态火.name, 液态火],
+  [活化粘液.name, 活化粘液],
+  [等价交换.name, 等价交换],
+  [溢价护盾.name, 溢价护盾],
+  [设下埋伏.name, 设下埋伏],
 ]);
 
 // ── 公共 API ────────────────────────────────────────────────────
@@ -595,3 +1263,4 @@ export function getAllCardNames(): string[] {
 export function getAllCards(): CardData[] {
   return [...CARD_REGISTRY.values()];
 }
+

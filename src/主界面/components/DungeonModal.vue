@@ -6,7 +6,10 @@
       @click.self="$emit('close')"
     >
       <div
-        class="relative w-full max-w-3xl p-1 bg-dungeon-brown rounded-lg shadow-2xl border border-dungeon-gold/40 mx-4 flex flex-col max-h-[90%]"
+        :class="[
+          'relative w-full max-w-3xl p-1 bg-dungeon-brown rounded-lg shadow-2xl border border-dungeon-gold/40 mx-4 flex flex-col max-h-[90%]',
+          panelClass,
+        ]"
       >
         <!-- Header -->
         <div
@@ -44,6 +47,7 @@ import { X } from 'lucide-vue-next';
 defineProps<{
   title: string;
   isOpen: boolean;
+  panelClass?: string;
 }>();
 
 defineEmits<{
