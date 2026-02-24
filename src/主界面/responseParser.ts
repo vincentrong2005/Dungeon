@@ -2,11 +2,17 @@
  * LLM 回复解析器
  * 从 AI 生成的文本中提取自定义 XML 标签内容
  */
+/**
+ * Maintenance note:
+ * - Keep this file UTF-8 (contains Chinese text).
+ * - Avoid shell redirection full-file overwrite (>, >>, Out-File, Set-Content).
+ * - Prefer apply_patch/IDE-safe edits to prevent mojibake.
+ */
 
 export interface ParsedResponse {
   /** 正文标签（兼容 <maintext>/<maintxt>/<content>/<正文>） */
   mainText: string;
-  /** <option>...</option> 包裹的普通选项列表（A-D，不含 E 和 [Leave]） */
+  /** <option>...</option> 包裹的普通选项列表（A-D，不含 E / [Leave] / [Rebirth]） */
   options: string[];
   /** <sum>...</sum> 包裹的小总结 */
   summary: string;
@@ -20,6 +26,16 @@ export interface ParsedResponse {
   hasOptionE: boolean;
   /** 是否存在 [Leave] 选项 */
   hasLeave: boolean;
+  /** 是否存在 [Rebirth] 选项 */
+  hasRebirth: boolean;
+}
+
+function isLeaveOptionLine(line: string): boolean {
+  return /\bleave\b/i.test(line);
+}
+
+function isRebirthOptionLine(line: string): boolean {
+  return /\brebirth\b/i.test(line);
 }
 
 /**
@@ -101,10 +117,61 @@ function removeThinkBlock(text: string): string {
 }
 
 /**
+ * 流式显示时：一旦检测到思维链结束标签，则隐藏结束标签之前的全部文本
+ * 支持 </think> / </thinking> 及大小写变体
+ */
+export function filterStreamingTextAfterThinkEnd(text: string): string {
+  if (!text) return '';
+
+  const closeThinkTagRegex = /<\s*\/\s*(think|thinking)\b[^>]*>/i;
+  const closeMatch = closeThinkTagRegex.exec(text);
+  if (!closeMatch) return text;
+
+  return text.slice(closeMatch.index + closeMatch[0].length).trimStart();
+}
+
+/**
  * 移除正文中的 HTML 注释块（用于隐藏正文内思维链）
  */
 function removeHtmlComments(text: string): string {
   return text.replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim();
+}
+
+function normalizeTucaoMarkers(text: string): string {
+  return text
+    .replace(/&lt;\s*tucao(?:\s+[^&]*?)?&gt;/gi, '<tucao>')
+    .replace(/&lt;\s*\/\s*tucao\s*&gt;/gi, '</tucao>')
+    .replace(/\[\s*tucao\s*]/gi, '<tucao>')
+    .replace(/\[\s*\/\s*tucao\s*]/gi, '</tucao>')
+    .replace(/<\s*吐槽(?:\s+[^>]*)?>/gi, '<tucao>')
+    .replace(/<\s*\/\s*吐槽\s*>/gi, '</tucao>');
+}
+
+function extractTucaoBlocks(text: string): string[] {
+  const normalized = normalizeTucaoMarkers(text);
+  const result: string[] = [];
+  const openRegex = /<\s*tucao(?:\s+[^>]*)?>/gi;
+  const closeRegex = /<\s*\/\s*tucao\s*>/gi;
+
+  let cursor = 0;
+  openRegex.lastIndex = 0;
+
+  while (openRegex.exec(normalized) !== null) {
+    const openEnd = openRegex.lastIndex;
+    closeRegex.lastIndex = openEnd;
+    const closeMatch = closeRegex.exec(normalized);
+    const contentEnd = closeMatch ? closeMatch.index : normalized.length;
+    const content = normalized.slice(openEnd, contentEnd).trim();
+    if (content.length > 0) {
+      result.push(content);
+    }
+
+    cursor = closeMatch ? closeRegex.lastIndex : normalized.length;
+    openRegex.lastIndex = cursor;
+    if (!closeMatch) break;
+  }
+
+  return result;
 }
 
 /**
@@ -128,7 +195,15 @@ export function parseResponse(text: string): ParsedResponse {
 
   // 提取各标签
   const mainTextRaw = extractTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
-  const mainText = removeHtmlComments(mainTextRaw);
+  let mainText = removeHtmlComments(mainTextRaw);
+  const mainHasTucao = /<\s*\/?\s*(?:tucao|吐槽)\b|\[\s*\/?\s*tucao\s*]|&lt;\s*\/?\s*tucao\b/i.test(mainTextRaw);
+  if (!mainHasTucao) {
+    const fallbackTucao = extractTucaoBlocks(cleanText);
+    if (fallbackTucao.length > 0) {
+      const merged = fallbackTucao.map(block => `<tucao>\n${block}\n</tucao>`).join('\n\n');
+      mainText = [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
+    }
+  }
   const optionRaw = extractTag(cleanText, 'option');
   const summary = extractTag(cleanText, 'sum');
 
@@ -142,12 +217,14 @@ export function parseResponse(text: string): ParsedResponse {
 
   // 检测 E 选项和 [Leave]
   const hasOptionE = allOptions.some(line => /^E\.\s/i.test(line));
-  const hasLeave = allOptions.some(line => /leave/i.test(line));
+  const hasLeave = allOptions.some(isLeaveOptionLine);
+  const hasRebirth = allOptions.some(isRebirthOptionLine);
 
   // 过滤掉 E 和 [Leave]，只保留 A-D 等普通选项
   const normalOptions = allOptions.filter(line => {
     if (/^E\.\s/i.test(line)) return false;
-    if (/leave/i.test(line)) return false;
+    if (isLeaveOptionLine(line)) return false;
+    if (isRebirthOptionLine(line)) return false;
     return true;
   });
 
@@ -160,6 +237,7 @@ export function parseResponse(text: string): ParsedResponse {
     rawText: cleanText,
     hasOptionE,
     hasLeave,
+    hasRebirth,
   };
 }
 
@@ -178,7 +256,16 @@ export function extractSummary(messageText: string): string {
 export function extractMainText(messageText: string): string {
   const clean = removeThinkBlock(messageText);
   const mainTextRaw = extractTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
-  return removeHtmlComments(mainTextRaw);
+  let mainText = removeHtmlComments(mainTextRaw);
+  const mainHasTucao = /<\s*\/?\s*(?:tucao|吐槽)\b|\[\s*\/?\s*tucao\s*]|&lt;\s*\/?\s*tucao\b/i.test(mainTextRaw);
+  if (!mainHasTucao) {
+    const fallbackTucao = extractTucaoBlocks(clean);
+    if (fallbackTucao.length > 0) {
+      const merged = fallbackTucao.map(block => `<tucao>\n${block}\n</tucao>`).join('\n\n');
+      mainText = [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
+    }
+  }
+  return mainText;
 }
 
 /**
@@ -197,7 +284,8 @@ export function extractOptions(messageText: string): string[] {
   const allOptions = parseOptions(extractTag(clean, 'option'));
   return allOptions.filter(line => {
     if (/^E\.\s/i.test(line)) return false;
-    if (/leave/i.test(line)) return false;
+    if (isLeaveOptionLine(line)) return false;
+    if (isRebirthOptionLine(line)) return false;
     return true;
   });
 }
@@ -217,5 +305,14 @@ export function detectOptionE(messageText: string): boolean {
 export function detectLeave(messageText: string): boolean {
   const clean = removeThinkBlock(messageText);
   const allOptions = parseOptions(extractTag(clean, 'option'));
-  return allOptions.some(line => /leave/i.test(line));
+  return allOptions.some(isLeaveOptionLine);
+}
+
+/**
+ * 从已有消息文本中检测是否含有 [Rebirth]
+ */
+export function detectRebirth(messageText: string): boolean {
+  const clean = removeThinkBlock(messageText);
+  const allOptions = parseOptions(extractTag(clean, 'option'));
+  return allOptions.some(isRebirthOptionLine);
 }

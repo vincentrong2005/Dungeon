@@ -28,6 +28,9 @@
     "$初始金币": {
       "type": "number"
     },
+    "$技能点": {
+      "type": "number"
+    },
     "_技能": {
       "default": [
         "",
@@ -115,6 +118,12 @@
       "items": {
         "type": "string"
       }
+    },
+    "_楼层数": {
+      "default": 1,
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
     },
     "_当前区域": {
       "type": "string"

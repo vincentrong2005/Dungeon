@@ -1,5 +1,12 @@
 // Schema import removed - using raw MVU data directly
-import { detectLeave, detectOptionE, extractMainText, extractOptions, extractSummary, extractVariableUpdate, parseResponse, type ParsedResponse } from './responseParser';
+import { detectLeave, detectOptionE, detectRebirth, extractMainText, extractOptions, extractSummary, extractVariableUpdate, filterStreamingTextAfterThinkEnd, parseResponse, type ParsedResponse } from './responseParser';
+
+/**
+ * Maintenance note:
+ * - This file contains Chinese text and must stay UTF-8.
+ * - Do not rewrite this file with shell redirection (>, >>, Out-File, Set-Content full overwrite).
+ * - Use apply_patch/IDE-safe editing to avoid mojibake.
+ */
 
 /**
  * 楼层存档条目（用于读档面板）
@@ -14,18 +21,40 @@ export interface SaveEntry {
  * 管理伪同层的游戏循环：用户输入 → 创建 user 楼层 → generate → 解析回复 → 创建 assistant 楼层
  */
 export const useGameStore = defineStore('game', () => {
+  const STREAMING_ENABLED_KEY = 'dungeon.streaming_enabled';
+
+  function readStreamingEnabledSetting(): boolean {
+    try {
+      const raw = localStorage.getItem(STREAMING_ENABLED_KEY);
+      if (raw === null) return true;
+      return raw === 'true';
+    } catch {
+      return true;
+    }
+  }
+
+  function persistStreamingEnabledSetting(enabled: boolean) {
+    try {
+      localStorage.setItem(STREAMING_ENABLED_KEY, String(enabled));
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
   // ── 游戏显示状态 ──
   const mainText = ref('');
   const options = ref<string[]>([]);
   const currentSummary = ref('');
   const isGenerating = ref(false);
   const streamingText = ref('');
+  const useStreaming = ref(readStreamingEnabledSetting());
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
 
   // ── 特殊选项标记 ──
   const hasOptionE = ref(false);
   const hasLeave = ref(false);
+  const hasRebirth = ref(false);
   const variableUpdateText = ref('');
 
   // ── 编辑模式 ──
@@ -47,10 +76,37 @@ export const useGameStore = defineStore('game', () => {
     incrementKeys?: string[];
     enemyName?: string;
   }
+  interface PendingCombatMvuChanges {
+    hp?: number;
+    addDefeatMark?: boolean;
+    goldDelta?: number;
+  }
+  interface PendingStatDataChanges {
+    fields: Record<string, any>;
+  }
   const pendingPortalChanges = ref<PendingPortalChanges | null>(null);
+  const pendingCombatMvuChanges = ref<PendingCombatMvuChanges | null>(null);
+  const pendingStatDataChanges = ref<PendingStatDataChanges | null>(null);
 
   function setPendingPortalChanges(changes: PendingPortalChanges) {
     pendingPortalChanges.value = changes;
+  }
+
+  function setPendingCombatMvuChanges(changes: PendingCombatMvuChanges | null) {
+    pendingCombatMvuChanges.value = changes ? _.cloneDeep(changes) : null;
+  }
+
+  function setPendingStatDataChanges(fields: Record<string, any> | null) {
+    pendingStatDataChanges.value = fields ? { fields: _.cloneDeep(fields) } : null;
+  }
+
+  function setUseStreaming(enabled: boolean) {
+    const nextEnabled = Boolean(enabled);
+    useStreaming.value = nextEnabled;
+    if (!nextEnabled) {
+      streamingText.value = '';
+    }
+    persistStreamingEnabledSetting(nextEnabled);
   }
 
   /**
@@ -83,6 +139,52 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
+    return result;
+  }
+
+  function applyPendingCombatChangesToMvu(baseMvuData: any, changes: PendingCombatMvuChanges | null) {
+    const result = _.cloneDeep(baseMvuData ?? {});
+    if (!result.stat_data || typeof result.stat_data !== 'object') {
+      result.stat_data = {};
+    }
+    const sd = result.stat_data as Record<string, any>;
+
+    if (!changes) return result;
+
+    if (Number.isFinite(changes.hp)) {
+      sd._血量 = Math.max(0, Math.floor(Number(changes.hp)));
+    }
+
+    if (changes.addDefeatMark) {
+      const raw = sd._负面状态;
+      const base = Array.isArray(raw)
+        ? raw.filter((item): item is string => typeof item === 'string')
+        : [];
+      if (!base.includes('[败北]')) {
+        base.push('[败北]');
+      }
+      sd._负面状态 = base;
+    }
+
+    if (Number.isFinite(changes.goldDelta)) {
+      const currentGold = Math.max(0, Math.floor(Number(sd._金币 ?? 0)));
+      const delta = Math.floor(Number(changes.goldDelta));
+      sd._金币 = Math.max(0, currentGold + delta);
+    }
+
+    return result;
+  }
+
+  function applyPendingStatDataChangesToMvu(baseMvuData: any, changes: PendingStatDataChanges | null) {
+    const result = _.cloneDeep(baseMvuData ?? {});
+    if (!result.stat_data || typeof result.stat_data !== 'object') {
+      result.stat_data = {};
+    }
+    const sd = result.stat_data as Record<string, any>;
+
+    if (!changes || !changes.fields || typeof changes.fields !== 'object') return result;
+
+    Object.assign(sd, _.cloneDeep(changes.fields));
     return result;
   }
 
@@ -125,6 +227,7 @@ export const useGameStore = defineStore('game', () => {
       currentSummary.value = extractSummary(text);
       hasOptionE.value = detectOptionE(text);
       hasLeave.value = detectLeave(text);
+      hasRebirth.value = detectRebirth(text);
       variableUpdateText.value = extractVariableUpdate(text);
     }
   }
@@ -167,10 +270,14 @@ export const useGameStore = defineStore('game', () => {
     try {
       // 1. 在创建新消息前，获取最新楼层的 MVU 变量（用于继承）
       const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getLastMessageId() });
-      const currentPendingChanges = pendingPortalChanges.value;
+      const currentPendingPortalChanges = pendingPortalChanges.value;
+      const currentPendingCombatChanges = pendingCombatMvuChanges.value;
+      const currentPendingStatDataChanges = pendingStatDataChanges.value;
 
       // 2. 先将传送门变量写入 user 楼层对应的 MVU 数据
-      const userMvuData = applyPendingPortalChangesToMvu(oldMvuData, currentPendingChanges);
+      const userMvuDataAfterPortal = applyPendingPortalChangesToMvu(oldMvuData, currentPendingPortalChanges);
+      const userMvuDataAfterCombat = applyPendingCombatChangesToMvu(userMvuDataAfterPortal, currentPendingCombatChanges);
+      const userMvuData = applyPendingStatDataChangesToMvu(userMvuDataAfterCombat, currentPendingStatDataChanges);
 
       // 3. 创建 user 楼层（携带已应用按钮变更后的 MVU 数据）
       console.info('[GameStore] Creating user message:', userInput);
@@ -181,17 +288,19 @@ export const useGameStore = defineStore('game', () => {
 
       // user 层已写入成功后，清空待应用变更，避免后续重复叠加
       pendingPortalChanges.value = null;
+      pendingCombatMvuChanges.value = null;
+      pendingStatDataChanges.value = null;
 
       // 4. 监听流式传输（可选）
       const streamListener = eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, (text: string, _generation_id: string) => {
-        streamingText.value = text;
+        streamingText.value = filterStreamingTextAfterThinkEnd(text);
       });
 
       // 5. 调用 generate 生成回复
       console.info('[GameStore] Generating LLM response...');
       const result = await generate({
         user_input: userInput,
-        should_stream: true,
+        should_stream: useStreaming.value,
       });
       console.info('[GameStore] LLM response received, length:', result.length);
 
@@ -246,6 +355,7 @@ export const useGameStore = defineStore('game', () => {
     currentSummary.value = parsed.summary;
     hasOptionE.value = parsed.hasOptionE;
     hasLeave.value = parsed.hasLeave;
+    hasRebirth.value = parsed.hasRebirth;
     variableUpdateText.value = parsed.variableUpdate;
   }
 
@@ -369,14 +479,14 @@ export const useGameStore = defineStore('game', () => {
 
       // 监听流式传输
       const streamListener = eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, (text: string) => {
-        streamingText.value = text;
+        streamingText.value = filterStreamingTextAfterThinkEnd(text);
       });
 
       // 重新生成
       console.info('[GameStore] Reroll: regenerating...');
       const result = await generate({
         user_input: userInput,
-        should_stream: true,
+        should_stream: useStreaming.value,
       });
 
       streamListener.stop();
@@ -527,6 +637,7 @@ export const useGameStore = defineStore('game', () => {
     options,
     currentSummary,
     isGenerating,
+    useStreaming,
     streamingText,
     error,
     isInitialized,
@@ -537,12 +648,16 @@ export const useGameStore = defineStore('game', () => {
     editingText,
     hasOptionE,
     hasLeave,
+    hasRebirth,
     variableUpdateText,
 
     // Actions
     initialize,
     sendAction,
+    setUseStreaming,
     setPendingPortalChanges,
+    setPendingCombatMvuChanges,
+    setPendingStatDataChanges,
     loadStatData,
     loadSaveEntries,
     rollbackTo,

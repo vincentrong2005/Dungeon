@@ -36,23 +36,14 @@
       />
     </div>
 
-    <!-- Sidebar: Right side icons (top right) -->
-    <div class="absolute top-4 right-4 z-50 flex items-center gap-2">
-      <!-- Fullscreen (small) -->
-      <button
-        class="w-8 h-8 rounded flex items-center justify-center
-               bg-dungeon-dark/60 border border-dungeon-brown/50 text-dungeon-gold-dim
-               hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
-               transition-all duration-300"
-        title="全屏模式"
-        @click="toggleFullScreen"
-      >
-        <Maximize class="size-4" />
-      </button>
-    </div>
-
     <!-- Right sidebar: save/load only (reroll & edit moved into panel) -->
-    <div class="absolute top-14 right-4 z-50 flex flex-col space-y-4">
+    <div class="absolute top-6 right-4 z-50 flex flex-col space-y-4">
+      <SidebarIcon
+        :icon="Maximize"
+        label="全屏模式"
+        tooltip-side="left"
+        @click="toggleFullScreen"
+      />
       <SidebarIcon
         :icon="BookOpen"
         label="读档"
@@ -136,15 +127,66 @@
               }"
             >
               <!-- Streaming text (during generation) -->
-              <p v-if="gameStore.isGenerating && gameStore.streamingText" class="whitespace-pre-wrap text-dungeon-paper/60">
+              <p v-if="isStreamingEnabled && gameStore.isGenerating && gameStore.streamingText" class="whitespace-pre-wrap text-dungeon-paper/60">
                 {{ gameStore.streamingText }}
               </p>
               <!-- Final main text -->
-              <p v-else class="whitespace-pre-wrap">{{ displayText }}</p>
+              <div v-else class="story-rich-text">
+                <p v-for="line in storyMainLines" :key="line.key" :class="['story-line', `story-line-level-${line.level}`]">
+                  <template v-if="line.segments.length > 0">
+                    <span
+                      v-for="segment in line.segments"
+                      :key="segment.key"
+                      :class="{
+                        'story-segment-muted': segment.type === 'muted',
+                        'story-segment-quote': segment.type === 'quote',
+                      }"
+                    >
+                      {{ segment.text }}
+                    </span>
+                  </template>
+                  <span v-else class="story-line-empty">&nbsp;</span>
+                </p>
+
+                <div v-if="storyTucaoSections.length > 0" class="story-tucao-section-list">
+                  <div v-for="(section, sectionIndex) in storyTucaoSections" :key="section.key" class="story-tucao-wrap">
+                    <button class="story-tucao-toggle" type="button" @click="toggleTucao(section.key)">
+                      {{
+                        isTucaoExpanded(section.key)
+                          ? `收起脑内剧场 ${sectionIndex + 1}`
+                          : `🎮 此方的脑内剧场 ${sectionIndex + 1}`
+                      }}
+                    </button>
+                    <Transition name="tucao-expand">
+                      <div v-if="isTucaoExpanded(section.key)" class="story-tucao-panel">
+                        <p
+                          v-for="line in section.lines"
+                          :key="line.key"
+                          :class="['story-line', `story-line-level-${line.level}`]"
+                        >
+                          <template v-if="line.segments.length > 0">
+                            <span
+                              v-for="segment in line.segments"
+                              :key="segment.key"
+                              :class="{
+                                'story-segment-muted': segment.type === 'muted',
+                                'story-segment-quote': segment.type === 'quote',
+                              }"
+                            >
+                              {{ segment.text }}
+                            </span>
+                          </template>
+                          <span v-else class="story-line-empty">&nbsp;</span>
+                        </p>
+                      </div>
+                    </Transition>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Options Section -->
-            <div v-if="!gameStore.isGenerating && (gameStore.options.length > 0 || gameStore.hasOptionE || gameStore.hasLeave)" class="mt-8 flex flex-col space-y-3">
+            <div v-if="!gameStore.isGenerating && (gameStore.options.length > 0 || gameStore.hasOptionE || gameStore.hasLeave || gameStore.hasRebirth)" class="mt-8 flex flex-col space-y-3">
               <div
                 class="h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
               ></div>
@@ -220,6 +262,26 @@
                              animate-[spin_8s_linear_infinite] transition-opacity"
                       :style="{ borderColor: portal.borderColor }"
                     ></div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- [Rebirth] Reset Button -->
+              <div v-if="gameStore.hasRebirth" class="mt-4">
+                <div class="text-center text-red-300/70 text-xs font-ui tracking-widest uppercase mb-3">
+                  ─── 回溯 ───
+                </div>
+                <div class="flex justify-center">
+                  <button
+                    class="group relative px-7 py-3 rounded-lg border-2 font-heading text-sm tracking-wider
+                           transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]
+                           bg-red-950/45 border-red-500/60 text-red-100
+                           shadow-[0_0_14px_rgba(239,68,68,0.35)] hover:shadow-[0_0_20px_rgba(248,113,113,0.5)]"
+                    :disabled="gameStore.isGenerating"
+                    @click="handleRebirthClick"
+                  >
+                    <span class="text-base mr-2">⟲</span>
+                    回溯重生
                   </button>
                 </div>
               </div>
@@ -597,6 +659,18 @@
                 <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span>
               </div>
             </div>
+
+            <div class="flex items-center justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
+              <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  v-model="isStreamingEnabled"
+                  type="checkbox"
+                  class="h-4 w-4 accent-dungeon-gold"
+                />
+                <span class="text-dungeon-paper text-sm font-ui">{{ isStreamingEnabled ? '开启' : '关闭' }}</span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -891,6 +965,7 @@
         <div class="absolute inset-0 bg-black/22"></div>
 
         <img
+          v-if="!isMerchantDefeated"
           :src="shopMerchantPortraitUrl"
           class="pointer-events-none absolute left-0 bottom-0 z-[99] h-[92vh] max-h-[1216px] w-auto object-contain"
           alt="沐芯兰"
@@ -939,7 +1014,7 @@
             <div class="shop-panel-foot">
               <button
                 class="shop-rob-btn px-5 py-2 font-ui text-xs tracking-wider text-amber-50"
-                :disabled="shopBuying || gameStore.isGenerating || shopRobbing"
+                :disabled="shopBuying || gameStore.isGenerating || shopRobbing || isMerchantDefeated"
                 :style="{ opacity: shopRobBtnOpacity }"
                 @click="handleShopRobClick"
               >
@@ -1038,6 +1113,94 @@
       </div>
     </Transition>
 
+    <!-- Victory Card Reward Overlay -->
+    <Transition name="combat-fade">
+      <div v-if="showVictoryRewardView" class="absolute inset-0 z-[102] bg-black/90">
+        <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
+          <div class="w-full max-w-6xl rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div class="font-heading text-xl text-dungeon-gold">战胜奖励</div>
+                <div class="text-xs text-dungeon-paper/65 mt-1">
+                  {{ victoryRewardStage === 'pick' ? '请选择 1 张奖励卡牌' : '选择要替换的卡组槽位（共9槽）' }}
+                </div>
+              </div>
+              <button
+                class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50"
+                :disabled="rewardApplying"
+                @click="exitVictoryRewardFlow"
+              >
+                退出
+              </button>
+            </div>
+
+            <template v-if="victoryRewardStage === 'pick'">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <button
+                  v-for="card in victoryRewardOptions"
+                  :key="`reward-option-${card.id}`"
+                  type="button"
+                  class="rounded-lg border border-dungeon-brown/50 bg-[#160d08]/75 p-3 transition-all hover:border-dungeon-gold/60 hover:scale-[1.01]"
+                  @click="pickVictoryRewardCard(card)"
+                >
+                  <div class="flex justify-center">
+                    <DungeonCard :card="card" disabled />
+                  </div>
+                  <div class="mt-2 text-center text-xs text-dungeon-gold/90">选择此卡</div>
+                </button>
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="mb-4 rounded border border-dungeon-gold/25 bg-black/20 p-3">
+                <div class="text-xs text-dungeon-paper/70 mb-2">已选择奖励卡：</div>
+                <div class="flex justify-center">
+                  <DungeonCard v-if="selectedVictoryRewardCard" :card="selectedVictoryRewardCard" disabled />
+                </div>
+              </div>
+
+              <div
+                v-if="rewardReplaceEntries.length === 0"
+                class="rounded border border-dungeon-brown/50 bg-black/20 p-4 text-center"
+              >
+                <div class="text-sm text-dungeon-paper/70">当前卡组为空，将奖励卡加入卡组。</div>
+                <button
+                  type="button"
+                  class="mt-3 px-4 py-2 rounded border border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10 disabled:opacity-50"
+                  :disabled="rewardApplying"
+                  @click="replaceDeckCardWithReward(0)"
+                >
+                  加入卡组
+                </button>
+              </div>
+
+              <div
+                v-if="rewardReplaceEntries.length > 0"
+                class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
+              >
+                <button
+                  v-for="entry in rewardReplaceEntries"
+                  :key="`reward-replace-${entry.idx}`"
+                  type="button"
+                  class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="rewardApplying"
+                  @click="replaceDeckCardWithReward(entry.idx)"
+                >
+                  <div class="text-[11px] text-dungeon-paper/65 mb-2">槽位 {{ entry.idx + 1 }}</div>
+                  <div class="flex justify-center">
+                    <DungeonCard v-if="entry.card" :card="entry.card" disabled />
+                    <div v-else class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55">
+                      {{ entry.name || '空槽位' }}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Combat Overlay -->
     <Transition name="combat-fade">
       <div v-if="showCombat" class="absolute inset-0 z-[100] bg-black">
@@ -1092,6 +1255,7 @@ import {
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicByName, type RelicData } from '../battle/relicRegistry';
+import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { CardType, EffectType, type CardData } from '../types';
@@ -1181,6 +1345,20 @@ const selectedTestEnemy = ref('');
 const selectedTestRelicCounts = ref<Record<string, number>>({});
 const selectedCardCategoryTab = ref('全部');
 const selectedRelicCategoryTab = ref('全部');
+const activeCombatContext = ref<'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest'>('normal');
+const pendingCombatNarrative = ref<{
+  id: string;
+  context: 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
+  win: boolean;
+  enemyName: string;
+  text: string;
+} | null>(null);
+const dispatchedCombatNarrativeIds = new Set<string>();
+const showVictoryRewardView = ref(false);
+const victoryRewardStage = ref<'pick' | 'replace'>('pick');
+const victoryRewardOptions = ref<CardData[]>([]);
+const selectedVictoryRewardCard = ref<CardData | null>(null);
+const rewardApplying = ref(false);
 const relicTooltip = ref<{
   x: number;
   y: number;
@@ -1206,6 +1384,8 @@ interface ShopProduct {
   finalPrice: number;
   sold: boolean;
 }
+
+type CombatContext = 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
 
 // --- Dynamic Background ---
 const bgIsLordFallback = ref(false);
@@ -1309,13 +1489,20 @@ const muxinlanFavor = computed<number>(() => {
   const safe = Number.isFinite(raw) ? raw : 0;
   return Math.max(-1000, Math.min(1000, safe));
 });
-const muxinlanFavorDisplay = computed(() => Math.max(0, muxinlanFavor.value));
 const shopDiscountRate = computed(() => Math.max(0, Math.min(1000, muxinlanFavor.value)) * 0.0002);
-const shopDiscountPercentText = computed(() => `${(shopDiscountRate.value * 100).toFixed(2)}%`);
 const shopRobBtnOpacity = computed(() => {
   const revealed = Math.min(5, shopRobClickCount.value);
   return (0.32 + revealed * 0.13).toFixed(2);
 });
+const parseMerchantDefeatedValue = (value: unknown): boolean => {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1';
+  }
+  return false;
+};
+const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData._是否已击败商人));
 const canEditMagicBooks = computed(() => (
   ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝'
 ));
@@ -1343,6 +1530,20 @@ const cardByNameForTest = computed(() => {
     map.set(card.name, card);
   }
   return map;
+});
+const rewardCardPool = computed<CardData[]>(() => {
+  const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
+  const filtered = allCardsForTest.value.filter((card) => categorySet.has(card.category));
+  if (filtered.length > 0) return filtered;
+  return [...allCardsForTest.value];
+});
+const rewardReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
+  const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
+  return raw.slice(0, 9).map((name, idx) => ({
+    idx,
+    name,
+    card: cardByNameForTest.value.get(name) ?? null,
+  }));
 });
 const selectedTestDeckCards = computed(() =>
   selectedTestDeck.value
@@ -1400,6 +1601,8 @@ const getCardTypeBadgeClass = (type: CardType) => {
       return 'border-yellow-500/50 text-yellow-300 bg-yellow-900/20';
     case CardType.DODGE:
       return 'border-emerald-500/50 text-emerald-300 bg-emerald-900/20';
+    case CardType.CURSE:
+      return 'border-violet-500/50 text-violet-300 bg-violet-900/20';
     default:
       return 'border-white/30 text-dungeon-paper/80 bg-white/5';
   }
@@ -1564,10 +1767,227 @@ const textSettings = reactive({
   containerWidth: 1300,
 });
 
+const isStreamingEnabled = computed<boolean>({
+  get: () => gameStore.useStreaming,
+  set: (value) => gameStore.setUseStreaming(value),
+});
+
 // ── Computed display values from MVU stat_data ──
 const displayText = computed(() =>
-  gameStore.mainText || '正在等待冒险开始...\n\n输入你的行动或选择一个选项来开始游戏。',
+  gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出',
 );
+
+type StoryInlineSegmentType = 'text' | 'muted' | 'quote';
+
+interface StoryInlineSegment {
+  key: string;
+  type: StoryInlineSegmentType;
+  text: string;
+}
+
+interface StoryLineBlock {
+  type: 'line';
+  key: string;
+  level: 0 | 1 | 2 | 3 | 4;
+  segments: StoryInlineSegment[];
+}
+
+interface StoryTucaoSection {
+  key: string;
+  lines: StoryLineBlock[];
+}
+
+interface StoryContentState {
+  lines: StoryLineBlock[];
+  tucaoSections: StoryTucaoSection[];
+}
+
+const inlineMarkRegex = /(\*[^*\r\n]+\*|“[^”\r\n]+”|「[^」\r\n]+」|"[^"\r\n]+"|'[^'\r\n]+')/g;
+const headerMarkRegex = /^(#{1,4})\s*(.*)$/;
+const tucaoOpenTagRegex = /<\s*tucao(?:\s+[^>]*)?>/gi;
+const tucaoCloseTagRegex = /<\s*\/\s*tucao\s*>/gi;
+const tucaoExpandedState = ref<Record<string, boolean>>({});
+
+function isQuotedText(text: string): boolean {
+  const value = text.trim();
+  if (value.length < 2) return false;
+  return (
+    /^“[^”\r\n]+”$/.test(value)
+    || /^「[^」\r\n]+」$/.test(value)
+    || /^"[^"\r\n]+"$/.test(value)
+    || /^'[^'\r\n]+'$/.test(value)
+  );
+}
+
+function normalizeTucaoMarkers(text: string): string {
+  return text
+    // HTML entity forms: &lt;tucao&gt;...&lt;/tucao&gt;
+    .replace(/&lt;\s*tucao(?:\s+[^&]*?)?&gt;/gi, '<tucao>')
+    .replace(/&lt;\s*\/\s*tucao\s*&gt;/gi, '</tucao>')
+    // Alternate bracket forms: [tucao]...[/tucao]
+    .replace(/\[\s*tucao\s*]/gi, '<tucao>')
+    .replace(/\[\s*\/\s*tucao\s*]/gi, '</tucao>')
+    // Chinese tag alias: <吐槽>...</吐槽>
+    .replace(/<\s*吐槽(?:\s+[^>]*)?>/gi, '<tucao>')
+    .replace(/<\s*\/\s*吐槽\s*>/gi, '</tucao>');
+}
+
+function parseInlineSegments(line: string, keyPrefix: string): StoryInlineSegment[] {
+  if (!line) return [];
+  const segments: StoryInlineSegment[] = [];
+  let lastIndex = 0;
+  let segmentIndex = 0;
+  let match: RegExpExecArray | null;
+
+  inlineMarkRegex.lastIndex = 0;
+  while ((match = inlineMarkRegex.exec(line)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({
+        key: `${keyPrefix}-seg-${segmentIndex}`,
+        type: 'text',
+        text: line.slice(lastIndex, match.index),
+      });
+      segmentIndex += 1;
+    }
+
+    const markedText = match[0];
+    if (markedText.startsWith('*') && markedText.endsWith('*')) {
+      const innerText = markedText.slice(1, -1);
+      if (isQuotedText(innerText)) {
+        segments.push({
+          key: `${keyPrefix}-seg-${segmentIndex}`,
+          type: 'quote',
+          text: innerText,
+        });
+      } else {
+        segments.push({
+          key: `${keyPrefix}-seg-${segmentIndex}`,
+          type: 'muted',
+          text: innerText,
+        });
+      }
+    } else if (isQuotedText(markedText)) {
+      segments.push({
+        key: `${keyPrefix}-seg-${segmentIndex}`,
+        type: 'quote',
+        text: markedText,
+      });
+    } else {
+      segments.push({
+        key: `${keyPrefix}-seg-${segmentIndex}`,
+        type: 'quote',
+        text: markedText,
+      });
+    }
+    segmentIndex += 1;
+    lastIndex = inlineMarkRegex.lastIndex;
+  }
+
+  if (lastIndex < line.length) {
+    segments.push({
+      key: `${keyPrefix}-seg-${segmentIndex}`,
+      type: 'text',
+      text: line.slice(lastIndex),
+    });
+  }
+
+  return segments;
+}
+
+function parseStoryLine(line: string, key: string): StoryLineBlock {
+  const match = headerMarkRegex.exec(line);
+  let level: 0 | 1 | 2 | 3 | 4 = 0;
+  let content = line;
+
+  if (match) {
+    level = match[1].length as 1 | 2 | 3 | 4;
+    content = match[2];
+  }
+
+  return {
+    type: 'line',
+    key,
+    level,
+    segments: parseInlineSegments(content, key),
+  };
+}
+
+function parseTextLines(text: string, keyPrefix: string): StoryLineBlock[] {
+  if (text.length === 0) return [];
+  return text.split('\n').map((line, index) => parseStoryLine(line, `${keyPrefix}-line-${index}`));
+}
+
+function parseStoryContent(text: string): StoryContentState {
+  const normalized = normalizeTucaoMarkers(text).replace(/\r\n/g, '\n');
+  const lines: StoryLineBlock[] = [];
+  const tucaoSections: StoryTucaoSection[] = [];
+  let cursor = 0;
+  let sectionIndex = 0;
+  let openMatch: RegExpExecArray | null;
+
+  tucaoOpenTagRegex.lastIndex = 0;
+  while ((openMatch = tucaoOpenTagRegex.exec(normalized)) !== null) {
+    const openStart = openMatch.index;
+    const openEnd = tucaoOpenTagRegex.lastIndex;
+
+    const plainPart = normalized.slice(cursor, openStart);
+    lines.push(...parseTextLines(plainPart, `story-${sectionIndex}-plain-${cursor}`));
+
+    tucaoCloseTagRegex.lastIndex = openEnd;
+    const closeMatch = tucaoCloseTagRegex.exec(normalized);
+    const contentEnd = closeMatch ? closeMatch.index : normalized.length;
+    const nextCursor = closeMatch ? tucaoCloseTagRegex.lastIndex : normalized.length;
+
+    const tucaoContent = normalized.slice(openEnd, contentEnd).replace(/^\n+/, '').replace(/\n+$/, '');
+    const tucaoKey = `story-tucao-${sectionIndex}-${openStart}`;
+    const parsedTucaoLines = parseTextLines(tucaoContent, tucaoKey);
+    if (parsedTucaoLines.length > 0) {
+      tucaoSections.push({
+        key: tucaoKey,
+        lines: parsedTucaoLines,
+      });
+    }
+
+    cursor = nextCursor;
+    tucaoOpenTagRegex.lastIndex = cursor;
+    sectionIndex += 1;
+
+    // Missing closing tag: consume to end once.
+    if (!closeMatch) {
+      break;
+    }
+  }
+
+  const tail = normalized.slice(cursor);
+  lines.push(...parseTextLines(tail, `story-tail-${cursor}`));
+
+  return {
+    lines,
+    tucaoSections,
+  };
+}
+
+const storyContentState = computed<StoryContentState>(() => parseStoryContent(displayText.value));
+const storyMainLines = computed<StoryLineBlock[]>(() => storyContentState.value.lines);
+const storyTucaoSections = computed<StoryTucaoSection[]>(() => storyContentState.value.tucaoSections);
+
+watch(storyTucaoSections, (sections) => {
+  const validKeys = new Set(
+    sections.map(section => section.key),
+  );
+  const nextState: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(tucaoExpandedState.value)) {
+    if (validKeys.has(key)) {
+      nextState[key] = value;
+    }
+  }
+  tucaoExpandedState.value = nextState;
+}, { immediate: true });
+
+const isTucaoExpanded = (key: string) => Boolean(tucaoExpandedState.value[key]);
+const toggleTucao = (key: string) => {
+  tucaoExpandedState.value[key] = !isTucaoExpanded(key);
+};
 
 // HP: _血量 / _血量上限, HP 不能超过上限
 const displayHp = computed(() => {
@@ -1613,6 +2033,71 @@ const handleOptionClick = (option: string) => {
   inputText.value = stripped;
 };
 
+const REBIRTH_STARTER_DECK = [
+  '普通物理攻击', '普通物理攻击', '普通物理攻击',
+  '普通魔法攻击', '普通魔法攻击',
+  '普通护盾', '普通护盾',
+  '普通闪避', '普通闪避',
+];
+
+const toNonNegativeInt = (value: unknown, fallback: number) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.floor(n));
+};
+
+const buildRebirthResetFields = (): Record<string, any> => {
+  const initialMaxHp = Math.max(1, toNonNegativeInt(gameStore.statData.$初始血量上限, 10));
+  const initialMp = toNonNegativeInt(gameStore.statData.$初始魔量, 1);
+  const initialGold = toNonNegativeInt(gameStore.statData.$初始金币, 0);
+  const currentSkillPoints = toNonNegativeInt(gameStore.statData.$技能点, 0);
+  const currentFloor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
+  const rebirthSkillPointGain = Math.floor((currentFloor * (currentFloor + 1)) / 2);
+  return {
+    _血量: initialMaxHp,
+    _血量上限: initialMaxHp,
+    _魔量: initialMp,
+    _金币: initialGold,
+    $技能点: currentSkillPoints + rebirthSkillPointGain,
+    _技能: [...REBIRTH_STARTER_DECK],
+    _负面状态: [],
+    $被动: '',
+    $主动: ['', ''],
+    _圣遗物: {},
+    $最大点数: 6,
+    $最小点数: 1,
+    _楼层数: 1,
+    _当前区域: '魔女的小窝',
+    _当前房间类型: '',
+    _当前事件: '',
+    _对手名称: '',
+    _是否已击败商人: false,
+    $统计: {
+      当前层已过房间: 0,
+      累计已过房间: 0,
+      累计经过战斗: 0,
+      累计经过温泉: 0,
+      累计经过宝箱: 0,
+      累计经过商店: 0,
+      累计经过神像: 0,
+      累计经过事件: 0,
+      累计经过陷阱: 0,
+    },
+  };
+};
+
+const handleRebirthClick = () => {
+  if (gameStore.isGenerating) return;
+  showCombat.value = false;
+  showVictoryRewardView.value = false;
+  closeShopView();
+  closeChestView();
+  pendingCombatNarrative.value = null;
+  gameStore.setPendingCombatMvuChanges(null);
+  gameStore.setPendingStatDataChanges(buildRebirthResetFields());
+  gameStore.sendAction('<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。');
+};
+
 // ── Room type config for E option ──
 interface RoomConfig {
   label: string;
@@ -1653,6 +2138,122 @@ const isShopContext = computed(() => {
   const area = ((gameStore.statData._当前区域 as string) || '').trim();
   return roomType === '商店房' || area === '商店';
 });
+const isCombatRoomContext = computed(() => {
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  return roomType === '战斗房' || roomType === '领主房';
+});
+
+const sanitizeCombatLogLine = (line: string) => {
+  return line
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const formatCombatLogs = (logs: string[]) => {
+  const ordered = [...logs]
+    .reverse()
+    .map(sanitizeCombatLogLine)
+    .filter((line) => line.length > 0);
+  if (ordered.length === 0) return '1. （战斗日志为空）';
+  return ordered.map((line, idx) => `${idx + 1}. ${line}`).join('\n');
+};
+
+const buildCombatNarrative = (win: boolean, enemyName: string, context: CombatContext, logs: string[]) => {
+  const outcomeLine = win
+    ? `<user>战斗结果：[胜利]，<user>战胜了${enemyName}。`
+    : `<user>战斗结果：[败北]，<user>被${enemyName}击败。`;
+  const contextLine = context === 'shopRobbery'
+    ? '<user>本次战斗发生在抢夺商店的冲突中。'
+    : context === 'chestMimic'
+    ? '<user>本次战斗发生在宝箱怪伏击中。'
+    : context === 'combatTest'
+    ? '<user>本次战斗来自战斗测试。'
+    : '<user>本次战斗发生在地牢探索途中。';
+  const followupLine = win
+    ? '<user>请根据以下完整战斗日志继续剧情，并体现胜利后的后续发展。'
+    : '<user>请根据以下完整战斗日志继续剧情，并体现战败后的后续发展。';
+  return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
+};
+
+const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
+  if (dispatchedCombatNarrativeIds.has(narrative.id)) return;
+  if (gameStore.isGenerating) return;
+  dispatchedCombatNarrativeIds.add(narrative.id);
+  gameStore.sendAction(text);
+};
+
+const queueCombatMvuSync = (win: boolean, finalStats: unknown) => {
+  const hpRaw = Number((finalStats as { hp?: unknown } | null | undefined)?.hp);
+  const hasHp = Number.isFinite(hpRaw);
+  const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
+  const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
+  const goldReward = 3 + (2 * floor);
+  gameStore.setPendingCombatMvuChanges({
+    hp: hasHp ? Math.max(0, Math.floor(hpRaw)) : undefined,
+    addDefeatMark: !win,
+    goldDelta: win ? goldReward : undefined,
+  });
+};
+
+const applyMerchantDefeatedShopState = () => {
+  for (const item of shopProducts.value) {
+    item.finalPrice = 0;
+  }
+};
+
+const startVictoryRewardFlow = () => {
+  const pool = shuffle(rewardCardPool.value);
+  const options = pool.slice(0, Math.min(3, pool.length));
+  if (options.length === 0) return false;
+  victoryRewardOptions.value = options;
+  selectedVictoryRewardCard.value = null;
+  victoryRewardStage.value = 'pick';
+  showVictoryRewardView.value = true;
+  return true;
+};
+
+const finalizeVictoryRewardFlow = () => {
+  showVictoryRewardView.value = false;
+  victoryRewardStage.value = 'pick';
+  victoryRewardOptions.value = [];
+  selectedVictoryRewardCard.value = null;
+  rewardApplying.value = false;
+  const narrative = pendingCombatNarrative.value;
+  if (!narrative) return;
+  if (narrative.context === 'shopRobbery') return;
+  pendingCombatNarrative.value = null;
+  sendCombatNarrativeOnce(narrative, narrative.text);
+};
+
+const exitVictoryRewardFlow = () => {
+  finalizeVictoryRewardFlow();
+};
+
+const pickVictoryRewardCard = (card: CardData) => {
+  selectedVictoryRewardCard.value = card;
+  victoryRewardStage.value = 'replace';
+};
+
+const replaceDeckCardWithReward = async (idx: number) => {
+  if (!selectedVictoryRewardCard.value || rewardApplying.value) return;
+  const raw = Array.isArray(gameStore.statData._技能)
+    ? [...(gameStore.statData._技能 as string[])].slice(0, 9)
+    : [];
+  if (raw.length === 0) {
+    raw.push(selectedVictoryRewardCard.value.name);
+  } else if (idx >= 0 && idx < raw.length) {
+    raw[idx] = selectedVictoryRewardCard.value.name;
+  } else {
+    return;
+  }
+  rewardApplying.value = true;
+  const ok = await gameStore.updateStatDataFields({ _技能: raw });
+  rewardApplying.value = false;
+  if (!ok) return;
+  finalizeVictoryRewardFlow();
+};
 
 const getRarityBasePrice = (rarity: RelicData['rarity']) => {
   if (rarity === '传奇') return 15;
@@ -1707,7 +2308,7 @@ const generateShopProducts = () => {
     usedNames.add(relic.name);
 
     const basePrice = getRarityBasePrice(relic.rarity);
-    const finalPrice = Math.max(1, Math.ceil(basePrice * (1 - discountRate)));
+    const finalPrice = isMerchantDefeated.value ? 0 : Math.max(1, Math.ceil(basePrice * (1 - discountRate)));
     next.push({
       key: `${relic.id}-${i}`,
       relic,
@@ -1729,6 +2330,9 @@ const openShopView = () => {
   shopRobClickCount.value = 0;
   shopRobbing.value = false;
   generateShopProducts();
+  if (isMerchantDefeated.value) {
+    applyMerchantDefeatedShopState();
+  }
   showShopView.value = true;
 };
 
@@ -1783,14 +2387,25 @@ const exitShop = () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
   const purchased = [...shopPurchasedItems.value];
   const total = shopSpentGold.value;
+  const narrative = pendingCombatNarrative.value;
   closeShopView();
+  if (narrative && narrative.context === 'shopRobbery' && narrative.win) {
+    const lootedText = purchased.length > 0
+      ? `<user>我在失守的货架上拿走了${purchased.map((item) => `${item.name}（${item.rarity}）`).join('，')}。`
+      : '<user>我没有额外拿走商店货架上的物品。';
+    const report = `${narrative.text}\n${lootedText}\n<user>我离开了商店，请基于战斗结果、战斗日志与离店行为继续后续剧情。`;
+    pendingCombatNarrative.value = null;
+    sendCombatNarrativeOnce(narrative, report);
+    return;
+  }
+
   if (purchased.length === 0) return;
   const purchasedText = purchased.map((item) => `${item.name}（${item.rarity}）`).join('，');
   gameStore.sendAction(`<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`);
 };
 
 const handleShopRobClick = async () => {
-  if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
+  if (shopBuying.value || gameStore.isGenerating || shopRobbing.value || isMerchantDefeated.value) return;
   if (shopRobClickCount.value < 5) {
     shopRobClickCount.value += 1;
     return;
@@ -1807,6 +2422,7 @@ const handleShopRobClick = async () => {
   shopRobTimer = setTimeout(() => {
     closeShopView();
     combatEnemyName.value = '沐芯兰';
+    activeCombatContext.value = 'shopRobbery';
     showCombat.value = true;
     shopRobTimer = null;
   }, 1000);
@@ -1877,25 +2493,12 @@ const pickChestRewardRelic = (): RelicData | null => {
   return pickOne(rarityPool);
 };
 
-const grantRelicToPlayer = async (relic: RelicData): Promise<boolean> => {
-  const rawRelics = gameStore.statData._圣遗物 ?? {};
-  const nextRelics: Record<string, number> = {};
-  for (const [name, value] of Object.entries(rawRelics as Record<string, number>)) {
-    const count = Math.max(0, Math.floor(Number(value ?? 0)));
-    if (!name || count <= 0) continue;
-    nextRelics[name] = count;
-  }
-  nextRelics[relic.name] = (nextRelics[relic.name] ?? 0) + 1;
-  return gameStore.updateStatDataFields({ _圣遗物: nextRelics });
-};
-
-const collectChestReward = async () => {
+const collectChestReward = () => {
   if (!chestRewardRelic.value || chestRewardCollected.value || chestCollecting.value) return;
   chestCollecting.value = true;
-  const ok = await grantRelicToPlayer(chestRewardRelic.value);
-  chestCollecting.value = false;
-  if (!ok) return;
+  // 这里只记录“已领取”，不改当前楼层 MVU；实际写入延迟到点击传送门时排队到下一层 user 楼层
   chestRewardCollected.value = true;
+  chestCollecting.value = false;
   clearChestRewardFadeTimer();
   chestRewardFadeTimer = setTimeout(() => {
     chestRewardVisible.value = false;
@@ -1935,12 +2538,30 @@ const handleChestCenterClick = async () => {
   chestMimicTimer = setTimeout(() => {
     showChestView.value = false;
     combatEnemyName.value = '宝箱怪';
+    activeCombatContext.value = 'chestMimic';
     showCombat.value = true;
     chestMimicTimer = null;
   }, 1000);
 };
 
-const handleSpecialOption = () => {
+const startCombatFromSpecialOption = async () => {
+  let enemyName = ((gameStore.statData._对手名称 as string) || '').trim();
+  if (!enemyName) {
+    const area = ((gameStore.statData._当前区域 as string) || '').trim();
+    enemyName = pickBattleMonsterByArea(area) ?? '';
+    if (!enemyName) {
+      toastr.warning('当前未找到可战斗的对手。');
+      return;
+    }
+    const ok = await gameStore.updateStatDataFields({ _对手名称: enemyName });
+    if (!ok) return;
+  }
+  combatEnemyName.value = enemyName;
+  activeCombatContext.value = 'normal';
+  showCombat.value = true;
+};
+
+const handleSpecialOption = async () => {
   if (isTreasureRoomContext.value) {
     openChestView();
     return;
@@ -1949,34 +2570,16 @@ const handleSpecialOption = () => {
     openShopView();
     return;
   }
+  if (isCombatRoomContext.value) {
+    await startCombatFromSpecialOption();
+    return;
+  }
   toastr.info('功能开发中...');
 };
 
 // ══════════════════════════════════════════════════════════════
 //  [Leave] Portal System — Floor/Area Logic
 // ══════════════════════════════════════════════════════════════
-
-const FLOOR_MAP: Record<string, string[]> = {
-  '第一层': ['魔女的小窝', '粘液之沼', '发情迷雾森林', '喷精泉眼', '触手菌窟', '肉欲食人花圃'],
-  '第二层': ['禁忌图书馆', '呻吟阅览室', '催情墨染湖', '性癖记录馆', '淫乱教职工宿舍'],
-  '第三层': ['欲望监狱', '吸血鬼古堡', '调教审判庭', '触手水牢', '人偶工坊'],
-  '第四层': ['虚空宫殿', '镜之舞厅', '双子寝宫', '春梦回廊', '极乐宴会厅'],
-  '第五层': ['交媾祭坛', '圣水之海', '苦修之路', '神谕淫纹室', '女神的产房'],
-};
-const FLOOR_ORDER = ['第一层', '第二层', '第三层', '第四层', '第五层'];
-
-function getFloorForArea(area: string): string | null {
-  for (const [floor, areas] of Object.entries(FLOOR_MAP)) {
-    if (areas.includes(area)) return floor;
-  }
-  return null;
-}
-
-function getNextFloor(currentFloor: string): string | null {
-  const idx = FLOOR_ORDER.indexOf(currentFloor);
-  if (idx < 0 || idx >= FLOOR_ORDER.length - 1) return null;
-  return FLOOR_ORDER[idx + 1];
-}
 
 interface FloorMonsterConfig {
   common: string[];
@@ -2075,6 +2678,60 @@ function pickBattleMonsterByArea(area: string): string | null {
 
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
+const TRAP_POOL_BY_AREA: Record<string, string[]> = {
+  '粘液之沼': ['粘液深坑', '史莱姆的温床'],
+  '发情迷雾森林': ['迷雾漩涡', '活体树洞', '树精的共生茧'],
+  '喷精泉眼': ['间歇性喷泉', '深水陷阱', '圣泉倒灌'],
+  '肉欲食人花圃': ['诱惑陷阱', '粘性花蜜池'],
+  '触手菌窟': ['孢子爆炸', '活体陷阱'],
+
+  '禁忌图书馆': ['幻境之书', '禁言束缚'],
+  // 呻吟阅览室：无陷阱（传送门中会移除陷阱房）
+  '催情墨染湖': ['强制纹身', '墨汁洗礼', '沉溺之爱'],
+  '性癖记录馆': ['公开处刑'],
+  '淫乱教职工宿舍': ['催眠广播', '强制派对'],
+
+  '欲望监狱': ['自动拘束床', '审讯室陷阱', '矫正项圈'],
+  '吸血鬼古堡': ['魅惑血雾', '血契房间'],
+  '调教审判庭': ['真言之椅', '雷霆忏悔席'],
+  '触手水牢': ['伪装平台', '嵌墙活体标本'],
+  '人偶工坊': ['丝线操控', '强制装配台'],
+
+  '虚空宫殿': ['重力反转', '维度分割展台'],
+  '镜之舞厅': ['镜像置换', '自我对峙', '无尽回廊'],
+  '双子寝宫': ['永恒春梦', '梦境具现', '双子的探访'],
+  '春梦回廊': ['记忆囚笼', '梦魇骑行'],
+  '极乐宴会厅': ['欲望之酒', '暴食者的终宴'],
+
+  '交媾祭坛': ['神圣跪拜', '献祭仪式'],
+  '圣水之海': ['圣水灌注', '溺亡的极乐', '依赖成瘾'],
+  '苦修之路': ['感官过载', '镜中诱惑', '跌倒的代价'],
+  '神谕淫纹室': ['强制烙印', '欲望显现', '连锁反应'],
+  '女神的产房': ['强制受孕', '母性陷阱', '子宫回归'],
+};
+
+const ALL_TRAPS = Object.values(TRAP_POOL_BY_AREA).flat();
+
+const pickTrapByArea = (area: string): string | null => {
+  const pool = TRAP_POOL_BY_AREA[area] ?? [];
+  if (pool.length > 0) return pickOne(pool);
+  if (ALL_TRAPS.length > 0) return pickOne(ALL_TRAPS);
+  return null;
+};
+
+const getAvailablePortalRoomTypes = (currentArea: string) => {
+  if (parseMerchantDefeatedValue(gameStore.statData._是否已击败商人)) {
+    const withoutShop = PORTAL_ROOM_TYPES.filter((type) => type !== '商店房');
+    if (currentArea === '呻吟阅览室') {
+      return withoutShop.filter((type) => type !== '陷阱房');
+    }
+    return withoutShop;
+  }
+  if (currentArea === '呻吟阅览室') {
+    return PORTAL_ROOM_TYPES.filter((type) => type !== '陷阱房');
+  }
+  return [...PORTAL_ROOM_TYPES];
+};
 
 interface PortalVisual { icon: string; bgColor: string; borderColor: string; textColor: string; glowColor: string; }
 
@@ -2159,9 +2816,11 @@ function generatePortals(): PortalChoice[] {
   }
 
   // ── Normal: 1-3 random room portals (20%/40%/40%) ──
+  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
+  if (availableRoomTypes.length === 0) return [];
   const roll = Math.random();
-  const count = roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3;
-  const picked = shuffle(PORTAL_ROOM_TYPES).slice(0, count);
+  const count = Math.min(availableRoomTypes.length, roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3);
+  const picked = shuffle(availableRoomTypes).slice(0, count);
   return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
 }
 
@@ -2176,7 +2835,8 @@ const portalChoices = computed<PortalChoice[]>(() => {
   const area = (gameStore.statData._当前区域 as string) || '';
   const roomType = (gameStore.statData._当前房间类型 as string) || '';
   const rooms = ((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0);
-  const fingerprint = `${area}|${roomType}|${rooms}`;
+  const merchantDefeated = parseMerchantDefeatedValue(gameStore.statData._是否已击败商人);
+  const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}`;
   if (fingerprint !== cachedPortalFingerprint) {
     cachedPortalFingerprint = fingerprint;
     cachedPortals = generatePortals();
@@ -2193,6 +2853,7 @@ const ROOM_STAT_KEY: Record<string, string> = {
 interface QueuedPortalAction {
   actionText: string;
   enterText: string;
+  pendingStatDataFields?: Record<string, any>;
 }
 
 const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
@@ -2222,6 +2883,18 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   const encounterMonster = portal.roomType === '战斗房'
     ? pickBattleMonsterByArea(currentArea)
     : null;
+  const trapName = portal.roomType === '陷阱房'
+    ? pickTrapByArea(currentArea)
+    : null;
+  const trapHpAfterDamage = portal.roomType === '陷阱房'
+    ? Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5)
+    : undefined;
+  const pendingStatDataFields = portal.roomType === '陷阱房'
+    ? {
+      _当前事件: trapName ?? '',
+      _血量: trapHpAfterDamage,
+    }
+    : undefined;
 
   gameStore.setPendingPortalChanges({
     roomType: portal.roomType,
@@ -2232,11 +2905,14 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
 
   const enterText = portal.roomType === '战斗房' && encounterMonster
     ? `进入了${portal.roomType}并遭遇了${encounterMonster}`
-    : `进入了${portal.roomType}的房间`;
+    : portal.roomType === '陷阱房' && trapName
+      ? `进入了${portal.roomType}的房间，当前陷阱房为${trapName}`
+      : `进入了${portal.roomType}的房间`;
 
   return {
     enterText,
     actionText: `<user>选择了继续前进，${enterText}`,
+    pendingStatDataFields,
   };
 };
 
@@ -2244,22 +2920,37 @@ function generateChestLeavePortals(): PortalChoice[] {
   const generated = generatePortals();
   if (generated.length > 0) return generated;
 
+  const currentArea = (gameStore.statData._当前区域 as string) || '';
+  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
+  if (availableRoomTypes.length === 0) return [];
   const roll = Math.random();
-  const count = roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3;
-  const picked = shuffle(PORTAL_ROOM_TYPES).slice(0, count);
+  const count = Math.min(availableRoomTypes.length, roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3);
+  const picked = shuffle(availableRoomTypes).slice(0, count);
   return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
 }
 
 const handlePortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating) return;
-  const { actionText } = buildQueuedPortalAction(portal);
+  const { actionText, pendingStatDataFields } = buildQueuedPortalAction(portal);
+  gameStore.setPendingStatDataChanges(pendingStatDataFields ?? null);
   gameStore.sendAction(actionText);
 };
 
 const handleChestPortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating || chestCollecting.value || chestStage.value !== 'opened') return;
-  const { actionText, enterText } = buildQueuedPortalAction(portal);
-  const relicName = chestRewardCollected.value ? chestRewardRelic.value?.name : '';
+  const { actionText, enterText, pendingStatDataFields } = buildQueuedPortalAction(portal);
+  const collectedRelic = chestRewardCollected.value ? chestRewardRelic.value : null;
+  const mergedPendingStatDataFields: Record<string, any> = {
+    ...(pendingStatDataFields ?? {}),
+  };
+  if (collectedRelic) {
+    // 宝箱奖励遵循与传送门一致的“延迟写入”策略：仅在点击传送门时排队到下一层 user 楼层
+    const nextRelics = buildNextRelicInventory(collectedRelic);
+    mergedPendingStatDataFields._圣遗物 = nextRelics;
+  }
+  gameStore.setPendingStatDataChanges(Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null);
+
+  const relicName = collectedRelic?.name ?? '';
   closeChestView();
   if (relicName) {
     gameStore.sendAction(`<user>打开了箱子并从中获取了圣遗物${relicName}，随后${enterText}`);
@@ -2384,14 +3075,56 @@ const confirmCombatTestEnemyAndStart = async () => {
 
   activeModal.value = null;
   combatEnemyName.value = selectedTestEnemy.value;
+  activeCombatContext.value = 'combatTest';
   combatTestStartAt999CurrentBattle.value = combatTestStartAt999.value;
   showCombat.value = true;
 };
 
-const handleCombatEnd = (win: boolean) => {
+const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[]) => {
+  const context = activeCombatContext.value;
+  const enemyName = combatEnemyName.value || ((gameStore.statData._对手名称 as string) || '未知敌人');
+  pendingCombatNarrative.value = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    context,
+    win,
+    enemyName,
+    text: buildCombatNarrative(win, enemyName, context, logs ?? []),
+  };
+
+  queueCombatMvuSync(win, finalStats);
+
   showCombat.value = false;
+  showVictoryRewardView.value = false;
   combatTestStartAt999CurrentBattle.value = false;
-  console.log('[Combat] Result:', win ? 'WIN' : 'LOSE');
+  activeCombatContext.value = 'normal';
+
+  if (!win) {
+    closeShopView();
+    const narrative = pendingCombatNarrative.value;
+    pendingCombatNarrative.value = null;
+    if (narrative) {
+      sendCombatNarrativeOnce(narrative, narrative.text);
+    }
+    console.log('[Combat] Result:', 'LOSE');
+    return;
+  }
+
+  if (context === 'shopRobbery' && enemyName === '沐芯兰') {
+    const ok = await gameStore.updateStatDataFields({ _是否已击败商人: true });
+    if (ok) {
+      shopRobbing.value = false;
+      showShopView.value = true;
+      applyMerchantDefeatedShopState();
+    } else if (pendingCombatNarrative.value) {
+      pendingCombatNarrative.value.context = 'normal';
+    }
+  }
+
+  const hasRewardOptions = startVictoryRewardFlow();
+  if (!hasRewardOptions) {
+    finalizeVictoryRewardFlow();
+  }
+  console.log('[Combat] Result:', 'WIN');
 };
 
 onBeforeUnmount(() => {
@@ -2421,6 +3154,123 @@ onBeforeUnmount(() => {
   text-shadow:
     0 1px 1px rgba(0, 0, 0, 0.9),
     0 0 10px rgba(212, 175, 55, 0.35);
+}
+
+.story-rich-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.34em;
+}
+
+.story-line {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.story-line-empty {
+  display: inline-block;
+  min-height: 1em;
+}
+
+.story-line-level-1 {
+  font-size: 1.55em;
+  line-height: 1.45;
+  font-weight: 700;
+  color: rgba(245, 222, 179, 0.96);
+}
+
+.story-line-level-2 {
+  font-size: 1.34em;
+  line-height: 1.5;
+  font-weight: 700;
+  color: rgba(245, 222, 179, 0.9);
+}
+
+.story-line-level-3 {
+  font-size: 1.2em;
+  line-height: 1.58;
+  font-weight: 600;
+  color: rgba(245, 222, 179, 0.86);
+}
+
+.story-line-level-4 {
+  font-size: 1.12em;
+  line-height: 1.64;
+  font-weight: 600;
+  color: rgba(245, 222, 179, 0.8);
+}
+
+.story-segment-muted {
+  color: rgba(156, 163, 175, 0.95);
+}
+
+.story-segment-quote {
+  color: #1d4ed8;
+}
+
+.story-tucao-section-list {
+  margin-top: 0.66rem;
+}
+
+.story-tucao-wrap {
+  margin: 0.26rem 0 0.34rem;
+}
+
+.story-tucao-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: rgba(48, 31, 20, 0.84);
+  color: rgba(252, 211, 77, 0.96);
+  font-size: 0.72em;
+  letter-spacing: 0.02em;
+  padding: 0.22rem 0.64rem;
+  transition: all 0.2s ease;
+}
+
+.story-tucao-toggle:hover {
+  color: rgba(254, 240, 138, 0.98);
+  border-color: rgba(252, 211, 77, 0.78);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.32);
+}
+
+.story-tucao-panel {
+  margin-top: 0.6rem;
+  border-radius: 0.92rem;
+  border: 1px solid rgba(244, 114, 182, 0.42);
+  background:
+    linear-gradient(160deg, rgba(255, 249, 252, 0.9), rgba(255, 243, 250, 0.82)),
+    radial-gradient(circle at 6% 3%, rgba(244, 114, 182, 0.24), transparent 52%);
+  color: rgba(126, 60, 138, 0.95);
+  padding: 0.95rem 1.05rem;
+  box-shadow:
+    0 0 14px rgba(244, 114, 182, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.story-tucao-panel .story-line {
+  color: rgba(126, 60, 138, 0.95);
+}
+
+.story-tucao-panel .story-segment-muted {
+  color: rgba(154, 126, 168, 0.9);
+}
+
+.story-tucao-panel .story-segment-quote {
+  color: rgba(30, 58, 138, 0.92);
+}
+
+.tucao-expand-enter-active,
+.tucao-expand-leave-active {
+  transition: all 0.22s ease;
+}
+
+.tucao-expand-enter-from,
+.tucao-expand-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 .status-slide-enter-active,

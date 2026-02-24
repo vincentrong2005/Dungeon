@@ -7,6 +7,7 @@ export const Schema = z.object({
   $初始血量上限: z.coerce.number().prefault(10),
   $初始魔量: z.coerce.number().prefault(1),
   $初始金币: z.coerce.number().prefault(0),
+  $技能点: z.coerce.number().prefault(0),
   _技能: z.array(z.string()).length(9).prefault(['', '', '', '', '', '', '', '', '']),
   _负面状态: z.array(z.string()).prefault([]),
   $被动: z.string().prefault(''),
@@ -22,6 +23,7 @@ export const Schema = z.object({
   $自定义影响: z.array(z.string()).prefault([]),
 
   // 游戏状态
+  _楼层数: z.coerce.number().int().prefault(1),
   _当前区域: z.string().prefault(''),
   _当前房间类型: z.string().prefault(''),
   _当前事件: z.string().prefault(''),
@@ -48,7 +50,7 @@ export const Schema = z.object({
     .record(
       z.string().describe('角色名'),
       z.object({
-        好感度: z.coerce.number().transform(v => _.clamp(v, -100, 100)).prefault(0),
+        好感度: z.coerce.number().transform(v => _.clamp(v, -1000, 1000)).prefault(0),
       }).prefault({ 好感度: 0 }),
     )
     .prefault({}),
