@@ -310,7 +310,7 @@ const 魔力偏移: CardData = {
 
 // ── 燃烧体系卡牌 ────────────────────────────────────────────────
 
-/** 火花烙印：敌方燃烧+1，我方点数-2，连击 */
+/** 火花烙印：敌方燃烧+1，我方点数-3，连击 */
 const 火花烙印: CardData = {
   id: 'burn_spark_mark',
   name: '火花烙印',
@@ -318,13 +318,13 @@ const 火花烙印: CardData = {
   category: '燃烧',
   rarity: '普通',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: -2 },
+  calculation: { multiplier: 1.0, addition: -3 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '敌方燃烧+1，我方点数-2，连击',
+  description: '敌方燃烧+1，我方点数-3，连击',
 };
 
 /** 焦油泼洒：敌方燃烧+1，自身燃烧+2，连击 */
@@ -379,7 +379,7 @@ const 烧伤: CardData = {
   description: '点数-2，造成1倍最终点数伤害并施加易伤+1',
 };
 
-/** 烈焰打击：1倍最终点数伤害并附加燃烧+1 */
+/** 烈焰打击：0.5倍最终点数伤害并附加燃烧+1 */
 const 烈焰打击: CardData = {
   id: 'burn_flame_strike',
   name: '烈焰打击',
@@ -388,13 +388,13 @@ const 烈焰打击: CardData = {
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '造成1倍最终点数伤害并附加燃烧+1',
+  description: '造成0.5倍最终点数伤害并附加燃烧+1',
 };
 
 /** 灼魂飞弹：1倍最终点数伤害并附加燃烧+2 */
@@ -404,7 +404,7 @@ const 灼魂飞弹: CardData = {
   type: CardType.MAGIC,
   category: '燃烧',
   rarity: '普通',
-  manaCost: 2,
+  manaCost: 3,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
