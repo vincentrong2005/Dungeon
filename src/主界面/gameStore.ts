@@ -1,5 +1,6 @@
 // Schema import removed - using raw MVU data directly
 import { detectLeave, detectOptionE, detectRebirth, extractMainText, extractOptions, extractSummary, extractVariableUpdate, filterStreamingTextAfterThinkEnd, parseResponse, type ParsedResponse } from './responseParser';
+import { getFloorNumberForArea } from './floor';
 
 /**
  * Maintenance note:
@@ -110,6 +111,18 @@ export const useGameStore = defineStore('game', () => {
     persistStreamingEnabledSetting(nextEnabled);
   }
 
+  function syncFloorNumberByArea(mvuData: any) {
+    if (!mvuData || typeof mvuData !== 'object') return mvuData;
+    const stat = _.get(mvuData, 'stat_data');
+    if (!stat || typeof stat !== 'object') return mvuData;
+
+    const area = typeof stat._当前区域 === 'string' ? stat._当前区域.trim() : '';
+    if (!area) return mvuData;
+
+    stat._楼层数 = getFloorNumberForArea(area);
+    return mvuData;
+  }
+
   /**
    * 将传送门变量变更应用到 MVU 数据（写入 user 楼层）
    */
@@ -140,7 +153,7 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    return result;
+    return syncFloorNumberByArea(result);
   }
 
   function applyPendingCombatChangesToMvu(baseMvuData: any, changes: PendingCombatMvuChanges | null) {
@@ -202,7 +215,7 @@ export const useGameStore = defineStore('game', () => {
     if (!changes || !changes.fields || typeof changes.fields !== 'object') return result;
 
     Object.assign(sd, _.cloneDeep(changes.fields));
-    return result;
+    return syncFloorNumberByArea(result);
   }
 
   /**
@@ -259,8 +272,9 @@ export const useGameStore = defineStore('game', () => {
       const mvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
       const raw = _.get(mvuData, 'stat_data');
       if (raw && typeof raw === 'object') {
+        syncFloorNumberByArea(mvuData);
         // 直接使用原始数据，避免 Schema 转换/截断
-        statData.value = raw as any;
+        statData.value = _.get(mvuData, 'stat_data') as any;
         console.info('[GameStore] stat_data loaded from message', lastId);
       }
     } catch (err) {
@@ -295,6 +309,7 @@ export const useGameStore = defineStore('game', () => {
       const userMvuDataAfterPortal = applyPendingPortalChangesToMvu(oldMvuData, currentPendingPortalChanges);
       const userMvuDataAfterCombat = applyPendingCombatChangesToMvu(userMvuDataAfterPortal, currentPendingCombatChanges);
       const userMvuData = applyPendingStatDataChangesToMvu(userMvuDataAfterCombat, currentPendingStatDataChanges);
+      syncFloorNumberByArea(userMvuData);
 
       // 3. 创建 user 楼层（携带已应用按钮变更后的 MVU 数据）
       console.info('[GameStore] Creating user message:', userInput);
@@ -336,6 +351,7 @@ export const useGameStore = defineStore('game', () => {
       } else if (!newMvuData.stat_data && userMvuData?.stat_data) {
         newMvuData.stat_data = _.cloneDeep(userMvuData.stat_data);
       }
+      syncFloorNumberByArea(newMvuData);
 
       // 8. 清理无用的 MVU 内部字段
       if (newMvuData) {
@@ -382,6 +398,7 @@ export const useGameStore = defineStore('game', () => {
   function refreshLocalStatData(mvuData: any) {
     try {
       if (!mvuData) return;
+      syncFloorNumberByArea(mvuData);
       const raw = _.get(mvuData, 'stat_data');
       if (raw && typeof raw === 'object') {
         // 直接使用原始数据，避免 Schema.safeParse 对数据的转换/截断
@@ -515,6 +532,7 @@ export const useGameStore = defineStore('game', () => {
 
       // 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
       const newMvuData = await Mvu.parseMessage(result, _.cloneDeep(oldMvuData));
+      syncFloorNumberByArea(newMvuData);
 
       // 创建新的 assistant 楼层，携带 MVU 数据
       await createChatMessages(
@@ -584,6 +602,7 @@ export const useGameStore = defineStore('game', () => {
         // parseMessage 完全失败时，保留原始数据
         newMvuData = currentMvuData;
       }
+      syncFloorNumberByArea(newMvuData);
 
       // 保存编辑后的完整文本到楼层
       await setChatMessages([{ message_id: lastId, message: editingText.value }], { refresh: 'none' });
@@ -637,6 +656,7 @@ export const useGameStore = defineStore('game', () => {
       }
 
       Object.assign(nextMvuData.stat_data, _.cloneDeep(fields));
+      syncFloorNumberByArea(nextMvuData);
       await Mvu.replaceMvuData(nextMvuData, { type: 'message', message_id: lastId });
       refreshLocalStatData(nextMvuData);
       return true;
