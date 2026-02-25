@@ -1371,10 +1371,10 @@ import {
   Send,
   Settings as SettingsIcon,
 } from 'lucide-vue-next';
-import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicByName, type RelicData } from '../battle/relicRegistry';
+import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
 import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
@@ -3508,7 +3508,7 @@ const handleChestPortalClick = async (portal: PortalChoice) => {
   const relicName = collectedRelic?.name ?? '';
   closeChestView();
   if (relicName) {
-    gameStore.sendAction(`<user>打开了箱子并从中获取了圣遗物${relicName}，随后${enterText}`);
+    gameStore.sendAction(`<user>打开了箱子并从中获取了圣遗物${relicName}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`);
     return;
   }
   gameStore.sendAction(actionText);
