@@ -3177,13 +3177,13 @@ function pickLordMonsterByArea(area: string): string | null {
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
 const PORTAL_ROOM_WEIGHTS: Record<string, number> = {
-  '战斗房': 30,
+  '战斗房': 50,
   '宝箱房': 20,
-  '商店房': 10,
+  '商店房': 5,
   '温泉房': 10,
   '神像房': 10,
   '事件房': 0,
-  '陷阱房': 20,
+  '陷阱房': 5,
 };
 const TRAP_POOL_BY_AREA: Record<string, string[]> = {
   '粘液之沼': ['粘液深坑', '史莱姆的温床'],
@@ -3281,25 +3281,27 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function rollPortalCount(maxCount: number): number {
+function rollPortalCount(): number {
   const roll = Math.random();
-  return Math.min(maxCount, roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3);
+  // 传送门数量概率：1/2/3 = 30% / 50% / 20%
+  return roll < 0.3 ? 1 : roll < 0.8 ? 2 : 3;
 }
 
 function pickWeightedRoomTypes(roomTypes: string[], count: number): string[] {
-  const pool = [...roomTypes];
   const picked: string[] = [];
+  if (roomTypes.length === 0 || count <= 0) return picked;
 
-  while (pool.length > 0 && picked.length < count) {
-    const weightedPool = pool.map((type) => ({
-      type,
-      weight: Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
-    }));
-    const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
+  // 允许可重复抽取：每次都从同一候选池按权重抽取，不移除已抽中的房间类型
+  const weightedPool = roomTypes.map((type) => ({
+    type,
+    weight: Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
+  }));
+  const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
 
+  while (picked.length < count) {
     let selected: string;
     if (totalWeight <= 0) {
-      selected = pickOne(pool) ?? pool[0]!;
+      selected = pickOne(roomTypes) ?? roomTypes[0]!;
     } else {
       let roll = Math.random() * totalWeight;
       selected = weightedPool[weightedPool.length - 1]!.type;
@@ -3313,8 +3315,6 @@ function pickWeightedRoomTypes(roomTypes: string[], count: number): string[] {
     }
 
     picked.push(selected);
-    const index = pool.indexOf(selected);
-    if (index >= 0) pool.splice(index, 1);
   }
 
   return picked;
@@ -3361,10 +3361,10 @@ function generatePortals(): PortalChoice[] {
     }
   }
 
-  // ── Normal: 1-3 weighted room portals (20%/40%/40%) ──
+  // ── Normal: 1-3 weighted room portals (30%/50%/20%, with replacement) ──
   const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
   if (availableRoomTypes.length === 0) return [];
-  const count = rollPortalCount(availableRoomTypes.length);
+  const count = rollPortalCount();
   const picked = pickWeightedRoomTypes(availableRoomTypes, count);
   return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
 }
@@ -3479,7 +3479,7 @@ function generateChestLeavePortals(): PortalChoice[] {
   const currentArea = (gameStore.statData._当前区域 as string) || '';
   const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
   if (availableRoomTypes.length === 0) return [];
-  const count = rollPortalCount(availableRoomTypes.length);
+  const count = rollPortalCount();
   const picked = pickWeightedRoomTypes(availableRoomTypes, count);
   return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
 }
