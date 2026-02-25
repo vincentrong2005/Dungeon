@@ -3352,9 +3352,9 @@ function generatePortals(): PortalChoice[] {
     }
   }
 
-  // ── Boss room probability: rooms >= 8 → (rooms - 7) * 20% ──
-  if (roomsPassed >= 8) {
-    const bossChance = (roomsPassed - 7) * 0.2;
+  // ── Boss room probability: rooms >= 7 → (rooms - 6) * 30% ──
+  if (roomsPassed >= 7) {
+    const bossChance = (roomsPassed - 6) * 0.3;
     if (Math.random() < bossChance) {
       const vis = PORTAL_ROOM_VISUALS['领主房'];
       return [{ label: '领主房', roomType: '领主房', isFloorTransition: false, ...vis }];
