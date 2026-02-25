@@ -208,6 +208,21 @@ const 侧身闪避: CardData = {
   description: '点数-1，闪避',
 };
 
+/** 存在消除：点数*0，闪避 */
+const 存在消除: CardData = {
+  id: 'basic_existence_erasure',
+  name: '存在消除',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*0，闪避',
+};
+
 /** 吐纳法：闪避，若闪避成功则回复1倍点数的生命值 */
 const 吐纳法: CardData = {
   id: 'basic_breathing_technique',
@@ -219,7 +234,15 @@ const 吐纳法: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
   description: '闪避，若闪避成功则回复1倍点数的生命值',
 };
 
@@ -249,7 +272,16 @@ const 镜面幻像: CardData = {
   calculation: { multiplier: 1.0, addition: 2 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.BARRIER,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
   description: '点数+2，闪避，若闪避成功为自己施加1层结界',
 };
 
@@ -264,7 +296,15 @@ const 魔力偏移: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'restore_mana',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
   description: '闪避，若闪避成功则回复1倍点数的魔力',
 };
 
@@ -318,7 +358,7 @@ const 焚风术: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '对敌方造成0.5倍最终点数伤害并叠加目标当前燃烧层数',
+  description: '对敌方造成0.5倍最终点数+目标当前燃烧层数的伤害',
 };
 
 /** 烧伤：点数-2，造成1倍最终点数伤害，易伤+1 */
@@ -381,7 +421,7 @@ const 焚身突刺: CardData = {
   name: '焚身突刺',
   type: CardType.PHYSICAL,
   category: '燃烧',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 2.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
@@ -557,10 +597,10 @@ const 消化: CardData = {
   description: '点数+2，施加0.5倍点数中毒',
 };
 
-/** 催情鳞粉：造成0.5倍点数伤害，并施加易伤+1 */
+/** 催情粉：造成0.5倍点数伤害，并施加易伤+1 */
 const 催情鳞粉: CardData = {
   id: 'enemy_moth_aphro_powder',
-  name: '催情鳞粉',
+  name: '催情粉',
   type: CardType.PHYSICAL,
   category: '敌人',
   rarity: '普通',
@@ -624,6 +664,269 @@ const 群体效应: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '消耗6MP，造成1倍最终点数伤害；自身每有1层群集额外造成一次同等伤害',
+};
+
+/** 敏感点侦察：为自己施加0.5倍点数护甲，为敌人施加1层易伤 */
+const 蜜蜂敏感点侦察: CardData = {
+  id: 'enemy_blissbee_sensitive_scout',
+  name: '敏感点侦察',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '为自己施加0.5倍点数护甲，为敌人施加1层易伤',
+};
+
+/** 催情尾针：造成0.5倍点数伤害；若敌人有易伤则额外施加2层中毒（结算逻辑在 CombatView） */
+const 蜜蜂催情尾针: CardData = {
+  id: 'enemy_blissbee_aphro_stinger',
+  name: '催情尾针',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.5倍点数伤害，若敌人有易伤，则额外施加2层中毒',
+};
+
+/** 精准采集：点数*1.5，造成0.5倍点数伤害；若敌人有中毒则额外施加0.5倍点数电击（结算逻辑在 CombatView） */
+const 蜜蜂精准采集: CardData = {
+  id: 'enemy_blissbee_precise_harvest',
+  name: '精准采集',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.5，造成0.5倍点数伤害，若敌人有中毒，则额外造成0.5倍点数的电击',
+};
+
+/** 高压喷射：无直接效果，但附带负面效果“[信息素]” */
+const 高压喷射: CardData = {
+  id: 'enemy_pollen_high_pressure_spray',
+  name: '高压喷射',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '带有负面效果“[信息素]”',
+  negativeEffect: '[信息素]',
+};
+
+/** 渗透：为对方增加1倍点数的侵蚀 */
+const 渗透: CardData = {
+  id: 'enemy_pollen_infiltration',
+  name: '渗透',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '为对方增加1倍点数的侵蚀',
+};
+
+/** 拥抱：点数+1，造成1倍点数伤害并施加1层束缚 */
+const 普莉姆拥抱: CardData = {
+  id: 'enemy_prim_embrace',
+  name: '拥抱',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数+1，造成1倍点数的伤害并施加1层束缚',
+};
+
+/** 流体规避：点数-1，闪避 */
+const 普莉姆流体规避: CardData = {
+  id: 'enemy_prim_fluid_evasion',
+  name: '流体规避',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.POISON,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '点数-1，闪避，若闪避成功或对方跳过回合，则为对方施加1倍点数的中毒',
+};
+
+/** 消化性爱抚：消耗4MP，施加3点中毒 */
+const 普莉姆消化性爱抚: CardData = {
+  id: 'enemy_prim_digest_caress',
+  name: '消化性爱抚',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '施加3点中毒',
+};
+
+/** 实体分身：自伤50%生命上限，回复1倍点数生命，获得1层群集 */
+const 实体分身: CardData = {
+  id: 'enemy_prim_entity_clone',
+  name: '实体分身',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'self',
+      valueMode: 'max_hp_percent',
+      scale: 0.5,
+    },
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.SWARM, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '自伤50%生命上限，回复1倍点数的生命，获得1层群集',
+};
+
+/** 性爱幻觉：诅咒，无法打出 */
+const 性爱幻觉: CardData = {
+  id: 'enemy_nymph_lust_hallucination',
+  name: '性爱幻觉',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
+  cardEffects: [],
+  description: '无法打出',
+};
+
+/** 迷雾缭绕：点数+1，无伤害，施加2层中毒并插入性爱幻觉 */
+const 迷雾缭绕: CardData = {
+  id: 'enemy_nymph_misty_swirl',
+  name: '迷雾缭绕',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['性爱幻觉'] },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '点数+1，无伤害，造成2层中毒并插入“性爱幻觉”',
+};
+
+/** 精神震荡：消耗6MP，点数+2，造成1倍点数伤害并施加1层易伤 */
+const 精神震荡: CardData = {
+  id: 'enemy_nymph_mental_shock',
+  name: '精神震荡',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数+2，造成1倍点数的伤害并施加1层易伤',
+};
+
+/** 恶作剧：闪避，若闪避成功或对方跳过回合，对对方施加1倍点数的电击 */
+const 恶作剧: CardData = {
+  id: 'enemy_nymph_mischief',
+  name: '恶作剧',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.SHOCK,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '闪避，若闪避成功或对方跳过回合，对对方施加1倍点数的电击',
+};
+
+/** 巨大化投影：移除自身的虚幻之躯，最小点数+2，最大点数+4（结算逻辑在 CombatView） */
+const 巨大化投影: CardData = {
+  id: 'enemy_nymph_giant_projection',
+  name: '巨大化投影',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '移除自身的“虚幻之躯”，最小点数+2，最大点数+4',
 };
 
 /** 震动感知：为自身增加2倍点数护甲 */
@@ -805,7 +1108,7 @@ const 弹性吸附: CardData = {
   description: '自身增加1倍点数的护甲，为对方施加1层中毒',
 };
 
-/** 虹色漂浮：闪避，若闪避成功或对方跳过回合则施加1层束缚（结算逻辑在 CombatView） */
+/** 虹色漂浮：闪避，若闪避成功或对方跳过回合则施加1层束缚 */
 const 虹色漂浮: CardData = {
   id: 'enemy_mimicbubble_iridescent_float',
   name: '虹色漂浮',
@@ -816,11 +1119,21 @@ const 虹色漂浮: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
   description: '闪避，若闪避成功或对方跳过回合则施加1层束缚',
 };
 
-/** 幻象诱导：闪避，若闪避成功或对方跳过回合，则施加2层生命上限削减（结算逻辑在 CombatView） */
+/** 幻象诱导：闪避，若闪避成功或对方跳过回合，则施加2层生命上限削减 */
 const 幻象诱导: CardData = {
   id: 'enemy_mist_sprite_illusion_lure',
   name: '幻象诱导',
@@ -831,7 +1144,16 @@ const 幻象诱导: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 2,
+    },
+  ],
   description: '闪避，若闪避成功或对方跳过回合，则对对方施加2层生命上限削减',
 };
 
@@ -887,7 +1209,7 @@ const 麻痹毒素: CardData = {
   description: '造成0.5倍点数伤害并施加1倍点数的寒冷与电击',
 };
 
-/** 润滑收缩：闪避，若闪避成功或对方跳过回合，则为自身施加1倍点数的蓄力（结算逻辑在 CombatView） */
+/** 润滑收缩：闪避，若闪避成功或对方跳过回合，则为自身施加1倍点数的蓄力 */
 const 润滑收缩: CardData = {
   id: 'enemy_vinewalker_lubricated_shrink',
   name: '润滑收缩',
@@ -898,7 +1220,16 @@ const 润滑收缩: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.CHARGE,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
   description: '闪避，若闪避成功或对方跳过回合，则为自身施加1倍点数的蓄力',
 };
 
@@ -959,7 +1290,7 @@ const 不死凝聚: CardData = {
   description: '清除自身随机一种元素debuff并回复1倍点数生命',
 };
 
-/** 无声渗入：闪避，闪避成功后为对手增加2层侵蚀（结算逻辑在 CombatView） */
+/** 无声渗入：闪避，闪避成功后为对手增加2层侵蚀 */
 const 无声渗入: CardData = {
   id: 'enemy_springspirit_silent_infiltration',
   name: '无声渗入',
@@ -970,8 +1301,294 @@ const 无声渗入: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 2,
+    },
+  ],
   description: '闪避，闪避成功后为对手增加2层侵蚀',
+};
+
+/** 大地精华：诅咒，打出后自身增加2点侵蚀，连击，抽牌，移除 */
+const 大地精华: CardData = {
+  id: 'enemy_undine_earth_essence',
+  name: '大地精华',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true, purgeOnUse: true },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '打出后自身增加2点侵蚀，连击，抽牌，移除',
+};
+
+/** 慈爱之鞭：造成0.5倍点数伤害并施加3层侵蚀 */
+const 慈爱之鞭: CardData = {
+  id: 'enemy_undine_loving_whip',
+  name: '慈爱之鞭',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '造成0.5倍点数的伤害并施加3层侵蚀',
+};
+
+/** 溺爱之拥：造成1倍点数伤害并施加1层束缚 */
+const 溺爱之拥: CardData = {
+  id: 'enemy_undine_doting_embrace',
+  name: '溺爱之拥',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '造成1倍点数的伤害并施加1层束缚',
+};
+
+/** 精华灌注：消耗1MP，无伤害，施加1倍点数侵蚀并插入大地精华 */
+const 精华灌注: CardData = {
+  id: 'enemy_undine_essence_infusion',
+  name: '精华灌注',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 1,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['大地精华'] },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '无伤害，施加1倍点数侵蚀，并插入“大地精华”',
+};
+
+/** 精神同化：消耗5MP，无伤害，点数*2，施加1倍点数侵蚀 */
+const 精神同化: CardData = {
+  id: 'enemy_undine_psychic_assimilation',
+  name: '精神同化',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 5,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '无伤害，点数*2，施加1倍点数的侵蚀',
+};
+
+/** 大地原液：回复2倍点数生命，清除自身元素debuff，并为双方施加1层生命回复 */
+const 大地原液: CardData = {
+  id: 'enemy_undine_earth_liquid',
+  name: '大地原液',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 },
+    {
+      kind: 'cleanse',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      cleanseTypes: [EffectType.COLD, EffectType.BURN, EffectType.POISON, EffectType.BLEED, EffectType.SHOCK],
+    },
+    { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '为自身回复2倍点数的生命值，清除自身所有元素debuff并为双方赋予1层生命回复',
+};
+
+/** 主母的邀请：造成0.5倍点数伤害并施加4层中毒 */
+const 主母的邀请: CardData = {
+  id: 'enemy_mata_matriarch_invitation',
+  name: '主母的邀请',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '造成0.5倍点数伤害并施加4层中毒',
+};
+
+/** 裙下触手：点数+2，造成0.4倍点数伤害，施加1层束缚与1倍点数中毒 */
+const 裙下触手: CardData = {
+  id: 'enemy_mata_under_skirt_tentacle',
+  name: '裙下触手',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+2，造成0.4倍点数伤害、1层束缚与1倍点数的中毒',
+};
+
+/** 菌群修复：清空对方中毒量，并按清空层数转化治疗与生命上限削减（结算逻辑在 CombatView） */
+const 菌群修复: CardData = {
+  id: 'enemy_mata_fungal_repair',
+  name: '菌群修复',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '清空对方的中毒量，每清空2层则为自身回复2点血量并为对方施加1层生命上限削减',
+};
+
+/** 虚伪笑容：闪避，若闪避成功或对方跳过回合后，为自己施加2倍点数的蓄力 */
+const 虚伪笑容: CardData = {
+  id: 'enemy_mata_false_smile',
+  name: '虚伪笑容',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.CHARGE,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 2.0,
+    },
+  ],
+  description: '闪避，闪避成功或对方跳过回合后，为自己施加2倍点数的蓄力',
+};
+
+/** 植物统御：造成0.5倍点数伤害并施加99层束缚 */
+const 植物统御: CardData = {
+  id: 'enemy_rose_plant_dominion',
+  name: '植物统御',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 99,
+    },
+  ],
+  description: '造成0.5倍点数伤害并施加99层束缚',
+};
+
+/** 王志鞭挞：造成1倍点数伤害，若目标有束缚则伤害+2（结算逻辑在 CombatView） */
+const 王志鞭挞: CardData = {
+  id: 'enemy_rose_wangzhi_whip',
+  name: '王志鞭挞',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数的伤害，若目标有束缚，则伤害+2',
+};
+
+/** 生命汲取：造成1倍点数伤害，若目标有束缚则回复1倍点数生命（结算逻辑在 CombatView） */
+const 生命汲取: CardData = {
+  id: 'enemy_rose_life_drain',
+  name: '生命汲取',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数的伤害，若目标有束缚，则回复自身1倍点数的生命',
+};
+
+/** 花蜜调教：获得1倍点数护甲，若目标有束缚则施加1倍点数中毒（结算逻辑在 CombatView） */
+const 花蜜调教: CardData = {
+  id: 'enemy_rose_nectar_discipline',
+  name: '花蜜调教',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1倍点数的护甲，若目标有束缚，则赋予目标1倍点数的中毒',
 };
 
 /** 粘液闪避 — 与普通闪避完全一致 */
@@ -1151,7 +1768,7 @@ const 溢价护盾: CardData = {
   description: '增加自身x层坚固与x点魔力，x为对方魔力值',
 };
 
-/** 设下埋伏：点数*0.5，闪避。若对方跳过回合，则为对方施加一层法力枯竭（结算逻辑在 CombatView） */
+/** 设下埋伏：点数*0.5，闪避。若对方跳过回合，则为对方施加一层法力枯竭 */
 const 设下埋伏: CardData = {
   id: 'enemy_muxinlan_set_ambush',
   name: '设下埋伏',
@@ -1162,7 +1779,16 @@ const 设下埋伏: CardData = {
   calculation: { multiplier: 0.5, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.MANA_DRAIN,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
   description: '点数*0.5，闪避。若对方跳过回合，则为对方施加1层法力枯竭',
 };
 
@@ -1183,6 +1809,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [普通闪避.name, 普通闪避],
   [休眠.name, 休眠],
   [侧身闪避.name, 侧身闪避],
+  [存在消除.name, 存在消除],
   [吐纳法.name, 吐纳法],
   [虚实步法.name, 虚实步法],
   [镜面幻像.name, 镜面幻像],
@@ -1207,6 +1834,20 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [敏感化标记.name, 敏感化标记],
   [荧光信息素.name, 荧光信息素],
   [群体效应.name, 群体效应],
+  [蜜蜂敏感点侦察.name, 蜜蜂敏感点侦察],
+  [蜜蜂催情尾针.name, 蜜蜂催情尾针],
+  [蜜蜂精准采集.name, 蜜蜂精准采集],
+  [高压喷射.name, 高压喷射],
+  [渗透.name, 渗透],
+  [普莉姆拥抱.name, 普莉姆拥抱],
+  [普莉姆流体规避.name, 普莉姆流体规避],
+  [普莉姆消化性爱抚.name, 普莉姆消化性爱抚],
+  [实体分身.name, 实体分身],
+  [性爱幻觉.name, 性爱幻觉],
+  [迷雾缭绕.name, 迷雾缭绕],
+  [精神震荡.name, 精神震荡],
+  [恶作剧.name, 恶作剧],
+  [巨大化投影.name, 巨大化投影],
   [震动感知.name, 震动感知],
   [润滑分泌.name, 润滑分泌],
   [渗透攀爬.name, 渗透攀爬],
@@ -1226,6 +1867,20 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [体内操控.name, 体内操控],
   [不死凝聚.name, 不死凝聚],
   [无声渗入.name, 无声渗入],
+  [大地精华.name, 大地精华],
+  [慈爱之鞭.name, 慈爱之鞭],
+  [溺爱之拥.name, 溺爱之拥],
+  [精华灌注.name, 精华灌注],
+  [精神同化.name, 精神同化],
+  [大地原液.name, 大地原液],
+  [主母的邀请.name, 主母的邀请],
+  [裙下触手.name, 裙下触手],
+  [菌群修复.name, 菌群修复],
+  [虚伪笑容.name, 虚伪笑容],
+  [植物统御.name, 植物统御],
+  [王志鞭挞.name, 王志鞭挞],
+  [生命汲取.name, 生命汲取],
+  [花蜜调教.name, 花蜜调教],
   [粘液闪避.name, 粘液闪避],
   [回复.name, 回复],
   [炼金废料.name, 炼金废料],
@@ -1263,4 +1918,3 @@ export function getAllCardNames(): string[] {
 export function getAllCards(): CardData[] {
   return [...CARD_REGISTRY.values()];
 }
-

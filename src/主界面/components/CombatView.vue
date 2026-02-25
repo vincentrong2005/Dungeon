@@ -72,6 +72,25 @@
       <div class="flex flex-col items-center">
         <span class="text-xs text-white/60 tracking-widest">回合</span>
         <span class="text-lg font-heading font-bold text-white/90">{{ combatState.turn }}</span>
+        <div
+          class="mt-1.5 w-44 relative pointer-events-auto"
+          :style="fatigueBarStyle"
+          @mouseenter="showFatigueHelp"
+          @mouseleave="hideFatigueHelp"
+        >
+          <div class="h-1.5 rounded-full border border-amber-400/35 bg-black/45 overflow-hidden">
+            <div
+              class="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-red-500 transition-all duration-500"
+              :style="withTransition({ width: `${fatigueDegreePercent}%` }, 500)"
+            ></div>
+          </div>
+          <div
+            v-if="fatigueHelpVisible && fatigueDegree > 50"
+            class="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 w-64 rounded-md border border-amber-300/35 bg-black/80 px-2 py-1 text-[10px] leading-relaxed text-amber-100 text-left shadow-lg"
+          >
+            当前疲劳度：{{ fatigueDegree }}/300。进入战斗 +10，出牌 +1。达到100后每回合附加疲劳，200后额外附加中毒，300时直接战败。
+          </div>
+        </div>
       </div>
     </div>
 
@@ -147,7 +166,7 @@
         </div>
 
         <!-- Enemy Status Bar -->
-        <div class="relative overflow-visible mt-3 w-72 scale-[1.2] origin-top bg-[#18141e]/90 border border-white/8 p-3 rounded-xl shadow-lg backdrop-blur-sm z-10 pointer-events-auto">
+        <div class="relative overflow-visible mt-0 w-72 scale-[1.2] origin-top bg-[#18141e]/90 border border-white/8 p-3 rounded-xl shadow-lg backdrop-blur-sm z-10 pointer-events-auto">
           <div class="flex justify-between text-sm text-white/90 font-bold mb-1.5">
             <span>{{ enemyDisplayName }}</span>
           </div>
@@ -156,7 +175,7 @@
               v-for="popup in floatingNumbersFor('enemy')"
               :key="popup.id"
               class="combat-float-number absolute text-xl font-extrabold tracking-wide"
-              :class="popup.colorClass"
+              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '']"
               :style="{
                 left: `calc(50% + ${popup.leftOffset}px)`,
                 top: `${popup.topOffset}px`,
@@ -321,7 +340,7 @@
               v-for="popup in floatingNumbersFor('player')"
               :key="popup.id"
               class="combat-float-number absolute text-xl font-extrabold tracking-wide"
-              :class="popup.colorClass"
+              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '']"
               :style="{
                 left: `calc(50% + ${popup.leftOffset}px)`,
                 top: `${popup.topOffset}px`,
@@ -645,9 +664,9 @@
 import {
   Ban,
   Battery,
-  Brain,
   Bone,
   Box,
+  Brain,
   Bug,
   Droplet,
   Eye,
@@ -655,6 +674,7 @@ import {
   Flame,
   Heart,
   Layers,
+  Leaf,
   Link2,
   Scroll,
   Settings2,
@@ -687,10 +707,10 @@ import {
   type RelicSide,
   type ResolvedRelicEntry,
 } from '../battle/relicRegistry';
-import { toggleFullScreen } from '../fullscreen';
 import { getFloorNumberForArea } from '../floor';
+import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
-import { type CardData, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats, CardType, CombatPhase, EffectType as ET } from '../types';
+import { CardType, CombatPhase, EffectType as ET, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 
@@ -706,7 +726,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  endCombat: [win: boolean, finalStats: EntityStats, logs: string[]];
+  endCombat: [win: boolean, finalStats: EntityStats, logs: string[], negativeEffects: string[]];
   openDeck: [];
   openRelics: [];
 }>();
@@ -923,12 +943,15 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BLEED]: Droplet,
   [ET.VULNERABLE]: TriangleAlert,
   [ET.REGEN]: Heart,
+  [ET.WHITE_TURBID]: Droplet,
   [ET.IGNITE_AURA]: Sparkles,
   [ET.STUN]: Ban,
   [ET.CHARGE]: Zap,
+  [ET.FATIGUE]: TriangleAlert,
   [ET.COLD]: Snowflake,
   [ET.NON_LIVING]: Bone,
   [ET.NON_ENTITY]: Sparkles,
+  [ET.ILLUSORY_BODY]: Sparkles,
   [ET.MAX_HP_REDUCTION]: Heart,
   [ET.POINT_GROWTH_BIG]: Layers,
   [ET.POINT_GROWTH_SMALL]: Layers,
@@ -950,6 +973,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.FROST_ATTACH]: Snowflake,
   [ET.BLOODBLADE_ATTACH]: Droplet,
   [ET.LIGHTNING_ATTACH]: Zap,
+  [ET.THORNS]: Leaf,
 };
 const getEffectIconComponent = (type: EffectType) => {
   return EFFECT_ICON_COMPONENTS[type] ?? Sparkles;
@@ -1002,8 +1026,12 @@ const cloneCardForBattle = (card: CardData): CardData => ({
   calculation: { ...card.calculation },
   damageLogic: { ...card.damageLogic },
   traits: { ...card.traits },
+  selfDamage: typeof card.selfDamage === 'object' && card.selfDamage !== null
+    ? { ...(card.selfDamage as CardSelfDamageConfig) }
+    : card.selfDamage,
   cardEffects: card.cardEffects.map((ce) => ({
     ...ce,
+    triggers: ce.triggers ? [...ce.triggers] : undefined,
     restrictedTypes: ce.restrictedTypes ? [...ce.restrictedTypes] : undefined,
     cleanseTypes: ce.cleanseTypes ? [...ce.cleanseTypes] : undefined,
   })),
@@ -1053,6 +1081,7 @@ const logsCollapsed = ref(true);
 const battleResultBanner = ref<'win' | 'lose' | null>(null);
 const endCombatPending = ref(false);
 const enemyIntentConsumedThisTurn = ref(false);
+const enemyIntentManaSpentThisTurn = ref(false);
 const combatRootEl = ref<HTMLElement | null>(null);
 const effectTooltip = ref<{
   x: number;
@@ -1071,6 +1100,7 @@ type TooltipAlign = 'center' | 'right';
 interface FloatingNumberEntry {
   id: number;
   side: BattleSide;
+  kind?: FloatingNumberKind;
   text: string;
   colorClass: string;
   leftOffset: number;
@@ -1092,9 +1122,29 @@ interface ResolvedCardVisual {
 }
 
 const SPEED_SETTING_KEY = 'dungeon.combat.speed_up';
+const FATIGUE_DEGREE_KEY = 'dungeon.combat.fatigue_degree';
+const FATIGUE_DEGREE_MAX = 300;
 const speedMultiplier = computed(() => (battleSpeedUp.value ? 2 : 1));
 const combatRootStyle = computed(() => ({ '--combat-speed-multiplier': String(speedMultiplier.value) }));
 const floatingNumbers = ref<FloatingNumberEntry[]>([]);
+const pendingCardNegativeEffects = ref<string[]>([]);
+const fatigueDegree = ref(0);
+const fatigueHelpVisible = ref(false);
+const fatigueDegreeRatio = computed(() => (
+  Math.max(0, Math.min(fatigueDegree.value / FATIGUE_DEGREE_MAX, 1))
+));
+const fatigueDegreePercent = computed(() => fatigueDegreeRatio.value * 100);
+const fatigueBarOpacityRatio = computed(() => {
+  if (fatigueDegree.value <= 50) return 0;
+  return Math.max(0, Math.min((fatigueDegree.value - 50) / (FATIGUE_DEGREE_MAX - 50), 1));
+});
+const fatigueBarStyle = computed(() => ({ opacity: String(fatigueBarOpacityRatio.value) }));
+const showFatigueHelp = () => {
+  fatigueHelpVisible.value = fatigueDegree.value > 50;
+};
+const hideFatigueHelp = () => {
+  fatigueHelpVisible.value = false;
+};
 const lightningAmbushFirstUseConsumed = ref<Record<BattleSide, boolean>>({
   player: false,
   enemy: false,
@@ -1186,6 +1236,29 @@ let endCombatSequenceToken = 0;
 let enemyManaLackHintTurn = -1;
 const handCardKeys = new WeakMap<CardData, string>();
 const invalidCardShakeKeys = ref<Set<string>>(new Set());
+
+const normalizePersistedInt = (value: unknown): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.floor(parsed));
+};
+
+const setFatigueDegree = (next: number) => {
+  const normalized = normalizePersistedInt(next);
+  fatigueDegree.value = normalized;
+  localStorage.setItem(FATIGUE_DEGREE_KEY, String(normalized));
+};
+
+const loadFatigueDegree = () => {
+  const stored = localStorage.getItem(FATIGUE_DEGREE_KEY);
+  setFatigueDegree(normalizePersistedInt(stored ?? 0));
+};
+
+const addFatigueDegree = (delta: number) => {
+  const amount = Math.max(0, Math.floor(delta));
+  if (amount <= 0) return;
+  setFatigueDegree(fatigueDegree.value + amount);
+};
 
 // Default relic modifiers (no relics yet)
 const NO_RELIC_MOD = { globalMultiplier: 1, globalAddition: 0 };
@@ -1635,10 +1708,12 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
   const shockStacks = getEffectStacks(target, ET.SHOCK);
   if (shockStacks <= 0) return;
 
-  target.hp = Math.max(0, target.hp - shockStacks);
-  pushFloatingNumber(side, shockStacks, 'true', '-');
+  const { actualDamage, logs: shockDamageLogs } = applyDamageToEntity(target, shockStacks, false);
+  if (actualDamage > 0) {
+    pushFloatingNumber(side, actualDamage, 'magic', '-');
+  }
 
-  const nextStacks = Math.floor(shockStacks / 2);
+  const nextStacks = Math.max(0, shockStacks - 1);
   if (nextStacks <= 0) {
     removeEffect(target, ET.SHOCK);
   } else {
@@ -1648,7 +1723,11 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
     }
   }
 
-  log(`<span class="text-violet-300">${label}因${reason}触发电击，损失 ${shockStacks} 点生命（电击 ${shockStacks}→${nextStacks}）。</span>`);
+  log(`<span class="text-violet-300">${label}因${reason}触发电击，损失 ${actualDamage} 点生命（电击 ${shockStacks}→${nextStacks}）。</span>`);
+  for (const dl of shockDamageLogs) {
+    const normalized = dl.startsWith('受到') ? `${label}${dl}` : dl;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
 };
 
 const changeManaWithShock = (
@@ -1686,6 +1765,28 @@ const spendManaWithShock = (side: BattleSide, amount: number, reason: string): b
   return changeManaWithShock(side, -cost, reason, { requireEnoughForDecrease: true }).ok;
 };
 
+const resolveCardSelfDamage = (
+  card: CardData,
+): { value: number; mode: 'fixed' | 'percent'; target: 'hp' | 'maxHp' } | null => {
+  const raw = card.selfDamage;
+  if (raw === undefined || raw === null) return null;
+
+  if (typeof raw === 'number') {
+    const amount = Math.max(0, Math.floor(raw));
+    if (amount <= 0) return null;
+    return { value: amount, mode: 'fixed', target: 'hp' };
+  }
+
+  const mode = raw.mode ?? 'fixed';
+  const target = raw.target ?? 'hp';
+  const baseAmount = Number.isFinite(raw.value) ? raw.value : 0;
+  if (baseAmount <= 0) return null;
+  if (mode === 'percent') {
+    return { value: baseAmount, mode: 'percent', target };
+  }
+  return { value: Math.max(0, Math.floor(baseAmount)), mode: 'fixed', target };
+};
+
 const applyBloodbladeAttachOnClash = (sourceSide: BattleSide, targetSide: BattleSide) => {
   const sourceStats = sourceSide === 'player' ? playerStats.value : enemyStats.value;
   const stacks = getEffectStacks(sourceStats, ET.BLOODBLADE_ATTACH);
@@ -1704,96 +1805,105 @@ const applyLightningAttachOnDodge = (dodgerSide: BattleSide, targetSide: BattleS
   log(`<span class="text-indigo-300">${sourceLabel}[雷电附加] 为对方施加了 ${stacks} 层电击。</span>`);
 };
 
-const applyLifeMaxReduction = (targetSide: BattleSide, stacks: number, sourceTag: string, sourceLabel: string) => {
-  const target = targetSide === 'player' ? playerStats.value : enemyStats.value;
-  const value = Math.max(0, Math.floor(stacks));
-  if (value <= 0) return 0;
-
-  const beforeMaxHp = target.maxHp;
-  const beforeHp = target.hp;
-  const applied = applyStatusEffectWithRelics(targetSide, ET.MAX_HP_REDUCTION, value, { source: sourceTag })
-    ? Math.max(0, beforeMaxHp - target.maxHp)
-    : 0;
-
-  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
-  if (applied <= 0) {
-    log(`<span class="text-gray-400">${sourceLabel}对${targetLabel}的生命上限削减未生效</span>`);
-    return 0;
-  }
-
-  const hpLossByCap = Math.max(0, beforeHp - target.hp);
-  if (hpLossByCap > 0) {
-    pushFloatingNumber(targetSide, hpLossByCap, 'true', '-');
-  }
-
-  log(`<span class="text-fuchsia-300">${sourceLabel}使${targetLabel}生命上限 -${applied}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
-  return applied;
+const cardEffectMatchesTrigger = (effectTrigger: CardEffectTrigger[] | undefined, trigger: CardEffectTrigger) => {
+  if (!effectTrigger || effectTrigger.length === 0) return trigger === 'on_use';
+  return effectTrigger.includes(trigger);
 };
 
-const applyDodgeSuccessCardBonus = (dodgerSide: BattleSide, dodgeCard: CardData, dodgePoint: number) => {
-  const dodger = dodgerSide === 'player' ? playerStats.value : enemyStats.value;
-  const label = dodgerSide === 'player' ? '我方' : '敌方';
-  const point = Math.max(0, Math.floor(dodgePoint));
+const applyCardEffectsByTrigger = (
+  source: BattleSide,
+  card: CardData,
+  finalPoint: number,
+  trigger: CardEffectTrigger = 'on_use',
+) => {
+  const attacker = source === 'player' ? playerStats.value : enemyStats.value;
+  const defender = source === 'player' ? enemyStats.value : playerStats.value;
+  const label = source === 'player' ? '我方' : '敌方';
+  let hasEffect = false;
 
-  if (dodgeCard.id === 'basic_breathing_technique') {
-    const beforeHp = dodger.hp;
-    dodger.hp = Math.min(dodger.maxHp, dodger.hp + point);
-    const actualHeal = dodger.hp - beforeHp;
-    if (actualHeal > 0) {
-      pushFloatingNumber(dodgerSide, actualHeal, 'heal', '+');
+  for (const ce of card.cardEffects) {
+    if (!cardEffectMatchesTrigger(ce.triggers, trigger)) continue;
+
+    const targetKey = ce.target ?? 'self';
+    const targetEntity = targetKey === 'self' ? attacker : defender;
+    const targetSide = resolveTargetSide(source, targetKey);
+
+    if (ce.kind === 'heal') {
+      const healAmount = ce.valueMode === 'point_scale'
+        ? Math.floor(finalPoint * (ce.scale ?? 1))
+        : Math.floor(ce.fixedValue ?? 0);
+      const beforeHp = targetEntity.hp;
+      targetEntity.hp = Math.min(targetEntity.maxHp, targetEntity.hp + healAmount);
+      const actualHeal = targetEntity.hp - beforeHp;
+      if (actualHeal > 0) {
+        pushFloatingNumber(targetSide, actualHeal, 'heal', '+');
+      }
+      log(`<span class="text-green-400">${label}【${card.name}】回复了 ${healAmount} 点生命</span>`);
+      hasEffect = true;
+    } else if (ce.kind === 'apply_buff') {
+      const beforeMaxHp = targetEntity.maxHp;
+      const beforeHp = targetEntity.hp;
+      const stacks = ce.valueMode === 'point_scale'
+        ? Math.floor(finalPoint * (ce.scale ?? 1))
+        : ce.valueMode === 'max_hp_percent'
+          ? Math.floor(targetEntity.maxHp * (ce.scale ?? 0))
+          : Math.floor(ce.fixedValue ?? 1);
+      const applied = applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
+        restrictedTypes: ce.restrictedTypes,
+        source: card.id,
+        lockDecayThisTurn: ce.effectType === ET.BIND,
+      });
+      if (!applied) {
+        continue;
+      }
+      if (ce.effectType === ET.ARMOR) {
+        pushFloatingNumber(targetSide, stacks, 'shield', '+');
+      }
+      if (ce.effectType === ET.MAX_HP_REDUCTION) {
+        const actualMaxHpLoss = Math.max(0, beforeMaxHp - targetEntity.maxHp);
+        const hpLossByCap = Math.max(0, beforeHp - targetEntity.hp);
+        if (hpLossByCap > 0) {
+          pushFloatingNumber(targetSide, hpLossByCap, 'true', '-');
+        }
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】使目标生命上限 -${actualMaxHpLoss}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
+      } else {
+        log(`<span class="text-yellow-400">${label}【${card.name}】获得了 ${stacks} 层${EFFECT_REGISTRY[ce.effectType!]?.name ?? ce.effectType}</span>`);
+      }
+      hasEffect = true;
+    } else if (ce.kind === 'restore_mana') {
+      const restoreAmount = ce.valueMode === 'point_scale'
+        ? Math.floor(finalPoint * (ce.scale ?? 1))
+        : Math.floor(ce.fixedValue ?? 0);
+      const manaResult = changeManaWithShock(
+        targetSide,
+        restoreAmount,
+        `法力变化（${label}【${card.name}】）`,
+        { showPositiveFloating: true },
+      );
+      const actualRestore = Math.max(0, manaResult.actualDelta);
+      if (actualRestore > 0) {
+        log(`<span class="text-blue-400">${label}【${card.name}】回复了 ${actualRestore} 点魔力</span>`);
+        hasEffect = true;
+      } else if (manaResult.actualDelta < 0) {
+        log(`<span class="text-blue-400">${label}【${card.name}】使目标法力减少 ${Math.abs(manaResult.actualDelta)} 点</span>`);
+        hasEffect = true;
+      } else if (restoreAmount !== 0) {
+        log(`<span class="text-blue-400">${label}【${card.name}】未造成法力变化</span>`);
+        hasEffect = true;
+      }
+    } else if (ce.kind === 'cleanse') {
+      const cleanseTargets = ce.cleanseTypes && ce.cleanseTypes.length > 0
+        ? ce.cleanseTypes
+        : targetEntity.effects.map((eff) => eff.type);
+      for (const et of cleanseTargets) {
+        removeEffect(targetEntity, et);
+      }
+      log(`<span class="text-cyan-300">${label}【${card.name}】清除了负面效果</span>`);
+      hasEffect = true;
     }
-    log(`<span class="text-green-300">${label}【${dodgeCard.name}】闪避成功，回复 ${point} 点生命</span>`);
-    return;
   }
 
-  if (dodgeCard.id === 'basic_mirror_phantom') {
-    applyStatusEffectWithRelics(dodgerSide, ET.BARRIER, 1, { source: dodgeCard.id });
-    log(`<span class="text-sky-300">${label}【${dodgeCard.name}】闪避成功，获得 1 层结界</span>`);
-    return;
-  }
-
-  if (dodgeCard.id === 'enemy_mimicbubble_iridescent_float') {
-    const targetSide: BattleSide = dodgerSide === 'player' ? 'enemy' : 'player';
-    const targetLabel = targetSide === 'player' ? '我方' : '敌方';
-    applyStatusEffectWithRelics(targetSide, ET.BIND, 1, {
-      source: dodgeCard.id,
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
-      lockDecayThisTurn: true,
-    });
-    log(`<span class="text-indigo-300">${label}【${dodgeCard.name}】闪避成功，为${targetLabel}施加 1 层束缚</span>`);
-    return;
-  }
-
-  if (dodgeCard.id === 'enemy_mist_sprite_illusion_lure') {
-    const targetSide: BattleSide = dodgerSide === 'player' ? 'enemy' : 'player';
-    applyLifeMaxReduction(targetSide, 2, dodgeCard.id, `${label}【${dodgeCard.name}】闪避成功，`);
-    return;
-  }
-
-  if (dodgeCard.id === 'enemy_vinewalker_lubricated_shrink') {
-    if (point > 0) {
-      applyStatusEffectWithRelics(dodgerSide, ET.CHARGE, point, { source: dodgeCard.id });
-    }
-    log(`<span class="text-cyan-300">${label}【${dodgeCard.name}】闪避成功，获得 ${point} 层蓄力</span>`);
-    return;
-  }
-
-  if (dodgeCard.id === 'enemy_springspirit_silent_infiltration') {
-    const targetSide: BattleSide = dodgerSide === 'player' ? 'enemy' : 'player';
-    applyStatusEffectWithRelics(targetSide, ET.CORROSION, 2, { source: dodgeCard.id });
-    log(`<span class="text-emerald-300">${label}【${dodgeCard.name}】闪避成功，对手侵蚀 +2</span>`);
-    return;
-  }
-
-  if (dodgeCard.id === 'basic_mana_shift') {
-    const beforeMp = dodger.mp;
-    dodger.mp = Math.max(0, dodger.mp + point);
-    const actualRestore = dodger.mp - beforeMp;
-    if (actualRestore > 0) {
-      pushFloatingNumber(dodgerSide, actualRestore, 'mana', '+');
-    }
-    log(`<span class="text-blue-300">${label}【${dodgeCard.name}】闪避成功，回复 ${point} 点魔力</span>`);
-  }
+  return hasEffect;
 };
 
 const applyToxinSpreadOnPhysicalPlay = (source: BattleSide, card: CardData) => {
@@ -1871,8 +1981,48 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
   const label = side === 'player' ? '我方' : '敌方';
   log(`<span class="text-zinc-300">${label}[中毒量] 即时致死判定触发，造成 ${actualDamage} 点真实伤害</span>`);
   for (const poisonLog of poisonLogs) {
-    log(`<span class="text-gray-500 text-[9px]">${poisonLog}</span>`);
+    const normalized = poisonLog.startsWith('受到') ? `${label}${poisonLog}` : poisonLog;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
   }
+};
+
+const rollIntInRange = (min: number, max: number) => {
+  const low = Math.floor(Math.min(min, max));
+  const high = Math.floor(Math.max(min, max));
+  if (high <= low) return low;
+  return Math.floor(Math.random() * (high - low + 1)) + low;
+};
+
+const applyFatigueDegreePenaltyOnTurnStart = () => {
+  const current = fatigueDegree.value;
+  if (current < 100) return false;
+
+  if (current >= 300) {
+    playerStats.value.maxHp = 0;
+    playerStats.value.hp = 0;
+    log('<span class="text-red-400">[疲劳度] 已达到 300，生命上限归零，直接战败。</span>');
+    return true;
+  }
+
+  const fatigueStacks = rollIntInRange(1, 3);
+  applyStatusEffectWithRelics('player', ET.FATIGUE, fatigueStacks, { source: 'system:fatigue_degree' });
+  log(`<span class="text-amber-300">[疲劳度] 回合开始获得 ${fatigueStacks} 层疲劳。</span>`);
+
+  if (current >= 200) {
+    const poisonStacks = rollIntInRange(1, 2);
+    applyStatusEffectWithRelics('player', ET.POISON, poisonStacks, { source: 'system:fatigue_degree' });
+    log(`<span class="text-emerald-300">[疲劳度] 额外获得 ${poisonStacks} 层中毒。</span>`);
+  }
+
+  return false;
+};
+
+const queueCardNegativeEffectForPlayer = (source: BattleSide, card: CardData) => {
+  if (source !== 'enemy') return;
+  const negativeEffect = (card.negativeEffect ?? '').trim();
+  if (!negativeEffect) return;
+  pendingCardNegativeEffects.value.push(negativeEffect);
+  log(`<span class="text-fuchsia-300">我方获得负面效果：${negativeEffect}</span>`);
 };
 
 const applyHitAttachEffects = (
@@ -1899,12 +2049,24 @@ const applyHitAttachEffects = (
 };
 
 const consumeChargeOnRoll = (stats: EntityStats, label: string, rolled: number) => {
+  let next = rolled;
+
   const chargeStacks = getEffectStacks(stats, ET.CHARGE);
-  if (chargeStacks <= 0) return rolled;
-  removeEffect(stats, ET.CHARGE);
-  const boosted = Math.max(0, Math.floor(rolled + chargeStacks));
-  log(`<span class="text-cyan-300">${label}[蓄力] +${chargeStacks}，原始骰子 ${rolled} → ${boosted}</span>`);
-  return boosted;
+  if (chargeStacks > 0) {
+    removeEffect(stats, ET.CHARGE);
+    next = Math.max(0, Math.floor(next + chargeStacks));
+    log(`<span class="text-cyan-300">${label}[蓄力] +${chargeStacks}，原始骰子 ${rolled} → ${next}</span>`);
+  }
+
+  const fatigueStacks = getEffectStacks(stats, ET.FATIGUE);
+  if (fatigueStacks > 0) {
+    removeEffect(stats, ET.FATIGUE);
+    const reduced = Math.max(0, Math.floor(next - fatigueStacks));
+    log(`<span class="text-amber-300">${label}[疲劳] -${fatigueStacks}，骰子 ${next} → ${reduced}</span>`);
+    next = reduced;
+  }
+
+  return next;
 };
 
 const clearDicePreview = () => {
@@ -2040,6 +2202,7 @@ const handlePlayerCardHoverStart = (card: CardData) => {
 };
 
 const handlePlayerCardHoverEnd = () => {
+  if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   previewPlayerDice.value = null;
 };
 
@@ -2047,6 +2210,7 @@ const handlePlayerCardTouchStart = (card: CardData) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   if (hoverPreviewTimer) clearTimeout(hoverPreviewTimer);
   hoverPreviewTimer = setTimeout(() => {
+    if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
     previewPlayerDice.value = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
   }, 260);
 };
@@ -2056,6 +2220,7 @@ const handlePlayerCardTouchEnd = () => {
     clearTimeout(hoverPreviewTimer);
     hoverPreviewTimer = null;
   }
+  if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   previewPlayerDice.value = null;
 };
 
@@ -2131,6 +2296,7 @@ const showEnemyDicePreview = () => {
 };
 
 const hideEnemyDicePreview = () => {
+  if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   if (showClashAnimation.value) return;
   previewEnemyDice.value = null;
 };
@@ -2238,11 +2404,11 @@ const pushFloatingNumber = (side: BattleSide, value: number, kind: FloatingNumbe
   if (amount <= 0) return;
 
   const id = ++floatingNumberId;
-  // Extend popup lifetime by ~50% for better readability.
-  const duration = scaleDuration(1350);
+  const duration = kind === 'heal' ? scaleDuration(1800) : scaleDuration(1350);
   floatingNumbers.value.push({
     id,
     side,
+    kind,
     text: `${sign}${amount}`,
     colorClass: floatingColors[kind],
     leftOffset: Math.floor((Math.random() - 0.5) * 120),
@@ -2297,6 +2463,8 @@ triggerPlayerRelicLifecycleHooks('onBattleStart');
 
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
+  loadFatigueDegree();
+  addFatigueDegree(10);
   void initPortraitUrls();
 });
 onUnmounted(() => {
@@ -2340,7 +2508,6 @@ const drawCards = (count: number, currentDeck: CardData[], currentDiscard: CardD
       if (discard.length === 0) break;
       deck = [...discard].sort(() => Math.random() - 0.5);
       discard = [];
-      log('<span class="text-yellow-500">弃牌堆已洗入牌库。</span>');
       triggerPlayerRelicLifecycleHooks('onDeckShuffle');
     }
     const card = deck.pop();
@@ -2405,6 +2572,7 @@ function selectEnemyCard(): CardData {
 
 const startTurn = () => {
   if (endCombatPending.value) return;
+  log(`<span class="text-slate-300">——第${combatState.value.turn}回合——</span>`);
   enemyManaLackHintTurn = -1;
   clearDicePreview();
   stopAllCardAnimations();
@@ -2412,6 +2580,7 @@ const startTurn = () => {
   combatState.value.playerSelectedCard = null;
   combatState.value.enemyIntentCard = null;
   enemyIntentConsumedThisTurn.value = false;
+  enemyIntentManaSpentThisTurn.value = false;
   isRolling.value = true;
   shatteringTarget.value = null;
   showClashAnimation.value = false;
@@ -2440,16 +2609,29 @@ watch(
   (phase) => {
      if (endCombatPending.value) return;
      if (phase === CombatPhase.TURN_START) {
+      const defeatedByFatigueDegree = applyFatigueDegreePenaltyOnTurnStart();
+      if (defeatedByFatigueDegree) {
+        return;
+      }
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
         for (const [side, label, stats] of [['player', '我方', playerStats], ['enemy', '敌方', enemyStats]] as const) {
           const targetSide = side as RelicSide;
           const opponentSide: RelicSide = side === 'player' ? 'enemy' : 'player';
+          const opponentStats = side === 'player' ? enemyStats : playerStats;
           const result = processOnTurnStart(stats.value);
           let turnStartLogs = [...result.logs];
           let burnDamageTaken = 0;
           let shownTrueDamage = 0;
           let burnIsTrueDamage = false;
+          let pendingBurnDamageNonTrue = 0;
+          let pendingRegenHeal = 0;
+
+          const regenLog = result.logs.find((entry) => entry.includes('[生命回复]'));
+          if (regenLog) {
+            const regenMatch = regenLog.match(/回复\s+(\d+)\s+点生命/);
+            pendingRegenHeal = regenMatch ? Math.max(0, Number(regenMatch[1])) : 0;
+          }
 
           if (combatState.value.turn % 3 === 0) {
             const growthBigStacks = getEffectStacks(stats.value, ET.POINT_GROWTH_BIG);
@@ -2469,7 +2651,18 @@ watch(
           }
 
           for (const pending of result.applyToOpponent) {
-            applyStatusEffectWithRelics(opponentSide, pending.type, pending.stacks, { source: 'effect:ignite_aura' });
+            applyStatusEffectWithRelics(opponentSide, pending.type, pending.stacks, { source: `effect:${pending.type}` });
+          }
+
+          if (result.opponentHpChange !== 0) {
+            const hpBeforeOpponent = opponentStats.value.hp;
+            opponentStats.value.hp = Math.max(0, Math.min(opponentStats.value.maxHp, opponentStats.value.hp + result.opponentHpChange));
+            const actualOpponentHpDelta = opponentStats.value.hp - hpBeforeOpponent;
+            if (actualOpponentHpDelta > 0) {
+              pushFloatingNumber(opponentSide, actualOpponentHpDelta, 'heal', '+');
+            } else if (actualOpponentHpDelta < 0) {
+              pushFloatingNumber(opponentSide, Math.abs(actualOpponentHpDelta), 'magic', '-');
+            }
           }
 
           // 燃烧伤害单独结算，以支持圣遗物修改
@@ -2520,6 +2713,7 @@ watch(
 
                   if (pendingBurnDamage > 0) {
                     burnDamageTaken = pendingBurnDamage;
+                    pendingBurnDamageNonTrue = pendingBurnDamage;
                     result.hpChange -= pendingBurnDamage;
                     pushFloatingNumber(side, pendingBurnDamage, 'magic', '-');
                     turnStartLogs.push(`[燃烧] 损失 ${pendingBurnDamage} 点生命。`);
@@ -2533,12 +2727,26 @@ watch(
             }
           }
 
-          if (result.hpChange !== 0) {
-            const hpBefore = stats.value.hp;
-            stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + result.hpChange));
-            const hpDelta = stats.value.hp - hpBefore;
-            if (hpDelta > 0) {
-              pushFloatingNumber(side, hpDelta, 'heal', '+');
+          if (pendingBurnDamageNonTrue > 0) {
+            stats.value.hp = Math.max(0, stats.value.hp - pendingBurnDamageNonTrue);
+          }
+
+          if (pendingRegenHeal > 0) {
+            const hpBeforeRegen = stats.value.hp;
+            stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + pendingRegenHeal));
+            const actualRegen = Math.max(0, stats.value.hp - hpBeforeRegen);
+            if (actualRegen > 0) {
+              pushFloatingNumber(side, actualRegen, 'heal', '+');
+            }
+          }
+
+          const residualHpChange = result.hpChange + pendingBurnDamageNonTrue - pendingRegenHeal;
+          if (residualHpChange !== 0) {
+            const hpBeforeResidual = stats.value.hp;
+            stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + residualHpChange));
+            const hpDeltaResidual = stats.value.hp - hpBeforeResidual;
+            if (hpDeltaResidual > 0) {
+              pushFloatingNumber(side, hpDeltaResidual, 'heal', '+');
             }
           }
           if (result.mpChange !== 0) {
@@ -2590,6 +2798,7 @@ watch(
 
       combatState.value.enemyIntentCard = eCard;
       enemyIntentConsumedThisTurn.value = false;
+      enemyIntentManaSpentThisTurn.value = false;
       combatState.value.playerHand = drawn;
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
@@ -2625,6 +2834,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (!played) return;
   clearDicePreview();
   showPlayerPlayedCard(played);
+  addFatigueDegree(1);
   combatState.value.discardPile.push(played);
   combatState.value.playerSelectedCard = played;
   combatState.value.phase = CombatPhase.RESOLUTION;
@@ -2642,7 +2852,15 @@ const handleSkipTurn = () => {
 };
 
 // Clashable check
-const isClashable = (t1: CardType, t2: CardType): boolean => {
+const isClashable = (card1: CardData, card2: CardData): boolean => {
+  const t1 = card1.type;
+  const t2 = card2.type;
+
+  const bypassDodge =
+    (card1.ignoreDodge && t2 === CardType.DODGE && (t1 === CardType.PHYSICAL || t1 === CardType.MAGIC))
+    || (card2.ignoreDodge && t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC));
+  if (bypassDodge) return false;
+
   if (t1 === CardType.PHYSICAL && t2 === CardType.PHYSICAL) return true;
   if (t1 === CardType.MAGIC && t2 === CardType.MAGIC) return true;
   if (t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC)) return true;
@@ -2656,10 +2874,16 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   try {
   let resolvedPlayerCard = pCard;
   let resolvedEnemyCard = eCard;
-  if (resolvedEnemyCard.type === CardType.MAGIC && resolvedEnemyCard.id !== PASS_CARD.id) {
-    const cost = Math.max(0, Math.floor(resolvedEnemyCard.manaCost));
-    if (enemyStats.value.mp < cost) {
+  if (
+    resolvedEnemyCard.type === CardType.MAGIC
+    && resolvedEnemyCard.id !== PASS_CARD.id
+    && !enemyIntentManaSpentThisTurn.value
+  ) {
+    enemyIntentManaSpentThisTurn.value = true;
+    const canSpend = spendManaWithShock('enemy', resolvedEnemyCard.manaCost, `使用【${resolvedEnemyCard.name}】`);
+    if (!canSpend) {
       resolvedEnemyCard = PASS_CARD;
+      combatState.value.enemyIntentCard = PASS_CARD;
       notifyEnemyManaInsufficient();
     }
   }
@@ -2671,7 +2895,17 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     comboUiMaskBridge.value = true;
   }
 
-  const shouldClash = isClashable(resolvedPlayerCard.type, resolvedEnemyCard.type);
+  const shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
+  const clashBypassedByIgnoreDodge =
+    (resolvedPlayerCard.ignoreDodge
+      && resolvedEnemyCard.type === CardType.DODGE
+      && (resolvedPlayerCard.type === CardType.PHYSICAL || resolvedPlayerCard.type === CardType.MAGIC))
+    || (resolvedEnemyCard.ignoreDodge
+      && resolvedPlayerCard.type === CardType.DODGE
+      && (resolvedEnemyCard.type === CardType.PHYSICAL || resolvedEnemyCard.type === CardType.MAGIC));
+  if (!shouldClash && clashBypassedByIgnoreDodge) {
+    log('<span class="text-indigo-300">[无视闪避] 闪避拼点被跳过，卡牌将直接生效。</span>');
+  }
   const playerSkippedTurn = resolvedPlayerCard.id === PASS_CARD.id;
   const enemySkippedTurn = resolvedEnemyCard.id === PASS_CARD.id;
   let resolvedPlayerDice = pDice;
@@ -2748,11 +2982,11 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       if (pClashPoint > eClashPoint) {
         eSuccess = false;
         clashWinner = 'player';
-        resultMsg = '拼点胜利！';
+        resultMsg = '我方拼点成功！';
       } else if (eClashPoint > pClashPoint) {
         pSuccess = false;
         clashWinner = 'enemy';
-        resultMsg = '拼点失败！';
+        resultMsg = '敌方拼点成功！';
       } else {
         pSuccess = false;
         eSuccess = false;
@@ -2763,18 +2997,18 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       if (eClashPoint > pClashPoint) {
         eSuccess = false;
         clashWinner = 'player';
-        resultMsg = '闪避成功！';
+        resultMsg = '我方闪避成功！';
         successfulDodger = 'player';
       } else {
         pSuccess = false;
         clashWinner = 'enemy';
-        resultMsg = '闪避失败！';
+        resultMsg = '我方闪避失败！';
       }
     } else if (resolvedEnemyCard.type === CardType.DODGE) {
       if (pClashPoint > eClashPoint) {
         pSuccess = false;
         clashWinner = 'enemy';
-        resultMsg = '攻击被闪避！';
+        resultMsg = '敌方闪避成功！';
         successfulDodger = 'enemy';
       } else {
         eSuccess = false;
@@ -2805,10 +3039,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
     if (successfulDodger === 'player') {
       applyLightningAttachOnDodge('player', 'enemy');
-      applyDodgeSuccessCardBonus('player', resolvedPlayerCard, pClashPoint);
+      applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
     } else if (successfulDodger === 'enemy') {
       applyLightningAttachOnDodge('enemy', 'player');
-      applyDodgeSuccessCardBonus('enemy', resolvedEnemyCard, eClashPoint);
+      applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
     }
 
     if (clashWinner === 'player' && resolvedPlayerCard.traits.destroyOnClashWin) {
@@ -2822,7 +3056,6 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     clearDicePreview();
   } else {
     await wait(500);
-    log('<span class="text-gray-400">双方卡牌互不干扰，直接结算。</span>');
     pSuccess = true;
     eSuccess = true;
   }
@@ -2842,29 +3075,98 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     const defender = source === 'player' ? enemyStats.value : playerStats.value;
     const label = source === 'player' ? '我方' : '敌方';
     const defenderSide = source === 'player' ? 'enemy' : 'player';
+    const defenderLabel = defenderSide === 'player' ? '我方' : '敌方';
     const opponentSkippedTurn = source === 'player' ? enemySkippedTurn : playerSkippedTurn;
 
     if (source === 'enemy' && card.id !== PASS_CARD.id) {
       enemyIntentConsumedThisTurn.value = true;
     }
 
-    if (source === 'enemy' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id) {
-      const canSpend = spendManaWithShock('enemy', card.manaCost, `使用【${card.name}】`);
-      if (!canSpend) {
-        notifyEnemyManaInsufficient();
-        return;
-      }
-    }
-
     if (source === 'player') {
       clearPlayerPlayedCard();
+    }
+    if (card.id !== PASS_CARD.id) {
+      log(`${label}使用了【${card.name}】`);
     }
     await playResolvedCardAnimation(source, card);
     if (endCombatPending.value) return;
 
     // Calculate final point for this card
     const finalPoint = getCardFinalPoint(source, card, baseDice);
+    const applyCardExtraAttributes = () => {
+      const selfDamage = resolveCardSelfDamage(card);
+      if (selfDamage) {
+        const rawAmount = selfDamage.mode === 'percent'
+          ? Math.floor(attacker.maxHp * (selfDamage.value / 100))
+          : Math.floor(selfDamage.value);
+        const amount = Math.max(0, rawAmount);
+        if (amount > 0) {
+          if (selfDamage.target === 'maxHp') {
+            const beforeMaxHp = attacker.maxHp;
+            const beforeHp = attacker.hp;
+            attacker.maxHp = Math.max(0, attacker.maxHp - amount);
+            if (attacker.hp > attacker.maxHp) {
+              attacker.hp = attacker.maxHp;
+            }
+            const actualMaxHpLoss = Math.max(0, beforeMaxHp - attacker.maxHp);
+            const hpLossByCap = Math.max(0, beforeHp - attacker.hp);
+            if (hpLossByCap > 0) {
+              pushFloatingNumber(source, hpLossByCap, 'true', '-');
+            }
+            log(`<span class="text-rose-300">${label}【${card.name}】自伤：生命上限 -${actualMaxHpLoss}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
+          } else {
+            const beforeHp = attacker.hp;
+            attacker.hp = Math.max(0, attacker.hp - amount);
+            const actualSelfDamage = Math.max(0, beforeHp - attacker.hp);
+            if (actualSelfDamage > 0) {
+              pushFloatingNumber(source, actualSelfDamage, 'true', '-');
+            }
+            log(`<span class="text-rose-300">${label}【${card.name}】自伤了 ${actualSelfDamage} 点生命</span>`);
+          }
+          const reviveResult = triggerSwarmReviveIfNeeded(attacker);
+          for (const reviveLog of reviveResult.logs) {
+            log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+          }
+        }
+      }
+
+      const manaDrain = Math.max(0, Math.floor(card.manaDrain ?? 0));
+      if (manaDrain > 0) {
+        const drainResult = changeManaWithShock(
+          defenderSide,
+          -manaDrain,
+          `法力汲取（${label}【${card.name}】）`,
+        );
+        const drainedMana = Math.max(0, -drainResult.actualDelta);
+        const overflowHpDamage = Math.max(0, manaDrain - drainedMana);
+
+        if (overflowHpDamage > 0) {
+          defender.hp = Math.max(0, defender.hp - overflowHpDamage);
+          pushFloatingNumber(defenderSide, overflowHpDamage, 'true', '-');
+        }
+
+        const gainResult = changeManaWithShock(
+          source,
+          manaDrain,
+          `法力汲取（${label}【${card.name}】）`,
+          { showPositiveFloating: true },
+        );
+        const gainedMana = Math.max(0, gainResult.actualDelta);
+
+        log(`<span class="text-blue-300">${label}【${card.name}】法力汲取：吸收 ${drainedMana} 点法力并回复自身 ${gainedMana} 点法力${overflowHpDamage > 0 ? `，额外造成 ${overflowHpDamage} 点真实伤害` : ''}</span>`);
+
+        if (overflowHpDamage > 0) {
+          const reviveResult = triggerSwarmReviveIfNeeded(defender);
+          for (const reviveLog of reviveResult.logs) {
+            log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+          }
+        }
+      }
+    };
+
     const finalizeCardExecution = () => {
+      applyCardExtraAttributes();
+      queueCardNegativeEffectForPlayer(source, card);
       applyInsertTrait(source, card);
       applyPurgeTraitAfterUse(source, card);
     };
@@ -2882,75 +3184,13 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       }
     };
 
-    const applyCardEffects = () => {
-      let hasEffect = false;
+    const applyCardEffects = (trigger: CardEffectTrigger = 'on_use') => (
+      applyCardEffectsByTrigger(source, card, finalPoint, trigger)
+    );
 
-      for (const ce of card.cardEffects) {
-        const targetKey = ce.target ?? 'self';
-        const targetEntity = targetKey === 'self' ? attacker : defender;
-        const targetSide = resolveTargetSide(source, targetKey);
-
-        if (ce.kind === 'heal') {
-          const healAmount = ce.valueMode === 'point_scale'
-            ? Math.floor(finalPoint * (ce.scale ?? 1))
-            : Math.floor(ce.fixedValue ?? 0);
-          const beforeHp = targetEntity.hp;
-          targetEntity.hp = Math.min(targetEntity.maxHp, targetEntity.hp + healAmount);
-          const actualHeal = targetEntity.hp - beforeHp;
-          if (actualHeal > 0) {
-            pushFloatingNumber(targetSide, actualHeal, 'heal', '+');
-          }
-          log(`<span class="text-green-400">${label}【${card.name}】回复了 ${healAmount} 点生命</span>`);
-          hasEffect = true;
-        } else if (ce.kind === 'apply_buff') {
-          const stacks = ce.valueMode === 'point_scale'
-            ? Math.floor(finalPoint * (ce.scale ?? 1))
-            : Math.floor(ce.fixedValue ?? 1);
-          applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
-            restrictedTypes: ce.restrictedTypes,
-            source: card.id,
-            lockDecayThisTurn: ce.effectType === ET.BIND,
-          });
-          if (ce.effectType === ET.ARMOR) {
-            pushFloatingNumber(targetSide, stacks, 'shield', '+');
-          }
-          log(`<span class="text-yellow-400">${label}【${card.name}】获得了 ${stacks} 层${EFFECT_REGISTRY[ce.effectType!]?.name ?? ce.effectType}</span>`);
-          hasEffect = true;
-        } else if (ce.kind === 'restore_mana') {
-          const restoreAmount = ce.valueMode === 'point_scale'
-            ? Math.floor(finalPoint * (ce.scale ?? 1))
-            : Math.floor(ce.fixedValue ?? 0);
-          const manaResult = changeManaWithShock(
-            targetSide,
-            restoreAmount,
-            `法力变化（${label}【${card.name}】）`,
-            { showPositiveFloating: true },
-          );
-          const actualRestore = Math.max(0, manaResult.actualDelta);
-          if (actualRestore > 0) {
-            log(`<span class="text-blue-400">${label}【${card.name}】回复了 ${actualRestore} 点魔力</span>`);
-            hasEffect = true;
-          } else if (manaResult.actualDelta < 0) {
-            log(`<span class="text-blue-400">${label}【${card.name}】使目标法力减少 ${Math.abs(manaResult.actualDelta)} 点</span>`);
-            hasEffect = true;
-          } else if (restoreAmount !== 0) {
-            log(`<span class="text-blue-400">${label}【${card.name}】未造成法力变化</span>`);
-            hasEffect = true;
-          }
-        } else if (ce.kind === 'cleanse') {
-          const cleanseTargets = ce.cleanseTypes && ce.cleanseTypes.length > 0
-            ? ce.cleanseTypes
-            : targetEntity.effects.map((eff) => eff.type);
-          for (const et of cleanseTargets) {
-            removeEffect(targetEntity, et);
-          }
-          log(`<span class="text-cyan-300">${label}【${card.name}】清除了负面效果</span>`);
-          hasEffect = true;
-        }
-      }
-
-      return hasEffect;
-    };
+    if (opponentSkippedTurn) {
+      applyCardEffects('on_opponent_skip');
+    }
 
     if (card.id === 'enemy_muxinlan_liquidation') {
       const cleanseTargets: EffectType[] = [...ELEMENTAL_DEBUFF_TYPES];
@@ -3021,54 +3261,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       return;
     }
 
-    if (card.id === 'enemy_muxinlan_set_ambush') {
-      if (opponentSkippedTurn) {
-        applyStatusEffectWithRelics(defenderSide, ET.MANA_DRAIN, 1, { source: card.id });
-        log(`<span class="text-indigo-300">${label}【${card.name}】生效：对方获得1层法力枯竭</span>`);
-      } else {
-        log(`<span class="text-gray-400">${label}【${card.name}】埋伏未触发（对方未跳过）</span>`);
-      }
-      finalizeCardExecution();
-      return;
-    }
-
     if (card.id === 'enemy_muxinlan_cunning') {
       applyStatusEffectWithRelics(defenderSide, ET.PEEP_FORBIDDEN, 1, { source: card.id });
       applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
       log(`<span class="text-violet-300">${label}【${card.name}】使对手陷入窥视禁忌与认知干涉</span>`);
-      finalizeCardExecution();
-      return;
-    }
-
-    if (card.id === 'enemy_mimicbubble_iridescent_float') {
-      if (opponentSkippedTurn) {
-        applyStatusEffectWithRelics(defenderSide, ET.BIND, 1, {
-          source: card.id,
-          restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
-          lockDecayThisTurn: true,
-        });
-        log(`<span class="text-indigo-300">${label}【${card.name}】触发：对方跳过回合，施加 1 层束缚</span>`);
-      }
-      finalizeCardExecution();
-      return;
-    }
-
-    if (card.id === 'enemy_mist_sprite_illusion_lure') {
-      if (opponentSkippedTurn) {
-        applyLifeMaxReduction(defenderSide, 2, card.id, `${label}【${card.name}】触发（对方跳过回合），`);
-      }
-      finalizeCardExecution();
-      return;
-    }
-
-    if (card.id === 'enemy_vinewalker_lubricated_shrink') {
-      if (opponentSkippedTurn) {
-        const chargeStacks = Math.max(0, Math.floor(finalPoint));
-        if (chargeStacks > 0) {
-          applyStatusEffectWithRelics(source, ET.CHARGE, chargeStacks, { source: card.id });
-        }
-        log(`<span class="text-cyan-300">${label}【${card.name}】触发：对方跳过回合，获得 ${chargeStacks} 层蓄力</span>`);
-      }
       finalizeCardExecution();
       return;
     }
@@ -3105,6 +3301,55 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       return;
     }
 
+    if (card.id === 'enemy_nymph_giant_projection') {
+      const hadIllusoryBody = getEffectStacks(attacker, ET.ILLUSORY_BODY) > 0;
+      if (hadIllusoryBody) {
+        removeEffect(attacker, ET.ILLUSORY_BODY);
+      }
+
+      attacker.minDice += 2;
+      attacker.maxDice += 4;
+      if (attacker.minDice > attacker.maxDice) {
+        attacker.maxDice = attacker.minDice;
+      }
+
+      syncCurrentPointForUi();
+      log(`<span class="text-violet-300">${label}【${card.name}】${hadIllusoryBody ? '移除了自身的虚幻之躯，' : ''}最小点数 +2，最大点数 +4（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
+      finalizeCardExecution();
+      return;
+    }
+
+    if (card.id === 'enemy_mata_fungal_repair') {
+      const poisonAmount = Math.max(0, getEffectStacks(defender, ET.POISON_AMOUNT));
+      if (poisonAmount > 0) {
+        removeEffect(defender, ET.POISON_AMOUNT);
+        log(`<span class="text-emerald-300">${label}【${card.name}】清空了对手 ${poisonAmount} 层中毒量</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未检测到可清空的中毒量</span>`);
+      }
+
+      const triggerCount = Math.floor(poisonAmount / 2);
+      if (triggerCount > 0) {
+        const healAmount = triggerCount * 2;
+        const { healed } = healForSide(source, healAmount);
+
+        const beforeMaxHp = defender.maxHp;
+        const beforeHp = defender.hp;
+        applyStatusEffectWithRelics(defenderSide, ET.MAX_HP_REDUCTION, triggerCount, { source: card.id });
+        const actualMaxHpLoss = Math.max(0, beforeMaxHp - defender.maxHp);
+        const hpLossByCap = Math.max(0, beforeHp - defender.hp);
+        if (hpLossByCap > 0) {
+          pushFloatingNumber(defenderSide, hpLossByCap, 'true', '-');
+        }
+
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】触发 ${triggerCount} 次：回复 ${healed} 点生命，并使对手生命上限 -${actualMaxHpLoss}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
+      } else if (poisonAmount > 0) {
+        log(`<span class="text-gray-400">${label}【${card.name}】中毒量不足2层，未触发后续转化效果</span>`);
+      }
+      finalizeCardExecution();
+      return;
+    }
+
     if (card.type === CardType.FUNCTION) {
       if (card.id === 'burn_char_convert') {
         const burned = getEffectStacks(attacker, ET.BURN);
@@ -3124,13 +3369,22 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       // Process card effects (heal, apply_buff, restore_mana, cleanse)
       syncCurrentPointForUi();
       const hasEffect = applyCardEffects();
+      if (card.id === 'enemy_rose_nectar_discipline') {
+        const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
+        if (targetHasBind) {
+          const poisonStacks = Math.max(0, Math.floor(finalPoint));
+          if (poisonStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id });
+            log(`<span class="text-emerald-300">${label}【${card.name}】触发：目标已束缚，施加 ${poisonStacks} 层中毒</span>`);
+          }
+        }
+      }
       if (!hasEffect) {
         // Fallback for special function cards (e.g. MP recovery)
         if (card.id === 'c5') {
           attacker.mp += 5;
           pushFloatingNumber(source, 5, 'mana', '+');
         }
-        log(`${label}使用了【${card.name}】`);
       }
       finalizeCardExecution();
     } else if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) {
@@ -3153,6 +3407,8 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
             ? Math.floor(finalPoint * 0.5) + burnStacksOnDefender
             : card.id === 'burn_detonation'
               ? Math.floor(burnStacksOnDefender)
+              : card.id === 'enemy_rose_wangzhi_whip' && getEffectStacks(defender, ET.BIND) > 0
+                ? Math.floor(finalPoint) + 2
               : null;
 
         if (customDamage !== null) {
@@ -3180,13 +3436,40 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           pushFloatingNumber(defenderSide, actualDamage, damageKind, '-');
         }
 
+        if (card.type === CardType.PHYSICAL && !isTrueDamage && actualDamage > 0) {
+          const thornStacks = getEffectStacks(defender, ET.THORNS);
+          if (thornStacks > 0) {
+            const reflectedDamage = Math.max(0, Math.floor(actualDamage * 0.5));
+            if (reflectedDamage > 0) {
+              const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToEntity(attacker, reflectedDamage, false);
+              if (actualReflectedDamage > 0) {
+                pushFloatingNumber(source, actualReflectedDamage, 'physical', '-');
+              }
+              log(`<span class="text-lime-300">${defenderLabel}[荆棘] 反弹了 ${actualReflectedDamage} 点伤害给${label}</span>`);
+              for (const reflectedLog of reflectedLogs) {
+                const normalized = reflectedLog.startsWith('受到') ? `${label}${reflectedLog}` : reflectedLog;
+                log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+              }
+              const reviveResult = triggerSwarmReviveIfNeeded(attacker);
+              for (const reviveLog of reviveResult.logs) {
+                log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+              }
+            }
+          }
+        }
+
         const coldLogs = consumeColdAfterDealingDamage(attacker, actualDamage);
         for (const coldLog of coldLogs) {
           log(`<span class="text-sky-300 text-[9px]">${label}: ${coldLog}</span>`);
         }
 
-        for (const dl of [...dmgLogs, ...applyLogs]) {
+        for (const dl of dmgLogs) {
+          if (dl.startsWith('原始伤害:')) continue;
           log(`<span class="text-gray-500 text-[9px]">${dl}</span>`);
+        }
+        for (const dl of applyLogs) {
+          const normalized = dl.startsWith('受到') ? `${defenderLabel}${dl}` : dl;
+          log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
         }
         triggerPlayerRelicHitHooks(
           source,
@@ -3204,6 +3487,39 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
       // 攻击牌结算后同样触发附带效果（燃烧、易伤等）
       applyCardEffects();
+
+      if (card.id === 'enemy_blissbee_aphro_stinger') {
+        const targetHasVulnerable = getEffectStacks(defender, ET.VULNERABLE) > 0;
+        if (targetHasVulnerable) {
+          const poisonStacks = 2;
+          if (poisonStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id });
+          }
+          log(`<span class="text-emerald-300">${label}【${card.name}】触发：对手易伤存在，额外施加 ${poisonStacks} 层中毒</span>`);
+        }
+      }
+
+      if (card.id === 'enemy_blissbee_precise_harvest') {
+        const targetHasPoison = getEffectStacks(defender, ET.POISON) > 0;
+        if (targetHasPoison) {
+          const shockStacks = Math.max(0, Math.floor(finalPoint * 0.5));
+          if (shockStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.SHOCK, shockStacks, { source: card.id });
+          }
+          log(`<span class="text-indigo-300">${label}【${card.name}】触发：对手中毒存在，额外施加 ${shockStacks} 层电击</span>`);
+        }
+      }
+
+      if (card.id === 'enemy_rose_life_drain') {
+        const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
+        if (targetHasBind) {
+          const healAmount = Math.max(0, Math.floor(finalPoint));
+          const { healed } = healForSide(source, healAmount);
+          if (healed > 0) {
+            log(`<span class="text-green-300">${label}【${card.name}】触发：目标已束缚，回复了 ${healed} 点生命</span>`);
+          }
+        }
+      }
 
       if (card.id === 'enemy_muxinlan_unstable_reagent') {
         const stacks = Math.max(0, Math.floor(finalPoint * 0.5));
@@ -3280,7 +3596,6 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     if (combatState.value.playerHand.length > 0 && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
       combatState.value.playerSelectedCard = null;
       combatState.value.phase = CombatPhase.PLAYER_INPUT;
-      log('<span class="text-dungeon-gold/80">连击触发：可继续出牌</span>');
       return;
     }
 
@@ -3348,7 +3663,8 @@ const runEndCombatSequence = async (win: boolean) => {
 
   await wait(RESULT_BANNER_STAY_MS);
   if (token !== endCombatSequenceToken) return;
-  emit('endCombat', win, playerStats.value, [...combatState.value.logs]);
+  setFatigueDegree(0);
+  emit('endCombat', win, playerStats.value, [...combatState.value.logs], [...pendingCardNegativeEffects.value]);
 };
 
 // 任何生命值/中毒量变化后，立即执行中毒量致死判定。
@@ -3394,6 +3710,14 @@ watch(
   animation-timing-function: ease-out;
   animation-fill-mode: forwards;
   line-height: 1;
+}
+
+.combat-float-number--heal {
+  color: #4ade80 !important;
+  text-shadow:
+    0 0 10px rgba(74, 222, 128, 0.95),
+    0 0 22px rgba(34, 197, 94, 0.6);
+  -webkit-text-stroke: 0.45px rgba(6, 78, 59, 0.9);
 }
 
 .player-played-card {
@@ -3730,4 +4054,3 @@ watch(
   100% { left: 0; }
 }
 </style>
-

@@ -16,6 +16,7 @@
     class="relative w-40 h-60 rounded-xl shadow-2xl transition-all duration-300 transform bg-[#16121e] border-2 cursor-pointer"
     :class="[
       typeColorClass,
+      isRareCard ? 'rare-card-glow' : '',
       selected ? 'ring-4 ring-dungeon-gold -translate-y-6 scale-105 z-20' : 'hover:-translate-y-2 hover:z-10',
       disabled ? 'opacity-80 !cursor-default' : '',
       className,
@@ -106,7 +107,7 @@ const typeColorClass = computed(() => {
     case CardType.DODGE:
       return 'border-emerald-900 bg-emerald-950/30';
     case CardType.CURSE:
-      return 'border-violet-900 bg-violet-950/35';
+      return 'border-black bg-black/70';
     default:
       return 'border-gray-700 bg-gray-800';
   }
@@ -146,7 +147,7 @@ const typeIconColor = computed(() => {
     case CardType.DODGE:
       return 'text-emerald-400';
     case CardType.CURSE:
-      return 'text-violet-400';
+      return 'text-zinc-300';
     default:
       return 'text-gray-400';
   }
@@ -176,7 +177,7 @@ const typeGradient = computed(() => {
     case CardType.DODGE:
       return 'bg-gradient-to-tr from-emerald-900 to-black';
     case CardType.CURSE:
-      return 'bg-gradient-to-tr from-violet-900 to-black';
+      return 'bg-gradient-to-tr from-zinc-900 to-black';
     default:
       return 'bg-gradient-to-tr from-gray-800 to-black';
   }
@@ -191,4 +192,23 @@ const showManaBadge = computed(() => (
   && props.card.type === CardType.MAGIC
   && props.card.manaCost > 0
 ));
+const isRareCard = computed(() => props.card.rarity === '稀有');
 </script>
+
+<style scoped>
+.rare-card-glow {
+  position: relative;
+}
+
+.rare-card-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid rgba(250, 204, 21, 0.48);
+  box-shadow:
+    0 0 8px rgba(250, 204, 21, 0.4),
+    0 0 16px rgba(245, 158, 11, 0.24);
+  pointer-events: none;
+}
+</style>

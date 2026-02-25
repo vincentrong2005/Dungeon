@@ -80,6 +80,7 @@ export const useGameStore = defineStore('game', () => {
     hp?: number;
     addDefeatMark?: boolean;
     goldDelta?: number;
+    negativeStatusesAdd?: string[];
   }
   interface PendingStatDataChanges {
     fields: Record<string, any>;
@@ -162,6 +163,22 @@ export const useGameStore = defineStore('game', () => {
         : [];
       if (!base.includes('[败北]')) {
         base.push('[败北]');
+      }
+      sd._负面状态 = base;
+    }
+
+    if (Array.isArray(changes.negativeStatusesAdd) && changes.negativeStatusesAdd.length > 0) {
+      const raw = sd._负面状态;
+      const base = Array.isArray(raw)
+        ? raw.filter((item): item is string => typeof item === 'string')
+        : [];
+      for (const status of changes.negativeStatusesAdd) {
+        if (typeof status !== 'string') continue;
+        const normalized = status.trim();
+        if (!normalized) continue;
+        if (!base.includes(normalized)) {
+          base.push(normalized);
+        }
       }
       sd._负面状态 = base;
     }

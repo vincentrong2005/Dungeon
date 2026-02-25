@@ -139,6 +139,8 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
 
   // 非实体：仅影响当前卡牌造成的直接物理/魔法伤害
   const defenderHasNonEntity = ctx.defenderEffects.some((e) => e.type === EffectType.NON_ENTITY && e.stacks > 0);
+  // 虚幻之躯：仅影响当前卡牌造成的直接物理伤害
+  const defenderHasIllusoryBody = ctx.defenderEffects.some((e) => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
   if (defenderHasNonEntity) {
     if (ctx.card.type === CardType.PHYSICAL) {
       damage *= 0.5;
@@ -147,6 +149,10 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
       damage *= 1.5;
       logs.push('[非实体] 魔法伤害 x1.5');
     }
+  }
+  if (defenderHasIllusoryBody && ctx.card.type === CardType.PHYSICAL) {
+    damage *= 0.5;
+    logs.push('[虚幻之躯] 物理伤害 x0.5');
   }
 
   if (isTrueDamage) {

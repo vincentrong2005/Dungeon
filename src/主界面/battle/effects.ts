@@ -143,6 +143,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始时回复等量层数的生命',
   },
+  [EffectType.WHITE_TURBID]: {
+    type: EffectType.WHITE_TURBID,
+    name: '白浊',
+    polarity: 'mixed',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始时为对手回复等量层数生命，并施加等量层数侵蚀',
+  },
   [EffectType.IGNITE_AURA]: {
     type: EffectType.IGNITE_AURA,
     name: '施加燃烧',
@@ -170,6 +179,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '下一次投掷骰子时增加等量层数的点数并清空全部层数',
   },
+  [EffectType.FATIGUE]: {
+    type: EffectType.FATIGUE,
+    name: '疲劳',
+    polarity: 'debuff',
+    timings: ['onDiceRoll'],
+    stackable: true,
+    maxStacks: 0,
+    description: '下一次投掷骰子时减少等量层数的点数并清空全部层数',
+  },
   [EffectType.COLD]: {
     type: EffectType.COLD,
     name: '寒冷',
@@ -196,6 +214,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     stackable: false,
     maxStacks: 1,
     description: '受到物理伤害减少50%，受到魔法伤害增加50%',
+  },
+  [EffectType.ILLUSORY_BODY]: {
+    type: EffectType.ILLUSORY_BODY,
+    name: '虚幻之躯',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '受到物理伤害减少50%',
   },
   [EffectType.MAX_HP_REDUCTION]: {
     type: EffectType.MAX_HP_REDUCTION,
@@ -321,7 +348,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: true,
     maxStacks: 0,
-    description: '每次法力减少时，受到等同层数的生命损失，随后层数减半（向下取整）',
+    description: '每次法力减少时，受到等同层数的生命损失，随后层数-1',
   },
   [EffectType.FLAME_ATTACH]: {
     type: EffectType.FLAME_ATTACH,
@@ -385,6 +412,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     stackable: true,
     maxStacks: 0,
     description: '每次成功闪避时为对手施加电击',
+  },
+  [EffectType.THORNS]: {
+    type: EffectType.THORNS,
+    name: '荆棘',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '反弹50%物理直接伤害',
   },
 };
 
@@ -522,6 +558,7 @@ export interface TurnStartResult {
   hpChange: number;
   mpChange: number;
   trueDamage: number;
+  opponentHpChange: number;
   isStunned: boolean;
   logs: string[];
   /** 需要为对手施加的效果（施加燃烧用） */
@@ -530,13 +567,14 @@ export interface TurnStartResult {
 
 /**
  * 处理回合开始时所有效果触发
- * 调用顺序：法力枯竭 → 中毒 → 燃烧 → 流血(-1) → 生命回复 → 施加燃烧 → 眩晕检查
+ * 调用顺序：法力枯竭 → 中毒 → 燃烧 → 流血(-1) → 生命回复 → 白浊 → 施加燃烧 → 眩晕检查
  */
 export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   const result: TurnStartResult = {
     hpChange: 0,
     mpChange: 0,
     trueDamage: 0,
+    opponentHpChange: 0,
     isStunned: false,
     logs: [],
     applyToOpponent: [],
@@ -583,6 +621,14 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (regenStacks > 0) {
     result.hpChange += regenStacks;
     result.logs.push(`[生命回复] 回复 ${regenStacks} 点生命。`);
+  }
+
+  // 白浊：为对手回复生命并施加侵蚀（无论是否实际回复到生命）
+  const whiteTurbidStacks = getEffectStacks(entity, EffectType.WHITE_TURBID);
+  if (whiteTurbidStacks > 0) {
+    result.opponentHpChange += whiteTurbidStacks;
+    result.applyToOpponent.push({ type: EffectType.CORROSION, stacks: whiteTurbidStacks });
+    result.logs.push(`[白浊] 为对手回复 ${whiteTurbidStacks} 点生命并施加 ${whiteTurbidStacks} 层侵蚀。`);
   }
 
   // 施加燃烧 → 为双方施加一层燃烧

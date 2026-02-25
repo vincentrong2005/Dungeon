@@ -22,11 +22,20 @@
 <script setup lang="ts">
 import GameView from './components/GameView.vue';
 import SplashScreen from './components/SplashScreen.vue';
+import { disposeBgm, initializeBgm } from './bgm';
 import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
 
 const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
 const gameStore = useGameStore();
+
+onMounted(() => {
+  void initializeBgm();
+});
+
+onUnmounted(() => {
+  disposeBgm();
+});
 
 /**
  * 开始游戏：初始化 gameStore（加载最新楼层状态、MVU）

@@ -287,6 +287,14 @@
               </div>
             </div>
 
+            <div
+              v-if="hotSpringCleanseMessage"
+              :key="`spring-cleanse-${hotSpringCleanseMessage.id}`"
+              class="spring-cleanse-float"
+            >
+              {{ hotSpringCleanseMessage.text }}
+            </div>
+
             <!-- Error Display -->
             <div v-if="gameStore.error" class="mt-6 p-4 bg-red-950/30 border border-red-900/50 rounded text-red-300 font-ui text-sm">
               {{ gameStore.error }}
@@ -657,6 +665,35 @@
                   class="w-28 accent-dungeon-gold"
                 />
                 <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐</label>
+              <select
+                v-model="selectedBgmTrackId"
+                :disabled="bgmTracks.length === 0"
+                class="bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option v-if="bgmTracks.length === 0" value="">暂无可用曲目</option>
+                <option v-for="track in bgmTracks" :key="track.id" :value="track.id">
+                  {{ track.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐音量</label>
+              <div class="flex items-center gap-2">
+                <input
+                  v-model.number="bgmVolumePercent"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  class="w-28 accent-dungeon-gold"
+                />
+                <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ bgmVolumePercent }}%</span>
               </div>
             </div>
 
@@ -1113,6 +1150,88 @@
       </div>
     </Transition>
 
+    <!-- Idol Overlay -->
+    <Transition name="combat-fade">
+      <div
+        v-if="showIdolView"
+        class="absolute inset-0 z-[96] bg-black overflow-hidden"
+        @pointermove="handleIdolDicePointerMove"
+        @pointerup="handleIdolDicePointerUp"
+        @pointercancel="handleIdolDicePointerUp"
+      >
+        <img
+          :src="idolBackgroundUrl"
+          class="absolute inset-0 h-full w-full object-cover"
+          alt="神像界面背景"
+        />
+
+        <div class="idol-layout absolute inset-0 z-[97]">
+          <div class="idol-slots-row">
+            <div class="idol-slot-wrap">
+              <div class="idol-slot-hint">增加1倍点数的生命上限</div>
+              <div
+                ref="idolSlotMaxHpRef"
+                class="idol-slot"
+                :class="{
+                  'is-preview': idolSnapPreviewTarget === 'maxHp',
+                  'is-selected': idolAssignedTarget === 'maxHp',
+                }"
+              ></div>
+            </div>
+            <div class="idol-slot-wrap">
+              <div class="idol-slot-hint">增加1倍点数的初始魔力</div>
+              <div
+                ref="idolSlotMpRef"
+                class="idol-slot"
+                :class="{
+                  'is-preview': idolSnapPreviewTarget === 'mp',
+                  'is-selected': idolAssignedTarget === 'mp',
+                }"
+              ></div>
+            </div>
+            <div class="idol-slot-wrap">
+              <div class="idol-slot-hint">增加2倍点数的金币</div>
+              <div
+                ref="idolSlotGoldRef"
+                class="idol-slot"
+                :class="{
+                  'is-preview': idolSnapPreviewTarget === 'gold',
+                  'is-selected': idolAssignedTarget === 'gold',
+                }"
+              ></div>
+            </div>
+          </div>
+
+          <div ref="idolDiceStageRef" class="idol-dice-stage">
+            <div
+              ref="idolDiceRef"
+              class="idol-dice-draggable"
+              :class="{ 'is-locked': idolDiceRolling }"
+              :style="{ transform: `translate(${idolDicePosition.x}px, ${idolDicePosition.y}px)` }"
+              @pointerdown="handleIdolDicePointerDown"
+            >
+              <DungeonDice
+                :value="idolDiceValue"
+                :rolling="idolDiceRolling"
+                color="gold"
+                size="lg"
+                :rolling-min="idolDiceMin"
+                :rolling-max="idolDiceMax"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          class="idol-exit-btn absolute right-5 bottom-5 z-[98] px-6 py-3 font-ui text-sm tracking-wider text-amber-50"
+          :disabled="gameStore.isGenerating"
+          @click="exitIdolView"
+        >
+          退出
+        </button>
+      </div>
+    </Transition>
+
     <!-- Victory Card Reward Overlay -->
     <Transition name="combat-fade">
       <div v-if="showVictoryRewardView" class="absolute inset-0 z-[102] bg-black/90">
@@ -1252,6 +1371,7 @@ import {
   Send,
   Settings as SettingsIcon,
 } from 'lucide-vue-next';
+import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicByName, type RelicData } from '../battle/relicRegistry';
@@ -1261,6 +1381,7 @@ import { useGameStore } from '../gameStore';
 import { CardType, EffectType, type CardData } from '../types';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
+import DungeonDice from './DungeonDice.vue';
 import DungeonModal from './DungeonModal.vue';
 import SaveLoadPanel from './SaveLoadPanel.vue';
 
@@ -1324,6 +1445,7 @@ const isStatusOpen = ref(true);
 const showCombat = ref(false);
 const combatEnemyName = ref('');
 const showShopView = ref(false);
+const showIdolView = ref(false);
 const shopProducts = ref<ShopProduct[]>([]);
 const shopBuying = ref(false);
 const shopSpentGold = ref(0);
@@ -1339,6 +1461,20 @@ const chestCollecting = ref(false);
 const chestRewardVisible = ref(false);
 const chestOpenedBgReady = ref(false);
 const chestPortalChoices = ref<PortalChoice[]>([]);
+const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
+const idolDiceValue = ref(1);
+const idolDiceRolling = ref(false);
+const idolAssignedTarget = ref<IdolBlessingTarget | null>(null);
+const idolSnapPreviewTarget = ref<IdolBlessingTarget | null>(null);
+const idolDicePosition = ref({ x: 0, y: 0 });
+const idolDiceStageRef = ref<HTMLElement | null>(null);
+const idolDiceRef = ref<HTMLElement | null>(null);
+const idolSlotMaxHpRef = ref<HTMLElement | null>(null);
+const idolSlotMpRef = ref<HTMLElement | null>(null);
+const idolSlotGoldRef = ref<HTMLElement | null>(null);
+const idolDragPointerId = ref<number | null>(null);
+const idolDragStart = ref({ x: 0, y: 0 });
+const idolDragStartPos = ref({ x: 0, y: 0 });
 const combatTestStep = ref<'deck' | 'enemy'>('deck');
 const selectedTestDeck = ref<string[]>([]);
 const selectedTestEnemy = ref('');
@@ -1374,8 +1510,11 @@ const combatTestStartAt999CurrentBattle = ref(false);
 let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
+let hotSpringCleanseTimer: ReturnType<typeof setTimeout> | null = null;
+let idolRollTimer: ReturnType<typeof setTimeout> | null = null;
 let relicTooltipLongPressTimer: ReturnType<typeof setTimeout> | null = null;
 let relicTooltipAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
+let hotSpringCleanseMessageId = 0;
 
 interface ShopProduct {
   key: string;
@@ -1386,6 +1525,19 @@ interface ShopProduct {
 }
 
 type CombatContext = 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
+type IdolBlessingTarget = 'maxHp' | 'mp' | 'gold';
+interface IdolBlessingConfig {
+  target: IdolBlessingTarget;
+  slotLabel: string;
+  statueName: string;
+  rewardText: (dice: number) => string;
+}
+interface IdolSnapCandidate {
+  target: IdolBlessingTarget;
+  distance: number;
+  snapX: number;
+  snapY: number;
+}
 
 // --- Dynamic Background ---
 const bgIsLordFallback = ref(false);
@@ -1416,6 +1568,8 @@ const CHEST_BG_OPENED = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolv
 const CHEST_BG_MIMIC = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B13.png';
 const SHOP_BG_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png';
 const SHOP_MERCHANT_PORTRAIT_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/%E6%B2%90%E8%8A%AF%E5%85%B0/%E6%B2%90%E8%8A%AF%E5%85%B04.png';
+const IDOL_BG_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E7%A5%9E%E5%83%8F.png';
+const idolBackgroundUrl = IDOL_BG_URL;
 const shopBackgroundUrl = SHOP_BG_URL;
 const shopMerchantPortraitUrl = SHOP_MERCHANT_PORTRAIT_URL;
 const chestBackgroundUrl = computed(() => {
@@ -1423,6 +1577,27 @@ const chestBackgroundUrl = computed(() => {
   if (chestStage.value === 'mimic') return CHEST_BG_MIMIC;
   return CHEST_BG_CLOSED;
 });
+const IDOL_BLESSING_CONFIG: Record<IdolBlessingTarget, IdolBlessingConfig> = {
+  maxHp: {
+    target: 'maxHp',
+    slotLabel: '生命上限',
+    statueName: '生命神像',
+    rewardText: (dice) => `生命上限+${dice}`,
+  },
+  mp: {
+    target: 'mp',
+    slotLabel: '初始魔力',
+    statueName: '魔力神像',
+    rewardText: (dice) => `魔量+${dice}`,
+  },
+  gold: {
+    target: 'gold',
+    slotLabel: '金币',
+    statueName: '财富神像',
+    rewardText: (dice) => `金币+${dice * 2}`,
+  },
+};
+const IDOL_SNAP_DISTANCE = 112;
 
 const allCardsForTest = computed(() => getAllCards().filter(card => card.category !== '敌人'));
 const CATEGORY_ORDER: Record<string, number> = {
@@ -1772,6 +1947,16 @@ const isStreamingEnabled = computed<boolean>({
   set: (value) => gameStore.setUseStreaming(value),
 });
 
+const selectedBgmTrackId = computed<string>({
+  get: () => bgmTrackId.value,
+  set: (value) => setBgmTrack(value),
+});
+
+const bgmVolumePercent = computed<number>({
+  get: () => Math.round(bgmVolume.value * 100),
+  set: (value) => setBgmVolume(value / 100),
+});
+
 // ── Computed display values from MVU stat_data ──
 const displayText = computed(() =>
   gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出',
@@ -2006,6 +2191,8 @@ const displayGold = computed(() => gameStore.statData._金币 ?? 0);
 // Dice range
 const displayMinDice = computed(() => gameStore.statData.$最小点数 ?? 0);
 const displayMaxDice = computed(() => gameStore.statData.$最大点数 ?? 0);
+const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(displayMinDice.value, 1)));
+const idolDiceMax = computed(() => Math.max(idolDiceMin.value, toNonNegativeInt(displayMaxDice.value, 6)));
 
 const hpPercent = computed(() => {
   const max = displayMaxHp.value;
@@ -2017,6 +2204,19 @@ const mpPercent = computed(() => {
   const mp = displayMp.value;
   const visualMax = 20;
   return Math.min((mp / visualMax) * 100, 100);
+});
+const idolRewardSummary = computed(() => {
+  const target = idolAssignedTarget.value;
+  if (!target) return null;
+  const config = IDOL_BLESSING_CONFIG[target];
+  const dice = idolDiceValue.value;
+  const amount = target === 'gold' ? dice * 2 : dice;
+  return {
+    target,
+    statueName: config.statueName,
+    amount,
+    rewardText: config.rewardText(dice),
+  };
 });
 
 // ── Actions ──
@@ -2038,6 +2238,13 @@ const REBIRTH_STARTER_DECK = [
   '普通魔法攻击', '普通魔法攻击',
   '普通护盾', '普通护盾',
   '普通闪避', '普通闪避',
+];
+const HOT_SPRING_CLEANSE_ACTION_TEXT = '<user>浸泡在暖泉中，污秽正悄然消融。（负面效果已全部消除）';
+const HOT_SPRING_CLEANSE_LINES = [
+  '泉水洗去了你身上的污秽，灵魂重获纯净。',
+  '温热的泉水带走了不详的气息，你感到前所未有的轻松。',
+  '诅咒已随水波逝去，你的身心焕然一新。',
+  '尘垢尽落，灵台清明。',
 ];
 
 const toNonNegativeInt = (value: unknown, fallback: number) => {
@@ -2092,6 +2299,7 @@ const handleRebirthClick = () => {
   showVictoryRewardView.value = false;
   closeShopView();
   closeChestView();
+  closeIdolView();
   pendingCombatNarrative.value = null;
   gameStore.setPendingCombatMvuChanges(null);
   gameStore.setPendingStatDataChanges(buildRebirthResetFields());
@@ -2138,6 +2346,14 @@ const isShopContext = computed(() => {
   const area = ((gameStore.statData._当前区域 as string) || '').trim();
   return roomType === '商店房' || area === '商店';
 });
+const isHotSpringRoomContext = computed(() => {
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  return roomType === '温泉房';
+});
+const isIdolRoomContext = computed(() => {
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  return roomType === '神像房';
+});
 const isCombatRoomContext = computed(() => {
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
   return roomType === '战斗房' || roomType === '领主房';
@@ -2156,8 +2372,8 @@ const formatCombatLogs = (logs: string[]) => {
     .reverse()
     .map(sanitizeCombatLogLine)
     .filter((line) => line.length > 0);
-  if (ordered.length === 0) return '1. （战斗日志为空）';
-  return ordered.map((line, idx) => `${idx + 1}. ${line}`).join('\n');
+  if (ordered.length === 0) return '（战斗日志为空）';
+  return ordered.join('\n');
 };
 
 const buildCombatNarrative = (win: boolean, enemyName: string, context: CombatContext, logs: string[]) => {
@@ -2184,16 +2400,21 @@ const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
   gameStore.sendAction(text);
 };
 
-const queueCombatMvuSync = (win: boolean, finalStats: unknown) => {
+const queueCombatMvuSync = (win: boolean, finalStats: unknown, negativeEffects: string[]) => {
   const hpRaw = Number((finalStats as { hp?: unknown } | null | undefined)?.hp);
   const hasHp = Number.isFinite(hpRaw);
   const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
   const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
   const goldReward = 3 + (2 * floor);
+  const normalizedNegativeEffects = negativeEffects
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
   gameStore.setPendingCombatMvuChanges({
     hp: hasHp ? Math.max(0, Math.floor(hpRaw)) : undefined,
     addDefeatMark: !win,
     goldDelta: win ? goldReward : undefined,
+    negativeStatusesAdd: normalizedNegativeEffects,
   });
 };
 
@@ -2203,9 +2424,34 @@ const applyMerchantDefeatedShopState = () => {
   }
 };
 
+const pickUniqueRewardCard = (
+  pool: CardData[],
+  usedIds: Set<string>,
+): CardData | null => {
+  const candidates = pool.filter((card) => !usedIds.has(card.id));
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+};
+
 const startVictoryRewardFlow = () => {
-  const pool = shuffle(rewardCardPool.value);
-  const options = pool.slice(0, Math.min(3, pool.length));
+  const pool = rewardCardPool.value;
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  const isLordRoom = roomType === '领主房';
+
+  const normalPool = pool.filter((card) => card.rarity === '普通');
+  const rarePool = pool.filter((card) => card.rarity === '稀有');
+  const options: CardData[] = [];
+  const usedIds = new Set<string>();
+
+  for (let i = 0; i < 3; i++) {
+    const pickRare = isLordRoom || Math.random() < 0.1;
+    const targetPool = pickRare ? rarePool : normalPool;
+    const picked = pickUniqueRewardCard(targetPool, usedIds);
+    if (!picked) continue;
+    options.push(picked);
+    usedIds.add(picked.id);
+  }
+
   if (options.length === 0) return false;
   victoryRewardOptions.value = options;
   selectedVictoryRewardCard.value = null;
@@ -2446,6 +2692,39 @@ const clearChestRewardFadeTimer = () => {
   chestRewardFadeTimer = null;
 };
 
+const clearHotSpringCleanseTimer = () => {
+  if (!hotSpringCleanseTimer) return;
+  clearTimeout(hotSpringCleanseTimer);
+  hotSpringCleanseTimer = null;
+};
+
+const showHotSpringCleanseText = () => {
+  const text = pickOne(HOT_SPRING_CLEANSE_LINES) ?? HOT_SPRING_CLEANSE_LINES[0]!;
+  const messageId = ++hotSpringCleanseMessageId;
+  hotSpringCleanseMessage.value = { id: messageId, text };
+  clearHotSpringCleanseTimer();
+  hotSpringCleanseTimer = setTimeout(() => {
+    if (hotSpringCleanseMessage.value?.id === messageId) {
+      hotSpringCleanseMessage.value = null;
+    }
+    hotSpringCleanseTimer = null;
+  }, 2600);
+};
+
+const useHotSpringCleanse = () => {
+  showHotSpringCleanseText();
+  gameStore.setPendingStatDataChanges({ _负面状态: [] });
+  gameStore.sendAction(HOT_SPRING_CLEANSE_ACTION_TEXT);
+};
+
+onUnmounted(() => {
+  clearShopRobTimer();
+  clearChestMimicTimer();
+  clearChestRewardFadeTimer();
+  clearHotSpringCleanseTimer();
+  clearIdolRollTimer();
+});
+
 const handleChestBgLoaded = () => {
   if (!showChestView.value) return;
   if (chestStage.value !== 'opened') return;
@@ -2478,6 +2757,182 @@ const closeChestView = () => {
   chestRolling.value = false;
   chestRewardVisible.value = false;
   chestOpenedBgReady.value = false;
+};
+
+const clearIdolRollTimer = () => {
+  if (!idolRollTimer) return;
+  clearTimeout(idolRollTimer);
+  idolRollTimer = null;
+};
+
+const clampNumber = (value: number, min: number, max: number) => {
+  if (max <= min) return min;
+  return Math.max(min, Math.min(max, value));
+};
+
+const rollIdolDiceValue = () => {
+  const min = idolDiceMin.value;
+  const max = idolDiceMax.value;
+  if (max <= min) return min;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+const getIdolSlotElement = (target: IdolBlessingTarget) => {
+  if (target === 'maxHp') return idolSlotMaxHpRef.value;
+  if (target === 'mp') return idolSlotMpRef.value;
+  return idolSlotGoldRef.value;
+};
+
+const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null => {
+  const stageEl = idolDiceStageRef.value;
+  const diceEl = idolDiceRef.value;
+  if (!stageEl || !diceEl) return null;
+
+  const stageRect = stageEl.getBoundingClientRect();
+  const diceRect = diceEl.getBoundingClientRect();
+  const maxX = Math.max(0, stageRect.width - diceRect.width);
+  const maxY = Math.max(0, stageRect.height - diceRect.height);
+  const diceCenterX = x + (diceRect.width / 2);
+  const diceCenterY = y + (diceRect.height / 2);
+
+  let best: IdolSnapCandidate | null = null;
+  const targets: IdolBlessingTarget[] = ['maxHp', 'mp', 'gold'];
+  for (const target of targets) {
+    const slotEl = getIdolSlotElement(target);
+    if (!slotEl) continue;
+    const slotRect = slotEl.getBoundingClientRect();
+    const slotCenterX = (slotRect.left - stageRect.left) + (slotRect.width / 2);
+    const slotCenterY = (slotRect.top - stageRect.top) + (slotRect.height / 2);
+    const distance = Math.hypot(slotCenterX - diceCenterX, slotCenterY - diceCenterY);
+    const snapX = clampNumber(slotCenterX - (diceRect.width / 2), 0, maxX);
+    const snapY = clampNumber(slotCenterY - (diceRect.height / 2), 0, maxY);
+    if (!best || distance < best.distance) {
+      best = { target, distance, snapX, snapY };
+    }
+  }
+
+  if (!best || best.distance > IDOL_SNAP_DISTANCE) return null;
+  return best;
+};
+
+const placeIdolDiceAtStart = () => {
+  const stageEl = idolDiceStageRef.value;
+  const diceEl = idolDiceRef.value;
+  if (!stageEl || !diceEl) return;
+  const stageRect = stageEl.getBoundingClientRect();
+  const diceRect = diceEl.getBoundingClientRect();
+  const maxX = Math.max(0, stageRect.width - diceRect.width);
+  const maxY = Math.max(0, stageRect.height - diceRect.height);
+  const x = Math.max(0, (stageRect.width - diceRect.width) / 2);
+  const y = clampNumber(stageRect.height * 0.72, 0, maxY);
+  idolDicePosition.value = { x: clampNumber(x, 0, maxX), y };
+  idolSnapPreviewTarget.value = null;
+};
+
+const openIdolView = () => {
+  if (gameStore.isGenerating) return;
+  clearIdolRollTimer();
+  idolAssignedTarget.value = null;
+  idolSnapPreviewTarget.value = null;
+  idolDragPointerId.value = null;
+  idolDiceValue.value = idolDiceMin.value;
+  idolDiceRolling.value = true;
+  showIdolView.value = true;
+  idolRollTimer = setTimeout(() => {
+    idolDiceValue.value = rollIdolDiceValue();
+    idolDiceRolling.value = false;
+    idolRollTimer = null;
+    requestAnimationFrame(() => {
+      placeIdolDiceAtStart();
+    });
+  }, 520);
+};
+
+const closeIdolView = () => {
+  clearIdolRollTimer();
+  idolDragPointerId.value = null;
+  showIdolView.value = false;
+};
+
+const handleIdolDicePointerDown = (event: PointerEvent) => {
+  if (!showIdolView.value || idolDiceRolling.value) return;
+  const diceEl = idolDiceRef.value;
+  if (!diceEl) return;
+  idolAssignedTarget.value = null;
+  idolDragPointerId.value = event.pointerId;
+  idolDragStart.value = { x: event.clientX, y: event.clientY };
+  idolDragStartPos.value = { ...idolDicePosition.value };
+  diceEl.setPointerCapture(event.pointerId);
+};
+
+const handleIdolDicePointerMove = (event: PointerEvent) => {
+  if (!showIdolView.value) return;
+  if (idolDragPointerId.value !== event.pointerId) return;
+  const stageEl = idolDiceStageRef.value;
+  const diceEl = idolDiceRef.value;
+  if (!stageEl || !diceEl) return;
+
+  const stageRect = stageEl.getBoundingClientRect();
+  const diceRect = diceEl.getBoundingClientRect();
+  const maxX = Math.max(0, stageRect.width - diceRect.width);
+  const maxY = Math.max(0, stageRect.height - diceRect.height);
+  const dx = event.clientX - idolDragStart.value.x;
+  const dy = event.clientY - idolDragStart.value.y;
+  const nextX = clampNumber(idolDragStartPos.value.x + dx, 0, maxX);
+  const nextY = clampNumber(idolDragStartPos.value.y + dy, 0, maxY);
+  idolDicePosition.value = { x: nextX, y: nextY };
+  const candidate = getIdolSnapCandidate(nextX, nextY);
+  idolSnapPreviewTarget.value = candidate?.target ?? null;
+};
+
+const handleIdolDicePointerUp = (event: PointerEvent) => {
+  if (!showIdolView.value) return;
+  if (idolDragPointerId.value !== event.pointerId) return;
+  const diceEl = idolDiceRef.value;
+  if (diceEl) {
+    diceEl.releasePointerCapture(event.pointerId);
+  }
+  const candidate = getIdolSnapCandidate(idolDicePosition.value.x, idolDicePosition.value.y);
+  if (candidate) {
+    idolAssignedTarget.value = candidate.target;
+    idolSnapPreviewTarget.value = candidate.target;
+    idolDicePosition.value = { x: candidate.snapX, y: candidate.snapY };
+  } else {
+    idolAssignedTarget.value = null;
+    idolSnapPreviewTarget.value = null;
+  }
+  idolDragPointerId.value = null;
+};
+
+const buildIdolPendingFields = () => {
+  const reward = idolRewardSummary.value;
+  if (!reward) return null;
+
+  const currentMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
+  const currentMp = toNonNegativeInt(gameStore.statData._魔量, 1);
+  const currentGold = toNonNegativeInt(gameStore.statData._金币, 0);
+  if (reward.target === 'maxHp') {
+    return { _血量上限: currentMaxHp + reward.amount };
+  }
+  if (reward.target === 'mp') {
+    return { _魔量: currentMp + reward.amount };
+  }
+  return { _金币: currentGold + reward.amount };
+};
+
+const exitIdolView = () => {
+  if (gameStore.isGenerating) return;
+  const reward = idolRewardSummary.value;
+  closeIdolView();
+  if (!reward) {
+    gameStore.sendAction('<user>没有膜拜任何一座神像，选择了直接离开。');
+    return;
+  }
+  const fields = buildIdolPendingFields();
+  if (fields) {
+    gameStore.setPendingStatDataChanges(fields);
+  }
+  gameStore.sendAction(`<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}。`);
 };
 
 const pickChestRewardRelic = (): RelicData | null => {
@@ -2547,8 +3002,11 @@ const handleChestCenterClick = async () => {
 const startCombatFromSpecialOption = async () => {
   let enemyName = ((gameStore.statData._对手名称 as string) || '').trim();
   if (!enemyName) {
+    const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
     const area = ((gameStore.statData._当前区域 as string) || '').trim();
-    enemyName = pickBattleMonsterByArea(area) ?? '';
+    enemyName = roomType === '领主房'
+      ? (pickLordMonsterByArea(area) ?? '')
+      : (pickBattleMonsterByArea(area) ?? '');
     if (!enemyName) {
       toastr.warning('当前未找到可战斗的对手。');
       return;
@@ -2568,6 +3026,14 @@ const handleSpecialOption = async () => {
   }
   if (isShopContext.value) {
     openShopView();
+    return;
+  }
+  if (isHotSpringRoomContext.value) {
+    useHotSpringCleanse();
+    return;
+  }
+  if (isIdolRoomContext.value) {
+    openIdolView();
     return;
   }
   if (isCombatRoomContext.value) {
@@ -2640,6 +3106,32 @@ const FLOOR_MONSTER_CONFIG: Record<string, FloorMonsterConfig> = {
   },
 };
 
+// 领主顺序严格按 FLOOR_MONSTER_CONFIG 的区域顺序映射。
+const LORD_MONSTER_ORDER: string[] = [
+  '普莉姆', '宁芙', '温蒂尼', '玛塔', '罗丝', '厄休拉',
+  '希尔薇', '因克', '阿卡夏', '多萝西', '维罗妮卡',
+  '伊丽莎白', '尤斯蒂娅', '克拉肯', '布偶',
+  '赛琳娜', '米拉', '梦魔双子', '贝希摩斯',
+  '佩恩', '西格尔', '摩尔', '利维坦', '奥赛罗', '盖亚',
+];
+
+const LORD_MONSTER_BY_AREA: Record<string, string> = (() => {
+  const areaOrder: string[] = [];
+  for (const floorConfig of Object.values(FLOOR_MONSTER_CONFIG)) {
+    areaOrder.push(...Object.keys(floorConfig.uniqueByArea));
+  }
+
+  const mapping: Record<string, string> = {};
+  for (let i = 0; i < areaOrder.length; i += 1) {
+    const area = areaOrder[i]!;
+    const lordName = LORD_MONSTER_ORDER[i];
+    if (lordName) {
+      mapping[area] = lordName;
+    }
+  }
+  return mapping;
+})();
+
 // 当前规则：70% 抽普通魔物，30% 抽区域特有魔物（若存在）
 const COMMON_MONSTER_RATE_BY_FLOOR: Record<string, number> = {
   '第一层': 0.7,
@@ -2676,8 +3168,23 @@ function pickBattleMonsterByArea(area: string): string | null {
   return pickOne(pool);
 }
 
+function pickLordMonsterByArea(area: string): string | null {
+  const lordName = LORD_MONSTER_BY_AREA[area];
+  if (!lordName) return null;
+  return lordName;
+}
+
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
+const PORTAL_ROOM_WEIGHTS: Record<string, number> = {
+  '战斗房': 30,
+  '宝箱房': 20,
+  '商店房': 10,
+  '温泉房': 10,
+  '神像房': 10,
+  '事件房': 0,
+  '陷阱房': 20,
+};
 const TRAP_POOL_BY_AREA: Record<string, string[]> = {
   '粘液之沼': ['粘液深坑', '史莱姆的温床'],
   '发情迷雾森林': ['迷雾漩涡', '活体树洞', '树精的共生茧'],
@@ -2774,6 +3281,45 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function rollPortalCount(maxCount: number): number {
+  const roll = Math.random();
+  return Math.min(maxCount, roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3);
+}
+
+function pickWeightedRoomTypes(roomTypes: string[], count: number): string[] {
+  const pool = [...roomTypes];
+  const picked: string[] = [];
+
+  while (pool.length > 0 && picked.length < count) {
+    const weightedPool = pool.map((type) => ({
+      type,
+      weight: Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
+    }));
+    const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
+
+    let selected: string;
+    if (totalWeight <= 0) {
+      selected = pickOne(pool) ?? pool[0]!;
+    } else {
+      let roll = Math.random() * totalWeight;
+      selected = weightedPool[weightedPool.length - 1]!.type;
+      for (const item of weightedPool) {
+        roll -= item.weight;
+        if (roll <= 0) {
+          selected = item.type;
+          break;
+        }
+      }
+    }
+
+    picked.push(selected);
+    const index = pool.indexOf(selected);
+    if (index >= 0) pool.splice(index, 1);
+  }
+
+  return picked;
+}
+
 function generatePortals(): PortalChoice[] {
   const currentArea = (gameStore.statData._当前区域 as string) || '';
   const currentRoomType = (gameStore.statData._当前房间类型 as string) || '';
@@ -2806,21 +3352,20 @@ function generatePortals(): PortalChoice[] {
     }
   }
 
-  // ── Boss room probability: rooms >= 5 → (rooms - 4) * 10% ──
-  if (roomsPassed >= 5) {
-    const bossChance = (roomsPassed - 4) * 0.1;
+  // ── Boss room probability: rooms >= 8 → (rooms - 7) * 20% ──
+  if (roomsPassed >= 8) {
+    const bossChance = (roomsPassed - 7) * 0.2;
     if (Math.random() < bossChance) {
       const vis = PORTAL_ROOM_VISUALS['领主房'];
       return [{ label: '领主房', roomType: '领主房', isFloorTransition: false, ...vis }];
     }
   }
 
-  // ── Normal: 1-3 random room portals (20%/40%/40%) ──
+  // ── Normal: 1-3 weighted room portals (20%/40%/40%) ──
   const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
   if (availableRoomTypes.length === 0) return [];
-  const roll = Math.random();
-  const count = Math.min(availableRoomTypes.length, roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3);
-  const picked = shuffle(availableRoomTypes).slice(0, count);
+  const count = rollPortalCount(availableRoomTypes.length);
+  const picked = pickWeightedRoomTypes(availableRoomTypes, count);
   return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
 }
 
@@ -2880,21 +3425,32 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   const statKey = ROOM_STAT_KEY[portal.roomType];
   if (statKey) incrementKeys.push(statKey);
   const currentArea = (gameStore.statData._当前区域 as string) || '';
-  const encounterMonster = portal.roomType === '战斗房'
-    ? pickBattleMonsterByArea(currentArea)
-    : null;
+  const encounterMonster = portal.roomType === '领主房'
+    ? pickLordMonsterByArea(currentArea)
+    : portal.roomType === '战斗房'
+      ? pickBattleMonsterByArea(currentArea)
+      : null;
   const trapName = portal.roomType === '陷阱房'
     ? pickTrapByArea(currentArea)
     : null;
   const trapHpAfterDamage = portal.roomType === '陷阱房'
     ? Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5)
     : undefined;
-  const pendingStatDataFields = portal.roomType === '陷阱房'
-    ? {
+  let pendingStatDataFields: Record<string, any> | undefined;
+  if (portal.roomType === '陷阱房') {
+    pendingStatDataFields = {
       _当前事件: trapName ?? '',
       _血量: trapHpAfterDamage,
-    }
-    : undefined;
+    };
+  } else if (portal.roomType === '温泉房') {
+    const maxHp = Math.max(
+      1,
+      toNonNegativeInt(gameStore.statData._血量上限, toNonNegativeInt(gameStore.statData._血量, 1)),
+    );
+    pendingStatDataFields = {
+      _血量: maxHp,
+    };
+  }
 
   gameStore.setPendingPortalChanges({
     roomType: portal.roomType,
@@ -2903,7 +3459,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   });
   console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
 
-  const enterText = portal.roomType === '战斗房' && encounterMonster
+  const enterText = (portal.roomType === '战斗房' || portal.roomType === '领主房') && encounterMonster
     ? `进入了${portal.roomType}并遭遇了${encounterMonster}`
     : portal.roomType === '陷阱房' && trapName
       ? `进入了${portal.roomType}的房间，当前陷阱房为${trapName}`
@@ -2923,9 +3479,8 @@ function generateChestLeavePortals(): PortalChoice[] {
   const currentArea = (gameStore.statData._当前区域 as string) || '';
   const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
   if (availableRoomTypes.length === 0) return [];
-  const roll = Math.random();
-  const count = Math.min(availableRoomTypes.length, roll < 0.2 ? 1 : roll < 0.6 ? 2 : 3);
-  const picked = shuffle(availableRoomTypes).slice(0, count);
+  const count = rollPortalCount(availableRoomTypes.length);
+  const picked = pickWeightedRoomTypes(availableRoomTypes, count);
   return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
 }
 
@@ -3080,7 +3635,7 @@ const confirmCombatTestEnemyAndStart = async () => {
   showCombat.value = true;
 };
 
-const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[]) => {
+const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[], negativeEffects: string[]) => {
   const context = activeCombatContext.value;
   const enemyName = combatEnemyName.value || ((gameStore.statData._对手名称 as string) || '未知敌人');
   pendingCombatNarrative.value = {
@@ -3091,7 +3646,7 @@ const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[]
     text: buildCombatNarrative(win, enemyName, context, logs ?? []),
   };
 
-  queueCombatMvuSync(win, finalStats);
+  queueCombatMvuSync(win, finalStats, negativeEffects ?? []);
 
   showCombat.value = false;
   showVictoryRewardView.value = false;
@@ -3131,6 +3686,8 @@ onBeforeUnmount(() => {
   clearShopRobTimer();
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
+  clearHotSpringCleanseTimer();
+  clearIdolRollTimer();
 });
 </script>
 
@@ -3529,6 +4086,179 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
+.spring-cleanse-float {
+  position: absolute;
+  left: 50%;
+  bottom: 1.25rem;
+  max-width: min(90%, 860px);
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.96);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: clamp(1rem, 1.9vw, 1.35rem);
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+  z-index: 28;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.75),
+    0 0 14px rgba(255, 255, 255, 0.22);
+  animation: spring-cleanse-float-up 2.6s ease-out forwards;
+}
+
+@keyframes spring-cleanse-float-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50px);
+  }
+}
+
+.idol-layout {
+  pointer-events: none;
+}
+
+.idol-slots-row {
+  position: absolute;
+  left: 50%;
+  bottom: 28vh;
+  transform: translateX(-50%);
+  width: min(920px, calc(100vw - 48px));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.9rem, 2.8vw, 2.2rem);
+  align-items: center;
+  justify-items: center;
+  pointer-events: none;
+}
+
+.idol-slot {
+  width: clamp(4.8rem, 7.2vw, 6.9rem);
+  height: clamp(4.2rem, 6.6vw, 6.1rem);
+  clip-path: polygon(50% 0%, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow:
+    0 0 12px rgba(255, 255, 255, 0.35),
+    0 0 26px rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.idol-slot-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.52rem;
+  pointer-events: none;
+}
+
+.idol-slot.is-preview {
+  border-color: rgba(253, 224, 71, 1);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 0 20px rgba(253, 224, 71, 0.5),
+    0 0 36px rgba(253, 224, 71, 0.35);
+}
+
+.idol-slot.is-selected {
+  border-color: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 1);
+  box-shadow:
+    0 0 24px rgba(255, 255, 255, 0.55),
+    0 0 40px rgba(253, 224, 71, 0.35);
+}
+
+.idol-slot-hint {
+  position: relative;
+  color: rgba(240, 249, 255, 0.95);
+  font-size: clamp(0.95rem, 1.6vw, 1.28rem);
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 0 8px rgba(148, 163, 184, 0.35);
+  animation: idolHintFloat 3.4s ease-in-out infinite;
+  z-index: 3;
+}
+
+.idol-dice-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.idol-dice-draggable {
+  position: absolute;
+  left: 0;
+  top: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.08s linear;
+  pointer-events: auto;
+}
+
+.idol-dice-draggable:active {
+  cursor: grabbing;
+}
+
+.idol-dice-draggable.is-locked {
+  cursor: default;
+  opacity: 0.88;
+}
+
+@keyframes idolHintFloat {
+  0%,
+  100% {
+    transform: translateY(0px);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.idol-exit-btn {
+  border-radius: 9999px;
+  border: 1px solid rgba(196, 136, 255, 0.72);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.18), transparent 48%),
+    linear-gradient(120deg, rgba(44, 20, 74, 0.94), rgba(86, 38, 138, 0.9) 50%, rgba(27, 12, 48, 0.95));
+  box-shadow:
+    0 0 14px rgba(168, 85, 247, 0.45),
+    0 0 28px rgba(109, 40, 217, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.idol-exit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 18px rgba(196, 136, 255, 0.58),
+    0 0 34px rgba(147, 51, 234, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.idol-exit-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .shop-layout {
     left: 2%;
@@ -3555,6 +4285,27 @@ onBeforeUnmount(() => {
 
   .chest-portals-anchor {
     bottom: 1.1rem;
+  }
+
+  .idol-slots-row {
+    width: calc(100vw - 24px);
+    bottom: 31vh;
+    gap: 0.4rem;
+  }
+
+  .idol-slot {
+    width: 4.4rem;
+    height: 3.9rem;
+  }
+
+  .idol-slot-hint {
+    font-size: 0.72rem;
+  }
+
+  .idol-exit-btn {
+    right: 0.9rem;
+    bottom: 0.8rem;
+    padding: 0.55rem 1rem;
   }
 }
 </style>

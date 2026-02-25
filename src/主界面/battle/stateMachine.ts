@@ -400,12 +400,24 @@ export class BattleStateMachine {
   }
 
   private consumeChargeOnRoll(entity: EntityStats, rolled: number, label: string): number {
+    let next = rolled;
+
     const chargeStacks = getEffectStacks(entity, EffectType.CHARGE);
-    if (chargeStacks <= 0) return rolled;
-    removeEffect(entity, EffectType.CHARGE);
-    const boosted = Math.max(0, Math.floor(rolled + chargeStacks));
-    this.addLog(`[${label}][蓄力] +${chargeStacks}，原始骰子 ${rolled} -> ${boosted}`);
-    return boosted;
+    if (chargeStacks > 0) {
+      removeEffect(entity, EffectType.CHARGE);
+      next = Math.max(0, Math.floor(next + chargeStacks));
+      this.addLog(`[${label}][蓄力] +${chargeStacks}，原始骰子 ${rolled} -> ${next}`);
+    }
+
+    const fatigueStacks = getEffectStacks(entity, EffectType.FATIGUE);
+    if (fatigueStacks > 0) {
+      removeEffect(entity, EffectType.FATIGUE);
+      const reduced = Math.max(0, Math.floor(next - fatigueStacks));
+      this.addLog(`[${label}][疲劳] -${fatigueStacks}，骰子 ${next} -> ${reduced}`);
+      next = reduced;
+    }
+
+    return next;
   }
 
   private resolveAttackHits(

@@ -66,10 +66,15 @@ export interface CardCalculation {
 // ── 卡牌附带效果（打出时触发） ─────────────────────────────────
 
 /** 效果数值来源 */
-export type EffectValueMode = 'fixed' | 'point_scale';
+export type EffectValueMode = 'fixed' | 'point_scale' | 'max_hp_percent';
+/** 卡牌附带效果触发时机 */
+export type CardEffectTrigger = 'on_use' | 'on_dodge_success' | 'on_opponent_skip';
 
 /** 卡牌打出时附带的效果 */
 export interface CardEffect {
+  /** 触发时机（默认 on_use） */
+  triggers?: CardEffectTrigger[];
+
   /** 效果类别 */
   kind:
     | 'apply_buff'     // 为目标施加 Buff/Debuff
@@ -86,11 +91,11 @@ export interface CardEffect {
   restrictedTypes?: CardType[];
 
   // ── 数值计算 ──
-  /** 数值模式：fixed = 固定值，point_scale = FinalPoint * scale */
+  /** 数值模式：fixed = 固定值，point_scale = FinalPoint * scale，max_hp_percent = 目标最大生命值 * scale */
   valueMode: EffectValueMode;
   /** fixed 模式下的固定值 */
   fixedValue?: number;
-  /** point_scale 模式下的系数（层数/回复量 = FinalPoint * scale） */
+  /** point_scale / max_hp_percent 模式下的系数 */
   scale?: number;
 
   // ── cleanse 专用 ──
@@ -121,8 +126,30 @@ export interface CardData {
   cardEffects: CardEffect[];
   /** 描述文本 */
   description: string;
+  /** 负面效果：卡牌生效后记录到战斗后写入的 _负面状态（仅对玩家结算） */
+  negativeEffect?: string;
+  /** 法力汲取：卡牌生效后吸收对方对应数值法力并恢复自身；不足部分改为扣除对方生命 */
+  manaDrain?: number;
+  /** 无视闪避：对闪避牌时不进入闪避拼点，直接生效 */
+  ignoreDodge?: boolean;
+  /**
+   * 自伤：卡牌生效后对自己造成伤害（真实伤害或生命上限削减）
+   * - number：固定生命伤害
+   * - object：可配置固定/百分比 + 生命/生命上限
+   */
+  selfDamage?: number | CardSelfDamageConfig;
   /** 卡牌图片（可选） */
   image?: string;
+}
+
+/** 自伤配置 */
+export interface CardSelfDamageConfig {
+  /** 数值（fixed=固定值；percent=百分比数值，例如 50 表示 50%） */
+  value: number;
+  /** fixed=固定值；percent=百分比 */
+  mode?: 'fixed' | 'percent';
+  /** hp=生命值；maxHp=生命上限 */
+  target?: 'hp' | 'maxHp';
 }
 
 // ── 效果/Buff 类型枚举 ───────────────────────────────────────
@@ -149,18 +176,24 @@ export enum EffectType {
   VULNERABLE = '易伤',
   /** 生命回复 — 每回合回复生命 */
   REGEN = '生命回复',
+  /** 白浊 — 每回合开始时为对手回复生命并施加侵蚀 */
+  WHITE_TURBID = '白浊',
   /** 施加燃烧 — 每回合为双方施加一层燃烧 */
   IGNITE_AURA = '施加燃烧',
   /** 眩晕 — 无法执行任何行动 */
   STUN = '眩晕',
   /** 蓄力 — 下次骰子点数增加 */
   CHARGE = '蓄力',
+  /** 疲劳 — 下次骰子点数减少并清空层数 */
+  FATIGUE = '疲劳',
   /** 寒冷 — 降低造成的伤害，攻击后层数减半 */
   COLD = '寒冷',
   /** 非生物 — 免疫流血与中毒 */
   NON_LIVING = '非生物',
   /** 非实体 — 受到物理伤害减半，受到魔法伤害增加50%（仅直接伤害） */
   NON_ENTITY = '非实体',
+  /** 虚幻之躯 — 受到物理伤害减半（仅直接伤害） */
+  ILLUSORY_BODY = '虚幻之躯',
   /** 生命上限削减 — 立即降低最大生命值 */
   MAX_HP_REDUCTION = '生命上限削减',
   /** 点数成长（大）— 每3回合最大骰子点数+1 */
@@ -187,7 +220,7 @@ export enum EffectType {
   SILENCE = '禁言',
   /** 坚固 — 每次受击固定减伤，持续1回合（回合结束清空） */
   STURDY = '坚固',
-  /** 电击 — 每次法力减少时，损失等同层数生命并层数减半 */
+  /** 电击 — 每次法力减少时，损失等同层数生命并层数-1 */
   SHOCK = '电击',
   /** 火焰附加 — 攻击卡命中后为对手施加燃烧 */
   FLAME_ATTACH = '火焰附加',
@@ -203,6 +236,8 @@ export enum EffectType {
   BLOODBLADE_ATTACH = '血刃附加',
   /** 雷电附加 — 每次成功闪避时为对手施加电击 */
   LIGHTNING_ATTACH = '雷电附加',
+  /** 荆棘 — 反弹50%物理直接伤害 */
+  THORNS = '荆棘',
 }
 
 /** 效果极性分类 */
