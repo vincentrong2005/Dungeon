@@ -1244,13 +1244,23 @@
                   {{ victoryRewardStage === 'pick' ? '请选择 1 张奖励卡牌' : '选择要替换的卡组槽位（共9槽）' }}
                 </div>
               </div>
-              <button
-                class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50"
-                :disabled="rewardApplying"
-                @click="exitVictoryRewardFlow"
-              >
-                退出
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="canRefreshVictoryReward"
+                  class="px-4 py-2 rounded border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 disabled:opacity-50"
+                  :disabled="rewardApplying"
+                  @click="refreshVictoryRewardOptions"
+                >
+                  刷新奖励
+                </button>
+                <button
+                  class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50"
+                  :disabled="rewardApplying"
+                  @click="exitVictoryRewardFlow"
+                >
+                  退出
+                </button>
+              </div>
             </div>
 
             <template v-if="victoryRewardStage === 'pick'">
@@ -1329,6 +1339,7 @@
           :player-deck="resolvedDeck"
           :player-relics="combatRelicMap"
           :test-start-at-999="combatTestStartAt999CurrentBattle"
+          :ui-font-family="textSettings.fontFamily"
           :initial-player-stats="{
             hp: displayHp,
             maxHp: displayMaxHp,
@@ -1495,6 +1506,8 @@ const victoryRewardStage = ref<'pick' | 'replace'>('pick');
 const victoryRewardOptions = ref<CardData[]>([]);
 const selectedVictoryRewardCard = ref<CardData | null>(null);
 const rewardApplying = ref(false);
+const rewardRefreshUsed = ref(false);
+const rewardIsNormalEnemy = ref(false);
 const relicTooltip = ref<{
   x: number;
   y: number;
@@ -1602,7 +1615,9 @@ const IDOL_SNAP_DISTANCE = 112;
 const allCardsForTest = computed(() => getAllCards().filter(card => card.category !== '敌人'));
 const CATEGORY_ORDER: Record<string, number> = {
   基础: 0,
-  燃烧: 1,
+  魔导: 1,
+  燃烧: 2,
+  严寒: 3,
 };
 const compareCategory = (a: string, b: string) => {
   const orderA = CATEGORY_ORDER[a] ?? 999;
@@ -1787,8 +1802,12 @@ const getCardCategoryStripClass = (category: string) => {
   switch (category) {
     case '基础':
       return 'bg-dungeon-gold/80';
+    case '魔导':
+      return 'bg-violet-400/85';
     case '燃烧':
       return 'bg-orange-500/85';
+    case '严寒':
+      return 'bg-sky-400/85';
     default:
       return 'bg-indigo-400/80';
   }
@@ -1821,6 +1840,23 @@ const relicEntries = computed(() => {
 });
 
 type RelicEntryView = (typeof relicEntries.value)[number];
+const getOwnedRelicCountById = (id: string): number => {
+  const relic = getAllRelics().find((entry) => entry.id === id);
+  if (!relic) return 0;
+  const raw = gameStore.statData._圣遗物 ?? {};
+  const byName = Number((raw as Record<string, number>)[relic.name] ?? 0);
+  const byId = Number((raw as Record<string, number>)[id] ?? 0);
+  const safeByName = Number.isFinite(byName) ? byName : 0;
+  const safeById = Number.isFinite(byId) ? byId : 0;
+  return Math.max(0, Math.floor(Math.max(safeByName, safeById)));
+};
+const canRefreshVictoryReward = computed(() => (
+  showVictoryRewardView.value
+  && victoryRewardStage.value === 'pick'
+  && rewardIsNormalEnemy.value
+  && !rewardRefreshUsed.value
+  && getOwnedRelicCountById('base_silver_card') > 0
+));
 const chestRewardEntry = computed<RelicEntryView | null>(() => {
   const relic = chestRewardRelic.value;
   if (!relic) return null;
@@ -2433,31 +2469,58 @@ const pickUniqueRewardCard = (
   return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
 };
 
-const startVictoryRewardFlow = () => {
+const buildVictoryRewardOptions = (): CardData[] => {
   const pool = rewardCardPool.value;
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
   const isLordRoom = roomType === '领主房';
+  const isNormalEnemy = roomType === '战斗房';
+  rewardIsNormalEnemy.value = isNormalEnemy;
+
+  const hasRainbowCard = isNormalEnemy && getOwnedRelicCountById('base_rainbow_card') > 0;
+  const hasGoldenCard = isNormalEnemy && getOwnedRelicCountById('base_golden_card') > 0;
+  const optionCount = 3 + (hasRainbowCard ? 1 : 0);
+  const rareChance = isLordRoom ? 1 : (hasGoldenCard ? 0.2 : 0.1);
 
   const normalPool = pool.filter((card) => card.rarity === '普通');
   const rarePool = pool.filter((card) => card.rarity === '稀有');
   const options: CardData[] = [];
   const usedIds = new Set<string>();
 
-  for (let i = 0; i < 3; i++) {
-    const pickRare = isLordRoom || Math.random() < 0.1;
-    const targetPool = pickRare ? rarePool : normalPool;
-    const picked = pickUniqueRewardCard(targetPool, usedIds);
+  for (let i = 0; i < optionCount; i++) {
+    const pickRare = isLordRoom || Math.random() < rareChance;
+    const primaryPool = pickRare ? rarePool : normalPool;
+    let picked = pickUniqueRewardCard(primaryPool, usedIds);
+    if (!picked) {
+      picked = pickUniqueRewardCard(pool, usedIds);
+    }
     if (!picked) continue;
     options.push(picked);
     usedIds.add(picked.id);
   }
 
+  return options;
+};
+
+const startVictoryRewardFlow = () => {
+  const options = buildVictoryRewardOptions();
+
   if (options.length === 0) return false;
+  rewardRefreshUsed.value = false;
   victoryRewardOptions.value = options;
   selectedVictoryRewardCard.value = null;
   victoryRewardStage.value = 'pick';
   showVictoryRewardView.value = true;
   return true;
+};
+
+const refreshVictoryRewardOptions = () => {
+  if (!canRefreshVictoryReward.value || rewardApplying.value) return;
+  const options = buildVictoryRewardOptions();
+  if (options.length === 0) return;
+  rewardRefreshUsed.value = true;
+  victoryRewardOptions.value = options;
+  selectedVictoryRewardCard.value = null;
+  victoryRewardStage.value = 'pick';
 };
 
 const finalizeVictoryRewardFlow = () => {
@@ -2466,6 +2529,8 @@ const finalizeVictoryRewardFlow = () => {
   victoryRewardOptions.value = [];
   selectedVictoryRewardCard.value = null;
   rewardApplying.value = false;
+  rewardRefreshUsed.value = false;
+  rewardIsNormalEnemy.value = false;
   const narrative = pendingCombatNarrative.value;
   if (!narrative) return;
   if (narrative.context === 'shopRobbery') return;

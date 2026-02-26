@@ -137,6 +137,10 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   const cold = ctx.attackerEffects.find(e => e.type === EffectType.COLD)?.stacks ?? 0;
   if (cold > 0) { damage -= cold; logs.push(`[寒冷] -${cold}`); }
 
+  // 增伤加算（仅直接攻击伤害链路）
+  const damageBoost = ctx.attackerEffects.find(e => e.type === EffectType.DAMAGE_BOOST)?.stacks ?? 0;
+  if (damageBoost > 0) { damage += damageBoost; logs.push(`[增伤] +${damageBoost}`); }
+
   // 非实体：仅影响当前卡牌造成的直接物理/魔法伤害
   const defenderHasNonEntity = ctx.defenderEffects.some((e) => e.type === EffectType.NON_ENTITY && e.stacks > 0);
   // 虚幻之躯：仅影响当前卡牌造成的直接物理伤害

@@ -134,6 +134,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每次受到伤害的伤害增加等量层数',
   },
+  [EffectType.DAMAGE_BOOST]: {
+    type: EffectType.DAMAGE_BOOST,
+    name: '增伤',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '自身直接攻击造成的伤害增加等量层数',
+  },
   [EffectType.REGEN]: {
     type: EffectType.REGEN,
     name: '生命回复',
@@ -196,6 +205,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     stackable: true,
     maxStacks: 0,
     description: '降低造成的伤害数值。攻击结算后层数减半',
+  },
+  [EffectType.TEMPERATURE_DIFF]: {
+    type: EffectType.TEMPERATURE_DIFF,
+    name: '温差',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每次获得寒冷时，额外增加等同温差层数的寒冷；每次受到燃烧伤害时，额外增加等同温差层数的伤害',
   },
   [EffectType.NON_LIVING]: {
     type: EffectType.NON_LIVING,
@@ -483,6 +501,13 @@ export function applyEffect(
   const existing = findEffect(entity, type);
   let nextStacks = normalizedStacks;
 
+  if (type === EffectType.COLD) {
+    const temperatureDiffStacks = getEffectStacks(entity, EffectType.TEMPERATURE_DIFF);
+    if (temperatureDiffStacks > 0) {
+      nextStacks += temperatureDiffStacks;
+    }
+  }
+
   // 生命上限削减：施加时立即降低最大生命值（最低为0）
   if (type === EffectType.MAX_HP_REDUCTION) {
     const maxReducible = Math.max(0, entity.maxHp);
@@ -605,6 +630,11 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     if (vulnerableStacks > 0) {
       burnDamage += vulnerableStacks;
       result.logs.push(`[易伤] 燃烧伤害 +${vulnerableStacks}。`);
+    }
+    const temperatureDiffStacks = getEffectStacks(entity, EffectType.TEMPERATURE_DIFF);
+    if (temperatureDiffStacks > 0) {
+      burnDamage += temperatureDiffStacks;
+      result.logs.push(`[温差] 燃烧伤害 +${temperatureDiffStacks}。`);
     }
     result.hpChange -= burnDamage;
     result.logs.push(`[燃烧] 损失 ${burnDamage} 点生命。`);

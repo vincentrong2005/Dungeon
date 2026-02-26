@@ -1,7 +1,7 @@
 ﻿import { CardType, EffectType, type CardData, type EntityStats } from '../types';
 
 export type RelicRarity = '普通' | '稀有' | '传奇';
-export type RelicCategory = '基础' | '燃烧';
+export type RelicCategory = '基础' | '魔导' | '燃烧' | '严寒';
 
 export type RelicSide = 'player' | 'enemy';
 export type RelicFloatKind = 'shield' | 'mana' | 'heal';
@@ -343,6 +343,30 @@ const RELIC_LIST: readonly RelicData[] = [
     },
   },
   {
+    id: 'base_rainbow_card',
+    name: '彩虹卡牌',
+    rarity: '稀有',
+    category: '基础',
+    effect: '普通敌人额外掉落1张卡牌奖励',
+    description: '战胜普通敌人时，奖励卡牌选项额外+1。',
+  },
+  {
+    id: 'base_silver_card',
+    name: '银色卡牌',
+    rarity: '稀有',
+    category: '基础',
+    effect: '普通敌人卡牌奖励可刷新1次',
+    description: '战胜普通敌人后，在选卡界面可使用一次“刷新奖励”。',
+  },
+  {
+    id: 'base_golden_card',
+    name: '金色卡牌',
+    rarity: '稀有',
+    category: '基础',
+    effect: '普通敌人掉落卡牌有20%概率为稀有',
+    description: '战胜普通敌人时，每个奖励位有20%概率直接生成稀有卡牌。',
+  },
+  {
     id: 'oily_grease',
     name: '易燃油脂',
     rarity: '普通',
@@ -492,6 +516,22 @@ const RELIC_LIST: readonly RelicData[] = [
     },
   },
   {
+    id: 'burn_heat_exchange_fin',
+    name: '热交换鳍片',
+    rarity: '普通',
+    category: '燃烧',
+    effect: '每次自身燃烧减少时，获得5护甲',
+    description: '每当自身燃烧层数减少时，获得5点护甲。',
+  },
+  {
+    id: 'burn_reverse_circuit',
+    name: '逆燃回路',
+    rarity: '稀有',
+    category: '燃烧',
+    effect: '回合开始若你有燃烧，失去1生命并回1MP（每回合1次）',
+    description: '每回合开始时，若你拥有燃烧，则失去1点生命并回复1点魔力。',
+  },
+  {
     id: 'everlasting_fuel',
     name: '不灭薪柴',
     rarity: '传奇',
@@ -522,6 +562,197 @@ const RELIC_LIST: readonly RelicData[] = [
         ctx.damage = minDamage;
       },
     },
+  },
+  {
+    id: 'modao_light_shield',
+    name: '轻薄护盾',
+    rarity: '普通',
+    category: '魔导',
+    effect: '战斗开始时自身获得1层结界',
+    description: '战斗开始时，获得1层结界。',
+    hooks: {
+      onBattleStart: ({ count, side, addStatusEffect, addLog }) => {
+        if (addStatusEffect(side, EffectType.BARRIER, count, { source: 'relic:modao_light_shield' })) {
+          addLog(`[轻薄护盾] 获得 ${count} 层结界。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'modao_dagger_pendant',
+    name: '匕首吊坠',
+    rarity: '普通',
+    category: '魔导',
+    effect: '战斗开始时自身获得1层增伤',
+    description: '战斗开始时，获得1层增伤。',
+    hooks: {
+      onBattleStart: ({ count, side, addStatusEffect, addLog }) => {
+        if (addStatusEffect(side, EffectType.DAMAGE_BOOST, count, { source: 'relic:modao_dagger_pendant' })) {
+          addLog(`[匕首吊坠] 获得 ${count} 层增伤。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'modao_magic_lens',
+    name: '魔法镜片',
+    rarity: '普通',
+    category: '魔导',
+    effect: '战斗开始时给予对方1层易伤',
+    description: '战斗开始时，对敌方施加1层易伤。',
+    hooks: {
+      onBattleStart: ({ count, side, addStatusEffect, addLog }) => {
+        const targetSide: RelicSide = side === 'player' ? 'enemy' : 'player';
+        if (addStatusEffect(targetSide, EffectType.VULNERABLE, count, { source: 'relic:modao_magic_lens' })) {
+          addLog(`[魔法镜片] 对敌方施加 ${count} 层易伤。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'modao_rune_capacitor',
+    name: '法纹电容',
+    rarity: '普通',
+    category: '魔导',
+    effect: '战斗开始时，魔力+1',
+    description: '战斗开始时，回复1点魔力。',
+    hooks: {
+      onBattleStart: ({ count, side, restoreMana, addLog }) => {
+        const restored = restoreMana(side, count);
+        if (restored > 0) {
+          addLog(`[法纹电容] 回复 ${restored} 点魔力。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'modao_stabilizer_pin',
+    name: '稳压回针',
+    rarity: '普通',
+    category: '魔导',
+    effect: '单次回蓝≥3时，获得1护甲（每回合至多2次）',
+    description: '当你单次回复至少3点魔力时，获得1点护甲（每回合最多触发2次）。',
+  },
+  {
+    id: 'modao_scale_ring',
+    name: '刻度环',
+    rarity: '普通',
+    category: '魔导',
+    effect: '每3回合回复1MP',
+    description: '每逢第3/6/9...回合开始时，回复1点魔力。',
+  },
+  {
+    id: 'modao_inverse_codex',
+    name: '反相法典',
+    rarity: '稀有',
+    category: '魔导',
+    effect: '回合开始若MP<=5，本回合打出魔法牌时点数+2',
+    description: '每回合开始时，若你当前MP≤5，则本回合打出魔法牌点数+2。',
+    hooks: {
+      onTurnStart: ({ count, self, state, addLog }) => {
+        const active = self.mp <= 5 && count > 0;
+        state['enabledThisTurn'] = active;
+        if (active) {
+          addLog(`[反相法典] 本回合激活：魔法牌点数 +${count * 2}。`);
+        }
+      },
+      modifyFinalPoint: ({ card, currentPoint, state, count }) => {
+        if (card.type !== CardType.MAGIC) return currentPoint;
+        if (!state['enabledThisTurn']) return currentPoint;
+        return currentPoint + (2 * count);
+      },
+    },
+  },
+  {
+    id: 'modao_arcane_host',
+    name: '魔导主机',
+    rarity: '稀有',
+    category: '魔导',
+    effect: '手牌中的第2张魔法牌魔力消耗-2（最低0）',
+    description: '按手牌从左到右计数，第2张魔法牌的魔力消耗-2（最低为0）。',
+  },
+  {
+    id: 'modao_magic_doll',
+    name: '魔法玩偶',
+    rarity: '稀有',
+    category: '魔导',
+    effect: '每回合结束时，消耗1MP造成2点伤害',
+    description: '每回合结束时，若有足够魔力则消耗1点魔力并对敌方造成2点伤害。',
+  },
+  {
+    id: 'modao_witch_hat',
+    name: '魔女的帽子',
+    rarity: '传奇',
+    category: '魔导',
+    effect: '打出魔法牌时点数x1.5；打出物理牌时点数x0.5',
+    description: '每次打出魔法牌点数乘1.5；打出物理牌点数乘0.5。',
+    hooks: {
+      modifyFinalPoint: ({ card, currentPoint, count }) => {
+        if (card.type === CardType.MAGIC) {
+          return currentPoint * (1.5 ** Math.max(1, count));
+        }
+        if (card.type === CardType.PHYSICAL) {
+          return currentPoint * (0.5 ** Math.max(1, count));
+        }
+        return currentPoint;
+      },
+    },
+  },
+  {
+    id: 'yanhan_low_temp_engraver',
+    name: '低温刻刀',
+    rarity: '普通',
+    category: '严寒',
+    effect: '打出功能牌时，敌方寒冷+1',
+    description: '每次打出功能牌后，使敌方获得1层寒冷。',
+  },
+  {
+    id: 'yanhan_reverse_phase_shell',
+    name: '反相壳层',
+    rarity: '普通',
+    category: '严寒',
+    effect: '本回合若受伤≥10，回合末对敌寒冷+2',
+    description: '若玩家本回合累计受到至少10点伤害，则回合结束时对敌方施加2层寒冷。',
+  },
+  {
+    id: 'yanhan_frost_storage_plate',
+    name: '凝霜蓄板',
+    rarity: '普通',
+    category: '严寒',
+    effect: '敌方寒冷减少时，我方护甲+1',
+    description: '每当敌方寒冷层数减少时，我方获得1点护甲。',
+  },
+  {
+    id: 'yanhan_cold_abyss_rift',
+    name: '寒渊裂隙',
+    rarity: '稀有',
+    category: '严寒',
+    effect: '敌方寒冷减少时，对敌方造成2点真实伤害',
+    description: '每当敌方寒冷层数减少时，对敌方造成2点真实伤害。',
+  },
+  {
+    id: 'yanhan_freeze_pump',
+    name: '冻结泵',
+    rarity: '普通',
+    category: '严寒',
+    effect: '每次施加寒冷时，自身获得1护甲（每回合上限2）',
+    description: '当你对敌方施加寒冷时，自身获得1点护甲（每回合最多触发2次）。',
+  },
+  {
+    id: 'yanhan_seal_circuit',
+    name: '封存回路',
+    rarity: '稀有',
+    category: '严寒',
+    effect: '回合结束护甲减半后，将损失护甲的1/3在下回合开始转为MP',
+    description: '回合结束时，按护甲减半损失值的1/3存储能量，并在下回合开始时转化为魔力。',
+  },
+  {
+    id: 'yanhan_freeze_flow_core',
+    name: '冻流泵芯',
+    rarity: '稀有',
+    category: '严寒',
+    effect: '单次获得护甲≥5时，额外回蓝+1（每回合1次）',
+    description: '当你单次获得至少5点护甲时，额外回复1点魔力（每回合最多触发1次）。',
   },
 ];
 
