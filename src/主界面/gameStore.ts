@@ -102,6 +102,180 @@ export const useGameStore = defineStore('game', () => {
     pendingStatDataChanges.value = fields ? { fields: _.cloneDeep(fields) } : null;
   }
 
+  function mergePendingStatDataChanges(fields: Record<string, any> | null) {
+    if (!fields || typeof fields !== 'object') return;
+    const base = pendingStatDataChanges.value?.fields ?? {};
+    pendingStatDataChanges.value = {
+      fields: {
+        ..._.cloneDeep(base),
+        ..._.cloneDeep(fields),
+      },
+    };
+  }
+
+  const AUTO_SUMMARY_ENTRY_NAME = '自动总结条目';
+  const AUTO_SUMMARY_ENTRY_UID = 0;
+const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
+  const AUTO_VISIBLE_MESSAGE_WINDOW = 15;
+
+  interface ChronicleEntry {
+    index: number;
+    summary: string;
+  }
+
+  const normalizeSummaryText = (text: string): string => (
+    text
+      .replace(/\r?\n+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+
+  const parseChronicleContent = (content: string): ChronicleEntry[] => {
+    const map = new Map<number, string>();
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const match = /^\[编号\s*(\d+)\]\s*(.+)$/u.exec(trimmed);
+      if (!match) continue;
+      const index = Number(match[1]);
+      const summary = normalizeSummaryText(match[2] ?? '');
+      if (!Number.isFinite(index) || index < 0 || !summary) continue;
+      if (!map.has(index)) {
+        map.set(index, summary);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([index, summary]) => ({ index, summary }))
+      .sort((a, b) => b.index - a.index);
+  };
+
+  const formatChronicleContent = (entries: ChronicleEntry[]): string => {
+    if (entries.length === 0) return AUTO_SUMMARY_TITLE;
+    const lines = entries
+      .sort((a, b) => b.index - a.index)
+      .map((entry) => `[编号 ${entry.index}] ${entry.summary}`);
+    return `${AUTO_SUMMARY_TITLE}\n${lines.join('\n')}`;
+  };
+
+  const upsertChronicleEntry = (entries: ChronicleEntry[], index: number, summary: string): ChronicleEntry[] => {
+    const map = new Map<number, string>();
+    for (const entry of entries) {
+      if (!map.has(entry.index)) {
+        map.set(entry.index, entry.summary);
+      }
+    }
+    if (map.has(index)) {
+      map.set(index, summary);
+      for (const key of Array.from(map.keys())) {
+        if (key > index) {
+          map.delete(key);
+        }
+      }
+    } else {
+      map.set(index, summary);
+    }
+    return Array.from(map.entries())
+      .map(([idx, sum]) => ({ index: idx, summary: sum }))
+      .sort((a, b) => b.index - a.index);
+  };
+
+  const getBoundWorldbookNames = (): string[] => {
+    const names = new Set<string>();
+    try {
+      const charWorldbooks = getCharWorldbookNames('current');
+      if (charWorldbooks.primary) {
+        names.add(charWorldbooks.primary);
+      }
+      for (const name of charWorldbooks.additional ?? []) {
+        if (name) names.add(name);
+      }
+    } catch {
+      // noop
+    }
+    try {
+      const chatWorldbook = getChatWorldbookName('current');
+      if (chatWorldbook) {
+        names.add(chatWorldbook);
+      }
+    } catch {
+      // noop
+    }
+    return Array.from(names);
+  };
+
+  const resolveAutoSummaryEntryTarget = async (): Promise<{ worldbookName: string; uid: number } | null> => {
+    const worldbookNames = getBoundWorldbookNames();
+    for (const worldbookName of worldbookNames) {
+      try {
+        const worldbook = await getWorldbook(worldbookName);
+        const entry = worldbook.find((item) => item.name?.trim() === AUTO_SUMMARY_ENTRY_NAME)
+          ?? worldbook.find((item) => item.uid === AUTO_SUMMARY_ENTRY_UID);
+        if (entry) {
+          return { worldbookName, uid: entry.uid };
+        }
+      } catch {
+        // noop
+      }
+    }
+    return null;
+  };
+
+  const updateAutoSummaryChronicle = async (assistantMessageId: number, summaryText: string) => {
+    const normalizedSummary = normalizeSummaryText(summaryText);
+    if (!normalizedSummary) return;
+
+    const target = await resolveAutoSummaryEntryTarget();
+    if (!target) return;
+
+    const chronicleIndex = Math.floor(assistantMessageId / 2);
+    if (!Number.isFinite(chronicleIndex) || chronicleIndex < 0) return;
+
+    try {
+      await updateWorldbookWith(
+        target.worldbookName,
+        (worldbook) => {
+          return worldbook.map((entry) => {
+            if (entry.uid !== target.uid) return entry;
+            const parsedEntries = parseChronicleContent(entry.content ?? '');
+            const nextEntries = upsertChronicleEntry(parsedEntries, chronicleIndex, normalizedSummary);
+            return {
+              ...entry,
+              content: formatChronicleContent(nextEntries),
+            };
+          });
+        },
+        { render: 'debounced' },
+      );
+    } catch (err) {
+      console.warn('[GameStore] updateAutoSummaryChronicle failed:', err);
+    }
+  };
+
+  const ensureLatestMessageWindow = async (maxVisible: number = AUTO_VISIBLE_MESSAGE_WINDOW) => {
+    try {
+      const lastId = getLastMessageId();
+      if (lastId < 0) return;
+      const visibleWindow = Math.max(1, Math.floor(maxVisible));
+      const firstVisibleMessageId = Math.max(0, lastId - visibleWindow + 1);
+      const messages = getChatMessages(`0-${lastId}`, { hide_state: 'all' });
+      const updates: Array<{ message_id: number; is_hidden: boolean }> = [];
+
+      for (const message of messages) {
+        const shouldHide = message.message_id < firstVisibleMessageId;
+        if (Boolean(message.is_hidden) === shouldHide) continue;
+        updates.push({
+          message_id: message.message_id,
+          is_hidden: shouldHide,
+        });
+      }
+
+      if (updates.length === 0) return;
+      await setChatMessages(updates, { refresh: 'none' });
+    } catch (err) {
+      console.warn('[GameStore] ensureLatestMessageWindow failed:', err);
+    }
+  };
+
   function setUseStreaming(enabled: boolean) {
     const nextEnabled = Boolean(enabled);
     useStreaming.value = nextEnabled;
@@ -231,6 +405,7 @@ export const useGameStore = defineStore('game', () => {
       if (lastId >= 0) {
         loadLatestAssistantState();
         loadStatData();
+        await ensureLatestMessageWindow();
       }
 
       isInitialized.value = true;
@@ -368,7 +543,9 @@ export const useGameStore = defineStore('game', () => {
 
       // 10. 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
-
+      const newAssistantMessageId = getLastMessageId();
+      await updateAutoSummaryChronicle(newAssistantMessageId, parsed.summary);
+      await ensureLatestMessageWindow();
       console.info('[GameStore] Action completed successfully');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -471,6 +648,7 @@ export const useGameStore = defineStore('game', () => {
       }
 
       // 关闭读档面板
+      await ensureLatestMessageWindow();
       isSaveLoadOpen.value = false;
 
       toastr.success('回档成功！');
@@ -544,6 +722,9 @@ export const useGameStore = defineStore('game', () => {
       refreshLocalStatData(newMvuData);
 
       toastr.success('重新生成完成！');
+      const newAssistantMessageId = getLastMessageId();
+      await updateAutoSummaryChronicle(newAssistantMessageId, parsed.summary);
+      await ensureLatestMessageWindow();
       console.info('[GameStore] Reroll completed');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -695,6 +876,7 @@ export const useGameStore = defineStore('game', () => {
     setPendingPortalChanges,
     setPendingCombatMvuChanges,
     setPendingStatDataChanges,
+    mergePendingStatDataChanges,
     loadStatData,
     loadSaveEntries,
     rollbackTo,

@@ -31,6 +31,7 @@
         :label="canEditMagicBooks ? '魔法书' : '魔法书（锁定）'"
         tooltip-side="right"
         :active="canEditMagicBooks && activeModal === 'magicBooks'"
+        :highlight="canEditMagicBooks"
         :disabled="!canEditMagicBooks"
         @click="openMagicBookModal"
       />
@@ -127,7 +128,7 @@
               }"
             >
               <!-- Streaming text (during generation) -->
-              <p v-if="isStreamingEnabled && gameStore.isGenerating && gameStore.streamingText" class="whitespace-pre-wrap text-dungeon-paper/60">
+              <p v-if="isStreamingEnabled && gameStore.isGenerating && gameStore.streamingText" class="whitespace-pre-wrap text-dungeon-paper/85">
                 {{ gameStore.streamingText }}
               </p>
               <!-- Final main text -->
@@ -1072,7 +1073,14 @@
 
     <!-- Treasure Chest Overlay -->
     <Transition name="combat-fade">
-      <div v-if="showChestView" class="absolute inset-0 z-[95] bg-black">
+      <div
+        v-if="showChestView"
+        class="absolute inset-0 z-[95] bg-black"
+        @contextmenu.prevent="handleChestContextMenu"
+        @touchstart.passive="handleChestTouchStart"
+        @touchend="handleChestTouchEnd"
+        @touchcancel="handleChestTouchEnd"
+      >
         <img
           :src="chestBackgroundUrl"
           class="absolute inset-0 h-full w-full object-cover"
@@ -1084,19 +1092,24 @@
           v-if="chestStage === 'opened'"
           class="pointer-events-none absolute inset-0"
         >
-          <div class="chest-reward-anchor">
+          <div
+            v-if="chestRewardVisible && chestRewardRelics.length > 0"
+            class="chest-reward-anchor"
+            :class="{ 'is-multi': chestRewardRelics.length > 1 }"
+          >
             <button
-              v-if="chestRewardRelic && chestRewardVisible"
+              v-for="(relic, i) in chestRewardRelics"
+              :key="`chest-reward-${relic.id}-${i}`"
               type="button"
               class="pointer-events-auto chest-reward-btn"
-              :class="{ 'is-collected': chestRewardCollected }"
-              :disabled="chestCollecting || chestRewardCollected"
-              @click="collectChestReward"
-              @mouseenter="showChestRewardTooltip"
+              :class="{ 'is-collected': chestRewardCollectedFlags[i] }"
+              :disabled="chestCollecting || chestRewardCollectedFlags[i]"
+              @click="collectChestReward(i)"
+              @mouseenter="showChestRewardTooltip($event, i)"
               @mouseleave="hideRelicTooltip"
-              @focus="showChestRewardTooltip"
+              @focus="showChestRewardTooltip($event, i)"
               @blur="hideRelicTooltip"
-              @touchstart.passive="handleChestRewardTouchStart"
+              @touchstart.passive="handleChestRewardTouchStart($event, i)"
               @touchend="handleRelicTouchEnd"
               @touchcancel="handleRelicTouchEnd"
             >
@@ -1384,7 +1397,7 @@ import {
 } from 'lucide-vue-next';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
-import { getAllRelics, getRelicByName, type RelicData } from '../battle/relicRegistry';
+import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
 import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
 import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
@@ -1407,6 +1420,7 @@ const SidebarIcon = defineComponent({
     label: { type: String, default: '' },
     tooltipSide: { type: String, default: 'right' },
     disabled: { type: Boolean, default: false },
+    highlight: { type: Boolean, default: false },
   },
   emits: ['click'],
   setup(props, { emit }) {
@@ -1420,8 +1434,12 @@ const SidebarIcon = defineComponent({
             props.disabled
               ? 'bg-[#120d0a] text-dungeon-paper/35 border-dungeon-brown/70'
               : props.active
-              ? 'bg-dungeon-gold text-black border-dungeon-paper shadow-[0_0_15px_#d4af37]'
-              : 'bg-[#1a0f08] text-dungeon-gold-dim border-dungeon-brown hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50',
+              ? (props.highlight
+                ? 'bg-dungeon-gold text-black border-dungeon-gold shadow-[0_0_20px_rgba(212,175,55,0.85)]'
+                : 'bg-dungeon-gold text-black border-dungeon-paper shadow-[0_0_15px_#d4af37]')
+              : (props.highlight
+                ? 'bg-[#1a0f08] text-dungeon-gold border-dungeon-gold/75 shadow-[0_0_11px_rgba(212,175,55,0.45)] hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold'
+                : 'bg-[#1a0f08] text-dungeon-gold-dim border-dungeon-brown hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50'),
           ],
           onClick: () => {
             if (!props.disabled) {
@@ -1466,12 +1484,15 @@ const shopRobbing = ref(false);
 const showChestView = ref(false);
 const chestStage = ref<'closed' | 'opened' | 'mimic'>('closed');
 const chestRolling = ref(false);
-const chestRewardRelic = ref<RelicData | null>(null);
-const chestRewardCollected = ref(false);
+const chestRewardRelics = ref<RelicData[]>([]);
+const chestRewardCollectedFlags = ref<boolean[]>([]);
 const chestCollecting = ref(false);
 const chestRewardVisible = ref(false);
 const chestOpenedBgReady = ref(false);
 const chestPortalChoices = ref<PortalChoice[]>([]);
+const chestRewardCountFixed = ref<number | null>(null);
+const chestCloseCount = ref(0);
+const chestForceMimicNextOpen = ref(false);
 const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
 const idolDiceValue = ref(1);
 const idolDiceRolling = ref(false);
@@ -1522,6 +1543,7 @@ const combatTestStartAt999 = ref(false);
 const combatTestStartAt999CurrentBattle = ref(false);
 let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
+let chestCloseLongPressTimer: ReturnType<typeof setTimeout> | null = null;
 let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
 let hotSpringCleanseTimer: ReturnType<typeof setTimeout> | null = null;
 let idolRollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1551,6 +1573,64 @@ interface IdolSnapCandidate {
   snapX: number;
   snapY: number;
 }
+
+interface PersistedShopProduct {
+  key: string;
+  relicId: string;
+  basePrice: number;
+  finalPrice: number;
+  sold: boolean;
+}
+
+interface PersistedChestState {
+  stage: 'closed' | 'opened' | 'mimic';
+  rolling: boolean;
+  rewardRelicIds: string[];
+  rewardCollectedFlags: boolean[];
+  collecting: boolean;
+  rewardVisible: boolean;
+  openedBgReady: boolean;
+  portalChoices: PortalChoice[];
+  rewardCountFixed: number | null;
+  closeCount: number;
+  forceMimicNextOpen: boolean;
+}
+
+interface PersistedShopState {
+  products: PersistedShopProduct[];
+  spentGold: number;
+  purchasedItems: Array<{ name: string; rarity: string; price: number }>;
+  robClickCount: number;
+  robbing: boolean;
+}
+
+interface PersistedIdolState {
+  diceValue: number;
+  diceRolling: boolean;
+  assignedTarget: IdolBlessingTarget | null;
+  snapPreviewTarget: IdolBlessingTarget | null;
+  dicePosition: { x: number; y: number };
+}
+
+interface PersistedVictoryState {
+  stage: 'pick' | 'replace';
+  optionCardIds: string[];
+  selectedCardId: string | null;
+  refreshUsed: boolean;
+  isNormalEnemy: boolean;
+}
+
+interface PersistedOverlaySnapshot {
+  version: 1;
+  active: 'none' | 'shop' | 'chest' | 'idol' | 'victoryReward';
+  shop?: PersistedShopState;
+  chest?: PersistedChestState;
+  idol?: PersistedIdolState;
+  victory?: PersistedVictoryState;
+}
+
+const OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v1';
+const isRestoringOverlayState = ref(false);
 
 // --- Dynamic Background ---
 const bgIsLordFallback = ref(false);
@@ -1613,6 +1693,20 @@ const IDOL_BLESSING_CONFIG: Record<IdolBlessingTarget, IdolBlessingConfig> = {
 const IDOL_SNAP_DISTANCE = 112;
 
 const allCardsForTest = computed(() => getAllCards().filter(card => card.category !== '敌人'));
+const cardByIdMap = computed(() => {
+  const map = new Map<string, CardData>();
+  for (const card of getAllCards()) {
+    map.set(card.id, card);
+  }
+  return map;
+});
+const relicByIdMap = computed(() => {
+  const map = new Map<string, RelicData>();
+  for (const relic of getAllRelics()) {
+    map.set(relic.id, relic);
+  }
+  return map;
+});
 const CATEGORY_ORDER: Record<string, number> = {
   基础: 0,
   魔导: 1,
@@ -1857,18 +1951,16 @@ const canRefreshVictoryReward = computed(() => (
   && !rewardRefreshUsed.value
   && getOwnedRelicCountById('base_silver_card') > 0
 ));
-const chestRewardEntry = computed<RelicEntryView | null>(() => {
-  const relic = chestRewardRelic.value;
-  if (!relic) return null;
-  return {
+const chestRewardEntries = computed<RelicEntryView[]>(() => (
+  chestRewardRelics.value.map((relic) => ({
     name: relic.name,
     count: 1,
     rarity: relic.rarity,
     category: relic.category,
     effect: relic.effect,
     description: relic.description ?? relic.effect ?? '',
-  };
-});
+  }))
+));
 
 const clearRelicTooltipTimers = () => {
   if (relicTooltipLongPressTimer) {
@@ -1931,14 +2023,16 @@ const handleRelicTouchEnd = () => {
   }
 };
 
-const showChestRewardTooltip = (event: MouseEvent | FocusEvent) => {
-  if (!chestRewardEntry.value) return;
-  showRelicTooltip(event, chestRewardEntry.value);
+const showChestRewardTooltip = (event: MouseEvent | FocusEvent, index: number) => {
+  const entry = chestRewardEntries.value[index];
+  if (!entry) return;
+  showRelicTooltip(event, entry);
 };
 
-const handleChestRewardTouchStart = (event: TouchEvent) => {
-  if (!chestRewardEntry.value) return;
-  handleRelicTouchStart(event, chestRewardEntry.value);
+const handleChestRewardTouchStart = (event: TouchEvent, index: number) => {
+  const entry = chestRewardEntries.value[index];
+  if (!entry) return;
+  handleRelicTouchStart(event, entry);
 };
 
 const combatRelicMap = computed<Record<string, number>>(() => {
@@ -2547,7 +2641,7 @@ const pickVictoryRewardCard = (card: CardData) => {
   victoryRewardStage.value = 'replace';
 };
 
-const replaceDeckCardWithReward = async (idx: number) => {
+const replaceDeckCardWithReward = (idx: number) => {
   if (!selectedVictoryRewardCard.value || rewardApplying.value) return;
   const raw = Array.isArray(gameStore.statData._技能)
     ? [...(gameStore.statData._技能 as string[])].slice(0, 9)
@@ -2560,9 +2654,7 @@ const replaceDeckCardWithReward = async (idx: number) => {
     return;
   }
   rewardApplying.value = true;
-  const ok = await gameStore.updateStatDataFields({ _技能: raw });
-  rewardApplying.value = false;
-  if (!ok) return;
+  gameStore.mergePendingStatDataChanges({ _技能: raw });
   finalizeVictoryRewardFlow();
 };
 
@@ -2655,8 +2747,11 @@ const closeShopView = () => {
   showShopView.value = false;
 };
 
-const buildNextRelicInventory = (pickedRelic: RelicData): Record<string, number> => {
-  const rawRelics = gameStore.statData._圣遗物 ?? {};
+const buildNextRelicInventory = (
+  pickedRelic: RelicData,
+  baseInventory?: Record<string, number>,
+): Record<string, number> => {
+  const rawRelics = baseInventory ?? (gameStore.statData._圣遗物 ?? {});
   const nextRelics: Record<string, number> = {};
   for (const [name, value] of Object.entries(rawRelics as Record<string, number>)) {
     const count = Math.max(0, Math.floor(Number(value ?? 0)));
@@ -2757,6 +2852,12 @@ const clearChestRewardFadeTimer = () => {
   chestRewardFadeTimer = null;
 };
 
+const clearChestCloseLongPressTimer = () => {
+  if (!chestCloseLongPressTimer) return;
+  clearTimeout(chestCloseLongPressTimer);
+  chestCloseLongPressTimer = null;
+};
+
 const clearHotSpringCleanseTimer = () => {
   if (!hotSpringCleanseTimer) return;
   clearTimeout(hotSpringCleanseTimer);
@@ -2786,6 +2887,7 @@ onUnmounted(() => {
   clearShopRobTimer();
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
+  clearChestCloseLongPressTimer();
   clearHotSpringCleanseTimer();
   clearIdolRollTimer();
 });
@@ -2795,7 +2897,8 @@ const handleChestBgLoaded = () => {
   if (chestStage.value !== 'opened') return;
   if (chestBackgroundUrl.value !== CHEST_BG_OPENED) return;
   chestOpenedBgReady.value = true;
-  if (chestRewardRelic.value && !chestRewardCollected.value) {
+  const hasUncollectedReward = chestRewardRelics.value.some((_, idx) => !chestRewardCollectedFlags.value[idx]);
+  if (hasUncollectedReward) {
     chestRewardVisible.value = true;
   }
 };
@@ -2803,20 +2906,25 @@ const handleChestBgLoaded = () => {
 const openChestView = () => {
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
+  clearChestCloseLongPressTimer();
   chestStage.value = 'closed';
   chestRolling.value = false;
-  chestRewardRelic.value = null;
-  chestRewardCollected.value = false;
+  chestRewardRelics.value = [];
+  chestRewardCollectedFlags.value = [];
   chestCollecting.value = false;
   chestRewardVisible.value = false;
   chestOpenedBgReady.value = false;
   chestPortalChoices.value = [];
+  chestRewardCountFixed.value = null;
+  chestCloseCount.value = 0;
+  chestForceMimicNextOpen.value = false;
   showChestView.value = true;
 };
 
 const closeChestView = () => {
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
+  clearChestCloseLongPressTimer();
   hideRelicTooltip();
   showChestView.value = false;
   chestRolling.value = false;
@@ -3000,25 +3108,108 @@ const exitIdolView = () => {
   gameStore.sendAction(`<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}。`);
 };
 
-const pickChestRewardRelic = (): RelicData | null => {
-  const candidatePool = [...selectableRelicPool.value];
-  if (candidatePool.length === 0) return null;
-
+const rollChestRewardRarity = (): RelicData['rarity'] => {
   const rarityRoll = Math.random();
-  const targetRarity = rarityRoll < 0.6 ? '普通' : rarityRoll < 0.9 ? '稀有' : '传奇';
-  let rarityPool = candidatePool.filter((relic) => relic.rarity === targetRarity);
-  if (rarityPool.length === 0) {
-    rarityPool = candidatePool;
-  }
-  return pickOne(rarityPool);
+  if (rarityRoll < 0.6) return '普通';
+  if (rarityRoll < 0.9) return '稀有';
+  return '传奇';
 };
 
-const collectChestReward = () => {
-  if (!chestRewardRelic.value || chestRewardCollected.value || chestCollecting.value) return;
-  chestCollecting.value = true;
-  // 这里只记录“已领取”，不改当前楼层 MVU；实际写入延迟到点击传送门时排队到下一层 user 楼层
-  chestRewardCollected.value = true;
+const rollChestRewardCount = (): number => (Math.random() < 0.8 ? 1 : 2);
+
+const pickChestRewardRelics = (count: number): RelicData[] => {
+  const candidatePool = [...selectableRelicPool.value];
+  if (candidatePool.length === 0 || count <= 0) return [];
+
+  const picked: RelicData[] = [];
+  const usedIds = new Set<string>();
+
+  for (let i = 0; i < count; i += 1) {
+    const targetRarity = rollChestRewardRarity();
+    let candidates = candidatePool.filter((relic) => relic.rarity === targetRarity && !usedIds.has(relic.id));
+    if (candidates.length === 0) {
+      candidates = candidatePool.filter((relic) => !usedIds.has(relic.id));
+    }
+    if (candidates.length === 0) {
+      candidates = candidatePool.filter((relic) => relic.rarity === targetRarity);
+    }
+    if (candidates.length === 0) {
+      candidates = candidatePool;
+    }
+    const relic = pickOne(candidates);
+    if (!relic) break;
+    usedIds.add(relic.id);
+    picked.push(relic);
+  }
+
+  return picked;
+};
+
+const queueChestMimicCombatTransition = () => {
+  clearChestMimicTimer();
+  chestMimicTimer = setTimeout(() => {
+    showChestView.value = false;
+    chestRolling.value = false;
+    chestRewardVisible.value = false;
+    combatEnemyName.value = '宝箱怪';
+    activeCombatContext.value = 'chestMimic';
+    showCombat.value = true;
+    chestMimicTimer = null;
+  }, 1000);
+};
+
+const closeOpenedChestForRefresh = () => {
+  if (chestStage.value !== 'opened' || chestRolling.value || chestCollecting.value) return;
+  const hasCollectedAnyReward = chestRewardCollectedFlags.value.some((flag) => flag);
+  if (hasCollectedAnyReward) {
+    toastr.info('已领取过圣遗物，当前宝箱不能关闭刷新。');
+    return;
+  }
+  chestCloseCount.value += 1;
+  if (chestCloseCount.value >= 2) {
+    chestForceMimicNextOpen.value = true;
+  }
+  clearChestRewardFadeTimer();
+  hideRelicTooltip();
+  chestStage.value = 'closed';
+  chestRolling.value = false;
   chestCollecting.value = false;
+  chestRewardVisible.value = false;
+  chestOpenedBgReady.value = false;
+  chestRewardRelics.value = [];
+  chestRewardCollectedFlags.value = [];
+  chestPortalChoices.value = [];
+};
+
+const handleChestContextMenu = () => {
+  closeOpenedChestForRefresh();
+};
+
+const handleChestTouchStart = () => {
+  if (chestStage.value !== 'opened') return;
+  clearChestCloseLongPressTimer();
+  chestCloseLongPressTimer = setTimeout(() => {
+    closeOpenedChestForRefresh();
+    chestCloseLongPressTimer = null;
+  }, 2000);
+};
+
+const handleChestTouchEnd = () => {
+  clearChestCloseLongPressTimer();
+};
+
+const collectChestReward = (index: number) => {
+  if (chestCollecting.value) return;
+  if (index < 0 || index >= chestRewardRelics.value.length) return;
+  if (chestRewardCollectedFlags.value[index]) return;
+  chestCollecting.value = true;
+  chestRewardCollectedFlags.value[index] = true;
+  chestCollecting.value = false;
+
+  const allCollected = chestRewardCollectedFlags.value.length > 0
+    && chestRewardCollectedFlags.value.every((flag) => flag);
+  if (!allCollected) return;
+
   clearChestRewardFadeTimer();
   chestRewardFadeTimer = setTimeout(() => {
     chestRewardVisible.value = false;
@@ -3030,19 +3221,23 @@ const collectChestReward = () => {
 const handleChestCenterClick = async () => {
   if (chestRolling.value || chestStage.value !== 'closed') return;
   chestRolling.value = true;
-  const openSuccess = Math.random() < 0.9;
+
+  const forcedMimic = chestForceMimicNextOpen.value;
+  const openSuccess = !forcedMimic && Math.random() < 0.9;
 
   if (openSuccess) {
     chestStage.value = 'opened';
     chestOpenedBgReady.value = false;
     chestRewardVisible.value = false;
-    const reward = pickChestRewardRelic();
-    if (!reward) {
+    const rewardCount = chestRewardCountFixed.value ?? rollChestRewardCount();
+    chestRewardCountFixed.value = rewardCount;
+    const rewards = pickChestRewardRelics(rewardCount);
+    if (rewards.length === 0) {
       chestRolling.value = false;
       return;
     }
-    chestRewardRelic.value = reward;
-    chestRewardCollected.value = false;
+    chestRewardRelics.value = rewards;
+    chestRewardCollectedFlags.value = rewards.map(() => false);
     chestCollecting.value = false;
     chestPortalChoices.value = generateChestLeavePortals();
     if (chestOpenedBgReady.value) {
@@ -3052,16 +3247,13 @@ const handleChestCenterClick = async () => {
     return;
   }
 
+  chestForceMimicNextOpen.value = false;
   chestStage.value = 'mimic';
+  chestCollecting.value = false;
+  chestRewardVisible.value = false;
+  chestPortalChoices.value = [];
   await gameStore.updateStatDataFields({ _对手名称: '宝箱怪' });
-  clearChestMimicTimer();
-  chestMimicTimer = setTimeout(() => {
-    showChestView.value = false;
-    combatEnemyName.value = '宝箱怪';
-    activeCombatContext.value = 'chestMimic';
-    showCombat.value = true;
-    chestMimicTimer = null;
-  }, 1000);
+  queueChestMimicCombatTransition();
 };
 
 const startCombatFromSpecialOption = async () => {
@@ -3107,6 +3299,277 @@ const handleSpecialOption = async () => {
   }
   toastr.info('功能开发中...');
 };
+
+const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
+  if (showChestView.value) {
+    return {
+      version: 1,
+      active: 'chest',
+      chest: {
+        stage: chestStage.value,
+        rolling: chestRolling.value,
+        rewardRelicIds: chestRewardRelics.value.map((relic) => relic.id),
+        rewardCollectedFlags: chestRewardRelics.value.map((_, idx) => Boolean(chestRewardCollectedFlags.value[idx])),
+        collecting: chestCollecting.value,
+        rewardVisible: chestRewardVisible.value,
+        openedBgReady: chestOpenedBgReady.value,
+        portalChoices: chestPortalChoices.value.map((portal) => ({ ...portal })),
+        rewardCountFixed: chestRewardCountFixed.value,
+        closeCount: chestCloseCount.value,
+        forceMimicNextOpen: chestForceMimicNextOpen.value,
+      },
+    };
+  }
+  if (showShopView.value) {
+    return {
+      version: 1,
+      active: 'shop',
+      shop: {
+        products: shopProducts.value.map((item) => ({
+          key: item.key,
+          relicId: item.relic.id,
+          basePrice: item.basePrice,
+          finalPrice: item.finalPrice,
+          sold: item.sold,
+        })),
+        spentGold: shopSpentGold.value,
+        purchasedItems: shopPurchasedItems.value.map((item) => ({ ...item })),
+        robClickCount: shopRobClickCount.value,
+        robbing: shopRobbing.value,
+      },
+    };
+  }
+  if (showIdolView.value) {
+    return {
+      version: 1,
+      active: 'idol',
+      idol: {
+        diceValue: idolDiceValue.value,
+        diceRolling: idolDiceRolling.value,
+        assignedTarget: idolAssignedTarget.value,
+        snapPreviewTarget: idolSnapPreviewTarget.value,
+        dicePosition: { ...idolDicePosition.value },
+      },
+    };
+  }
+  if (showVictoryRewardView.value) {
+    return {
+      version: 1,
+      active: 'victoryReward',
+      victory: {
+        stage: victoryRewardStage.value,
+        optionCardIds: victoryRewardOptions.value.map((card) => card.id),
+        selectedCardId: selectedVictoryRewardCard.value?.id ?? null,
+        refreshUsed: rewardRefreshUsed.value,
+        isNormalEnemy: rewardIsNormalEnemy.value,
+      },
+    };
+  }
+  return null;
+};
+
+const persistOverlaySnapshot = () => {
+  if (isRestoringOverlayState.value) return;
+  const snapshot = buildOverlaySnapshot();
+  if (!snapshot) {
+    localStorage.removeItem(OVERLAY_STATE_KEY);
+    return;
+  }
+  try {
+    localStorage.setItem(OVERLAY_STATE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // ignore storage write failure
+  }
+};
+
+const resolvePersistedPortalChoices = (choices: unknown): PortalChoice[] => {
+  if (!Array.isArray(choices)) return [];
+  const resolved: PortalChoice[] = [];
+  for (const entry of choices) {
+    if (!entry || typeof entry !== 'object') continue;
+    const portal = entry as Partial<PortalChoice>;
+    if (
+      typeof portal.label !== 'string'
+      || typeof portal.roomType !== 'string'
+      || typeof portal.icon !== 'string'
+      || typeof portal.bgColor !== 'string'
+      || typeof portal.borderColor !== 'string'
+      || typeof portal.textColor !== 'string'
+      || typeof portal.glowColor !== 'string'
+    ) {
+      continue;
+    }
+    resolved.push({
+      label: portal.label,
+      roomType: portal.roomType,
+      areaName: typeof portal.areaName === 'string' ? portal.areaName : undefined,
+      floorName: typeof portal.floorName === 'string' ? portal.floorName : undefined,
+      isFloorTransition: Boolean(portal.isFloorTransition),
+      icon: portal.icon,
+      bgColor: portal.bgColor,
+      borderColor: portal.borderColor,
+      textColor: portal.textColor,
+      glowColor: portal.glowColor,
+    });
+  }
+  return resolved;
+};
+
+const restoreOverlaySnapshot = () => {
+  const raw = localStorage.getItem(OVERLAY_STATE_KEY);
+  if (!raw) return;
+
+  let parsed: PersistedOverlaySnapshot | null = null;
+  try {
+    parsed = JSON.parse(raw) as PersistedOverlaySnapshot;
+  } catch {
+    localStorage.removeItem(OVERLAY_STATE_KEY);
+    return;
+  }
+  if (!parsed || parsed.version !== 1) {
+    localStorage.removeItem(OVERLAY_STATE_KEY);
+    return;
+  }
+
+  isRestoringOverlayState.value = true;
+  try {
+    if (parsed.active === 'chest' && parsed.chest) {
+      const relics = parsed.chest.rewardRelicIds
+        .map((id) => relicByIdMap.value.get(id) ?? getRelicById(id))
+        .filter((relic): relic is RelicData => Boolean(relic));
+      showChestView.value = true;
+      chestStage.value = parsed.chest.stage;
+      chestRolling.value = Boolean(parsed.chest.rolling);
+      chestRewardRelics.value = relics;
+      chestRewardCollectedFlags.value = relics.map((_, idx) => Boolean(parsed.chest?.rewardCollectedFlags[idx]));
+      chestCollecting.value = false;
+      chestRewardVisible.value = Boolean(parsed.chest.rewardVisible);
+      chestOpenedBgReady.value = Boolean(parsed.chest.openedBgReady);
+      chestPortalChoices.value = resolvePersistedPortalChoices(parsed.chest.portalChoices);
+      chestRewardCountFixed.value = parsed.chest.rewardCountFixed === null
+        ? null
+        : Math.max(1, Math.min(2, toNonNegativeInt(parsed.chest.rewardCountFixed, 1)));
+      chestCloseCount.value = toNonNegativeInt(parsed.chest.closeCount, 0);
+      chestForceMimicNextOpen.value = Boolean(parsed.chest.forceMimicNextOpen);
+      if (chestStage.value === 'mimic') {
+        queueChestMimicCombatTransition();
+      }
+      return;
+    }
+
+    if (parsed.active === 'shop' && parsed.shop) {
+      const products: ShopProduct[] = [];
+      for (const [idx, product] of parsed.shop.products.entries()) {
+        const relic = relicByIdMap.value.get(product.relicId) ?? getRelicById(product.relicId);
+        if (!relic) continue;
+        products.push({
+          key: product.key || `${relic.id}-${idx}`,
+          relic,
+          basePrice: Math.max(0, toNonNegativeInt(product.basePrice, 0)),
+          finalPrice: Math.max(0, toNonNegativeInt(product.finalPrice, 0)),
+          sold: Boolean(product.sold),
+        });
+      }
+      showShopView.value = true;
+      shopProducts.value = products;
+      shopSpentGold.value = Math.max(0, toNonNegativeInt(parsed.shop.spentGold, 0));
+      shopPurchasedItems.value = Array.isArray(parsed.shop.purchasedItems)
+        ? parsed.shop.purchasedItems
+          .filter((item) => item && typeof item.name === 'string')
+          .map((item) => ({
+            name: item.name,
+            rarity: typeof item.rarity === 'string' ? item.rarity : '普通',
+            price: Math.max(0, toNonNegativeInt(item.price, 0)),
+          }))
+        : [];
+      shopRobClickCount.value = Math.max(0, toNonNegativeInt(parsed.shop.robClickCount, 0));
+      shopRobbing.value = Boolean(parsed.shop.robbing);
+      shopBuying.value = false;
+      return;
+    }
+
+    if (parsed.active === 'idol' && parsed.idol) {
+      showIdolView.value = true;
+      idolDiceValue.value = clampNumber(toNonNegativeInt(parsed.idol.diceValue, idolDiceMin.value), idolDiceMin.value, idolDiceMax.value);
+      idolDiceRolling.value = false;
+      idolAssignedTarget.value = parsed.idol.assignedTarget;
+      idolSnapPreviewTarget.value = parsed.idol.snapPreviewTarget;
+      idolDicePosition.value = {
+        x: Number.isFinite(parsed.idol.dicePosition?.x) ? parsed.idol.dicePosition.x : 0,
+        y: Number.isFinite(parsed.idol.dicePosition?.y) ? parsed.idol.dicePosition.y : 0,
+      };
+      idolDragPointerId.value = null;
+      return;
+    }
+
+    if (parsed.active === 'victoryReward' && parsed.victory) {
+      const options = parsed.victory.optionCardIds
+        .map((id) => cardByIdMap.value.get(id))
+        .filter((card): card is CardData => Boolean(card));
+      if (options.length === 0) {
+        localStorage.removeItem(OVERLAY_STATE_KEY);
+        return;
+      }
+      showVictoryRewardView.value = true;
+      victoryRewardStage.value = parsed.victory.stage === 'replace' ? 'replace' : 'pick';
+      victoryRewardOptions.value = options;
+      selectedVictoryRewardCard.value = parsed.victory.selectedCardId
+        ? (cardByIdMap.value.get(parsed.victory.selectedCardId) ?? null)
+        : null;
+      rewardApplying.value = false;
+      rewardRefreshUsed.value = Boolean(parsed.victory.refreshUsed);
+      rewardIsNormalEnemy.value = Boolean(parsed.victory.isNormalEnemy);
+      return;
+    }
+
+    localStorage.removeItem(OVERLAY_STATE_KEY);
+  } finally {
+    isRestoringOverlayState.value = false;
+  }
+};
+
+watch(
+  [
+    showChestView,
+    showShopView,
+    showIdolView,
+    showVictoryRewardView,
+    chestStage,
+    chestRolling,
+    chestRewardRelics,
+    chestRewardCollectedFlags,
+    chestCollecting,
+    chestRewardVisible,
+    chestOpenedBgReady,
+    chestPortalChoices,
+    chestRewardCountFixed,
+    chestCloseCount,
+    chestForceMimicNextOpen,
+    shopProducts,
+    shopSpentGold,
+    shopPurchasedItems,
+    shopRobClickCount,
+    shopRobbing,
+    idolDiceValue,
+    idolDiceRolling,
+    idolAssignedTarget,
+    idolSnapPreviewTarget,
+    idolDicePosition,
+    victoryRewardStage,
+    victoryRewardOptions,
+    selectedVictoryRewardCard,
+    rewardRefreshUsed,
+    rewardIsNormalEnemy,
+  ],
+  () => {
+    persistOverlaySnapshot();
+  },
+  { deep: true },
+);
+
+onMounted(() => {
+  restoreOverlaySnapshot();
+});
 
 // ══════════════════════════════════════════════════════════════
 //  [Leave] Portal System — Floor/Area Logic
@@ -3559,21 +4022,24 @@ const handlePortalClick = async (portal: PortalChoice) => {
 const handleChestPortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating || chestCollecting.value || chestStage.value !== 'opened') return;
   const { actionText, enterText, pendingStatDataFields } = buildQueuedPortalAction(portal);
-  const collectedRelic = chestRewardCollected.value ? chestRewardRelic.value : null;
+  const collectedRelics = chestRewardRelics.value.filter((_, idx) => chestRewardCollectedFlags.value[idx]);
   const mergedPendingStatDataFields: Record<string, any> = {
     ...(pendingStatDataFields ?? {}),
   };
-  if (collectedRelic) {
+  if (collectedRelics.length > 0) {
     // 宝箱奖励遵循与传送门一致的“延迟写入”策略：仅在点击传送门时排队到下一层 user 楼层
-    const nextRelics = buildNextRelicInventory(collectedRelic);
+    let nextRelics: Record<string, number> = gameStore.statData._圣遗物 ?? {};
+    for (const relic of collectedRelics) {
+      nextRelics = buildNextRelicInventory(relic, nextRelics);
+    }
     mergedPendingStatDataFields._圣遗物 = nextRelics;
   }
   gameStore.setPendingStatDataChanges(Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null);
 
-  const relicName = collectedRelic?.name ?? '';
+  const relicNameText = collectedRelics.map((relic) => relic.name).join('、');
   closeChestView();
-  if (relicName) {
-    gameStore.sendAction(`<user>打开了箱子并从中获取了圣遗物${relicName}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`);
+  if (relicNameText) {
+    gameStore.sendAction(`<user>打开了箱子并从中获取了圣遗物${relicNameText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`);
     return;
   }
   gameStore.sendAction(actionText);
@@ -3751,6 +4217,7 @@ onBeforeUnmount(() => {
   clearShopRobTimer();
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
+  clearChestCloseLongPressTimer();
   clearHotSpringCleanseTimer();
   clearIdolRollTimer();
 });
@@ -3962,6 +4429,14 @@ onBeforeUnmount(() => {
   left: 51%;
   top: 56.5%;
   transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.72rem;
+}
+
+.chest-reward-anchor.is-multi {
+  gap: 1.2rem;
 }
 
 .chest-portals-anchor {

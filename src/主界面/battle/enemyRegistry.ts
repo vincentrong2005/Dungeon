@@ -269,7 +269,7 @@ const 荧光蛾: EnemyDefinition = {
     minDice: 1,
     maxDice: 4,
     effects: [
-      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
       { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
     ],
   },
