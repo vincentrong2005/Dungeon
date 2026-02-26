@@ -3667,6 +3667,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
       syncCurrentPointForUi();
       log(`<span class="text-violet-300">${label}【${card.name}】${hadIllusoryBody ? '移除了自身的虚幻之躯，' : ''}最小点数 +2，最大点数 +4（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
+      applyCardEffects();
       finalizeAndTrack();
       return;
     }

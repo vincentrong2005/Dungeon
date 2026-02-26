@@ -658,8 +658,8 @@ const 普莉姆: EnemyDefinition = {
 const 宁芙: EnemyDefinition = {
   name: '宁芙',
   stats: {
-    hp: 40,
-    maxHp: 40,
+    hp: 45,
+    maxHp: 45,
     mp: 0,
     minDice: 1,
     maxDice: 3,
@@ -695,9 +695,8 @@ const 宁芙: EnemyDefinition = {
     }
 
     const chosen = weightedRandom<string>([
-      { value: NYMPH_CARD.MISTY_SWIRL, weight: 20 },
+      { value: NYMPH_CARD.MISTY_SWIRL, weight: 50 },
       { value: NYMPH_CARD.BASIC_PHYSICAL, weight: 50 },
-      { value: NYMPH_CARD.MISCHIEF, weight: 30 },
     ]);
     return pickCardById(ctx, chosen);
   },

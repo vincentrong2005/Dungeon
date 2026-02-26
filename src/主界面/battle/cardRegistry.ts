@@ -1302,7 +1302,7 @@ const 恶作剧: CardData = {
   description: '闪避，若闪避成功或对方跳过回合，对对方施加1倍点数的电击',
 };
 
-/** 巨大化投影：移除自身的虚幻之躯，最小点数+2，最大点数+4（结算逻辑在 CombatView） */
+/** 巨大化投影：移除自身的虚幻之躯，获得1倍点数护甲，最小点数+2，最大点数+4（结算逻辑在 CombatView） */
 const 巨大化投影: CardData = {
   id: 'enemy_nymph_giant_projection',
   name: '巨大化投影',
@@ -1313,8 +1313,10 @@ const 巨大化投影: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '移除自身的“虚幻之躯”，最小点数+2，最大点数+4',
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '移除自身的“虚幻之躯”，获得1倍点数护甲，最小点数+2，最大点数+4',
 };
 
 /** 震动感知：为自身增加2倍点数护甲 */
