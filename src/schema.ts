@@ -30,7 +30,7 @@ export const Schema = z.object({
   _对手名称: z.string().prefault(''),
   _是否已击败商人: z.boolean().prefault(false),
   _友好的领主: z.array(z.string()).prefault([]),
-  _在场人物: z.array(z.string()).prefault([]),
+  在场人物: z.array(z.string()).prefault([]),
 
   // 统计数据（AI不可见）
   $统计: z.object({

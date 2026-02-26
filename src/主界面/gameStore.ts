@@ -115,7 +115,7 @@ export const useGameStore = defineStore('game', () => {
 
   const AUTO_SUMMARY_ENTRY_NAME = '自动总结条目';
   const AUTO_SUMMARY_ENTRY_UID = 0;
-const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
+  const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
   const AUTO_VISIBLE_MESSAGE_WINDOW = 15;
 
   interface ChronicleEntry {
@@ -135,7 +135,10 @@ const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
     for (const line of content.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      const match = /^\[编号\s*(\d+)\]\s*(.+)$/u.exec(trimmed);
+      if (trimmed === AUTO_SUMMARY_TITLE) continue;
+      const legacyMatch = /^\[编号\s*(\d+)\]\s*(.+)$/u.exec(trimmed);
+      const orderedMatch = /^(\d+)\.\s*(.+)$/u.exec(trimmed);
+      const match = legacyMatch ?? orderedMatch;
       if (!match) continue;
       const index = Number(match[1]);
       const summary = normalizeSummaryText(match[2] ?? '');
@@ -146,14 +149,14 @@ const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
     }
     return Array.from(map.entries())
       .map(([index, summary]) => ({ index, summary }))
-      .sort((a, b) => b.index - a.index);
+      .sort((a, b) => a.index - b.index);
   };
 
   const formatChronicleContent = (entries: ChronicleEntry[]): string => {
     if (entries.length === 0) return AUTO_SUMMARY_TITLE;
-    const lines = entries
-      .sort((a, b) => b.index - a.index)
-      .map((entry) => `[编号 ${entry.index}] ${entry.summary}`);
+    const lines = [...entries]
+      .sort((a, b) => a.index - b.index)
+      .map((entry) => `${entry.index}. ${entry.summary}`);
     return `${AUTO_SUMMARY_TITLE}\n${lines.join('\n')}`;
   };
 
@@ -176,7 +179,7 @@ const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
     }
     return Array.from(map.entries())
       .map(([idx, sum]) => ({ index: idx, summary: sum }))
-      .sort((a, b) => b.index - a.index);
+      .sort((a, b) => a.index - b.index);
   };
 
   const getBoundWorldbookNames = (): string[] => {
@@ -248,6 +251,49 @@ const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
       );
     } catch (err) {
       console.warn('[GameStore] updateAutoSummaryChronicle failed:', err);
+    }
+  };
+
+  const rebuildAutoSummaryChronicleFromMessages = async (): Promise<number> => {
+    const target = await resolveAutoSummaryEntryTarget();
+    if (!target) return 0;
+
+    const lastId = getLastMessageId();
+    const messages = lastId >= 0
+      ? getChatMessages(`0-${lastId}`, { role: 'assistant', hide_state: 'all' })
+      : [];
+
+    const map = new Map<number, string>();
+    for (const msg of messages) {
+      const summary = normalizeSummaryText(extractSummary(msg.message ?? ''));
+      if (!summary) continue;
+      const chronicleIndex = Math.floor(msg.message_id / 2);
+      if (!Number.isFinite(chronicleIndex) || chronicleIndex < 0) continue;
+      // 同编号保留最后一条，覆盖可能被回档重写的旧记录
+      map.set(chronicleIndex, summary);
+    }
+
+    const entries = Array.from(map.entries())
+      .map(([index, summary]) => ({ index, summary }))
+      .sort((a, b) => a.index - b.index);
+
+    try {
+      await updateWorldbookWith(
+        target.worldbookName,
+        (worldbook) => worldbook.map((entry) => (
+          entry.uid !== target.uid
+            ? entry
+            : {
+                ...entry,
+                content: formatChronicleContent(entries),
+              }
+        )),
+        { render: 'debounced' },
+      );
+      return entries.length;
+    } catch (err) {
+      console.warn('[GameStore] rebuildAutoSummaryChronicleFromMessages failed:', err);
+      return -1;
     }
   };
 
@@ -879,6 +925,7 @@ const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
     mergePendingStatDataChanges,
     loadStatData,
     loadSaveEntries,
+    rebuildAutoSummaryChronicleFromMessages,
     rollbackTo,
     rerollCurrent,
     startEdit,

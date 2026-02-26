@@ -36,7 +36,7 @@
       </button>
     </div>
 
-    <!-- Bottom Action Buttons: Reroll & Edit -->
+    <!-- Bottom Action Buttons -->
     <div class="mt-4 pt-4 border-t border-dungeon-gold/15">
       <div class="flex gap-3">
         <button
@@ -63,6 +63,19 @@
           <span class="font-ui text-sm tracking-wide">编辑</span>
         </button>
       </div>
+      <button
+        class="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border transition-all duration-300
+               bg-dungeon-dark/60 border-dungeon-brown/50 text-dungeon-paper/70
+               hover:bg-dungeon-brown/30 hover:border-dungeon-gold/40 hover:text-dungeon-gold
+               disabled:opacity-30 disabled:cursor-not-allowed"
+        :disabled="gameStore.isGenerating || isManualSummaryRunning"
+        @click="handleManualSummary"
+      >
+        <BookOpen class="size-4" />
+        <span class="font-ui text-sm tracking-wide">
+          {{ isManualSummaryRunning ? '正在重建总结...' : '手动总结' }}
+        </span>
+      </button>
     </div>
 
     <!-- Confirm Dialog -->
@@ -114,6 +127,7 @@ const emit = defineEmits<{
 
 const gameStore = useGameStore();
 const confirmTarget = ref<number | null>(null);
+const isManualSummaryRunning = ref(false);
 
 function handleRollback(messageId: number) {
   confirmTarget.value = messageId;
@@ -136,5 +150,24 @@ function handleEdit() {
   if (gameStore.isGenerating) return;
   emit('close');
   gameStore.startEdit();
+}
+
+async function handleManualSummary() {
+  if (gameStore.isGenerating || isManualSummaryRunning.value) return;
+  isManualSummaryRunning.value = true;
+  try {
+    const writtenCount = await gameStore.rebuildAutoSummaryChronicleFromMessages();
+    if (writtenCount < 0) {
+      toastr.error('手动总结失败，请查看控制台日志。');
+      return;
+    }
+    if (writtenCount === 0) {
+      toastr.warning('未找到可重建的总结条目或自动总结条目。');
+      return;
+    }
+    toastr.success(`手动总结完成，已覆盖写入 ${writtenCount} 条。`);
+  } finally {
+    isManualSummaryRunning.value = false;
+  }
 }
 </script>

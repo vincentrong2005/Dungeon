@@ -2,27 +2,31 @@
   <Teleport to="body">
     <div
       v-if="isOpen"
-      class="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      class="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md"
       @click.self="$emit('close')"
     >
       <div
         :class="[
-          'relative w-full max-w-3xl p-1 bg-dungeon-brown rounded-lg shadow-2xl border border-dungeon-gold/40 mx-4 flex flex-col max-h-[90%]',
+          'relative mx-4 flex max-h-[90%] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-amber-300/35 bg-[#100b09]/95 shadow-[0_24px_60px_rgba(0,0,0,0.65),0_0_50px_rgba(217,119,6,0.22)]',
           panelClass,
         ]"
       >
+        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_-10%,rgba(251,191,36,0.2),transparent_45%),radial-gradient(circle_at_84%_0%,rgba(251,191,36,0.12),transparent_36%)]"></div>
+        <div class="pointer-events-none absolute inset-[1px] rounded-[15px] border border-white/6"></div>
+
         <!-- Header -->
         <div
-          class="flex items-center justify-between px-6 py-4 border-b border-dungeon-gold/20 bg-[#1a0f08] rounded-t-lg shrink-0"
+          class="relative flex shrink-0 items-center justify-between rounded-t-2xl border-b border-amber-300/25 bg-[linear-gradient(120deg,rgba(34,21,14,0.96),rgba(59,35,20,0.92)_46%,rgba(33,20,13,0.96))] px-6 py-4"
         >
-          <h2 class="text-xl font-heading text-dungeon-gold tracking-widest">{{ title }}</h2>
-          <button class="text-dungeon-gold-dim hover:text-dungeon-gold transition-colors" @click="$emit('close')">
+          <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)] opacity-40"></div>
+          <h2 class="relative text-xl font-heading tracking-[0.2em] text-amber-100 drop-shadow-[0_0_10px_rgba(251,191,36,0.35)]">{{ title }}</h2>
+          <button class="relative rounded-full border border-amber-300/30 bg-black/20 p-1 text-amber-200/80 transition-colors hover:text-amber-100" @click="$emit('close')">
             <X class="size-6" />
           </button>
         </div>
 
         <!-- Body -->
-        <div class="p-8 flex-1 overflow-y-auto custom-scrollbar text-dungeon-paper/60 bg-dungeon-brown">
+        <div class="relative flex-1 overflow-y-auto custom-scrollbar bg-[linear-gradient(160deg,rgba(20,13,9,0.92),rgba(30,19,12,0.9))] p-8 text-dungeon-paper/80">
           <slot>
             <div class="text-center py-12">
               <div class="mb-4 text-4xl opacity-20 animate-pulse">❖</div>
@@ -32,10 +36,10 @@
         </div>
 
         <!-- Ornamental Corners -->
-        <div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-dungeon-gold -mt-1 -ml-1 pointer-events-none"></div>
-        <div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-dungeon-gold -mt-1 -mr-1 pointer-events-none"></div>
-        <div class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-dungeon-gold -mb-1 -ml-1 pointer-events-none"></div>
-        <div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-dungeon-gold -mb-1 -mr-1 pointer-events-none"></div>
+        <div class="pointer-events-none absolute -left-1 -top-1 h-5 w-5 border-l-2 border-t-2 border-amber-300/75"></div>
+        <div class="pointer-events-none absolute -right-1 -top-1 h-5 w-5 border-r-2 border-t-2 border-amber-300/75"></div>
+        <div class="pointer-events-none absolute -bottom-1 -left-1 h-5 w-5 border-b-2 border-l-2 border-amber-300/75"></div>
+        <div class="pointer-events-none absolute -bottom-1 -right-1 h-5 w-5 border-b-2 border-r-2 border-amber-300/75"></div>
       </div>
     </div>
   </Teleport>

@@ -147,7 +147,7 @@
         "type": "string"
       }
     },
-    "_在场人物": {
+    "在场人物": {
       "default": [],
       "type": "array",
       "items": {

@@ -25,6 +25,7 @@
       />
       <SidebarIcon :icon="Scroll" label="卡组" tooltip-side="right" :active="activeModal === 'deck'" @click="activeModal = 'deck'" />
       <SidebarIcon :icon="Box" label="物品" tooltip-side="right" :active="activeModal === 'relics'" @click="activeModal = 'relics'" />
+      <SidebarIcon :icon="Users" label="羁绊" tooltip-side="right" :active="activeModal === 'bonds'" @click="activeModal = 'bonds'" />
       <SidebarIcon :icon="MapIcon" label="地图" tooltip-side="right" :active="activeModal === 'map'" @click="activeModal = 'map'" />
       <SidebarIcon
         :icon="magicBookSidebarIcon"
@@ -493,6 +494,55 @@
         <span class="font-heading text-dungeon-gold/30 text-2xl">MAP_RENDER_TARGET</span>
       </div>
     </DungeonModal>
+
+    <DungeonModal title="羁绊" :is-open="activeModal === 'bonds'" panel-class="max-w-4xl" @close="activeModal = null">
+      <div v-if="bondEntries.length > 0" class="bond-list custom-scrollbar max-h-[64vh] overflow-y-auto pr-1">
+        <div v-for="entry in bondEntries" :key="`bond-${entry.name}`" class="bond-row">
+          <button type="button" class="bond-portrait-frame bond-portrait-frame--clickable" @click="openBondPortraitPreview(entry)">
+            <img
+              v-if="!bondPortraitErrors[entry.name]"
+              :src="entry.portraitUrl"
+              :alt="`${entry.name} 立绘`"
+              class="bond-portrait-image"
+              loading="lazy"
+              @error="handleBondPortraitError(entry.name)"
+            />
+            <div v-else class="bond-portrait-fallback">{{ entry.name.slice(0, 1) }}</div>
+          </button>
+          <div class="bond-affection-wrap">
+            <div class="bond-affection-head">
+              <span class="bond-role-name">{{ entry.name }}</span>
+              <span
+                class="bond-affection-value"
+                :class="entry.affection >= 0 ? 'bond-affection-value--positive' : 'bond-affection-value--negative'"
+              >{{ formatBondAffection(entry.affection) }} / 1000</span>
+            </div>
+            <div class="bond-affection-track">
+              <div
+                class="bond-affection-fill"
+                :class="entry.affection >= 0 ? 'bond-affection-fill--positive' : 'bond-affection-fill--negative'"
+                :style="{ width: `${Math.round(entry.affectionAbsRatio * 100)}%` }"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="flex flex-col items-center justify-center gap-3 py-12">
+        <Users class="size-12 text-dungeon-gold/20" />
+        <span class="font-ui text-sm text-dungeon-paper/50">暂无可显示的羁绊角色</span>
+      </div>
+    </DungeonModal>
+    <Transition name="combat-fade">
+      <div v-if="bondPortraitPreview" class="fixed inset-0 z-[230] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm" @click="closeBondPortraitPreview">
+        <div class="bond-preview-panel" @click.stop>
+          <img :src="bondPortraitPreview.url" :alt="`${bondPortraitPreview.name} 立绘大图`" class="bond-preview-image" />
+          <div class="bond-preview-footer">
+            <span class="bond-preview-name">{{ bondPortraitPreview.name }}</span>
+            <button type="button" class="bond-preview-close-btn" @click="closeBondPortraitPreview">关闭</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <DungeonModal title="符文卡组" :is-open="activeModal === 'deck'" @close="activeModal = null">
       <div v-if="resolvedDeck.length > 0" class="grid grid-cols-3 gap-8 overflow-y-auto max-h-[60%] p-4">
@@ -1394,6 +1444,7 @@ import {
   Scroll,
   Send,
   Settings as SettingsIcon,
+  Users,
 } from 'lucide-vue-next';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
@@ -1631,6 +1682,193 @@ interface PersistedOverlaySnapshot {
 
 const OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v1';
 const isRestoringOverlayState = ref(false);
+
+type HfTreeEntry = {
+  type?: string;
+  path?: string;
+};
+
+const HF_DATASET_REPO = 'Vin05/AI-Gallery';
+const HF_RESOLVE_ROOT = `https://huggingface.co/datasets/${HF_DATASET_REPO}/resolve/main`;
+const HF_TREE_API_ROOT = `https://huggingface.co/api/datasets/${HF_DATASET_REPO}/tree/main`;
+const HF_USER_DIR = '地牢/user';
+const HF_MONSTER_DIR = '地牢/魔物';
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|avif|bmp|svg)$/i;
+const BOSS_FOLDER_NAMES = new Set([
+  '普莉姆', '宁芙', '温蒂尼', '玛塔', '罗丝', '厄休拉',
+  '希尔薇', '因克', '阿卡夏', '多萝西', '维罗妮卡',
+  '伊丽莎白', '尤斯蒂娅', '克拉肯', '布偶',
+  '赛琳娜', '米拉', '梦魔双子', '贝希摩斯',
+  '佩恩', '西格尔', '摩尔', '利维坦', '奥赛罗', '盖亚',
+]);
+const bondFolderImageCache = new Map<string, string[]>();
+const bondFolderImagePromiseCache = new Map<string, Promise<string[]>>();
+const bondPortraitUrls = ref<Record<string, string>>({});
+const bondPortraitErrors = ref<Record<string, boolean>>({});
+const bondPortraitLoadTasks = new Map<string, Promise<void>>();
+const bondPortraitPreview = ref<{ name: string; url: string } | null>(null);
+let bondPortraitLoaderDisposed = false;
+
+const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+const encodeRepoPath = (path: string) => normalizeRepoPath(path).split('/').map((seg) => encodeURIComponent(seg)).join('/');
+const toResolveUrl = (repoPath: string) => `${HF_RESOLVE_ROOT}/${encodeRepoPath(repoPath)}`;
+const pickRandom = <T,>(items: T[]): T | null => (items.length > 0 ? items[Math.floor(Math.random() * items.length)]! : null);
+const parseNextLink = (linkHeader: string | null): string | null => {
+  if (!linkHeader) return null;
+  const match = linkHeader.match(/<([^>]+)>\s*;\s*rel="next"/i);
+  return match?.[1] ?? null;
+};
+
+const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
+  const folder = normalizeRepoPath(repoFolderPath);
+  const cached = bondFolderImageCache.get(folder);
+  if (cached) return cached;
+  const pending = bondFolderImagePromiseCache.get(folder);
+  if (pending) return pending;
+
+  const task = (async () => {
+    const images: string[] = [];
+    let nextUrl: string | null = `${HF_TREE_API_ROOT}/${encodeRepoPath(folder)}?recursive=true&limit=1000`;
+
+    while (nextUrl) {
+      let response: Response;
+      try {
+        response = await fetch(nextUrl);
+      } catch {
+        break;
+      }
+      if (!response.ok) break;
+
+      let entries: HfTreeEntry[] = [];
+      try {
+        entries = await response.json() as HfTreeEntry[];
+      } catch {
+        break;
+      }
+
+      for (const entry of entries) {
+        if (entry.type !== 'file' || !entry.path) continue;
+        if (!IMAGE_EXT_RE.test(entry.path)) continue;
+        images.push(entry.path);
+      }
+
+      nextUrl = parseNextLink(response.headers.get('link'));
+    }
+
+    bondFolderImageCache.set(folder, images);
+    return images;
+  })();
+
+  bondFolderImagePromiseCache.set(folder, task);
+  try {
+    return await task;
+  } finally {
+    bondFolderImagePromiseCache.delete(folder);
+  }
+};
+
+const resolveRandomPortrait = async (
+  folderPath: string,
+  fallbackFilePath: string,
+): Promise<string> => {
+  const images = await fetchFolderImages(folderPath);
+  const randomPath = pickRandom(images);
+  return randomPath ? toResolveUrl(randomPath) : toResolveUrl(fallbackFilePath);
+};
+
+const resolveCharacterPortraitUrl = async (characterName: string): Promise<string> => {
+  const trimmedName = characterName.trim();
+  if (trimmedName === '苏菲' || trimmedName === '玩家') {
+    return resolveRandomPortrait(HF_USER_DIR, `${HF_USER_DIR}/立绘.png`);
+  }
+  const folderPath = `${HF_MONSTER_DIR}/${trimmedName}`;
+  const fallbackPath = `${HF_MONSTER_DIR}/${trimmedName}.png`;
+  if (BOSS_FOLDER_NAMES.has(trimmedName)) {
+    return resolveRandomPortrait(folderPath, fallbackPath);
+  }
+  const folderImages = await fetchFolderImages(folderPath);
+  const randomEnemy = pickRandom(folderImages);
+  return randomEnemy ? toResolveUrl(randomEnemy) : toResolveUrl(fallbackPath);
+};
+
+const clampBondAffection = (value: unknown): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-1000, Math.min(1000, Math.floor(n)));
+};
+
+const bondRoleEntries = computed<Array<{ name: string; affection: number }>>(() => {
+  const rolesRaw = gameStore.statData.角色;
+  if (!rolesRaw || typeof rolesRaw !== 'object') return [];
+  return Object.entries(rolesRaw as Record<string, any>)
+    .filter(([name]) => typeof name === 'string' && name.trim().length > 0)
+    .map(([name, payload]) => ({
+      name: name.trim(),
+      affection: clampBondAffection((payload as Record<string, unknown>)?.好感度),
+    }))
+    .sort((a, b) => {
+      if (a.affection !== b.affection) return b.affection - a.affection;
+      return a.name.localeCompare(b.name, 'zh-Hans-CN');
+    });
+});
+
+const getBondPortraitUrl = (characterName: string) => (
+  bondPortraitUrls.value[characterName] ?? toResolveUrl(`${HF_MONSTER_DIR}/${characterName}.png`)
+);
+
+const bondEntries = computed(() => (
+  bondRoleEntries.value.map((entry) => ({
+    ...entry,
+    portraitUrl: getBondPortraitUrl(entry.name),
+    affectionAbsRatio: Math.min(1, Math.abs(entry.affection) / 1000),
+  }))
+));
+
+const ensureBondPortraitLoaded = async (characterName: string) => {
+  if (bondPortraitUrls.value[characterName]) return;
+  const pending = bondPortraitLoadTasks.get(characterName);
+  if (pending) {
+    await pending;
+    return;
+  }
+  const task = (async () => {
+    const url = await resolveCharacterPortraitUrl(characterName);
+    if (bondPortraitLoaderDisposed) return;
+    bondPortraitUrls.value = {
+      ...bondPortraitUrls.value,
+      [characterName]: url,
+    };
+    bondPortraitErrors.value = {
+      ...bondPortraitErrors.value,
+      [characterName]: false,
+    };
+  })();
+  bondPortraitLoadTasks.set(characterName, task);
+  try {
+    await task;
+  } finally {
+    bondPortraitLoadTasks.delete(characterName);
+  }
+};
+
+const handleBondPortraitError = (characterName: string) => {
+  bondPortraitErrors.value = {
+    ...bondPortraitErrors.value,
+    [characterName]: true,
+  };
+};
+
+const formatBondAffection = (affection: number) => (affection > 0 ? `+${affection}` : String(affection));
+const openBondPortraitPreview = (entry: { name: string; portraitUrl: string }) => {
+  if (bondPortraitErrors.value[entry.name]) return;
+  bondPortraitPreview.value = {
+    name: entry.name,
+    url: entry.portraitUrl,
+  };
+};
+const closeBondPortraitPreview = () => {
+  bondPortraitPreview.value = null;
+};
 
 // --- Dynamic Background ---
 const bgIsLordFallback = ref(false);
@@ -1874,6 +2112,36 @@ watch(relicCategoryTabsForTest, (tabs) => {
     selectedRelicCategoryTab.value = '全部';
   }
 }, { immediate: true });
+watch(bondRoleEntries, (entries) => {
+  const names = entries.map((entry) => entry.name);
+  const keepSet = new Set(names);
+
+  const nextUrls: Record<string, string> = {};
+  for (const [name, url] of Object.entries(bondPortraitUrls.value)) {
+    if (keepSet.has(name)) {
+      nextUrls[name] = url;
+    }
+  }
+  if (Object.keys(nextUrls).length !== Object.keys(bondPortraitUrls.value).length) {
+    bondPortraitUrls.value = nextUrls;
+  }
+
+  const nextErrors: Record<string, boolean> = {};
+  for (const [name, hasError] of Object.entries(bondPortraitErrors.value)) {
+    if (keepSet.has(name)) {
+      nextErrors[name] = hasError;
+    }
+  }
+  if (Object.keys(nextErrors).length !== Object.keys(bondPortraitErrors.value).length) {
+    bondPortraitErrors.value = nextErrors;
+  }
+
+  for (const name of names) {
+    if (!bondPortraitUrls.value[name]) {
+      void ensureBondPortraitLoaded(name);
+    }
+  }
+}, { immediate: true, deep: true });
 
 const getCardTypeBadgeClass = (type: CardType) => {
   switch (type) {
@@ -2049,6 +2317,9 @@ const combatRelicMap = computed<Record<string, number>>(() => {
 watch(activeModal, (modal) => {
   if (modal === 'magicBooks') {
     gameStore.loadStatData();
+  }
+  if (modal !== 'bonds') {
+    closeBondPortraitPreview();
   }
   if (modal !== 'relics') {
     hideRelicTooltip();
@@ -2523,6 +2794,8 @@ const buildCombatNarrative = (win: boolean, enemyName: string, context: CombatCo
   return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
 };
 
+const VICTORY_REWARD_SKIP_ACTION_TEXT = '<user>未选择奖励直接离开。';
+
 const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
   if (dispatchedCombatNarrativeIds.has(narrative.id)) return;
   if (gameStore.isGenerating) return;
@@ -2617,7 +2890,8 @@ const refreshVictoryRewardOptions = () => {
   victoryRewardStage.value = 'pick';
 };
 
-const finalizeVictoryRewardFlow = () => {
+const finalizeVictoryRewardFlow = (options?: { skipReward?: boolean }) => {
+  const skipReward = Boolean(options?.skipReward);
   showVictoryRewardView.value = false;
   victoryRewardStage.value = 'pick';
   victoryRewardOptions.value = [];
@@ -2626,14 +2900,22 @@ const finalizeVictoryRewardFlow = () => {
   rewardRefreshUsed.value = false;
   rewardIsNormalEnemy.value = false;
   const narrative = pendingCombatNarrative.value;
+  pendingCombatNarrative.value = null;
+  if (skipReward) {
+    if (narrative) {
+      sendCombatNarrativeOnce(narrative, VICTORY_REWARD_SKIP_ACTION_TEXT);
+    } else if (!gameStore.isGenerating) {
+      gameStore.sendAction(VICTORY_REWARD_SKIP_ACTION_TEXT);
+    }
+    return;
+  }
   if (!narrative) return;
   if (narrative.context === 'shopRobbery') return;
-  pendingCombatNarrative.value = null;
   sendCombatNarrativeOnce(narrative, narrative.text);
 };
 
 const exitVictoryRewardFlow = () => {
-  finalizeVictoryRewardFlow();
+  finalizeVictoryRewardFlow({ skipReward: true });
 };
 
 const pickVictoryRewardCard = (card: CardData) => {
@@ -4214,6 +4496,7 @@ const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[]
 };
 
 onBeforeUnmount(() => {
+  bondPortraitLoaderDisposed = true;
   clearShopRobTimer();
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
@@ -4422,6 +4705,193 @@ onBeforeUnmount(() => {
   color: rgba(209, 213, 219, 0.9);
   font-size: 10px;
   line-height: 1.35;
+}
+
+.bond-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.bond-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background:
+    linear-gradient(140deg, rgba(20, 12, 8, 0.95), rgba(30, 19, 12, 0.9)),
+    radial-gradient(circle at 85% 0%, rgba(212, 175, 55, 0.12), transparent 48%);
+  padding: 0.72rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 22px rgba(0, 0, 0, 0.34);
+}
+
+.bond-portrait-frame {
+  width: clamp(4.9rem, 16vw, 6.3rem);
+  min-width: clamp(4.9rem, 16vw, 6.3rem);
+  height: clamp(4.9rem, 15vw, 6.3rem);
+  border-radius: 0.7rem;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(11, 8, 6, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 10px 20px rgba(0, 0, 0, 0.45);
+}
+
+.bond-portrait-frame--clickable {
+  cursor: zoom-in;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.bond-portrait-frame--clickable:hover {
+  transform: translateY(-1px) scale(1.02);
+  border-color: rgba(251, 191, 36, 0.66);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 14px 24px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(251, 191, 36, 0.28);
+}
+
+.bond-portrait-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bond-portrait-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(212, 175, 55, 0.88);
+  font-size: 1.3rem;
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  background: radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.24), rgba(21, 13, 9, 0.94));
+}
+
+.bond-affection-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.44rem;
+  min-width: 0;
+}
+
+.bond-affection-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.bond-role-name {
+  color: rgba(255, 243, 214, 0.95);
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+}
+
+.bond-affection-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: 'Cinzel', 'Microsoft YaHei', sans-serif;
+}
+
+.bond-affection-value--positive {
+  color: rgba(253, 186, 116, 0.95);
+}
+
+.bond-affection-value--negative {
+  color: rgba(125, 211, 252, 0.96);
+}
+
+.bond-affection-track {
+  position: relative;
+  height: 0.72rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(90deg, rgba(26, 42, 58, 0.72), rgba(26, 18, 14, 0.72)),
+    rgba(7, 7, 10, 0.72);
+}
+
+.bond-affection-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.bond-affection-fill--positive {
+  background:
+    linear-gradient(90deg, rgba(245, 158, 11, 0.92), rgba(251, 191, 36, 0.95)),
+    rgba(245, 158, 11, 0.9);
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+}
+
+.bond-affection-fill--negative {
+  background:
+    linear-gradient(90deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.96)),
+    rgba(14, 165, 233, 0.9);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.34);
+}
+
+.bond-preview-panel {
+  width: min(86vw, 1100px);
+  max-height: 90vh;
+  border-radius: 0.95rem;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  background: rgba(10, 8, 7, 0.95);
+  box-shadow:
+    0 20px 56px rgba(0, 0, 0, 0.62),
+    0 0 36px rgba(251, 191, 36, 0.22);
+}
+
+.bond-preview-image {
+  display: block;
+  width: 100%;
+  max-height: calc(90vh - 3.2rem);
+  object-fit: contain;
+  background: radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.08), rgba(8, 7, 6, 0.95) 62%);
+}
+
+.bond-preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.28);
+  padding: 0.52rem 0.72rem;
+  background: rgba(21, 13, 9, 0.94);
+}
+
+.bond-preview-name {
+  color: rgba(255, 243, 214, 0.94);
+  font-size: 0.96rem;
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  letter-spacing: 0.03em;
+}
+
+.bond-preview-close-btn {
+  border-radius: 9999px;
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  background: rgba(17, 11, 8, 0.8);
+  color: rgba(251, 191, 36, 0.95);
+  padding: 0.18rem 0.72rem;
+  font-size: 0.78rem;
+  transition: border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+.bond-preview-close-btn:hover {
+  border-color: rgba(251, 191, 36, 0.82);
+  color: rgba(254, 240, 138, 0.98);
+  transform: translateY(-1px);
 }
 
 .chest-reward-anchor {
