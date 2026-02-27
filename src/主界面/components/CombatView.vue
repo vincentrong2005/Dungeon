@@ -283,7 +283,17 @@
               @touchend="handleEffectTouchEnd"
               @touchcancel="handleEffectTouchEnd"
             >
-              <component :is="getEffectIconComponent(eff.type)" class="size-3.5" />
+              <i
+                v-if="getEffectFontAwesomeClass(eff.type)"
+                :class="[getEffectFontAwesomeClass(eff.type), 'text-[14px] leading-none']"
+                :style="getEffectFontAwesomeStyle(eff.type)"
+                aria-hidden="true"
+              ></i>
+              <component
+                :is="getEffectIconComponent(eff.type)"
+                v-else
+                class="size-3.5"
+              />
               <span v-if="eff.stacks > 1" class="effect-stack-badge">{{ eff.stacks }}</span>
             </button>
           </div>
@@ -440,7 +450,17 @@
               @touchend="handleEffectTouchEnd"
               @touchcancel="handleEffectTouchEnd"
             >
-              <component :is="getEffectIconComponent(eff.type)" class="size-3.5" />
+              <i
+                v-if="getEffectFontAwesomeClass(eff.type)"
+                :class="[getEffectFontAwesomeClass(eff.type), 'text-[14px] leading-none']"
+                :style="getEffectFontAwesomeStyle(eff.type)"
+                aria-hidden="true"
+              ></i>
+              <component
+                :is="getEffectIconComponent(eff.type)"
+                v-else
+                class="size-3.5"
+              />
               <span v-if="eff.stacks > 1" class="effect-stack-badge">{{ eff.stacks }}</span>
             </button>
           </div>
@@ -719,6 +739,7 @@ import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { CardType, CombatPhase, EffectType as ET, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
+import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 
@@ -729,10 +750,12 @@ const props = withDefaults(defineProps<{
   playerRelics?: Record<string, number>;
   testStartAt999?: boolean;
   uiFontFamily?: string;
+  trackDiscovery?: boolean;
 }>(), {
   playerRelics: () => ({}),
   testStartAt999: false,
   uiFontFamily: '',
+  trackDiscovery: true,
 });
 
 const emit = defineEmits<{
@@ -941,6 +964,65 @@ const createStatusEffectPreview = (type: EffectType, stacks: number): EffectInst
   stacks: Math.max(1, Math.floor(stacks)),
   polarity: EFFECT_REGISTRY[type]?.polarity ?? 'special',
 });
+const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
+  [ET.BARRIER]: 'fa-solid fa-shield',
+  [ET.ARMOR]: 'fa-solid fa-shield-halved',
+  [ET.BIND]: 'fa-solid fa-link',
+  [ET.DEVOUR]: 'fa-brands fa-optin-monster',
+  [ET.POISON]: 'fa-solid fa-droplet',
+  [ET.POISON_AMOUNT]: 'fa-solid fa-bacterium',
+  [ET.CORROSION]: 'fa-brands fa-cloudscale',
+  [ET.BURN]: 'fa-solid fa-fire',
+  [ET.BLEED]: 'fa-solid fa-droplet',
+  [ET.VULNERABLE]: 'fa-brands fa-linode',
+  [ET.DAMAGE_BOOST]: 'fa-brands fa-superpowers',
+  [ET.REGEN]: 'fa-brands fa-medrt',
+  [ET.WHITE_TURBID]: 'fa-solid fa-droplet',
+  [ET.IGNITE_AURA]: 'fa-solid fa-fire-flame-simple',
+  [ET.STUN]: 'fa-solid fa-ban',
+  [ET.CHARGE]: 'fa-solid fa-exclamation',
+  [ET.FATIGUE]: 'fa-solid fa-bed',
+  [ET.COLD]: 'fa-regular fa-snowflake',
+  [ET.TEMPERATURE_DIFF]: 'fa-brands fa-empire',
+  [ET.NON_LIVING]: 'fa-solid fa-skull',
+  [ET.NON_ENTITY]: 'fa-solid fa-ghost',
+  [ET.ILLUSORY_BODY]: 'fa-solid fa-ghost',
+  [ET.MAX_HP_REDUCTION]: 'fa-solid fa-heart-pulse',
+  [ET.POINT_GROWTH_BIG]: 'fa-solid fa-dice fa-lg',
+  [ET.POINT_GROWTH_SMALL]: 'fa-solid fa-dice fa-sm',
+  [ET.MANA_DRAIN]: 'fa-solid fa-battery-empty',
+  [ET.MANA_SPRING]: 'fa-brands fa-drupal',
+  [ET.SWARM]: 'fa-solid fa-bugs',
+  [ET.INDOMITABLE]: 'fa-solid fa-shield',
+  [ET.PEEP_FORBIDDEN]: 'fa-solid fa-eye',
+  [ET.BLIND_ASH]: 'fa-regular fa-eye-slash',
+  [ET.COGNITIVE_INTERFERENCE]: 'fa-solid fa-hamsa',
+  [ET.MEMORY_FOG]: 'fa-brands fa-phabricator',
+  [ET.SILENCE]: 'fa-solid fa-circle-xmark',
+  [ET.STURDY]: 'fa-solid fa-user-shield',
+  [ET.SHOCK]: 'fa-solid fa-bolt',
+  [ET.FLAME_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.POISON_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.TOXIN_SPREAD]: 'fa-brands fa-hornbill',
+  [ET.AMBUSH]: 'fa-solid fa-user-secret',
+  [ET.FROST_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.BLOODBLADE_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.LIGHTNING_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.THORNS]: 'fa-solid fa-leaf',
+};
+const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {
+  [ET.FLAME_ATTACH]: { color: 'rgb(255, 64, 64)' },
+  [ET.POISON_ATTACH]: { color: 'rgb(81, 255, 116)' },
+  [ET.FROST_ATTACH]: { color: 'rgb(108, 230, 255)' },
+  [ET.BLOODBLADE_ATTACH]: { color: 'rgb(176, 0, 0)' },
+  [ET.LIGHTNING_ATTACH]: { color: 'rgb(201, 69, 255)' },
+  [ET.ILLUSORY_BODY]: {
+    '--fa-primary-color': 'rgb(255, 255, 255)',
+    '--fa-secondary-color': 'rgb(255, 255, 255)',
+  },
+};
+const getEffectFontAwesomeClass = (type: EffectType): string | null => EFFECT_FA_ICON_CLASS[type] ?? null;
+const getEffectFontAwesomeStyle = (type: EffectType): Record<string, string> | undefined => EFFECT_FA_ICON_STYLE[type];
 const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BARRIER]: ShieldCheck,
   [ET.ARMOR]: Shield,
@@ -1076,6 +1158,40 @@ const combatState = ref<CombatState>({
   lastPlayedCard: null,
   logs: [`战斗开始！遭遇了 <span class="text-red-500 font-bold">${enemyDisplayName}</span>`],
 });
+
+const recordCombatDiscoveryAtStart = () => {
+  if (!props.trackDiscovery) return;
+  recordEncounteredEnemy({
+    name: enemyDisplayName || props.enemyName,
+    floor: currentFloorNumber,
+    area: currentArea.value || '',
+  });
+  recordEncounteredCards([
+    ...combatState.value.playerDeck.map((card) => card.id),
+    ...combatState.value.enemyDeck.map((card) => card.id),
+  ]);
+};
+
+const recordCombatEffectDiscovery = () => {
+  if (!props.trackDiscovery) return;
+  recordEncounteredEffects([
+    ...playerStats.value.effects.map((effect) => effect.type),
+    ...enemyStats.value.effects.map((effect) => effect.type),
+  ]);
+};
+
+onMounted(() => {
+  recordCombatDiscoveryAtStart();
+  recordCombatEffectDiscovery();
+});
+
+watch(
+  () => [playerStats.value.effects, enemyStats.value.effects],
+  () => {
+    recordCombatEffectDiscovery();
+  },
+  { deep: true },
+);
 
 // 用于“吞食”判定：仅记录每回合最初投出的裸骰点数（不含卡牌/圣遗物/后续点数改动）
 const playerTurnRawDice = ref(1);

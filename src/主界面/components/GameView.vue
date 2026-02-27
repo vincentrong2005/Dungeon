@@ -1454,6 +1454,7 @@
           :player-deck="resolvedDeck"
           :player-relics="combatRelicMap"
           :test-start-at-999="combatTestStartAt999CurrentBattle"
+          :track-discovery="activeCombatContext !== 'combatTest'"
           :ui-font-family="textSettings.fontFamily"
           :initial-player-stats="{
             hp: displayHp,
@@ -1502,6 +1503,7 @@ import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
 import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
+import { recordEncounteredCards, recordEncounteredRelics } from '../codexStore';
 import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
@@ -2365,6 +2367,55 @@ const combatRelicMap = computed<Record<string, number>>(() => {
   }
   return normalized;
 });
+
+watch(
+  resolvedDeck,
+  (cards) => {
+    if (!Array.isArray(cards) || cards.length === 0) return;
+    recordEncounteredCards(cards.map((card) => card.id));
+  },
+  { immediate: true },
+);
+
+watch(
+  relicEntries,
+  (entries) => {
+    if (!Array.isArray(entries) || entries.length === 0) return;
+    const ids = entries
+      .map((entry) => getRelicByName(entry.name)?.id ?? '')
+      .filter((id): id is string => Boolean(id));
+    if (ids.length === 0) return;
+    recordEncounteredRelics(ids);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => chestRewardRelics.value,
+  (relics) => {
+    if (!Array.isArray(relics) || relics.length === 0) return;
+    recordEncounteredRelics(relics.map((relic) => relic.id));
+  },
+  { deep: false },
+);
+
+watch(
+  () => shopProducts.value,
+  (products) => {
+    if (!Array.isArray(products) || products.length === 0) return;
+    recordEncounteredRelics(products.map((item) => item.relic.id));
+  },
+  { deep: false },
+);
+
+watch(
+  () => victoryRewardOptions.value,
+  (cards) => {
+    if (!Array.isArray(cards) || cards.length === 0) return;
+    recordEncounteredCards(cards.map((card) => card.id));
+  },
+  { deep: false },
+);
 
 watch(activeModal, (modal) => {
   if (modal === 'magicBooks') {

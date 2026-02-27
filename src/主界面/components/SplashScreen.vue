@@ -84,8 +84,8 @@
         </button>
 
         <button
-          disabled
-          class="group px-8 py-3 bg-black/50 border border-dungeon-brown text-gray-600 font-heading tracking-widest cursor-not-allowed flex items-center justify-center space-x-2"
+          class="group relative px-8 py-3 bg-[#120b08] hover:bg-dungeon-brown/80 border border-dungeon-brown/80 hover:border-dungeon-gold/60 text-dungeon-paper/85 font-heading tracking-widest flex items-center justify-center space-x-2 transition-all duration-300"
+          @click="$emit('openCollection')"
         >
           <Star class="size-4" />
           <span>魔女的收藏</span>
@@ -102,6 +102,7 @@ import { Maximize, Play, Star } from 'lucide-vue-next';
 defineEmits<{
   start: [];
   toggleFullscreen: [];
+  openCollection: [];
 }>();
 
 const isVisible = ref(false);

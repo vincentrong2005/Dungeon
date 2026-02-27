@@ -7,6 +7,7 @@
         key="splash"
         @start="startGame"
         @toggle-fullscreen="toggleFullScreen"
+        @open-collection="isCollectionOpen = true"
       />
 
       <!-- Game -->
@@ -16,17 +17,23 @@
         @back-to-splash="appState = 'SPLASH'"
       />
     </Transition>
+    <WitchCollectionModal
+      :is-open="isCollectionOpen"
+      @close="isCollectionOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import GameView from './components/GameView.vue';
 import SplashScreen from './components/SplashScreen.vue';
+import WitchCollectionModal from './components/WitchCollectionModal.vue';
 import { disposeBgm, initializeBgm } from './bgm';
 import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
 
 const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
+const isCollectionOpen = ref(false);
 const gameStore = useGameStore();
 
 onMounted(() => {
