@@ -528,7 +528,7 @@ export function applyEffect(
     if (type === EffectType.BIND && options?.restrictedTypes) {
       existing.restrictedTypes = options.restrictedTypes;
     }
-    if (type === EffectType.BIND && options?.lockDecayThisTurn) {
+    if ((type === EffectType.BIND || type === EffectType.SILENCE) && options?.lockDecayThisTurn) {
       existing.lockDecayThisTurn = true;
     }
     if (type === EffectType.CORROSION && existing.stacks >= 30) {
@@ -543,7 +543,7 @@ export function applyEffect(
     type,
     stacks: def.maxStacks > 0 ? Math.min(nextStacks, def.maxStacks) : nextStacks,
     polarity: def.polarity,
-    lockDecayThisTurn: type === EffectType.BIND ? !!options?.lockDecayThisTurn : undefined,
+    lockDecayThisTurn: (type === EffectType.BIND || type === EffectType.SILENCE) ? !!options?.lockDecayThisTurn : undefined,
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
   };
@@ -694,7 +694,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
 
 /**
  * 处理回合结束时所有效果触发
- * 调用顺序：束缚(-1) → 护甲(减半) → 眩晕(清除)
+ * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 眩晕(清除)
  */
 export function processOnTurnEnd(entity: EntityStats): string[] {
   const logs: string[] = [];
@@ -735,9 +735,20 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
   }
 
   // 禁言
-  if (hasEffect(entity, EffectType.SILENCE)) {
-    reduceEffectStacks(entity, EffectType.SILENCE);
-    logs.push(`[禁言] 层数衰减。`);
+  const silenceEffect = findEffect(entity, EffectType.SILENCE);
+  if (silenceEffect && silenceEffect.stacks > 0) {
+    if (silenceEffect.lockDecayThisTurn) {
+      silenceEffect.lockDecayThisTurn = false;
+      if (silenceEffect.stacks <= 1) {
+        logs.push(`[禁言] 新施加且层数为1，本回合不衰减。`);
+      } else {
+        reduceEffectStacks(entity, EffectType.SILENCE);
+        logs.push(`[禁言] 新施加但层数大于1，本回合仍衰减。`);
+      }
+    } else {
+      reduceEffectStacks(entity, EffectType.SILENCE);
+      logs.push(`[禁言] 层数衰减。`);
+    }
   }
 
   // 坚固：1回合后清空

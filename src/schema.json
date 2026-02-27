@@ -187,6 +187,13 @@
         }
       }
     },
+    "$路径": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "角色": {
       "default": {},
       "type": "object",

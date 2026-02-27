@@ -254,7 +254,7 @@ export interface EffectInstance {
   stacks: number;
   /** 效果极性 */
   polarity: EffectPolarity;
-  /** 本回合新施加，回合结束时先不衰减（用于束缚等） */
+  /** 本回合新施加，回合结束时先不衰减（用于束缚/禁言等） */
   lockDecayThisTurn?: boolean;
   /**
    * 束缚特有：限制的卡牌类型列表

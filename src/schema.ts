@@ -44,6 +44,7 @@ export const Schema = z.object({
     累计经过事件: z.coerce.number().prefault(0),
     累计经过陷阱: z.coerce.number().prefault(0),
   }).prefault({}),
+  $路径: z.array(z.string()).prefault([]),
 
   // 角色好感度 - 动态角色名
   角色: z

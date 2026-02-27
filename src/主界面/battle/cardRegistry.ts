@@ -429,7 +429,7 @@ const 逆相咏唱: CardData = {
   type: CardType.MAGIC,
   category: '魔导',
   rarity: '稀有',
-  manaCost: 2,
+  manaCost: 1,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.7, scaleAddition: 0 },
   hitCount: 1,

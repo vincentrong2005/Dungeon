@@ -689,8 +689,8 @@ import {
   ShieldCheck,
   Skull,
   Snowflake,
-  Sword,
   Sparkles,
+  Sword,
   Trash2,
   TriangleAlert,
   Waves,
@@ -1157,6 +1157,9 @@ const combatRootStyle = computed(() => ({
 }));
 const floatingNumbers = ref<FloatingNumberEntry[]>([]);
 const pendingCardNegativeEffects = ref<string[]>([]);
+const PLAYER_POISON_LETHAL_NEGATIVE_STATUS = '[催淫]';
+const PLAYER_SHOCK_LETHAL_NEGATIVE_STATUS = '[神经肌肉失调]';
+const PLAYER_CORROSION_LETHAL_NEGATIVE_STATUS = '[被侵蚀]';
 const fatigueDegree = ref(0);
 const fatigueHelpVisible = ref(false);
 const fatigueDegreeRatio = computed(() => (
@@ -1173,6 +1176,13 @@ const showFatigueHelp = () => {
 };
 const hideFatigueHelp = () => {
   fatigueHelpVisible.value = false;
+};
+const queuePlayerLethalNegativeStatus = (negativeStatus: string, reason: string) => {
+  const normalized = negativeStatus.trim();
+  if (!normalized) return;
+  if (pendingCardNegativeEffects.value.includes(normalized)) return;
+  pendingCardNegativeEffects.value.push(normalized);
+  log(`<span class="text-fuchsia-300">我方因${reason}获得负面状态：${normalized}</span>`);
 };
 const lightningAmbushFirstUseConsumed = ref<Record<BattleSide, boolean>>({
   player: false,
@@ -1504,11 +1514,22 @@ const applyStatusEffectWithRelics = (
   if (value <= 0) return false;
   if (!shouldAllowStatusEffectWithRelics(side, effectType, value, options)) return false;
   const target = getEntityBySide(side);
+  const hpBeforeApply = target.hp;
   const applied = applyEffect(target, effectType, value, {
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
     lockDecayThisTurn: options?.lockDecayThisTurn,
   });
+  if (
+    applied
+    && side === 'player'
+    && effectType === ET.CORROSION
+    && hpBeforeApply > 0
+    && target.hp <= 0
+  ) {
+    log('<span class="text-red-400">[侵蚀] 侵蚀指数越过了临界值，我方战败，失去对身体的控制权。</span>');
+    queuePlayerLethalNegativeStatus(PLAYER_CORROSION_LETHAL_NEGATIVE_STATUS, '侵蚀');
+  }
   if (applied && side === 'enemy' && effectType === ET.COLD) {
     const sourceTag = options?.source ?? '';
     const fromEnemyCard = typeof sourceTag === 'string' && sourceTag.startsWith('enemy_');
@@ -1834,6 +1855,9 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
     const normalized = dl.startsWith('受到') ? `${label}${dl}` : dl;
     log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
   }
+  if (side === 'player' && actualDamage > 0 && target.hp <= 0) {
+    queuePlayerLethalNegativeStatus(PLAYER_SHOCK_LETHAL_NEGATIVE_STATUS, '电击');
+  }
 };
 
 const changeManaWithShock = (
@@ -1998,7 +2022,7 @@ const applyCardEffectsByTrigger = (
       const applied = applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
         restrictedTypes: ce.restrictedTypes,
         source: card.id,
-        lockDecayThisTurn: ce.effectType === ET.BIND,
+        lockDecayThisTurn: ce.effectType === ET.BIND || ce.effectType === ET.SILENCE,
       });
       if (!applied) {
         continue;
@@ -2133,6 +2157,9 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
   for (const poisonLog of poisonLogs) {
     const normalized = poisonLog.startsWith('受到') ? `${label}${poisonLog}` : poisonLog;
     log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+  if (side === 'player' && actualDamage > 0 && target.hp <= 0) {
+    queuePlayerLethalNegativeStatus(PLAYER_POISON_LETHAL_NEGATIVE_STATUS, '中毒量致死判定');
   }
 };
 
@@ -2887,6 +2914,9 @@ watch(
           const targetSide = side as RelicSide;
           const opponentSide: RelicSide = side === 'player' ? 'enemy' : 'player';
           const opponentStats = side === 'player' ? enemyStats : playerStats;
+          const poisonAmountBeforeTurnStart = getEffectStacks(stats.value, ET.POISON_AMOUNT);
+          const hpBeforeTurnStart = stats.value.hp;
+          const poisonAmountLethalTriggered = poisonAmountBeforeTurnStart > 0 && poisonAmountBeforeTurnStart >= hpBeforeTurnStart;
           const result = processOnTurnStart(stats.value);
           let turnStartLogs = [...result.logs];
           let burnDamageTaken = 0;
@@ -3021,10 +3051,19 @@ watch(
             changeManaWithShock(side, result.mpChange, '法力变化（回合开始）', { showPositiveFloating: true });
           }
           if (result.trueDamage > 0) {
+            const hpBeforeTrueDamage = stats.value.hp;
             stats.value.hp = Math.max(0, stats.value.hp - result.trueDamage);
             const pendingTrueDamage = Math.max(0, result.trueDamage - shownTrueDamage);
             if (pendingTrueDamage > 0) {
               pushFloatingNumber(side, pendingTrueDamage, 'true', '-');
+            }
+            if (
+              targetSide === 'player'
+              && poisonAmountLethalTriggered
+              && hpBeforeTrueDamage > 0
+              && stats.value.hp <= 0
+            ) {
+              queuePlayerLethalNegativeStatus(PLAYER_POISON_LETHAL_NEGATIVE_STATUS, '中毒量致死判定');
             }
           }
           if (targetSide === 'player') {

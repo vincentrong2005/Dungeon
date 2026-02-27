@@ -487,11 +487,63 @@
     </div>
 
     <!-- Modals -->
-    <DungeonModal title="地牢地图" :is-open="activeModal === 'map'" @close="activeModal = null">
-      <div
-        class="w-full h-64 bg-[#1a0f08] border border-dungeon-gold/20 flex items-center justify-center rounded"
-      >
-        <span class="font-heading text-dungeon-gold/30 text-2xl">MAP_RENDER_TARGET</span>
+    <DungeonModal title="地牢地图" :is-open="activeModal === 'map'" panel-class="max-w-5xl" @close="activeModal = null">
+      <div class="map-modal">
+        <div class="map-toolbar">
+          <div class="map-summary">
+            本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房
+            <span class="map-summary-divider">|</span>
+            统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房
+          </div>
+          <div class="map-controls">
+            <button type="button" class="map-control-btn" @click="handleMapZoomOut">-</button>
+            <button type="button" class="map-control-btn" @click="handleMapZoomIn">+</button>
+            <button type="button" class="map-control-btn map-control-btn--wide" @click="handleMapResetView">重置视图</button>
+          </div>
+        </div>
+        <div v-if="currentFloorPath.length === 0" class="map-empty">
+          本层暂无路径记录
+        </div>
+        <div
+          v-else
+          ref="mapViewportRef"
+          class="map-viewport"
+          @wheel.prevent="handleMapWheel"
+          @pointerdown="handleMapPointerDown"
+          @pointermove="handleMapPointerMove"
+          @pointerup="handleMapPointerUp"
+          @pointercancel="handleMapPointerUp"
+        >
+          <div class="map-canvas" :style="mapCanvasStyle">
+            <svg
+              class="map-links"
+              :width="mapContentWidth"
+              :height="mapContentHeight"
+              :viewBox="`0 0 ${mapContentWidth} ${mapContentHeight}`"
+            >
+              <line
+                v-for="line in mapPathLines"
+                :key="line.key"
+                :x1="line.x1"
+                :y1="line.y1"
+                :x2="line.x2"
+                :y2="line.y2"
+                stroke="rgba(0,0,0,0.9)"
+                stroke-width="4"
+                stroke-linecap="round"
+              />
+            </svg>
+            <div
+              v-for="node in mapPathNodes"
+              :key="`path-node-${node.index}`"
+              class="map-room-cell"
+              :style="node.style"
+            >
+              <span class="map-room-icon">{{ node.icon }}</span>
+              <span class="map-room-step">{{ node.index + 1 }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </DungeonModal>
 
@@ -2318,6 +2370,9 @@ watch(activeModal, (modal) => {
   if (modal === 'magicBooks') {
     gameStore.loadStatData();
   }
+  if (modal === 'map') {
+    nextTick(() => centerMapOnLatestNode(true));
+  }
   if (modal !== 'bonds') {
     closeBondPortraitPreview();
   }
@@ -2362,6 +2417,201 @@ const bgmVolumePercent = computed<number>({
 const displayText = computed(() =>
   gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出',
 );
+
+type MapRoomVisual = {
+  icon: string;
+  fill: string;
+  border: string;
+  text: string;
+};
+type MapPathNodeView = {
+  key: string;
+  index: number;
+  x: number;
+  y: number;
+  centerX: number;
+  centerY: number;
+  icon: string;
+  style: Record<string, string>;
+};
+type MapPathLineView = {
+  key: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+};
+
+const MAP_PATH_COLUMNS = 6;
+const MAP_CELL_SIZE = 62;
+const MAP_CELL_GAP = 32;
+const MAP_MIN_SCALE = 0.6;
+const MAP_MAX_SCALE = 2.6;
+const MAP_SCALE_STEP = 0.14;
+const MAP_ROOM_VISUAL_BY_LABEL: Record<string, MapRoomVisual> = {
+  战斗: { icon: '⚔️', fill: 'rgba(153,27,27,0.78)', border: '#ef4444', text: '#fecaca' },
+  领主: { icon: '👑', fill: 'rgba(127,29,29,0.84)', border: '#f87171', text: '#ffe4e6' },
+  宝箱: { icon: '💎', fill: 'rgba(133,77,14,0.78)', border: '#f59e0b', text: '#fef3c7' },
+  商店: { icon: '🏪', fill: 'rgba(20,83,45,0.78)', border: '#34d399', text: '#dcfce7' },
+  温泉: { icon: '♨️', fill: 'rgba(12,74,110,0.78)', border: '#38bdf8', text: '#e0f2fe' },
+  神像: { icon: '🗿', fill: 'rgba(88,28,135,0.78)', border: '#c084fc', text: '#f3e8ff' },
+  事件: { icon: '❓', fill: 'rgba(63,63,70,0.78)', border: '#a1a1aa', text: '#f4f4f5' },
+  陷阱: { icon: '⚠️', fill: 'rgba(124,45,18,0.78)', border: '#fb923c', text: '#ffedd5' },
+};
+
+const currentFloorPath = computed<string[]>(() => {
+  const rawPath = (
+    Array.isArray(gameStore.statData.$路径)
+      ? gameStore.statData.$路径
+      : ((gameStore.statData.$统计 as any)?.$路径 ?? null)
+  );
+  if (!Array.isArray(rawPath)) return [];
+  return rawPath
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+});
+const currentLayerRoomCount = computed<number>(() => {
+  const rawCount = Number(((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0));
+  if (!Number.isFinite(rawCount)) return 0;
+  return Math.max(0, Math.floor(rawCount));
+});
+const mapViewportRef = ref<HTMLElement | null>(null);
+const mapScale = ref(1);
+const mapOffsetX = ref(0);
+const mapOffsetY = ref(0);
+const mapDragPointerId = ref<number | null>(null);
+const mapDragStartClient = ref({ x: 0, y: 0 });
+const mapDragStartOffset = ref({ x: 0, y: 0 });
+
+const mapPathNodes = computed<MapPathNodeView[]>(() => {
+  const step = MAP_CELL_SIZE + MAP_CELL_GAP;
+  return currentFloorPath.value.map((label, index) => {
+    const row = Math.floor(index / MAP_PATH_COLUMNS);
+    const positionInRow = index % MAP_PATH_COLUMNS;
+    const col = row % 2 === 0 ? positionInRow : (MAP_PATH_COLUMNS - 1 - positionInRow);
+    const x = col * step;
+    const y = row * step;
+    const visual = MAP_ROOM_VISUAL_BY_LABEL[label] ?? {
+      icon: '◻',
+      fill: 'rgba(39,39,42,0.78)',
+      border: '#a1a1aa',
+      text: '#f4f4f5',
+    };
+    return {
+      key: `node-${index}-${label}`,
+      index,
+      x,
+      y,
+      centerX: x + (MAP_CELL_SIZE / 2),
+      centerY: y + (MAP_CELL_SIZE / 2),
+      icon: visual.icon,
+      style: {
+        left: `${x}px`,
+        top: `${y}px`,
+        background: visual.fill,
+        borderColor: visual.border,
+        color: visual.text,
+      },
+    };
+  });
+});
+const mapContentWidth = computed<number>(() => (
+  (MAP_PATH_COLUMNS - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE
+));
+const mapContentHeight = computed<number>(() => {
+  const total = mapPathNodes.value.length;
+  const rowCount = total > 0 ? Math.floor((total - 1) / MAP_PATH_COLUMNS) + 1 : 1;
+  return (rowCount - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE;
+});
+const mapPathLines = computed<MapPathLineView[]>(() => {
+  const nodes = mapPathNodes.value;
+  if (nodes.length <= 1) return [];
+  const lines: MapPathLineView[] = [];
+  for (let i = 1; i < nodes.length; i += 1) {
+    const prev = nodes[i - 1]!;
+    const curr = nodes[i]!;
+    lines.push({
+      key: `line-${i - 1}-${i}`,
+      x1: prev.centerX,
+      y1: prev.centerY,
+      x2: curr.centerX,
+      y2: curr.centerY,
+    });
+  }
+  return lines;
+});
+const mapCanvasStyle = computed<Record<string, string>>(() => ({
+  width: `${mapContentWidth.value}px`,
+  height: `${mapContentHeight.value}px`,
+  transform: `translate(${mapOffsetX.value}px, ${mapOffsetY.value}px) scale(${mapScale.value})`,
+  transformOrigin: '0 0',
+}));
+
+const clampMapScale = (value: number) => Math.max(MAP_MIN_SCALE, Math.min(MAP_MAX_SCALE, value));
+const centerMapOnLatestNode = (resetScale: boolean = false) => {
+  const viewport = mapViewportRef.value;
+  if (!viewport) return;
+  if (resetScale) {
+    mapScale.value = 1;
+  }
+  const latest = mapPathNodes.value[mapPathNodes.value.length - 1];
+  const focusX = latest ? latest.centerX : (mapContentWidth.value / 2);
+  const focusY = latest ? latest.centerY : (mapContentHeight.value / 2);
+  mapOffsetX.value = (viewport.clientWidth / 2) - (focusX * mapScale.value);
+  mapOffsetY.value = (viewport.clientHeight / 2) - (focusY * mapScale.value);
+};
+const zoomMap = (delta: number) => {
+  const viewport = mapViewportRef.value;
+  const nextScale = clampMapScale(mapScale.value + delta);
+  if (nextScale === mapScale.value) return;
+  if (!viewport) {
+    mapScale.value = nextScale;
+    return;
+  }
+  const centerX = viewport.clientWidth / 2;
+  const centerY = viewport.clientHeight / 2;
+  const worldX = (centerX - mapOffsetX.value) / mapScale.value;
+  const worldY = (centerY - mapOffsetY.value) / mapScale.value;
+  mapScale.value = nextScale;
+  mapOffsetX.value = centerX - (worldX * nextScale);
+  mapOffsetY.value = centerY - (worldY * nextScale);
+};
+const handleMapZoomIn = () => zoomMap(MAP_SCALE_STEP);
+const handleMapZoomOut = () => zoomMap(-MAP_SCALE_STEP);
+const handleMapResetView = () => centerMapOnLatestNode(true);
+const handleMapWheel = (event: WheelEvent) => {
+  zoomMap(event.deltaY < 0 ? MAP_SCALE_STEP : -MAP_SCALE_STEP);
+};
+const handleMapPointerDown = (event: PointerEvent) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) return;
+  mapDragPointerId.value = event.pointerId;
+  mapDragStartClient.value = { x: event.clientX, y: event.clientY };
+  mapDragStartOffset.value = { x: mapOffsetX.value, y: mapOffsetY.value };
+  target.setPointerCapture(event.pointerId);
+};
+const handleMapPointerMove = (event: PointerEvent) => {
+  if (mapDragPointerId.value !== event.pointerId) return;
+  const dx = event.clientX - mapDragStartClient.value.x;
+  const dy = event.clientY - mapDragStartClient.value.y;
+  mapOffsetX.value = mapDragStartOffset.value.x + dx;
+  mapOffsetY.value = mapDragStartOffset.value.y + dy;
+};
+const handleMapPointerUp = (event: PointerEvent) => {
+  if (mapDragPointerId.value !== event.pointerId) return;
+  const target = event.currentTarget as HTMLElement | null;
+  if (target) {
+    target.releasePointerCapture(event.pointerId);
+  }
+  mapDragPointerId.value = null;
+};
+watch(() => currentFloorPath.value.length, () => {
+  if (activeModal.value === 'map') {
+    nextTick(() => centerMapOnLatestNode(false));
+  }
+});
 
 type StoryInlineSegmentType = 'text' | 'muted' | 'quote';
 
@@ -2691,6 +2941,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
       累计经过事件: 0,
       累计经过陷阱: 0,
     },
+    $路径: [],
   };
 };
 
@@ -4204,6 +4455,9 @@ const ROOM_STAT_KEY: Record<string, string> = {
   '战斗房': '累计经过战斗', '宝箱房': '累计经过宝箱', '商店房': '累计经过商店',
   '温泉房': '累计经过温泉', '神像房': '累计经过神像', '事件房': '累计经过事件', '陷阱房': '累计经过陷阱',
 };
+const getPathLabelByRoomType = (roomType: string): string => (
+  roomType.endsWith('房') ? roomType.slice(0, -1) : roomType
+);
 
 interface QueuedPortalAction {
   actionText: string;
@@ -4218,8 +4472,10 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
       area: portal.areaName!,
       roomType: '宝箱房',
       resetRoomCounter: true,
+      resetPath: true,
       // 新区域首个房间同样计入统计：宝箱房 +1、累计总房间 +1、当层房间 +1
       incrementKeys: ['当前层已过房间', '累计已过房间', '累计经过宝箱'],
+      appendPathLabel: '宝箱',
       enemyName: '',
     });
     console.info(`[Portal] Floor transition queued → area: ${portal.areaName}, first room: 宝箱房`);
@@ -4265,6 +4521,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   gameStore.setPendingPortalChanges({
     roomType: portal.roomType,
     incrementKeys,
+    appendPathLabel: getPathLabelByRoomType(portal.roomType),
     enemyName: encounterMonster ?? '',
   });
   console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
@@ -4705,6 +4962,137 @@ onBeforeUnmount(() => {
   color: rgba(209, 213, 219, 0.9);
   font-size: 10px;
   line-height: 1.35;
+}
+
+.map-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.map-summary {
+  color: rgba(245, 222, 179, 0.78);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.map-summary-highlight {
+  color: rgba(251, 191, 36, 0.95);
+  font-weight: 700;
+}
+
+.map-summary-divider {
+  margin: 0 0.4rem;
+  color: rgba(245, 222, 179, 0.4);
+}
+
+.map-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.map-control-btn {
+  height: 1.9rem;
+  min-width: 1.9rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(217, 119, 6, 0.42);
+  background: rgba(24, 13, 8, 0.82);
+  color: rgba(253, 230, 138, 0.92);
+  font-size: 12px;
+  padding: 0 0.55rem;
+  transition: all 0.18s ease;
+}
+
+.map-control-btn:hover {
+  border-color: rgba(251, 191, 36, 0.72);
+  color: rgba(254, 243, 199, 0.98);
+  background: rgba(58, 32, 18, 0.82);
+}
+
+.map-control-btn--wide {
+  min-width: 4.4rem;
+}
+
+.map-empty {
+  height: 17rem;
+  border-radius: 0.6rem;
+  border: 1px dashed rgba(217, 119, 6, 0.4);
+  background: rgba(18, 10, 7, 0.7);
+  color: rgba(245, 222, 179, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.map-viewport {
+  position: relative;
+  height: 17rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%),
+    radial-gradient(circle at 86% 84%, rgba(30, 41, 59, 0.34), transparent 58%),
+    rgba(16, 10, 8, 0.86);
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+
+.map-viewport:active {
+  cursor: grabbing;
+}
+
+.map-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.map-links {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.map-room-cell {
+  position: absolute;
+  width: 62px;
+  height: 62px;
+  border-radius: 0.55rem;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.map-room-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+.map-room-step {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 .bond-list {

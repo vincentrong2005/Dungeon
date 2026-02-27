@@ -76,6 +76,8 @@ export const useGameStore = defineStore('game', () => {
     resetRoomCounter?: boolean;
     incrementKeys?: string[];
     enemyName?: string;
+    resetPath?: boolean;
+    appendPathLabel?: string;
   }
   interface PendingCombatMvuChanges {
     hp?: number;
@@ -371,6 +373,26 @@ export const useGameStore = defineStore('game', () => {
       for (const key of changes.incrementKeys) {
         stat[key] = (Number(stat[key]) || 0) + 1;
       }
+    }
+
+    const currentPath = Array.isArray(sd.$路径)
+      ? sd.$路径.filter((item): item is string => typeof item === 'string')
+      : Array.isArray(stat.$路径)
+      ? stat.$路径.filter((item): item is string => typeof item === 'string')
+      : [];
+    const nextPath = [...currentPath];
+    if (changes.resetPath) {
+      nextPath.length = 0;
+    }
+    if (typeof changes.appendPathLabel === 'string') {
+      const normalizedLabel = changes.appendPathLabel.trim();
+      if (normalizedLabel) {
+        nextPath.push(normalizedLabel);
+      }
+    }
+    sd.$路径 = nextPath;
+    if (Object.prototype.hasOwnProperty.call(stat, '$路径')) {
+      delete stat.$路径;
     }
 
     return syncFloorNumberByArea(result);
@@ -707,7 +729,9 @@ export const useGameStore = defineStore('game', () => {
   }
 
   /**
-   * 重Roll：删除当前最新的 assistant+user 楼层并重新生成
+   * 重Roll：重新生成当前 user 对应的 assistant 楼层
+   * - 若最后一层是 assistant：删除该 assistant 后重新生成
+   * - 若最后一层是 user：保留该 user，直接补生成 assistant
    */
   async function rerollCurrent() {
     if (isGenerating.value) return;
@@ -725,12 +749,24 @@ export const useGameStore = defineStore('game', () => {
 
       // 找到最后一个 user 消息作为 re-generate 的输入
       const allMessages = getChatMessages(`0-${lastId}`);
+      const latestMsg = allMessages[allMessages.length - 1];
       const lastUserMsg = [...allMessages].reverse().find(m => m.role === 'user');
-      const userInput = lastUserMsg ? lastUserMsg.message : '';
+      if (!lastUserMsg) {
+        console.warn('[GameStore] Cannot reroll: no user message found');
+        return;
+      }
+      const userInput = lastUserMsg.message ?? '';
 
-      // 删除最新 assistant 楼层
-      console.info('[GameStore] Reroll: deleting message', lastId);
-      await deleteChatMessages([lastId], { refresh: 'none' });
+      // 仅在最后一层为 assistant 时删除，若最后一层为 user 则保留
+      if (latestMsg?.role === 'assistant') {
+        console.info('[GameStore] Reroll: deleting assistant message', lastId);
+        await deleteChatMessages([lastId], { refresh: 'none' });
+      } else if (latestMsg?.role === 'user') {
+        console.info('[GameStore] Reroll: latest message is user, keep it and regenerate assistant');
+      } else {
+        console.warn('[GameStore] Cannot reroll: latest message is neither user nor assistant');
+        return;
+      }
 
       // 获取当前最新楼层（删除后）的 MVU 变量作为继承基础
       const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getLastMessageId() });
