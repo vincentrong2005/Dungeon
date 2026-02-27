@@ -456,7 +456,7 @@ const 奥术裂枪: CardData = {
   description: '点数*1.5，造成1倍点数伤害；若当前MP≥8，再消耗4MP追加一次1.5倍伤害',
 };
 
-/** 法环坍缩：1倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
+/** 法环坍缩：1.5倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
 const 法环坍缩: CardData = {
   id: 'modao_ring_collapse',
   name: '法环坍缩',
@@ -465,11 +465,11 @@ const 法环坍缩: CardData = {
   rarity: '普通',
   manaCost: 4,
   calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成1倍点数伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害',
+  description: '造成1.5倍点数伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害',
 };
 
 /** 棱镜贯流：0.8倍伤害；按当前MP提高伤害倍率（结算逻辑在 CombatView） */
@@ -887,6 +887,232 @@ const 零界裁定: CardData = {
     { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   description: '若敌方寒冷≥10则消耗10层寒冷并施加眩晕1回合，同时独立施加1倍点数寒冷',
+};
+
+// ── 血池体系卡牌 ────────────────────────────────────────────────
+
+/** 刺络放血：造成0.6倍点数伤害，敌方流血+1 */
+const 刺络放血: CardData = {
+  id: 'bloodpool_venesection',
+  name: '刺络放血',
+  type: CardType.PHYSICAL,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成0.6倍点数伤害，敌方流血+1',
+};
+
+/** 赤潮压制：造成1倍点数伤害，敌方流血+2 */
+const 赤潮压制: CardData = {
+  id: 'bloodpool_crimson_suppress',
+  name: '赤潮压制',
+  type: CardType.MAGIC,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '消耗2MP，造成1倍点数伤害，敌方流血+2',
+};
+
+/** 噬血劈斩：造成1倍点数伤害，并回复0.5倍造成伤害量的生命 */
+const 噬血劈斩: CardData = {
+  id: 'bloodpool_siphon_slash',
+  name: '噬血劈斩',
+  type: CardType.PHYSICAL,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，并回复0.5倍造成伤害量的生命',
+};
+
+/** 血池扩容：造成1倍点数伤害，并增加等同伤害量的临时生命上限 */
+const 血池扩容: CardData = {
+  id: 'bloodpool_vital_reservoir',
+  name: '血池扩容',
+  type: CardType.MAGIC,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗2MP，造成1倍点数伤害，并增加等同造成伤害量的临时生命上限',
+};
+
+/** 活性血池：回复0.6倍点数生命，并增加0.6倍点数的临时生命上限 */
+const 活性血池: CardData = {
+  id: 'bloodpool_active_reservoir',
+  name: '活性血池',
+  type: CardType.FUNCTION,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 0.6 },
+    { kind: 'apply_buff', effectType: EffectType.TEMP_MAX_HP, target: 'self', valueMode: 'point_scale', scale: 0.6 },
+  ],
+  description: '回复0.6倍点数的生命和0.6倍点数的临时生命上限',
+};
+
+/** 血债重击：自伤3并造成1倍点数伤害；每损失3点生命，点数+1；固定施加3层流血 */
+const 血债重击: CardData = {
+  id: 'bloodpool_blood_debt_strike',
+  name: '血债重击',
+  type: CardType.PHYSICAL,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  selfDamage: 3,
+  description: '自伤3并造成1倍点数伤害；每损失3点生命，点数+1，固定施加3层流血',
+};
+
+/** 赤痕爆裂：点数*2，造成2倍伤害；触发对方1次流血并赋予0.5倍点数流血，自身流血+2 */
+const 赤痕爆裂: CardData = {
+  id: 'bloodpool_scar_burst',
+  name: '赤痕爆裂',
+  type: CardType.MAGIC,
+  category: '血池',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 2, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '消耗6MP，点数*2，造成2倍伤害，触发对方1次流血并赋予0.5倍点数流血，自身流血+2',
+};
+
+/** 血位倒转：互换双方当前生命百分比 */
+const 血位倒转: CardData = {
+  id: 'bloodpool_ratio_inversion',
+  name: '血位倒转',
+  type: CardType.MAGIC,
+  category: '血池',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗6MP，互换双方当前生命值百分比',
+};
+
+/** 血脉迁葬：转移自身流血并连续触发对方流血3次 */
+const 血脉迁葬: CardData = {
+  id: 'bloodpool_bleed_transfusion',
+  name: '血脉迁葬',
+  type: CardType.MAGIC,
+  category: '血池',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗6MP，将自身流血全部转移给对方，并连续触发对方流血3次',
+};
+
+/** 血影回身：点数+1，闪避成功时回复0.5倍点数生命并施加1层流血 */
+const 血影回身: CardData = {
+  id: 'bloodpool_blood_shadow_dodge',
+  name: '血影回身',
+  type: CardType.DODGE,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 0.5,
+    },
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.BLEED,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数+1，闪避。若闪避成功，回复0.5倍点数生命并施加1层流血',
+};
+
+/** 血幕回避：闪避成功后给对方施加3层流血 */
+const 血幕回避: CardData = {
+  id: 'bloodpool_blood_curtain_dodge',
+  name: '血幕回避',
+  type: CardType.DODGE,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.BLEED,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 3,
+    },
+  ],
+  description: '闪避。若闪避成功，给对方施加3层流血',
+};
+
+/** 血契护壁：自伤3并转化为高额护甲 */
+const 血契护壁: CardData = {
+  id: 'bloodpool_blood_pact_bulwark',
+  name: '血契护壁',
+  type: CardType.FUNCTION,
+  category: '血池',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.5 },
+  ],
+  selfDamage: 3,
+  description: '自伤3点生命，获得1.5倍点数护甲，连击',
 };
 
 // ── 敌人卡牌定义 ────────────────────────────────────────────────
@@ -1319,7 +1545,7 @@ const 巨大化投影: CardData = {
   description: '移除自身的“虚幻之躯”，获得1倍点数护甲，最小点数+2，最大点数+4',
 };
 
-/** 震动感知：为自身增加2倍点数护甲 */
+/** 震动感知：为自身增加1.5倍点数护甲 */
 const 震动感知: CardData = {
   id: 'enemy_root_tremor_sense',
   name: '震动感知',
@@ -1331,9 +1557,9 @@ const 震动感知: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 2.0 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.5 },
   ],
-  description: '为自身增加2倍最终点数的护甲',
+  description: '为自身增加1.5倍最终点数的护甲',
 };
 
 /** 润滑分泌：为敌方增加0.5倍点数的中毒 */
@@ -2238,6 +2464,18 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [压差循环.name, 压差循环],
   [冷源整流.name, 冷源整流],
   [零界裁定.name, 零界裁定],
+  [刺络放血.name, 刺络放血],
+  [赤潮压制.name, 赤潮压制],
+  [噬血劈斩.name, 噬血劈斩],
+  [血池扩容.name, 血池扩容],
+  [活性血池.name, 活性血池],
+  [血债重击.name, 血债重击],
+  [赤痕爆裂.name, 赤痕爆裂],
+  [血位倒转.name, 血位倒转],
+  [血脉迁葬.name, 血脉迁葬],
+  [血影回身.name, 血影回身],
+  [血幕回避.name, 血幕回避],
+  [血契护壁.name, 血契护壁],
   [滑腻触手.name, 滑腻触手],
   [灵巧长舌.name, 灵巧长舌],
   [血盆大口.name, 血盆大口],

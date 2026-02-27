@@ -88,7 +88,7 @@
             v-if="fatigueHelpVisible && fatigueDegree > 50"
             class="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 w-64 rounded-md border border-amber-300/35 bg-black/80 px-2 py-1 text-[10px] leading-relaxed text-amber-100 text-left shadow-lg"
           >
-            当前疲劳度：{{ fatigueDegree }}/300。进入战斗 +10，出牌 +1。达到100后每回合附加疲劳，200后额外附加中毒，300时直接战败。
+            当前疲劳度：{{ fatigueDegree }}/300。进入战斗 +10，出牌 +1。达到200后每回合附加疲劳并额外附加中毒，300时直接战败。
           </div>
         </div>
         <div
@@ -201,7 +201,7 @@
             </div>
           </div>
           <!-- Armor Shield -->
-          <div v-if="enemyArmor > 0 || enemyPoisonAmount > 0" class="flex items-center gap-3 mb-1">
+          <div v-if="enemyArmor > 0 || enemyPoisonAmount > 0 || enemyTempMaxHp > 0" class="flex items-center gap-3 mb-1">
             <button
               v-if="enemyArmor > 0"
               type="button"
@@ -233,6 +233,22 @@
             >
               <span class="text-[10px] text-green-400">☠</span>
               <span class="text-[10px] text-green-300 font-bold">{{ enemyPoisonAmount }}</span>
+            </button>
+            <button
+              v-if="enemyTempMaxHp > 0"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`临时生命上限: ${enemyTempMaxHp}. ${getEffectDescription(ET.TEMP_MAX_HP)}`"
+              @mouseenter="showEffectTooltip($event, createStatusEffectPreview(ET.TEMP_MAX_HP, enemyTempMaxHp))"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, createStatusEffectPreview(ET.TEMP_MAX_HP, enemyTempMaxHp))"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, createStatusEffectPreview(ET.TEMP_MAX_HP, enemyTempMaxHp))"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
+              <span class="text-[10px] text-rose-400">♥</span>
+              <span class="text-[10px] text-rose-300 font-bold">{{ enemyTempMaxHp }}</span>
             </button>
           </div>
           <!-- HP Bar -->
@@ -368,7 +384,7 @@
             </div>
           </div>
           <!-- Armor Shield -->
-          <div v-if="playerArmor > 0 || playerPoisonAmount > 0" class="flex items-center gap-3 mb-1">
+          <div v-if="playerArmor > 0 || playerPoisonAmount > 0 || playerTempMaxHp > 0" class="flex items-center gap-3 mb-1">
             <button
               v-if="playerArmor > 0"
               type="button"
@@ -400,6 +416,22 @@
             >
               <span class="text-[10px] text-green-400">☠</span>
               <span class="text-[10px] text-green-300 font-bold">{{ playerPoisonAmount }}</span>
+            </button>
+            <button
+              v-if="playerTempMaxHp > 0"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`临时生命上限: ${playerTempMaxHp}. ${getEffectDescription(ET.TEMP_MAX_HP)}`"
+              @mouseenter="showEffectTooltip($event, createStatusEffectPreview(ET.TEMP_MAX_HP, playerTempMaxHp), 'right')"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, createStatusEffectPreview(ET.TEMP_MAX_HP, playerTempMaxHp), 'right')"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, createStatusEffectPreview(ET.TEMP_MAX_HP, playerTempMaxHp), 'right')"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
+              <span class="text-[10px] text-rose-400">♥</span>
+              <span class="text-[10px] text-rose-300 font-bold">{{ playerTempMaxHp }}</span>
             </button>
           </div>
           <!-- HP Bar -->
@@ -965,11 +997,11 @@ const createStatusEffectPreview = (type: EffectType, stacks: number): EffectInst
   polarity: EFFECT_REGISTRY[type]?.polarity ?? 'special',
 });
 const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
-  [ET.BARRIER]: 'fa-solid fa-shield',
+  [ET.BARRIER]: 'fa-brands fa-fediverse',
   [ET.ARMOR]: 'fa-solid fa-shield-halved',
   [ET.BIND]: 'fa-solid fa-link',
   [ET.DEVOUR]: 'fa-brands fa-optin-monster',
-  [ET.POISON]: 'fa-solid fa-droplet',
+  [ET.POISON]: 'fa-solid fa-virus',
   [ET.POISON_AMOUNT]: 'fa-solid fa-bacterium',
   [ET.CORROSION]: 'fa-brands fa-cloudscale',
   [ET.BURN]: 'fa-solid fa-fire',
@@ -987,12 +1019,14 @@ const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.NON_LIVING]: 'fa-solid fa-skull',
   [ET.NON_ENTITY]: 'fa-solid fa-ghost',
   [ET.ILLUSORY_BODY]: 'fa-solid fa-ghost',
+  [ET.TEMP_MAX_HP]: 'fa-solid fa-heart',
   [ET.MAX_HP_REDUCTION]: 'fa-solid fa-heart-pulse',
   [ET.POINT_GROWTH_BIG]: 'fa-solid fa-dice fa-lg',
   [ET.POINT_GROWTH_SMALL]: 'fa-solid fa-dice fa-sm',
   [ET.MANA_DRAIN]: 'fa-solid fa-battery-empty',
   [ET.MANA_SPRING]: 'fa-brands fa-drupal',
   [ET.SWARM]: 'fa-solid fa-bugs',
+  [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
   [ET.INDOMITABLE]: 'fa-solid fa-shield',
   [ET.PEEP_FORBIDDEN]: 'fa-solid fa-eye',
   [ET.BLIND_ASH]: 'fa-regular fa-eye-slash',
@@ -1016,6 +1050,7 @@ const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> 
   [ET.FROST_ATTACH]: { color: 'rgb(108, 230, 255)' },
   [ET.BLOODBLADE_ATTACH]: { color: 'rgb(176, 0, 0)' },
   [ET.LIGHTNING_ATTACH]: { color: 'rgb(201, 69, 255)' },
+  [ET.TEMP_MAX_HP]: { color: 'rgb(255, 120, 150)' },
   [ET.ILLUSORY_BODY]: {
     '--fa-primary-color': 'rgb(255, 255, 255)',
     '--fa-secondary-color': 'rgb(255, 255, 255)',
@@ -1046,12 +1081,14 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.NON_LIVING]: Bone,
   [ET.NON_ENTITY]: Sparkles,
   [ET.ILLUSORY_BODY]: Sparkles,
+  [ET.TEMP_MAX_HP]: Heart,
   [ET.MAX_HP_REDUCTION]: Heart,
   [ET.POINT_GROWTH_BIG]: Layers,
   [ET.POINT_GROWTH_SMALL]: Layers,
   [ET.MANA_DRAIN]: Battery,
   [ET.MANA_SPRING]: Waves,
   [ET.SWARM]: Bug,
+  [ET.BLOOD_COCOON]: Heart,
   [ET.INDOMITABLE]: Heart,
   [ET.PEEP_FORBIDDEN]: Eye,
   [ET.BLIND_ASH]: EyeOff,
@@ -1100,6 +1137,14 @@ const enemyPoisonAmount = computed(() => {
   const eff = enemyStats.value.effects.find(e => e.type === ET.POISON_AMOUNT);
   return eff?.stacks ?? 0;
 });
+const playerTempMaxHp = computed(() => {
+  const eff = playerStats.value.effects.find(e => e.type === ET.TEMP_MAX_HP);
+  return eff?.stacks ?? 0;
+});
+const enemyTempMaxHp = computed(() => {
+  const eff = enemyStats.value.effects.find(e => e.type === ET.TEMP_MAX_HP);
+  return eff?.stacks ?? 0;
+});
 const playerPoisonAmountPercent = computed(() => {
   if (playerStats.value.maxHp <= 0) return 0;
   return Math.max(0, Math.min((playerPoisonAmount.value / playerStats.value.maxHp) * 100, 100));
@@ -1109,10 +1154,10 @@ const enemyPoisonAmountPercent = computed(() => {
   return Math.max(0, Math.min((enemyPoisonAmount.value / enemyStats.value.maxHp) * 100, 100));
 });
 const playerVisibleEffects = computed(() => playerStats.value.effects.filter(
-  e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT,
+  e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP,
 ));
 const enemyVisibleEffects = computed(() => enemyStats.value.effects.filter(
-  e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT,
+  e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP,
 ));
 
 const cloneCardForBattle = (card: CardData): CardData => ({
@@ -1449,6 +1494,9 @@ const freezePumpTriggersThisTurn = ref(0);
 const freezeFlowCoreTriggeredThisTurn = ref(false);
 const sealCircuitPendingMana = ref(0);
 const modaoStabilizerTriggersThisTurn = ref(0);
+const bloodpoolSkinMarkTriggersThisTurn = ref(0);
+const bloodpoolFirstBleedFeastTriggered = ref(false);
+const bloodpoolCriticalReboundTriggered = ref(false);
 
 const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
 
@@ -1498,6 +1546,60 @@ const addPlayerDamageTakenThisTurn = (amount: number) => {
   const value = Math.max(0, Math.floor(amount));
   if (value <= 0) return;
   playerDamageTakenThisTurn.value += value;
+};
+
+const applyPlayerSkinMarkDamageReduction = (rawDamage: number, reason: string): number => {
+  const damage = Math.max(0, Math.floor(rawDamage));
+  if (damage <= 0) return 0;
+  const markCount = getActiveRelicCount('bloodpool_skin_mark');
+  if (markCount <= 0) return damage;
+  if (bloodpoolSkinMarkTriggersThisTurn.value >= 2) return damage;
+  const reduced = Math.min(damage, markCount);
+  if (reduced <= 0) return damage;
+  bloodpoolSkinMarkTriggersThisTurn.value += 1;
+  logRelicMessage(`[皮肤印记] ${reason}伤害 -${reduced}（本回合 ${bloodpoolSkinMarkTriggersThisTurn.value}/2）。`);
+  return damage - reduced;
+};
+
+const applyPlayerHemostaticValveDamageCap = (rawDamage: number, reason: string): number => {
+  const damage = Math.max(0, Math.floor(rawDamage));
+  if (damage <= 0) return 0;
+  if (getActiveRelicCount('bloodpool_hemostatic_valve') <= 0) return damage;
+  const capped = Math.min(10, damage);
+  if (capped < damage) {
+    logRelicMessage(`[凝血限流阀] ${reason}伤害由 ${damage} 限制为 ${capped}。`);
+  }
+  return capped;
+};
+
+const applyDamageToSideWithRelics = (
+  side: BattleSide,
+  target: EntityStats,
+  damage: number,
+  isTrueDamage: boolean,
+  reason: string,
+) => {
+  const incoming = Math.max(0, Math.floor(damage));
+  const adjusted = side === 'player'
+    ? applyPlayerHemostaticValveDamageCap(incoming, reason)
+    : incoming;
+  return applyDamageToEntity(target, adjusted, isTrueDamage);
+};
+
+const applyDirectHpLossWithRelics = (
+  side: BattleSide,
+  target: EntityStats,
+  damage: number,
+  reason: string,
+): number => {
+  const incoming = Math.max(0, Math.floor(damage));
+  if (incoming <= 0) return 0;
+  const adjusted = side === 'player'
+    ? applyPlayerHemostaticValveDamageCap(incoming, reason)
+    : incoming;
+  const before = target.hp;
+  target.hp = Math.max(0, target.hp - adjusted);
+  return Math.max(0, before - target.hp);
 };
 
 const handlePlayerArmorGainFromSingleEvent = (amount: number, source: string) => {
@@ -1558,7 +1660,16 @@ const healForSide = (
   amount: number,
   options?: { overflowToArmor?: boolean },
 ): { healed: number; overflow: number } => {
-  const value = Math.max(0, Math.floor(amount));
+  const baseValue = Math.max(0, Math.floor(amount));
+  if (baseValue <= 0) return { healed: 0, overflow: 0 };
+
+  let value = baseValue;
+  if (side === 'player') {
+    const healAmpCount = getActiveRelicCount('bloodpool_crimson_plasma');
+    if (healAmpCount > 0) {
+      value = Math.max(0, Math.floor(value * (1 + 0.25 * healAmpCount)));
+    }
+  }
   if (value <= 0) return { healed: 0, overflow: 0 };
 
   const target = getEntityBySide(side);
@@ -1571,6 +1682,18 @@ const healForSide = (
   }
   if (options?.overflowToArmor && overflowRaw > 0) {
     addArmorForSide(side, overflowRaw);
+  }
+  if (side === 'player' && healed > 0) {
+    const reflowCount = getActiveRelicCount('bloodpool_reflow_mark');
+    if (reflowCount > 0) {
+      const state = getRelicRuntimeState('bloodpool_reflow_mark');
+      const current = Math.max(0, Math.floor(Number(state['healTriggersThisTurn'] ?? 0)));
+      const cap = Math.max(0, 2 * reflowCount);
+      if (current < cap) {
+        const next = Math.min(cap, current + 1);
+        state['healTriggersThisTurn'] = next;
+      }
+    }
   }
   return { healed, overflow: overflowRaw };
 };
@@ -1951,7 +2074,7 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
   const shockStacks = getEffectStacks(target, ET.SHOCK);
   if (shockStacks <= 0) return;
 
-  const { actualDamage, logs: shockDamageLogs } = applyDamageToEntity(target, shockStacks, false);
+  const { actualDamage, logs: shockDamageLogs } = applyDamageToSideWithRelics(side, target, shockStacks, false, '电击');
   if (actualDamage > 0) {
     pushFloatingNumber(side, actualDamage, 'magic', '-');
   }
@@ -2074,6 +2197,37 @@ const resolveCardSelfDamage = (
   return { value: Math.max(0, Math.floor(baseAmount)), mode: 'fixed', target };
 };
 
+const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
+  const target = targetSide === 'player' ? playerStats.value : enemyStats.value;
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  const bleedStacks = Math.max(0, getEffectStacks(target, ET.BLEED));
+  if (bleedStacks <= 0) {
+    log(`<span class="text-gray-400">[流血] ${reason}未触发：${targetLabel}当前无流血。</span>`);
+    return 0;
+  }
+
+  const { actualDamage, logs: bleedLogs } = applyDamageToSideWithRelics(targetSide, target, bleedStacks, true, '流血');
+  if (actualDamage > 0) {
+    pushFloatingNumber(targetSide, actualDamage, 'true', '-');
+  }
+  log(`<span class="text-rose-300">[流血] ${reason}触发：${targetLabel}受到 ${actualDamage} 点真实伤害。</span>`);
+  for (const dl of bleedLogs) {
+    const normalized = dl.startsWith('受到') ? `${targetLabel}${dl}` : dl;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+
+  if (targetSide === 'enemy' && actualDamage > 0) {
+    const feastCount = getActiveRelicCount('bloodpool_first_bleed_feast');
+    if (feastCount > 0 && !bloodpoolFirstBleedFeastTriggered.value) {
+      bloodpoolFirstBleedFeastTriggered.value = true;
+      const { healed } = healForSide('player', actualDamage * feastCount);
+      logRelicMessage(`[噬血水蛭] 敌方首次受到流血伤害，回复 ${healed} 点生命。`);
+    }
+  }
+
+  return actualDamage;
+};
+
 const applyBloodbladeAttachOnClash = (sourceSide: BattleSide, targetSide: BattleSide) => {
   const sourceStats = sourceSide === 'player' ? playerStats.value : enemyStats.value;
   const stacks = getEffectStacks(sourceStats, ET.BLOODBLADE_ATTACH);
@@ -2119,13 +2273,8 @@ const applyCardEffectsByTrigger = (
       const healAmount = ce.valueMode === 'point_scale'
         ? Math.floor(finalPoint * (ce.scale ?? 1))
         : Math.floor(ce.fixedValue ?? 0);
-      const beforeHp = targetEntity.hp;
-      targetEntity.hp = Math.min(targetEntity.maxHp, targetEntity.hp + healAmount);
-      const actualHeal = targetEntity.hp - beforeHp;
-      if (actualHeal > 0) {
-        pushFloatingNumber(targetSide, actualHeal, 'heal', '+');
-      }
-      log(`<span class="text-green-400">${label}【${card.name}】回复了 ${healAmount} 点生命</span>`);
+      const { healed } = healForSide(targetSide, healAmount);
+      log(`<span class="text-green-400">${label}【${card.name}】回复了 ${healed} 点生命</span>`);
       hasEffect = true;
     } else if (ce.kind === 'apply_buff') {
       const beforeMaxHp = targetEntity.maxHp;
@@ -2156,6 +2305,9 @@ const applyCardEffectsByTrigger = (
           pushFloatingNumber(targetSide, hpLossByCap, 'true', '-');
         }
         log(`<span class="text-fuchsia-300">${label}【${card.name}】使目标生命上限 -${actualMaxHpLoss}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
+      } else if (ce.effectType === ET.TEMP_MAX_HP) {
+        const actualMaxHpGain = Math.max(0, targetEntity.maxHp - beforeMaxHp);
+        log(`<span class="text-rose-300">${label}【${card.name}】使目标临时生命上限 +${actualMaxHpGain}</span>`);
       } else {
         log(`<span class="text-yellow-400">${label}【${card.name}】获得了 ${stacks} 层${EFFECT_REGISTRY[ce.effectType!]?.name ?? ce.effectType}</span>`);
       }
@@ -2263,7 +2415,7 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
   if (poisonAmount <= 0 || poisonAmount < target.hp) return;
 
   removeEffect(target, ET.POISON_AMOUNT);
-  const { actualDamage, logs: poisonLogs } = applyDamageToEntity(target, poisonAmount, true);
+  const { actualDamage, logs: poisonLogs } = applyDamageToSideWithRelics(side, target, poisonAmount, true, '中毒量');
   if (actualDamage > 0) {
     pushFloatingNumber(side, actualDamage, 'true', '-');
   }
@@ -2288,7 +2440,7 @@ const rollIntInRange = (min: number, max: number) => {
 
 const applyFatigueDegreePenaltyOnTurnStart = () => {
   const current = fatigueDegree.value;
-  if (current < 100) return false;
+  if (current < 200) return false;
 
   if (current >= 300) {
     playerStats.value.maxHp = 0;
@@ -2463,6 +2615,11 @@ const getCardFinalPoint = (
   if (card.id === 'burn_inferno_judgement') {
     finalPoint += Math.floor(getEffectStacks(defender, ET.BURN) / 2);
   }
+  // 血债重击：自身每损失3点生命，点数+1
+  if (card.id === 'bloodpool_blood_debt_strike') {
+    const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
+    finalPoint += Math.floor(lostHp / 3);
+  }
 
   if (source === 'player') {
     forEachPlayerRelic((entry, relic, state) => {
@@ -2530,6 +2687,14 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     if (bonus > 0) {
       finalPoint += bonus;
       lines.push(`炎狱判决 +${bonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'bloodpool_blood_debt_strike') {
+    const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
+    const bonus = Math.floor(lostHp / 3);
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`血债重击（已损失${lostHp}） +${bonus} => ${finalPoint}`);
     }
   }
 
@@ -2965,13 +3130,14 @@ const startTurn = () => {
   const reverseCircuitCount = getActiveRelicCount('burn_reverse_circuit');
   if (reverseCircuitCount > 0 && getEffectStacks(playerStats.value, ET.BURN) > 0) {
     const hpLoss = Math.min(playerStats.value.hp, reverseCircuitCount);
+    let actualHpLoss = 0;
     if (hpLoss > 0) {
-      playerStats.value.hp = Math.max(0, playerStats.value.hp - hpLoss);
-      pushFloatingNumber('player', hpLoss, 'true', '-');
-      addPlayerDamageTakenThisTurn(hpLoss);
+      actualHpLoss = applyDirectHpLossWithRelics('player', playerStats.value, hpLoss, '逆燃回路');
+      pushFloatingNumber('player', actualHpLoss, 'true', '-');
+      addPlayerDamageTakenThisTurn(actualHpLoss);
     }
     const restored = restoreManaForSide('player', reverseCircuitCount);
-    logRelicMessage(`[逆燃回路] 检测到自身燃烧，失去 ${hpLoss} 点生命并回复 ${restored} 点魔力。`);
+    logRelicMessage(`[逆燃回路] 检测到自身燃烧，失去 ${actualHpLoss} 点生命并回复 ${restored} 点魔力。`);
     if (playerStats.value.hp <= 0) return;
   }
   const scaleRingCount = getActiveRelicCount('modao_scale_ring');
@@ -2992,6 +3158,33 @@ const startTurn = () => {
   shatteringTarget.value = null;
   showClashAnimation.value = false;
   triggerPlayerRelicLifecycleHooks('onTurnStart');
+  const pulseMarkCount = getActiveRelicCount('bloodpool_pulse_mark');
+  if (pulseMarkCount > 0 && playerStats.value.hp > 0) {
+    const pulseDamage = Math.max(0, pulseMarkCount * 2);
+    if (pulseDamage > 0) {
+      const { actualDamage, logs: pulseLogs } = applyDamageToSideWithRelics('player', playerStats.value, pulseDamage, true, '脉搏印记');
+      if (actualDamage > 0) {
+        pushFloatingNumber('player', actualDamage, 'true', '-');
+        addPlayerDamageTakenThisTurn(actualDamage);
+        logRelicMessage(`[脉搏印记] 回合开始受到 ${actualDamage} 点真实伤害。`);
+        triggerPlayerRelicHitHooks(
+          'enemy',
+          'player',
+          PASS_CARD,
+          0,
+          1,
+          1,
+          actualDamage,
+          actualDamage,
+        );
+      }
+      for (const pulseLog of pulseLogs) {
+        const normalized = pulseLog.startsWith('受到') ? `我方${pulseLog}` : pulseLog;
+        log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+      }
+      if (playerStats.value.hp <= 0) return;
+    }
+  }
 
   setTimeout(() => {
     if (endCombatPending.value) return;
@@ -3020,6 +3213,11 @@ watch(
       freezePumpTriggersThisTurn.value = 0;
       freezeFlowCoreTriggeredThisTurn.value = false;
       modaoStabilizerTriggersThisTurn.value = 0;
+      bloodpoolSkinMarkTriggersThisTurn.value = 0;
+      if (combatState.value.turn === 1) {
+        bloodpoolFirstBleedFeastTriggered.value = false;
+        bloodpoolCriticalReboundTriggered.value = false;
+      }
       const defeatedByFatigueDegree = applyFatigueDegreePenaltyOnTurnStart();
       if (defeatedByFatigueDegree) {
         return;
@@ -3069,13 +3267,15 @@ watch(
           }
 
           if (result.opponentHpChange !== 0) {
-            const hpBeforeOpponent = opponentStats.value.hp;
-            opponentStats.value.hp = Math.max(0, Math.min(opponentStats.value.maxHp, opponentStats.value.hp + result.opponentHpChange));
-            const actualOpponentHpDelta = opponentStats.value.hp - hpBeforeOpponent;
-            if (actualOpponentHpDelta > 0) {
-              pushFloatingNumber(opponentSide, actualOpponentHpDelta, 'heal', '+');
-            } else if (actualOpponentHpDelta < 0) {
-              pushFloatingNumber(opponentSide, Math.abs(actualOpponentHpDelta), 'magic', '-');
+            if (result.opponentHpChange > 0) {
+              healForSide(opponentSide, result.opponentHpChange);
+            } else {
+              const hpBeforeOpponent = opponentStats.value.hp;
+              opponentStats.value.hp = Math.max(0, Math.min(opponentStats.value.maxHp, opponentStats.value.hp + result.opponentHpChange));
+              const actualOpponentHpDelta = opponentStats.value.hp - hpBeforeOpponent;
+              if (actualOpponentHpDelta < 0) {
+                pushFloatingNumber(opponentSide, Math.abs(actualOpponentHpDelta), 'magic', '-');
+              }
             }
           }
 
@@ -3097,14 +3297,17 @@ watch(
 
               result.hpChange += rawBurnDamage; // 移除 processOnTurnStart 的基础燃烧伤害
 
-              if (burnResult.damage > 0) {
-                if (burnResult.isTrueDamage) {
-                  pushFloatingNumber(side, burnResult.damage, 'true', '-');
-                  burnDamageTaken = burnResult.damage;
-                  shownTrueDamage += burnResult.damage;
+                if (burnResult.damage > 0) {
+                  if (burnResult.isTrueDamage) {
+                  const burnTrueDamage = targetSide === 'player'
+                    ? applyPlayerHemostaticValveDamageCap(burnResult.damage, '燃烧')
+                    : burnResult.damage;
+                  pushFloatingNumber(side, burnTrueDamage, 'true', '-');
+                  burnDamageTaken = burnTrueDamage;
+                  shownTrueDamage += burnTrueDamage;
                   burnIsTrueDamage = true;
-                  result.trueDamage += burnResult.damage;
-                  turnStartLogs.push(`[燃烧] 受到 ${burnResult.damage} 点真实伤害。`);
+                  result.trueDamage += burnTrueDamage;
+                  turnStartLogs.push(`[燃烧] 受到 ${burnTrueDamage} 点真实伤害。`);
                 } else {
                   let pendingBurnDamage = burnResult.damage;
                   if (getEffectStacks(stats.value, ET.BARRIER) > 0) {
@@ -3126,6 +3329,9 @@ watch(
                   }
 
                   if (pendingBurnDamage > 0) {
+                    if (targetSide === 'player') {
+                      pendingBurnDamage = applyPlayerHemostaticValveDamageCap(pendingBurnDamage, '燃烧');
+                    }
                     burnDamageTaken = pendingBurnDamage;
                     pendingBurnDamageNonTrue = pendingBurnDamage;
                     result.hpChange -= pendingBurnDamage;
@@ -3145,31 +3351,28 @@ watch(
             stats.value.hp = Math.max(0, stats.value.hp - pendingBurnDamageNonTrue);
           }
 
+          const residualHpChange = result.hpChange + pendingBurnDamageNonTrue - pendingRegenHeal;
           if (pendingRegenHeal > 0) {
-            const hpBeforeRegen = stats.value.hp;
-            stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + pendingRegenHeal));
-            const actualRegen = Math.max(0, stats.value.hp - hpBeforeRegen);
-            if (actualRegen > 0) {
-              pushFloatingNumber(side, actualRegen, 'heal', '+');
-            }
+            healForSide(targetSide, pendingRegenHeal);
           }
 
-          const residualHpChange = result.hpChange + pendingBurnDamageNonTrue - pendingRegenHeal;
           if (residualHpChange !== 0) {
-            const hpBeforeResidual = stats.value.hp;
-            stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + residualHpChange));
-            const hpDeltaResidual = stats.value.hp - hpBeforeResidual;
-            if (hpDeltaResidual > 0) {
-              pushFloatingNumber(side, hpDeltaResidual, 'heal', '+');
+            if (residualHpChange > 0) {
+              healForSide(targetSide, residualHpChange);
+            } else {
+              stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + residualHpChange));
             }
           }
           if (result.mpChange !== 0) {
             changeManaWithShock(side, result.mpChange, '法力变化（回合开始）', { showPositiveFloating: true });
           }
           if (result.trueDamage > 0) {
+            const trueDamageToApply = targetSide === 'player'
+              ? applyPlayerHemostaticValveDamageCap(result.trueDamage, '回合开始真实伤害')
+              : result.trueDamage;
             const hpBeforeTrueDamage = stats.value.hp;
-            stats.value.hp = Math.max(0, stats.value.hp - result.trueDamage);
-            const pendingTrueDamage = Math.max(0, result.trueDamage - shownTrueDamage);
+            stats.value.hp = Math.max(0, stats.value.hp - trueDamageToApply);
+            const pendingTrueDamage = Math.max(0, trueDamageToApply - shownTrueDamage);
             if (pendingTrueDamage > 0) {
               pushFloatingNumber(side, pendingTrueDamage, 'true', '-');
             }
@@ -3457,6 +3660,15 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     if (resultMsg) {
       log(`<span class="text-gray-300">${resultMsg}</span>`);
     }
+    // 流血：只要发生拼点，双方都按各自当前流血层数受到真实伤害
+    const playerBleedStacksOnClash = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
+    if (playerBleedStacksOnClash > 0) {
+      triggerBleedProc('player', '拼点阶段');
+    }
+    const enemyBleedStacksOnClash = Math.max(0, getEffectStacks(enemyStats.value, ET.BLEED));
+    if (enemyBleedStacksOnClash > 0) {
+      triggerBleedProc('enemy', '拼点阶段');
+    }
     if (clashWinner === 'enemy') {
       changeRerollCharges('player', 1);
       log('<span class="text-amber-300">拼点失败：重掷次数 +1</span>');
@@ -3466,6 +3678,14 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       clearBurnForSide('player', '拼点胜利。');
     } else if (clashWinner === 'enemy') {
       clearBurnForSide('enemy', '拼点胜利。');
+    }
+    if (clashWinner === 'player') {
+      const pointMarkCount = getActiveRelicCount('bloodpool_clash_point_mark');
+      if (pointMarkCount > 0) {
+        if (applyStatusEffectWithRelics('enemy', ET.BLEED, pointMarkCount, { source: 'relic:bloodpool_clash_point_mark' })) {
+          logRelicMessage(`[骰蚀刻印] 拼点成功，对敌方施加 ${pointMarkCount} 层流血。`);
+        }
+      }
     }
 
     if (successfulDodger === 'player') {
@@ -3550,9 +3770,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
             }
             log(`<span class="text-rose-300">${label}【${card.name}】自伤：生命上限 -${actualMaxHpLoss}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
           } else {
-            const beforeHp = attacker.hp;
-            attacker.hp = Math.max(0, attacker.hp - amount);
-            const actualSelfDamage = Math.max(0, beforeHp - attacker.hp);
+            const actualSelfDamage = applyDirectHpLossWithRelics(source, attacker, amount, `卡牌【${card.name}】自伤`);
             if (actualSelfDamage > 0) {
               pushFloatingNumber(source, actualSelfDamage, 'true', '-');
             }
@@ -3574,10 +3792,11 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         );
         const drainedMana = Math.max(0, -drainResult.actualDelta);
         const overflowHpDamage = Math.max(0, manaDrain - drainedMana);
+        let actualOverflowHpDamage = 0;
 
         if (overflowHpDamage > 0) {
-          defender.hp = Math.max(0, defender.hp - overflowHpDamage);
-          pushFloatingNumber(defenderSide, overflowHpDamage, 'true', '-');
+          actualOverflowHpDamage = applyDirectHpLossWithRelics(defenderSide, defender, overflowHpDamage, `卡牌【${card.name}】法力汲取溢出`);
+          pushFloatingNumber(defenderSide, actualOverflowHpDamage, 'true', '-');
         }
 
         const gainResult = changeManaWithShock(
@@ -3588,9 +3807,12 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         );
         const gainedMana = Math.max(0, gainResult.actualDelta);
 
-        log(`<span class="text-blue-300">${label}【${card.name}】法力汲取：吸收 ${drainedMana} 点法力并回复自身 ${gainedMana} 点法力${overflowHpDamage > 0 ? `，额外造成 ${overflowHpDamage} 点真实伤害` : ''}</span>`);
+        const overflowDamageText = actualOverflowHpDamage > 0
+          ? `，额外造成 ${actualOverflowHpDamage} 点真实伤害`
+          : '';
+        log(`<span class="text-blue-300">${label}【${card.name}】法力汲取：吸收 ${drainedMana} 点法力并回复自身 ${gainedMana} 点法力${overflowDamageText}</span>`);
 
-        if (overflowHpDamage > 0) {
+        if (actualOverflowHpDamage > 0) {
           const reviveResult = triggerSwarmReviveIfNeeded(defender);
           for (const reviveLog of reviveResult.logs) {
             log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
@@ -3617,9 +3839,9 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         const abyssRiftCount = getActiveRelicCount('yanhan_cold_abyss_rift');
         if (abyssRiftCount > 0) {
           const trueDamage = 2 * abyssRiftCount;
-          enemyStats.value.hp = Math.max(0, enemyStats.value.hp - trueDamage);
-          pushFloatingNumber('enemy', trueDamage, 'true', '-');
-          logRelicMessage(`[寒渊裂隙] 检测到敌方寒冷减少，对敌方造成 ${trueDamage} 点真实伤害。`);
+          const actualTrueDamage = applyDirectHpLossWithRelics('enemy', enemyStats.value, trueDamage, '寒渊裂隙');
+          pushFloatingNumber('enemy', actualTrueDamage, 'true', '-');
+          logRelicMessage(`[寒渊裂隙] 检测到敌方寒冷减少，对敌方造成 ${actualTrueDamage} 点真实伤害。`);
           const reviveResult = triggerSwarmReviveIfNeeded(enemyStats.value);
           for (const reviveLog of reviveResult.logs) {
             log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
@@ -3699,6 +3921,72 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       return;
     }
 
+    if (card.id === 'bloodpool_ratio_inversion') {
+      const attackerRatio = attacker.maxHp > 0 ? attacker.hp / attacker.maxHp : 0;
+      const defenderRatio = defender.maxHp > 0 ? defender.hp / defender.maxHp : 0;
+      const nextAttackerHp = Math.max(0, Math.min(attacker.maxHp, Math.floor(attacker.maxHp * defenderRatio)));
+      const nextDefenderHp = Math.max(0, Math.min(defender.maxHp, Math.floor(defender.maxHp * attackerRatio)));
+
+      const attackerDelta = nextAttackerHp - attacker.hp;
+      const defenderDelta = nextDefenderHp - defender.hp;
+      attacker.hp = nextAttackerHp;
+      defender.hp = nextDefenderHp;
+
+      if (attackerDelta > 0) {
+        pushFloatingNumber(source, attackerDelta, 'heal', '+');
+      } else if (attackerDelta < 0) {
+        pushFloatingNumber(source, Math.abs(attackerDelta), 'true', '-');
+      }
+      if (defenderDelta > 0) {
+        pushFloatingNumber(defenderSide, defenderDelta, 'heal', '+');
+      } else if (defenderDelta < 0) {
+        pushFloatingNumber(defenderSide, Math.abs(defenderDelta), 'true', '-');
+      }
+
+      log(`<span class="text-rose-300">${label}【${card.name}】互换了双方生命百分比（我方 ${Math.round(attackerRatio * 100)}% ↔ 敌方 ${Math.round(defenderRatio * 100)}%）</span>`);
+      const defenderRevive = triggerSwarmReviveIfNeeded(defender);
+      for (const reviveLog of defenderRevive.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+      const attackerRevive = triggerSwarmReviveIfNeeded(attacker);
+      for (const reviveLog of attackerRevive.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+      applyCardEffects();
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'bloodpool_bleed_transfusion') {
+      const selfBleed = Math.max(0, getEffectStacks(attacker, ET.BLEED));
+      if (selfBleed > 0) {
+        removeEffect(attacker, ET.BLEED);
+        applyStatusEffectWithRelics(defenderSide, ET.BLEED, selfBleed, { source: card.id });
+        log(`<span class="text-rose-300">${label}【${card.name}】将自身 ${selfBleed} 层流血转移给了对手</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】自身没有可转移的流血</span>`);
+      }
+
+      const triggerTimes = 3;
+      for (let i = 0; i < triggerTimes; i += 1) {
+        const damage = triggerBleedProc(defenderSide, `${label}【${card.name}】第${i + 1}次`);
+        triggerPlayerRelicHitHooks(
+          source,
+          defenderSide,
+          card,
+          finalPoint,
+          i + 1,
+          triggerTimes,
+          damage,
+          damage,
+        );
+        if (defender.hp <= 0) break;
+      }
+      applyCardEffects();
+      finalizeAndTrack();
+      return;
+    }
+
     if (card.id === 'enemy_muxinlan_liquidation') {
       const cleanseTargets: EffectType[] = [...ELEMENTAL_DEBUFF_TYPES];
       let removedStacks = 0;
@@ -3711,9 +3999,9 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       }
       const trueDamage = removedStacks * 2;
       if (trueDamage > 0) {
-        defender.hp = Math.max(0, defender.hp - trueDamage);
-        pushFloatingNumber(defenderSide, trueDamage, 'true', '-');
-        log(`<span class="text-zinc-300">${label}【${card.name}】清算了 ${removedStacks} 层状态，造成 ${trueDamage} 点真实伤害</span>`);
+        const actualTrueDamage = applyDirectHpLossWithRelics(defenderSide, defender, trueDamage, `卡牌【${card.name}】`);
+        pushFloatingNumber(defenderSide, actualTrueDamage, 'true', '-');
+        log(`<span class="text-zinc-300">${label}【${card.name}】清算了 ${removedStacks} 层状态，造成 ${actualTrueDamage} 点真实伤害</span>`);
       } else {
         log(`<span class="text-gray-400">${label}【${card.name}】未清算到可移除状态</span>`);
       }
@@ -3975,11 +4263,11 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         if (consumedBurn > 0) {
           reduceEffectStacks(defender, ET.COLD, consumedCold);
           reduceEffectStacks(defender, ET.BURN, consumedBurn);
-          defender.hp = Math.max(0, defender.hp - trueDamage);
-          if (trueDamage > 0) {
-            pushFloatingNumber(defenderSide, trueDamage, 'true', '-');
+          const actualTrueDamage = applyDirectHpLossWithRelics(defenderSide, defender, trueDamage, `卡牌【${card.name}】`);
+          if (actualTrueDamage > 0) {
+            pushFloatingNumber(defenderSide, actualTrueDamage, 'true', '-');
           }
-          log(`<span class="text-orange-300">${label}【${card.name}】按2:1消耗了 ${consumedCold} 层寒冷与 ${consumedBurn} 层燃烧，造成 ${trueDamage} 点真实伤害</span>`);
+          log(`<span class="text-orange-300">${label}【${card.name}】按2:1消耗了 ${consumedCold} 层寒冷与 ${consumedBurn} 层燃烧，造成 ${actualTrueDamage} 点真实伤害</span>`);
           triggerPlayerRelicHitHooks(
             source,
             defenderSide,
@@ -3987,8 +4275,8 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
             finalPoint,
             1,
             1,
-            trueDamage,
-            trueDamage,
+            actualTrueDamage,
+            actualTrueDamage,
           );
           const reviveResult = triggerSwarmReviveIfNeeded(defender);
           for (const reviveLog of reviveResult.logs) {
@@ -4067,6 +4355,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       }
 
       let modaoMagicSwordTotalDamage = 0;
+      let totalActualDamageDealt = 0;
       for (let hit = 0; hit < totalHitCount; hit++) {
         // Attack card: calculate damage through the full pipeline
         let cardForCalculation = card;
@@ -4099,7 +4388,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           defenderEffects: defender.effects,
           relicModifiers: NO_RELIC_MOD,
         });
-        const { actualDamage, logs: applyLogs } = applyDamageToEntity(defender, damage, isTrueDamage);
+        const adjustedDamage = defenderSide === 'player'
+          ? applyPlayerSkinMarkDamageReduction(damage, `${defenderLabel}受击`)
+          : damage;
+        const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(defenderSide, defender, adjustedDamage, isTrueDamage, `卡牌【${card.name}】`);
         const hitPrefix = totalHitCount > 1 ? `第${hit + 1}段` : '';
         const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
         log(`${label}【${card.name}】${hitPrefix}点数${finalPoint}，造成 <span class="${damageLogColorClass} font-bold">${actualDamage}</span> 点伤害`);
@@ -4112,13 +4404,19 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         if (card.id === 'modao_magic_sword' && actualDamage > 0) {
           modaoMagicSwordTotalDamage += actualDamage;
         }
+        if (actualDamage > 0) {
+          totalActualDamageDealt += actualDamage;
+        }
 
         if (card.type === CardType.PHYSICAL && !isTrueDamage && actualDamage > 0) {
           const thornStacks = getEffectStacks(defender, ET.THORNS);
           if (thornStacks > 0) {
-            const reflectedDamage = Math.max(0, Math.floor(actualDamage * 0.5));
+            let reflectedDamage = Math.max(0, Math.floor(actualDamage * 0.5));
+            if (source === 'player') {
+              reflectedDamage = applyPlayerSkinMarkDamageReduction(reflectedDamage, '荆棘反弹');
+            }
             if (reflectedDamage > 0) {
-              const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToEntity(attacker, reflectedDamage, false);
+              const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(source, attacker, reflectedDamage, false, '荆棘反弹');
               if (actualReflectedDamage > 0) {
                 pushFloatingNumber(source, actualReflectedDamage, 'physical', '-');
               }
@@ -4155,7 +4453,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           finalPoint,
           hit + 1,
           totalHitCount,
-          damage,
+          adjustedDamage,
           actualDamage,
         );
         applyHitAttachEffects(source, card, attacker, defenderSide);
@@ -4168,9 +4466,54 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         const restored = Math.max(0, manaResult.actualDelta);
         log(`<span class="text-blue-300">${label}【${card.name}】回收 ${restored} 点魔力</span>`);
       }
+      if (card.id === 'bloodpool_siphon_slash') {
+        const healAmount = Math.max(0, Math.floor(totalActualDamageDealt * 0.5));
+        const { healed } = healForSide(source, healAmount);
+        log(`<span class="text-green-300">${label}【${card.name}】吸血回复 ${healed} 点生命</span>`);
+      }
+      if (card.id === 'bloodpool_vital_reservoir') {
+        const maxHpGain = Math.max(0, Math.floor(totalActualDamageDealt));
+        if (maxHpGain > 0) {
+          const beforeMaxHp = attacker.maxHp;
+          const applied = applyStatusEffectWithRelics(source, ET.TEMP_MAX_HP, maxHpGain, { source: card.id });
+          const actualMaxHpGain = Math.max(0, attacker.maxHp - beforeMaxHp);
+          if (applied && actualMaxHpGain > 0) {
+            log(`<span class="text-rose-300">${label}【${card.name}】临时生命上限 +${actualMaxHpGain}</span>`);
+          } else {
+            log(`<span class="text-gray-400">${label}【${card.name}】未能获得临时生命上限</span>`);
+          }
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未造成伤害，未获得临时生命上限</span>`);
+        }
+      }
 
       // 攻击牌结算后同样触发附带效果（燃烧、易伤等）
       applyCardEffects();
+      if (card.id === 'bloodpool_blood_debt_strike') {
+        const bleedStacks = 3;
+        if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id })) {
+          log(`<span class="text-rose-300">${label}【${card.name}】施加 ${bleedStacks} 层流血</span>`);
+        }
+      }
+      if (card.id === 'bloodpool_scar_burst') {
+        const bleedDamage = triggerBleedProc(defenderSide, `${label}【${card.name}】`);
+        triggerPlayerRelicHitHooks(
+          source,
+          defenderSide,
+          card,
+          finalPoint,
+          1,
+          1,
+          bleedDamage,
+          bleedDamage,
+        );
+        const bleedStacks = Math.max(0, Math.floor(finalPoint * 0.5));
+        if (bleedStacks > 0) {
+          if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id })) {
+            log(`<span class="text-rose-300">${label}【${card.name}】追加施加 ${bleedStacks} 层流血</span>`);
+          }
+        }
+      }
 
       if (card.id === 'yanhan_feedback_freeze_wheel') {
         const armorGain = Math.max(0, Math.floor(getEffectStacks(defender, ET.COLD) / 2));
@@ -4341,7 +4684,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     for (let i = 0; i < magicDollCount; i++) {
       const canSpend = spendManaWithShock('player', 1, '魔法玩偶');
       if (!canSpend) break;
-      const { actualDamage, logs: dollLogs } = applyDamageToEntity(enemyStats.value, 2, false);
+      const { actualDamage, logs: dollLogs } = applyDamageToSideWithRelics('enemy', enemyStats.value, 2, false, '魔法玩偶');
       if (actualDamage > 0) {
         pushFloatingNumber('enemy', actualDamage, 'magic', '-');
       }
@@ -4400,8 +4743,46 @@ const runEndCombatSequence = async (win: boolean) => {
   await wait(RESULT_BANNER_STAY_MS);
   if (token !== endCombatSequenceToken) return;
   setFatigueDegree(0);
-  emit('endCombat', win, playerStats.value, [...combatState.value.logs], [...pendingCardNegativeEffects.value]);
+  const finalPlayerStats = cloneEntityStats(playerStats.value);
+  if (getEffectStacks(finalPlayerStats, ET.TEMP_MAX_HP) > 0) {
+    removeEffect(finalPlayerStats, ET.TEMP_MAX_HP);
+  }
+  emit('endCombat', win, finalPlayerStats, [...combatState.value.logs], [...pendingCardNegativeEffects.value]);
 };
+
+watch(
+  () => playerStats.value.hp,
+  (nextHp, prevHp) => {
+    if (endCombatPending.value) return;
+    if (!Number.isFinite(nextHp) || !Number.isFinite(prevHp)) return;
+
+    const maxHp = Math.max(1, playerStats.value.maxHp);
+    const halfHp = maxHp * 0.5;
+    const prevHalfState = prevHp > halfHp ? 1 : (prevHp < halfHp ? -1 : 0);
+    const nextHalfState = nextHp > halfHp ? 1 : (nextHp < halfHp ? -1 : 0);
+    const crossedHalf = prevHalfState * nextHalfState === -1;
+
+    const resonanceCount = getActiveRelicCount('bloodpool_halfline_resonance');
+    if (crossedHalf && resonanceCount > 0 && enemyStats.value.hp > 0) {
+      for (let i = 0; i < resonanceCount; i += 1) {
+        const damage = triggerBleedProc('enemy', `[半阈共振核] 阈值跨越触发（${i + 1}/${resonanceCount}）`);
+        if (damage <= 0 || enemyStats.value.hp <= 0) break;
+      }
+    }
+
+    const reboundCount = getActiveRelicCount('bloodpool_critical_rebound');
+    if (
+      reboundCount > 0
+      && !bloodpoolCriticalReboundTriggered.value
+      && nextHp > 0
+      && nextHp < halfHp
+    ) {
+      bloodpoolCriticalReboundTriggered.value = true;
+      const { healed } = healForSide('player', 5 * reboundCount);
+      logRelicMessage(`[危线回流] 首次低于半血，回复 ${healed} 点生命。`);
+    }
+  },
+);
 
 // 任何生命值/中毒量变化后，立即执行中毒量致死判定。
 watch(

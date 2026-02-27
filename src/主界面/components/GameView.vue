@@ -36,6 +36,15 @@
         :disabled="!canEditMagicBooks"
         @click="openMagicBookModal"
       />
+      <SidebarIcon
+        :icon="magicHatSidebarIcon"
+        :label="canEditMagicBooks ? '魔法帽' : '魔法帽（锁定）'"
+        tooltip-side="right"
+        :active="canEditMagicBooks && activeModal === 'magicHat'"
+        :highlight="canEditMagicBooks"
+        :disabled="!canEditMagicBooks"
+        @click="openMagicHatModal"
+      />
     </div>
 
     <!-- Right sidebar: save/load only (reroll & edit moved into panel) -->
@@ -652,6 +661,56 @@
         </div>
         <div v-else class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 py-8 text-center text-sm text-dungeon-paper/50">
           当前没有可选的附加魔法书。
+        </div>
+      </div>
+    </DungeonModal>
+
+    <DungeonModal
+      title="魔法帽"
+      :is-open="activeModal === 'magicHat'"
+      panel-class="max-w-3xl"
+      @close="activeModal = null"
+    >
+      <div class="w-full max-w-3xl mx-auto flex flex-col gap-5">
+        <div class="rounded border border-dungeon-gold/30 bg-[#140d08]/70 px-4 py-3 flex items-center justify-between">
+          <span class="font-ui text-dungeon-paper/75 text-sm">可用技能点</span>
+          <span class="font-heading text-dungeon-gold text-xl">{{ magicHatSkillPoints }}</span>
+        </div>
+
+        <div
+          v-for="track in magicHatTracks"
+          :key="`magic-hat-${track.id}`"
+          class="rounded border border-dungeon-brown/60 bg-[#160d08]/65 p-4"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="font-heading text-dungeon-gold text-base">{{ track.label }}</div>
+              <div class="font-ui text-xs text-dungeon-paper/65 mt-1">
+                当前 {{ track.currentValue }} · 等级 {{ track.currentLevel }}/{{ track.maxLevel }}
+              </div>
+            </div>
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded border text-xs font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="track.isMax
+                ? 'border-dungeon-brown/60 text-dungeon-paper/45'
+                : 'border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10'"
+              :disabled="isUpgradingMagicHat || track.isMax"
+              @click="upgradeMagicHatStat(track.id)"
+            >
+              {{ track.isMax ? '已满级' : `升级（-${track.nextCost} 技能点）` }}
+            </button>
+          </div>
+          <div class="mt-3 h-2 rounded bg-black/45 border border-dungeon-brown/45 overflow-hidden">
+            <div
+              class="h-full transition-all duration-300"
+              :class="track.barClass"
+              :style="{ width: `${track.progressPercent}%` }"
+            ></div>
+          </div>
+          <div class="mt-2 font-ui text-[11px] text-dungeon-paper/60">
+            {{ track.isMax ? '已达到可升级上限' : `下一级提升至 ${track.nextValue}` }}
+          </div>
         </div>
       </div>
     </DungeonModal>
@@ -1571,6 +1630,12 @@ const SidebarIcon = defineComponent({
   },
 });
 
+const WizardHatIcon = defineComponent({
+  setup() {
+    return () => h('i', { class: 'fa-solid fa-hat-wizard text-[20px]' });
+  },
+});
+
 const gameStore = useGameStore();
 const activeModal = ref<string | null>(null);
 const inputText = ref('');
@@ -2004,12 +2069,20 @@ const CATEGORY_ORDER: Record<string, number> = {
   魔导: 1,
   燃烧: 2,
   严寒: 3,
+  血池: 4,
 };
 const compareCategory = (a: string, b: string) => {
   const orderA = CATEGORY_ORDER[a] ?? 999;
   const orderB = CATEGORY_ORDER[b] ?? 999;
   if (orderA !== orderB) return orderA - orderB;
   return a.localeCompare(b, 'zh-Hans-CN');
+};
+const CARD_TYPE_ORDER_FOR_TEST: Record<CardType, number> = {
+  [CardType.PHYSICAL]: 0,
+  [CardType.MAGIC]: 1,
+  [CardType.FUNCTION]: 2,
+  [CardType.DODGE]: 3,
+  [CardType.CURSE]: 4,
 };
 const cardCategoryGroupsForTest = computed<Array<{ category: string; cards: CardData[] }>>(() => {
   const grouped = new Map<string, CardData[]>();
@@ -2023,7 +2096,12 @@ const cardCategoryGroupsForTest = computed<Array<{ category: string; cards: Card
     .sort(([a], [b]) => compareCategory(a, b))
     .map(([category, cards]) => ({
       category,
-      cards: [...cards].sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN')),
+      cards: [...cards].sort((a, b) => {
+        const typeOrderA = CARD_TYPE_ORDER_FOR_TEST[a.type] ?? 999;
+        const typeOrderB = CARD_TYPE_ORDER_FOR_TEST[b.type] ?? 999;
+        if (typeOrderA !== typeOrderB) return typeOrderA - typeOrderB;
+        return a.name.localeCompare(b.name, 'zh-Hans-CN');
+      }),
     }));
 });
 const cardCategoryTabsForTest = computed<string[]>(() => [
@@ -2083,10 +2161,94 @@ const canEditMagicBooks = computed(() => (
   ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝'
 ));
 const magicBookSidebarIcon = computed(() => (canEditMagicBooks.value ? Book : Lock));
+const magicHatSidebarIcon = computed(() => (canEditMagicBooks.value ? WizardHatIcon : Lock));
 const isUpdatingMagicBooks = ref(false);
+const isUpgradingMagicHat = ref(false);
+type MagicHatUpgradeType = 'hp' | 'mp' | 'gold';
+type MagicHatTrackView = {
+  id: MagicHatUpgradeType;
+  label: string;
+  currentValue: number;
+  currentLevel: number;
+  maxLevel: number;
+  nextValue: number;
+  nextCost: number;
+  isMax: boolean;
+  progressPercent: number;
+  barClass: string;
+};
+const getSafeInt = (value: unknown, fallback: number) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.floor(parsed));
+};
+const readInitialMaxHpForUpgrade = () => {
+  return Math.max(1, getSafeInt(gameStore.statData.$初始血量上限, 10));
+};
+const calcUpgradeLevel = (value: number, base: number, step: number, maxLevel: number) => {
+  const level = Math.floor((value - base) / step);
+  return Math.max(0, Math.min(maxLevel, level));
+};
+const magicHatSkillPoints = computed(() => getSafeInt(gameStore.statData.$技能点, 0));
+const magicHatTracks = computed<MagicHatTrackView[]>(() => {
+  const hpValue = readInitialMaxHpForUpgrade();
+  const mpValue = Math.max(1, getSafeInt(gameStore.statData.$初始魔量, 1));
+  const goldValue = getSafeInt(gameStore.statData.$初始金币, 0);
+
+  const hpLevel = calcUpgradeLevel(hpValue, 10, 2, 5);
+  const mpLevel = calcUpgradeLevel(mpValue, 1, 1, 3);
+  const goldLevel = calcUpgradeLevel(goldValue, 0, 2, 5);
+
+  const hpIsMax = hpLevel >= 5;
+  const mpIsMax = mpLevel >= 3;
+  const goldIsMax = goldLevel >= 5;
+
+  return [
+    {
+      id: 'hp',
+      label: '初始生命上限',
+      currentValue: hpValue,
+      currentLevel: hpLevel,
+      maxLevel: 5,
+      nextValue: hpIsMax ? hpValue : 10 + (hpLevel + 1) * 2,
+      nextCost: hpIsMax ? 0 : [1, 3, 6, 10, 15][hpLevel]!,
+      isMax: hpIsMax,
+      progressPercent: (hpLevel / 5) * 100,
+      barClass: 'bg-gradient-to-r from-rose-500/85 to-red-400/85',
+    },
+    {
+      id: 'mp',
+      label: '初始魔量',
+      currentValue: mpValue,
+      currentLevel: mpLevel,
+      maxLevel: 3,
+      nextValue: mpIsMax ? mpValue : 1 + (mpLevel + 1),
+      nextCost: mpIsMax ? 0 : [5, 10, 15][mpLevel]!,
+      isMax: mpIsMax,
+      progressPercent: (mpLevel / 3) * 100,
+      barClass: 'bg-gradient-to-r from-sky-500/85 to-blue-400/85',
+    },
+    {
+      id: 'gold',
+      label: '初始金币',
+      currentValue: goldValue,
+      currentLevel: goldLevel,
+      maxLevel: 5,
+      nextValue: goldIsMax ? goldValue : (goldLevel + 1) * 2,
+      nextCost: goldIsMax ? 0 : [2, 4, 6, 8, 10][goldLevel]!,
+      isMax: goldIsMax,
+      progressPercent: (goldLevel / 5) * 100,
+      barClass: 'bg-gradient-to-r from-amber-500/85 to-yellow-300/85',
+    },
+  ];
+});
 const openMagicBookModal = () => {
   if (!canEditMagicBooks.value) return;
   activeModal.value = 'magicBooks';
+};
+const openMagicHatModal = () => {
+  if (!canEditMagicBooks.value) return;
+  activeModal.value = 'magicHat';
 };
 const toggleMagicBook = async (bookName: string) => {
   if (isUpdatingMagicBooks.value) return;
@@ -2099,6 +2261,44 @@ const toggleMagicBook = async (bookName: string) => {
     _携带的魔法书: Array.from(new Set(nextBooks)),
   });
   isUpdatingMagicBooks.value = false;
+};
+const upgradeMagicHatStat = async (id: MagicHatUpgradeType) => {
+  if (!canEditMagicBooks.value) return;
+  if (isUpgradingMagicHat.value) return;
+
+  const track = magicHatTracks.value.find((item) => item.id === id);
+  if (!track || track.isMax) return;
+
+  if (magicHatSkillPoints.value < track.nextCost) {
+    toastr.warning('技能点不足，无法升级。');
+    return;
+  }
+
+  const updates: Record<string, any> = {
+    $技能点: magicHatSkillPoints.value - track.nextCost,
+  };
+
+  if (id === 'hp') {
+    updates['$初始血量上限'] = track.nextValue;
+    updates._血量上限 = track.nextValue;
+    updates._血量 = track.nextValue;
+  } else if (id === 'mp') {
+    updates['$初始魔量'] = track.nextValue;
+    updates._魔量 = Math.max(getSafeInt(gameStore.statData._魔量, 0), track.nextValue);
+  } else {
+    updates['$初始金币'] = track.nextValue;
+    updates._金币 = Math.max(getSafeInt(gameStore.statData._金币, 0), track.nextValue);
+  }
+
+  isUpgradingMagicHat.value = true;
+  const ok = await gameStore.updateStatDataFields(updates);
+  isUpgradingMagicHat.value = false;
+  if (!ok) {
+    toastr.warning('升级失败，请稍后重试。');
+    return;
+  }
+
+  toastr.info(`${track.label} 已升级至 ${track.nextValue}。`);
 };
 const cardByNameForTest = computed(() => {
   const map = new Map<string, CardData>();
@@ -2224,6 +2424,8 @@ const getCardCategoryStripClass = (category: string) => {
       return 'bg-orange-500/85';
     case '严寒':
       return 'bg-sky-400/85';
+    case '血池':
+      return 'bg-rose-500/85';
     default:
       return 'bg-indigo-400/80';
   }
@@ -2266,6 +2468,16 @@ const getOwnedRelicCountById = (id: string): number => {
   const safeById = Number.isFinite(byId) ? byId : 0;
   return Math.max(0, Math.floor(Math.max(safeByName, safeById)));
 };
+const BLOODPOOL_PASSIVE_MAX_HP_RELICS: Array<{ id: string; bonus: number }> = [
+  { id: 'bloodpool_strawberry', bonus: 5 },
+  { id: 'bloodpool_pear', bonus: 10 },
+  { id: 'bloodpool_mango', bonus: 15 },
+];
+const bloodpoolPassiveMaxHpBonus = computed(() => (
+  BLOODPOOL_PASSIVE_MAX_HP_RELICS.reduce((sum, item) => {
+    return sum + (getOwnedRelicCountById(item.id) * item.bonus);
+  }, 0)
+));
 const canRefreshVictoryReward = computed(() => (
   showVictoryRewardView.value
   && victoryRewardStage.value === 'pick'
@@ -2418,7 +2630,7 @@ watch(
 );
 
 watch(activeModal, (modal) => {
-  if (modal === 'magicBooks') {
+  if (modal === 'magicBooks' || modal === 'magicHat') {
     gameStore.loadStatData();
   }
   if (modal === 'map') {
@@ -2432,7 +2644,7 @@ watch(activeModal, (modal) => {
   }
 });
 watch(canEditMagicBooks, (editable) => {
-  if (!editable && activeModal.value === 'magicBooks') {
+  if (!editable && (activeModal.value === 'magicBooks' || activeModal.value === 'magicHat')) {
     activeModal.value = null;
   }
 });
@@ -2878,11 +3090,14 @@ const toggleTucao = (key: string) => {
 
 // HP: _血量 / _血量上限, HP 不能超过上限
 const displayHp = computed(() => {
-  const hp = gameStore.statData._血量 ?? 10;
-  const maxHp = gameStore.statData._血量上限 ?? 10;
+  const hp = toNonNegativeInt(gameStore.statData._血量, 10);
+  const maxHp = displayMaxHp.value;
   return Math.min(hp, maxHp);
 });
-const displayMaxHp = computed(() => gameStore.statData._血量上限 ?? 10);
+const displayMaxHp = computed(() => {
+  const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
+  return Math.max(1, baseMaxHp + bloodpoolPassiveMaxHpBonus.value);
+});
 
 // MP: _魔量 only, no max variable. Visual cap at 20.
 const displayMp = computed(() => gameStore.statData._魔量 ?? 1);
@@ -3108,15 +3323,40 @@ const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
 const queueCombatMvuSync = (win: boolean, finalStats: unknown, negativeEffects: string[]) => {
   const hpRaw = Number((finalStats as { hp?: unknown } | null | undefined)?.hp);
   const hasHp = Number.isFinite(hpRaw);
+  const finalMaxHpRaw = Number((finalStats as { maxHp?: unknown } | null | undefined)?.maxHp);
+  const hasFinalMaxHp = Number.isFinite(finalMaxHpRaw);
   const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
   const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
   const goldReward = 3 + (2 * floor);
+  const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
+  const stomachMarkCount = getOwnedRelicCountById('bloodpool_stomach_mark');
+  const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
+  const stomachBonus = Math.max(0, 2 * stomachMarkCount);
+  const passiveMaxHpBonus = bloodpoolPassiveMaxHpBonus.value;
   const normalizedNegativeEffects = negativeEffects
     .filter((item): item is string => typeof item === 'string')
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+  let nextHp = hasHp ? Math.max(0, Math.floor(hpRaw)) : undefined;
+
+  if (nextHp !== undefined && bloodPoolCount > 0) {
+    const combatMaxHp = hasFinalMaxHp
+      ? Math.max(1, Math.floor(finalMaxHpRaw))
+      : Math.max(1, baseMaxHp + passiveMaxHpBonus);
+    if (nextHp <= Math.floor(combatMaxHp * 0.5)) {
+      const maxHpAfterBattle = Math.max(1, baseMaxHp + stomachBonus + passiveMaxHpBonus);
+      nextHp = Math.min(maxHpAfterBattle, nextHp + (12 * bloodPoolCount));
+    }
+  }
+
+  if (stomachBonus > 0) {
+    gameStore.mergePendingStatDataChanges({
+      _血量上限: Math.max(1, baseMaxHp + stomachBonus),
+    });
+  }
+
   gameStore.setPendingCombatMvuChanges({
-    hp: hasHp ? Math.max(0, Math.floor(hpRaw)) : undefined,
+    hp: nextHp,
     addDefeatMark: !win,
     goldDelta: win ? goldReward : undefined,
     negativeStatusesAdd: normalizedNegativeEffects,
@@ -3148,7 +3388,7 @@ const buildVictoryRewardOptions = (): CardData[] => {
   const hasRainbowCard = isNormalEnemy && getOwnedRelicCountById('base_rainbow_card') > 0;
   const hasGoldenCard = isNormalEnemy && getOwnedRelicCountById('base_golden_card') > 0;
   const optionCount = 3 + (hasRainbowCard ? 1 : 0);
-  const rareChance = isLordRoom ? 1 : (hasGoldenCard ? 0.2 : 0.1);
+  const rareChance = isLordRoom ? 1 : (hasGoldenCard ? 0.1 : 0.05);
 
   const normalPool = pool.filter((card) => card.rarity === '普通');
   const rarePool = pool.filter((card) => card.rarity === '稀有');
@@ -3694,8 +3934,8 @@ const exitIdolView = () => {
 
 const rollChestRewardRarity = (): RelicData['rarity'] => {
   const rarityRoll = Math.random();
-  if (rarityRoll < 0.6) return '普通';
-  if (rarityRoll < 0.9) return '稀有';
+  if (rarityRoll < 0.8) return '普通';
+  if (rarityRoll < 0.95) return '稀有';
   return '传奇';
 };
 
@@ -3841,10 +4081,20 @@ const handleChestCenterClick = async () => {
 };
 
 const startCombatFromSpecialOption = async () => {
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  const area = ((gameStore.statData._当前区域 as string) || '').trim();
+  const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
+  if (roomType === '领主房' && bloodPoolCount > 0) {
+    const fullHp = displayMaxHp.value;
+    const currentHp = toNonNegativeInt(gameStore.statData._血量, fullHp);
+    if (currentHp < fullHp) {
+      const ok = await gameStore.updateStatDataFields({ _血量: fullHp });
+      if (!ok) return;
+    }
+  }
+
   let enemyName = ((gameStore.statData._对手名称 as string) || '').trim();
   if (!enemyName) {
-    const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
-    const area = ((gameStore.statData._当前区域 as string) || '').trim();
     enemyName = roomType === '领主房'
       ? (pickLordMonsterByArea(area) ?? '')
       : (pickBattleMonsterByArea(area) ?? '');
@@ -4560,10 +4810,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
       _血量: trapHpAfterDamage,
     };
   } else if (portal.roomType === '温泉房') {
-    const maxHp = Math.max(
-      1,
-      toNonNegativeInt(gameStore.statData._血量上限, toNonNegativeInt(gameStore.statData._血量, 1)),
-    );
+    const maxHp = Math.max(1, displayMaxHp.value);
     pendingStatDataFields = {
       _血量: maxHp,
     };

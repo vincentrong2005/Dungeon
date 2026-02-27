@@ -63,7 +63,15 @@
               <div v-else-if="activeTab === 'status'" class="entry-grid">
                 <article v-for="effect in pagedEffects" :key="`effect-${effect.type}`" class="entry-card">
                   <div class="effect-row">
-                    <span class="effect-icon">{{ encounteredEffectTypes.has(effect.type) ? effect.icon : '?' }}</span>
+                    <span class="effect-icon">
+                      <i
+                        v-if="encounteredEffectTypes.has(effect.type) && effect.faClass"
+                        :class="[effect.faClass, 'text-[14px] leading-none']"
+                        :style="effect.faStyle"
+                        aria-hidden="true"
+                      ></i>
+                      <span v-else>?</span>
+                    </span>
                     <div class="entry-title">{{ encounteredEffectTypes.has(effect.type) ? effect.name : '???' }}</div>
                   </div>
                   <div class="entry-meta">{{ encounteredEffectTypes.has(effect.type) ? effect.kind : '???' }}</div>
@@ -136,7 +144,7 @@ import { EFFECT_REGISTRY } from '../battle/effects';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics } from '../battle/relicRegistry';
 import { loadCodexState } from '../codexStore';
-import { CardType } from '../types';
+import { CardType, EffectType as ET, type EffectType } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
 
@@ -212,15 +220,68 @@ const effectKind = (polarity?: string): StatusKind => {
   if (polarity === 'debuff') return '负面';
   return '被动';
 };
-const effectIcon = (name: string, kind: StatusKind): string => {
-  if (name.includes('火')) return '🔥';
-  if (name.includes('冰') || name.includes('寒')) return '❄️';
-  if (name.includes('毒')) return '☠️';
-  if (name.includes('雷') || name.includes('电')) return '⚡';
-  if (kind === '正面') return '✨';
-  if (kind === '负面') return '⚠️';
-  return '🧩';
+const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
+  [ET.BARRIER]: 'fa-brands fa-fediverse',
+  [ET.ARMOR]: 'fa-solid fa-shield-halved',
+  [ET.BIND]: 'fa-solid fa-link',
+  [ET.DEVOUR]: 'fa-brands fa-optin-monster',
+  [ET.POISON]: 'fa-solid fa-virus',
+  [ET.POISON_AMOUNT]: 'fa-solid fa-bacterium',
+  [ET.CORROSION]: 'fa-brands fa-cloudscale',
+  [ET.BURN]: 'fa-solid fa-fire',
+  [ET.BLEED]: 'fa-solid fa-droplet',
+  [ET.VULNERABLE]: 'fa-brands fa-linode',
+  [ET.DAMAGE_BOOST]: 'fa-brands fa-superpowers',
+  [ET.REGEN]: 'fa-brands fa-medrt',
+  [ET.WHITE_TURBID]: 'fa-solid fa-droplet',
+  [ET.IGNITE_AURA]: 'fa-solid fa-fire-flame-simple',
+  [ET.STUN]: 'fa-solid fa-ban',
+  [ET.CHARGE]: 'fa-solid fa-exclamation',
+  [ET.FATIGUE]: 'fa-solid fa-bed',
+  [ET.COLD]: 'fa-regular fa-snowflake',
+  [ET.TEMPERATURE_DIFF]: 'fa-brands fa-empire',
+  [ET.NON_LIVING]: 'fa-solid fa-skull',
+  [ET.NON_ENTITY]: 'fa-solid fa-ghost',
+  [ET.ILLUSORY_BODY]: 'fa-solid fa-ghost',
+  [ET.TEMP_MAX_HP]: 'fa-solid fa-heart',
+  [ET.MAX_HP_REDUCTION]: 'fa-solid fa-heart-pulse',
+  [ET.POINT_GROWTH_BIG]: 'fa-solid fa-dice fa-lg',
+  [ET.POINT_GROWTH_SMALL]: 'fa-solid fa-dice fa-sm',
+  [ET.MANA_DRAIN]: 'fa-solid fa-battery-empty',
+  [ET.MANA_SPRING]: 'fa-brands fa-drupal',
+  [ET.SWARM]: 'fa-solid fa-bugs',
+  [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
+  [ET.INDOMITABLE]: 'fa-solid fa-shield',
+  [ET.PEEP_FORBIDDEN]: 'fa-solid fa-eye',
+  [ET.BLIND_ASH]: 'fa-regular fa-eye-slash',
+  [ET.COGNITIVE_INTERFERENCE]: 'fa-solid fa-hamsa',
+  [ET.MEMORY_FOG]: 'fa-brands fa-phabricator',
+  [ET.SILENCE]: 'fa-solid fa-circle-xmark',
+  [ET.STURDY]: 'fa-solid fa-user-shield',
+  [ET.SHOCK]: 'fa-solid fa-bolt',
+  [ET.FLAME_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.POISON_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.TOXIN_SPREAD]: 'fa-brands fa-hornbill',
+  [ET.AMBUSH]: 'fa-solid fa-user-secret',
+  [ET.FROST_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.BLOODBLADE_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.LIGHTNING_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.THORNS]: 'fa-solid fa-leaf',
 };
+const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {
+  [ET.FLAME_ATTACH]: { color: 'rgb(255, 64, 64)' },
+  [ET.POISON_ATTACH]: { color: 'rgb(81, 255, 116)' },
+  [ET.FROST_ATTACH]: { color: 'rgb(108, 230, 255)' },
+  [ET.BLOODBLADE_ATTACH]: { color: 'rgb(176, 0, 0)' },
+  [ET.LIGHTNING_ATTACH]: { color: 'rgb(201, 69, 255)' },
+  [ET.TEMP_MAX_HP]: { color: 'rgb(255, 120, 150)' },
+  [ET.ILLUSORY_BODY]: {
+    '--fa-primary-color': 'rgb(255, 255, 255)',
+    '--fa-secondary-color': 'rgb(255, 255, 255)',
+  },
+};
+const getEffectFontAwesomeClass = (type: EffectType): string | null => EFFECT_FA_ICON_CLASS[type] ?? null;
+const getEffectFontAwesomeStyle = (type: EffectType): Record<string, string> | undefined => EFFECT_FA_ICON_STYLE[type];
 const allEffects = computed(() => (
   Object.entries(EFFECT_REGISTRY)
     .map(([type, def]) => ({
@@ -228,7 +289,8 @@ const allEffects = computed(() => (
       name: def.name,
       description: def.description ?? '',
       kind: effectKind(def.polarity),
-      icon: effectIcon(def.name, effectKind(def.polarity)),
+      faClass: getEffectFontAwesomeClass(type as EffectType),
+      faStyle: getEffectFontAwesomeStyle(type as EffectType),
     }))
     .sort((a, b) => {
       const order: Record<StatusKind, number> = { 正面: 0, 负面: 1, 被动: 2 };

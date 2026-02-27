@@ -522,7 +522,7 @@ const 穴居触手: EnemyDefinition = {
     minDice: 2,
     maxDice: 4,
     effects: [
-      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
       { type: EffectType.SWARM, stacks: 5, polarity: 'buff' },
     ],
   },

@@ -1,7 +1,7 @@
 ﻿import { CardType, EffectType, type CardData, type EntityStats } from '../types';
 
 export type RelicRarity = '普通' | '稀有' | '传奇';
-export type RelicCategory = '基础' | '魔导' | '燃烧' | '严寒';
+export type RelicCategory = '基础' | '魔导' | '燃烧' | '严寒' | '血池';
 
 export type RelicSide = 'player' | 'enemy';
 export type RelicFloatKind = 'shield' | 'mana' | 'heal';
@@ -363,8 +363,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '金色卡牌',
     rarity: '稀有',
     category: '基础',
-    effect: '普通敌人掉落卡牌有20%概率为稀有',
-    description: '战胜普通敌人时，每个奖励位有20%概率直接生成稀有卡牌。',
+    effect: '普通敌人掉落卡牌有10%概率为稀有',
+    description: '战胜普通敌人时，每个奖励位有10%概率直接生成稀有卡牌。',
   },
   {
     id: 'oily_grease',
@@ -753,6 +753,205 @@ const RELIC_LIST: readonly RelicData[] = [
     category: '严寒',
     effect: '单次获得护甲≥5时，额外回蓝+1（每回合1次）',
     description: '当你单次获得至少5点护甲时，额外回复1点魔力（每回合最多触发1次）。',
+  },
+  {
+    id: 'bloodpool_blood_pool',
+    name: '血池',
+    rarity: '传奇',
+    category: '血池',
+    effect: '战斗结束时若生命≤50%回复12；进入领主房时生命回满',
+    description: '战斗结算后若生命值不高于50%，回复12点生命；进入领主房时立即回满生命。',
+  },
+  {
+    id: 'bloodpool_heart_mark',
+    name: '心脏印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '每次受伤回复1点生命（每回合最多2次）',
+    description: '当你受到伤害时回复1点生命值（每回合最多触发2次）。',
+    hooks: {
+      onTurnStart: ({ state }) => {
+        state['triggeredThisTurn'] = 0;
+      },
+      onAfterHitTaken: ({ count, side, targetSide, actualDamage, state, heal, addLog }) => {
+        if (targetSide !== side) return;
+        if (actualDamage <= 0) return;
+        const triggered = Math.max(0, Math.floor(Number(state['triggeredThisTurn'] ?? 0)));
+        if (triggered >= 2) return;
+        state['triggeredThisTurn'] = triggered + 1;
+        const { healed } = heal(side, count);
+        addLog(`[心脏印记] 受伤触发，回复 ${healed} 点生命（本回合 ${triggered + 1}/2）。`);
+      },
+    },
+  },
+  {
+    id: 'bloodpool_skin_mark',
+    name: '皮肤印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '每次受伤减少1点伤害（每回合最多2次）',
+    description: '每次受到伤害时减少1点伤害（每回合最多触发2次）。',
+  },
+  {
+    id: 'bloodpool_pulse_mark',
+    name: '脉搏印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '回合开始自损2点真实伤害；回合结束回复2点生命',
+    description: '每回合开始时对自己造成2点真实伤害；每回合结束时回复2点生命。',
+    hooks: {
+      onTurnEnd: ({ count, side, heal, addLog }) => {
+        const { healed } = heal(side, 2 * count);
+        if (healed > 0) {
+          addLog(`[脉搏印记] 回合结束回复 ${healed} 点生命。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'bloodpool_stomach_mark',
+    name: '胃印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '战斗结束后最大生命值+2',
+    description: '每次战斗结束后，最大生命值永久+2。',
+  },
+  {
+    id: 'bloodpool_strawberry',
+    name: '草莓',
+    rarity: '普通',
+    category: '血池',
+    effect: '最大生命值+5',
+    description: '最大生命值增加5点。',
+  },
+  {
+    id: 'bloodpool_pear',
+    name: '梨',
+    rarity: '稀有',
+    category: '血池',
+    effect: '最大生命值+10',
+    description: '最大生命值增加10点。',
+  },
+  {
+    id: 'bloodpool_mango',
+    name: '芒果',
+    rarity: '传奇',
+    category: '血池',
+    effect: '最大生命值+15',
+    description: '最大生命值增加15点。',
+  },
+  {
+    id: 'bloodpool_crimson_plasma',
+    name: '凝血导管',
+    rarity: '普通',
+    category: '血池',
+    effect: '战斗中的回复效果增加25%',
+    description: '战斗中造成的生命回复效果提高25%。',
+  },
+  {
+    id: 'bloodpool_crimson_membrane',
+    name: '赤膜增殖囊',
+    rarity: '稀有',
+    category: '血池',
+    effect: '每2回合增长1点临时生命上限',
+    description: '每经过2个己方回合开始，获得1点临时生命上限。',
+    hooks: {
+      onBattleStart: ({ state }) => {
+        state['turnCounter'] = 0;
+      },
+      onTurnStart: ({ count, side, state, addStatusEffect, addLog }) => {
+        const turnCounter = Math.max(0, Math.floor(Number(state['turnCounter'] ?? 0))) + 1;
+        state['turnCounter'] = turnCounter;
+        if (turnCounter % 2 !== 0) return;
+        const gain = Math.max(1, Math.floor(count));
+        if (addStatusEffect(side, EffectType.TEMP_MAX_HP, gain, { source: 'relic:bloodpool_crimson_membrane' })) {
+          addLog(`[赤膜增殖囊] 第 ${turnCounter} 回合触发，临时生命上限 +${gain}。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'bloodpool_hemostatic_valve',
+    name: '凝血限流阀',
+    rarity: '稀有',
+    category: '血池',
+    effect: '自己每次受到的伤害不能超过10点',
+    description: '单次受到的伤害上限为10点。',
+  },
+  {
+    id: 'bloodpool_reflow_mark',
+    name: '回流刻印',
+    rarity: '稀有',
+    category: '血池',
+    effect: '每回复一次生命值，当前回合点数+1（每回合最多2次）',
+    description: '每当你在当前回合回复一次生命值，本回合后续卡牌点数+1（每回合最多触发2次）。',
+    hooks: {
+      onTurnStart: ({ state }) => {
+        state['healTriggersThisTurn'] = 0;
+      },
+      modifyFinalPoint: ({ currentPoint, state, isPreview, addLog }) => {
+        const bonus = Math.max(0, Math.floor(Number(state['healTriggersThisTurn'] ?? 0)));
+        if (bonus <= 0) return currentPoint;
+        if (!isPreview) {
+          addLog(`[回流刻印] 本次点数 +${bonus}。`);
+        }
+        return currentPoint + bonus;
+      },
+    },
+  },
+  {
+    id: 'bloodpool_clash_point_mark',
+    name: '骰蚀刻印',
+    rarity: '普通',
+    category: '血池',
+    effect: '拼点成功时给对方施加1层流血',
+    description: '每次拼点成功时，对手获得1层流血。',
+  },
+  {
+    id: 'bloodpool_first_bleed_feast',
+    name: '噬血水蛭',
+    rarity: '普通',
+    category: '血池',
+    effect: '敌人首次受到流血伤害时，我方回复等量生命',
+    description: '每场战斗中，敌人第一次受到流血伤害时，你回复等量生命值。',
+  },
+  {
+    id: 'bloodpool_halfline_resonance',
+    name: '半阈共振核',
+    rarity: '传奇',
+    category: '血池',
+    effect: '自身生命跨越50%阈值时触发敌方流血一次',
+    description: '每次你的生命值在50%阈值上下跨越时，立即触发一次敌方流血伤害。',
+  },
+  {
+    id: 'bloodpool_fetal_cocoon',
+    name: '胎生血茧',
+    rarity: '传奇',
+    category: '血池',
+    effect: '战斗开始时受到一次50%当前生命值的真实伤害，并获得1层血茧',
+    description: '战斗开始时，自身受到一次50%当前生命值的真实伤害，并获得1层血茧。',
+    hooks: {
+      onBattleStart: ({ count, side, self, addStatusEffect, addLog }) => {
+        const currentHp = Math.max(0, Math.floor(self.hp));
+        const trueDamage = currentHp > 0 ? Math.max(1, Math.floor(currentHp * 0.5)) : 0;
+        if (trueDamage > 0) {
+          self.hp = Math.max(0, self.hp - trueDamage);
+          addLog(`[胎生血茧] 战斗开始：受到 ${trueDamage} 点真实伤害。`);
+        }
+        const cocoonStacks = Math.max(1, Math.floor(count));
+        if (addStatusEffect(side, EffectType.BLOOD_COCOON, cocoonStacks, { source: 'relic:bloodpool_fetal_cocoon' })) {
+          addLog(`[胎生血茧] 获得 ${cocoonStacks} 层血茧。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'bloodpool_critical_rebound',
+    name: '危线回流',
+    rarity: '稀有',
+    category: '血池',
+    effect: '战斗中首次生命低于一半时，回复5点生命',
+    description: '每场战斗中，第一次生命值低于50%时，立即回复5点生命。',
   },
 ];
 

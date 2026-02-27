@@ -242,6 +242,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 1,
     description: '受到物理伤害减少50%',
   },
+  [EffectType.TEMP_MAX_HP]: {
+    type: EffectType.TEMP_MAX_HP,
+    name: '临时生命上限',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '本场战斗内每层提高1点最大生命值',
+  },
   [EffectType.MAX_HP_REDUCTION]: {
     type: EffectType.MAX_HP_REDUCTION,
     name: '生命上限削减',
@@ -295,6 +304,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     stackable: true,
     maxStacks: 0,
     description: '生命值≤0时，消耗1层并恢复至生命上限',
+  },
+  [EffectType.BLOOD_COCOON]: {
+    type: EffectType.BLOOD_COCOON,
+    name: '血茧',
+    polarity: 'buff',
+    timings: ['onAfterDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '生命值≤0时，消耗1层并恢复至50%生命',
   },
   [EffectType.INDOMITABLE]: {
     type: EffectType.INDOMITABLE,
@@ -519,9 +537,16 @@ export function applyEffect(
 
   if (existing) {
     if (def.stackable) {
+      const prevStacks = existing.stacks;
       existing.stacks += nextStacks;
       if (def.maxStacks > 0) {
         existing.stacks = Math.min(existing.stacks, def.maxStacks);
+      }
+      if (type === EffectType.TEMP_MAX_HP) {
+        const actualAdded = Math.max(0, existing.stacks - prevStacks);
+        if (actualAdded > 0) {
+          entity.maxHp += actualAdded;
+        }
       }
     }
     // 更新束缚的限制类型
@@ -539,9 +564,13 @@ export function applyEffect(
   }
 
   // 新增效果
+  const instanceStacks = def.maxStacks > 0 ? Math.min(nextStacks, def.maxStacks) : nextStacks;
+  if (type === EffectType.TEMP_MAX_HP && instanceStacks > 0) {
+    entity.maxHp += instanceStacks;
+  }
   const instance: EffectInstance = {
     type,
-    stacks: def.maxStacks > 0 ? Math.min(nextStacks, def.maxStacks) : nextStacks,
+    stacks: instanceStacks,
     polarity: def.polarity,
     lockDecayThisTurn: (type === EffectType.BIND || type === EffectType.SILENCE) ? !!options?.lockDecayThisTurn : undefined,
     restrictedTypes: options?.restrictedTypes,
@@ -559,6 +588,12 @@ export function applyEffect(
  * 移除实体身上的指定效果
  */
 export function removeEffect(entity: EntityStats, type: EffectType): void {
+  const effect = findEffect(entity, type);
+  if (!effect) return;
+  if (type === EffectType.TEMP_MAX_HP && effect.stacks > 0) {
+    entity.maxHp = Math.max(0, entity.maxHp - effect.stacks);
+    entity.hp = Math.min(entity.hp, entity.maxHp);
+  }
   entity.effects = entity.effects.filter(e => e.type !== type);
 }
 
@@ -568,6 +603,17 @@ export function removeEffect(entity: EntityStats, type: EffectType): void {
 export function reduceEffectStacks(entity: EntityStats, type: EffectType, amount: number = 1): void {
   const effect = findEffect(entity, type);
   if (!effect) return;
+  if (type === EffectType.TEMP_MAX_HP) {
+    const removed = Math.min(effect.stacks, Math.max(0, Math.floor(amount)));
+    if (removed <= 0) return;
+    effect.stacks -= removed;
+    entity.maxHp = Math.max(0, entity.maxHp - removed);
+    entity.hp = Math.min(entity.hp, entity.maxHp);
+    if (effect.stacks <= 0) {
+      entity.effects = entity.effects.filter(e => e.type !== type);
+    }
+    return;
+  }
   effect.stacks -= amount;
   if (effect.stacks <= 0) {
     removeEffect(entity, type);

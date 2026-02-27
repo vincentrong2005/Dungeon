@@ -200,6 +200,15 @@ export function triggerSwarmReviveIfNeeded(target: EntityStats): { revived: bool
     return { revived: true, logs };
   }
 
+  const bloodCocoonStacks = getEffectStacks(target, EffectType.BLOOD_COCOON);
+  if (bloodCocoonStacks > 0) {
+    reduceEffectStacks(target, EffectType.BLOOD_COCOON, 1);
+    const recoverHp = Math.max(1, Math.floor(target.maxHp * 0.5));
+    target.hp = recoverHp;
+    logs.push(`[血茧] 触发，消耗1层并恢复至${recoverHp}点生命。`);
+    return { revived: true, logs };
+  }
+
   const indomitableStacks = getEffectStacks(target, EffectType.INDOMITABLE);
   if (indomitableStacks > 0) {
     reduceEffectStacks(target, EffectType.INDOMITABLE, 1);
