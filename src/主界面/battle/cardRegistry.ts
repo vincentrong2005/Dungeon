@@ -160,6 +160,21 @@ const 普通护盾: CardData = {
   description: '点数+1，获得1倍点数的护甲',
 };
 
+/** 压势：根据自身骰子点数减少对方骰子点数 */
+const 压势: CardData = {
+  id: 'basic_point_suppress',
+  name: '压势',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '根据自身骰子点数减少对方骰子点数',
+};
+
 /** 普通闪避 */
 const 普通闪避: CardData = {
   id: 'basic_dodge',
@@ -261,12 +276,14 @@ const 虚实步法: CardData = {
   description: '重掷，闪避',
 };
 
+// ── 魔导体系卡牌 ────────────────────────────────────────────────
+
 /** 镜面幻像：点数+2，闪避，若闪避成功为自己施加1层结界 */
 const 镜面幻像: CardData = {
   id: 'basic_mirror_phantom',
   name: '镜面幻像',
   type: CardType.DODGE,
-  category: '基础',
+  category: '魔导',
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 2 },
@@ -290,7 +307,7 @@ const 魔力偏移: CardData = {
   id: 'basic_mana_shift',
   name: '魔力偏移',
   type: CardType.DODGE,
-  category: '基础',
+  category: '魔导',
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
@@ -308,7 +325,20 @@ const 魔力偏移: CardData = {
   description: '闪避，若闪避成功则回复1倍点数的魔力',
 };
 
-// ── 魔导体系卡牌 ────────────────────────────────────────────────
+/** 零域闪步：闪避，闪避成功后下回合的魔法牌消耗为0（结算逻辑在 CombatView） */
+const 零域闪步: CardData = {
+  id: 'modao_zero_domain_dodge',
+  name: '零域闪步',
+  type: CardType.DODGE,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，闪避成功后下回合的魔法牌消耗为0',
+};
 
 /** 魔剑：造成1倍点数伤害并回复等量实际伤害魔力（结算逻辑在 CombatView） */
 const 魔剑: CardData = {
@@ -342,7 +372,7 @@ const 双刃剑: CardData = {
   description: '点数+1，造成0.5倍点数伤害，2连击',
 };
 
-/** 导路采样：点数+1，回复1倍点数魔力 */
+/** 导路采样：点数，回复1.5倍点数魔力 */
 const 导路采样: CardData = {
   id: 'modao_route_sampling',
   name: '导路采样',
@@ -350,13 +380,13 @@ const 导路采样: CardData = {
   category: '魔导',
   rarity: '普通',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 1 },
+  calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.5 },
   ],
-  description: '回复1倍点数魔力',
+  description: '回复1.5倍点数魔力',
 };
 
 /** 织式备份：1MP，1倍伤害；在手牌中时使手牌内魔法牌费用-1（结算逻辑在 CombatView） */
@@ -517,6 +547,72 @@ const 魔力轰炸: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description: '消耗8MP，点数*2，造成1倍点数伤害，3连击',
+};
+
+/** 涌流：回复魔力并叠加寒冷，连击 */
+const 涌流: CardData = {
+  id: 'modao_flow',
+  name: '涌流',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '自身增加2点魔力与1层寒冷，连击',
+};
+
+/** 透支魔力：大量回魔并叠加法力枯竭，连击 */
+const 透支魔力: CardData = {
+  id: 'modao_overdraw',
+  name: '透支魔力',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 10 },
+    { kind: 'apply_buff', effectType: EffectType.MANA_DRAIN, target: 'self', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '自身增加10点魔力与3层法力枯竭，连击',
+};
+
+/** 魔甲：获得等同当前魔力值的护甲（结算逻辑在 CombatView） */
+const 魔甲: CardData = {
+  id: 'modao_mana_armor',
+  name: '魔甲',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '自身增加等同当前魔力点数的护甲',
+};
+
+/** 魔力增强：消耗等同点数的魔力并转化为增伤（结算逻辑在 CombatView） */
+const 魔力增强: CardData = {
+  id: 'modao_wager',
+  name: '魔力增强',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗1倍点数的魔力，获得1倍点数的增伤',
 };
 
 // ── 燃烧体系卡牌 ────────────────────────────────────────────────
@@ -728,6 +824,48 @@ const 炭化转化: CardData = {
   description: '清除自身燃烧并按层数回复魔力',
 };
 
+/** 大日焚：施加燃烧并使目标燃烧翻倍（翻倍逻辑在 CombatView） */
+const 大日焚: CardData = {
+  id: 'burn_kindle',
+  name: '大日焚',
+  type: CardType.MAGIC,
+  category: '燃烧',
+  rarity: '稀有',
+  manaCost: 8,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '消耗8MP，附加0.5倍点数燃烧并使对手燃烧层数翻倍',
+};
+
+/** 火遁：闪避成功后施加1倍点数燃烧 */
+const 火遁: CardData = {
+  id: 'burn_fire_dodge',
+  name: '火遁',
+  type: CardType.DODGE,
+  category: '燃烧',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.BURN,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '闪避，若闪避成功则施加1倍点数的燃烧',
+};
+
 // ── 严寒体系卡牌 ────────────────────────────────────────────────
 
 /** 霜痕斩：0.6倍伤害，施加1倍点数寒冷 */
@@ -889,6 +1027,39 @@ const 零界裁定: CardData = {
   description: '若敌方寒冷≥10则消耗10层寒冷并施加眩晕1回合，同时独立施加1倍点数寒冷',
 };
 
+/** 霜爆：施加寒冷并按目标寒冷层数造成伤害（伤害逻辑在 CombatView） */
+const 霜爆: CardData = {
+  id: 'yanhan_frost_burst',
+  name: '霜爆',
+  type: CardType.MAGIC,
+  category: '严寒',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '增加1倍点数的寒冷，并造成对方当前寒冷层数的伤害',
+};
+
+/** 复咒：下一张魔法牌结算两次（结算逻辑在 CombatView） */
+const 复咒: CardData = {
+  id: 'yanhan_spell_echo',
+  name: '复咒',
+  type: CardType.FUNCTION,
+  category: '严寒',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '下一张魔法牌结算两次',
+};
+
 // ── 血池体系卡牌 ────────────────────────────────────────────────
 
 /** 刺络放血：造成0.6倍点数伤害，敌方流血+1 */
@@ -977,6 +1148,23 @@ const 活性血池: CardData = {
   description: '回复0.6倍点数的生命和0.6倍点数的临时生命上限',
 };
 
+/** 血筑：增加临时生命上限并按已损失生命获得护甲（护甲逻辑在 CombatView） */
+const 血筑: CardData = {
+  id: 'bloodpool_life_wall',
+  name: '血筑',
+  type: CardType.FUNCTION,
+  category: '血池',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.TEMP_MAX_HP, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '增加1倍点数的临时生命上限，并增加当前已损失血量点护甲',
+};
+
 /** 血债重击：自伤3并造成1倍点数伤害；每损失3点生命，点数+1；固定施加3层流血 */
 const 血债重击: CardData = {
   id: 'bloodpool_blood_debt_strike',
@@ -1019,12 +1207,12 @@ const 血位倒转: CardData = {
   type: CardType.MAGIC,
   category: '血池',
   rarity: '稀有',
-  manaCost: 6,
+  manaCost: 9,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗6MP，互换双方当前生命值百分比',
+  description: '消耗9MP，互换双方当前生命值百分比',
 };
 
 /** 血脉迁葬：转移自身流血并连续触发对方流血3次 */
@@ -1042,7 +1230,7 @@ const 血脉迁葬: CardData = {
   description: '消耗6MP，将自身流血全部转移给对方，并连续触发对方流血3次',
 };
 
-/** 血影回身：点数+1，闪避成功时回复0.5倍点数生命并施加1层流血 */
+/** 血影回身：点数+1，闪避成功时回复0.4倍点数生命并施加1层流血 */
 const 血影回身: CardData = {
   id: 'bloodpool_blood_shadow_dodge',
   name: '血影回身',
@@ -1059,7 +1247,7 @@ const 血影回身: CardData = {
       kind: 'heal',
       target: 'self',
       valueMode: 'point_scale',
-      scale: 0.5,
+      scale: 0.4,
     },
     {
       triggers: ['on_dodge_success'],
@@ -1070,7 +1258,7 @@ const 血影回身: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '点数+1，闪避。若闪避成功，回复0.5倍点数生命并施加1层流血',
+  description: '点数+1，闪避。若闪避成功，回复0.4倍点数生命并施加1层流血',
 };
 
 /** 血幕回避：闪避成功后给对方施加3层流血 */
@@ -2422,6 +2610,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [普通魔法攻击.name, 普通魔法攻击],
   [聚焦魔法攻击.name, 聚焦魔法攻击],
   [普通护盾.name, 普通护盾],
+  [压势.name, 压势],
   [普通闪避.name, 普通闪避],
   [休眠.name, 休眠],
   [侧身闪避.name, 侧身闪避],
@@ -2430,6 +2619,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [虚实步法.name, 虚实步法],
   [镜面幻像.name, 镜面幻像],
   [魔力偏移.name, 魔力偏移],
+  [零域闪步.name, 零域闪步],
   [魔剑.name, 魔剑],
   [双刃剑.name, 双刃剑],
   [导路采样.name, 导路采样],
@@ -2443,6 +2633,10 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [棱镜贯流.name, 棱镜贯流],
   [导能屏障.name, 导能屏障],
   [魔力轰炸.name, 魔力轰炸],
+  [涌流.name, 涌流],
+  [透支魔力.name, 透支魔力],
+  [魔甲.name, 魔甲],
+  [魔力增强.name, 魔力增强],
   [火花烙印.name, 火花烙印],
   [焦油泼洒.name, 焦油泼洒],
   [焚风术.name, 焚风术],
@@ -2455,6 +2649,8 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [炼狱波及.name, 炼狱波及],
   [临界沸腾.name, 临界沸腾],
   [炭化转化.name, 炭化转化],
+  [大日焚.name, 大日焚],
+  [火遁.name, 火遁],
   [霜痕斩.name, 霜痕斩],
   [寒域校准.name, 寒域校准],
   [折光回避.name, 折光回避],
@@ -2464,11 +2660,14 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [压差循环.name, 压差循环],
   [冷源整流.name, 冷源整流],
   [零界裁定.name, 零界裁定],
+  [霜爆.name, 霜爆],
+  [复咒.name, 复咒],
   [刺络放血.name, 刺络放血],
   [赤潮压制.name, 赤潮压制],
   [噬血劈斩.name, 噬血劈斩],
   [血池扩容.name, 血池扩容],
   [活性血池.name, 活性血池],
+  [血筑.name, 血筑],
   [血债重击.name, 血债重击],
   [赤痕爆裂.name, 赤痕爆裂],
   [血位倒转.name, 血位倒转],

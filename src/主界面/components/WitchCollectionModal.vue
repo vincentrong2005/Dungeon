@@ -144,6 +144,7 @@ import { EFFECT_REGISTRY } from '../battle/effects';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics } from '../battle/relicRegistry';
 import { loadCodexState } from '../codexStore';
+import { getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, EffectType as ET, type EffectType } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
@@ -301,6 +302,7 @@ const allEffects = computed(() => (
 ));
 const filteredEffects = computed(() => (statusFilter.value === '全部' ? allEffects.value : allEffects.value.filter((effect) => effect.kind === statusFilter.value)));
 
+const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
 const ENEMY_FLOOR_HINT: Record<string, number> = {
   沐芯兰: 1,
   宝箱怪: 1,
@@ -335,7 +337,7 @@ const allEnemies = computed(() => (
       floor,
       floorLabel: floor > 0 ? String(floor) : '未知',
       areaLabel,
-      fallbackPortraitUrl: `https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/${encodeURIComponent(name)}.png`,
+      fallbackPortraitUrl: `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/${encodeURIComponent(name)}.png`,
       stats: {
         hp: stats.hp,
         maxHp: stats.maxHp,
@@ -427,39 +429,11 @@ const portraitMap = ref<Record<string, string>>({});
 const portraitErrorMap = ref<Record<string, boolean>>({});
 const folderCache = new Map<string, string[]>();
 const folderPromise = new Map<string, Promise<string[]>>();
-
-const parseNextLink = (linkHeader: string | null): string | null => {
-  if (!linkHeader) return null;
-  const match = linkHeader.match(/<([^>]+)>\s*;\s*rel="next"/i);
-  return match?.[1] ?? null;
-};
 const fetchFolderImages = async (folderPath: string): Promise<string[]> => {
   if (folderCache.has(folderPath)) return folderCache.get(folderPath)!;
   if (folderPromise.has(folderPath)) return folderPromise.get(folderPath)!;
   const task = (async () => {
-    const images: string[] = [];
-    let nextUrl: string | null = `https://huggingface.co/api/datasets/Vin05/AI-Gallery/tree/main/${encodeURIComponent(folderPath).replace(/%2F/g, '/')}?recursive=true&limit=1000`;
-    while (nextUrl) {
-      let response: Response;
-      try {
-        response = await fetch(nextUrl);
-      } catch {
-        break;
-      }
-      if (!response.ok) break;
-      let entries: Array<{ type?: string; path?: string }> = [];
-      try {
-        entries = await response.json() as Array<{ type?: string; path?: string }>;
-      } catch {
-        break;
-      }
-      for (const entry of entries) {
-        if (entry.type !== 'file' || !entry.path) continue;
-        if (!/\.(png|jpe?g|webp|gif|avif|bmp|svg)$/i.test(entry.path)) continue;
-        images.push(entry.path);
-      }
-      nextUrl = parseNextLink(response.headers.get('link'));
-    }
+    const images = getLocalFolderImagePaths(folderPath);
     folderCache.set(folderPath, images);
     return images;
   })();
@@ -477,7 +451,7 @@ const ensurePortraits = async () => {
     if (portraitMap.value[enemy.name]) return;
     const images = await fetchFolderImages(`地牢/魔物/${enemy.name}`);
     const chosen = images.length > 0 ? images[Math.floor(Math.random() * images.length)] : null;
-    portraitMap.value[enemy.name] = chosen ? `https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/${encodeURIComponent(chosen).replace(/%2F/g, '/')}` : enemy.fallbackPortraitUrl;
+    portraitMap.value[enemy.name] = chosen ? `${IMAGE_CDN_ROOT}/${encodeURIComponent(chosen).replace(/%2F/g, '/')}` : enemy.fallbackPortraitUrl;
   }));
 };
 const markPortraitError = (name: string) => {

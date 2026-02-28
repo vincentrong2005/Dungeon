@@ -770,6 +770,7 @@ import {
 import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
+import { getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, CombatPhase, EffectType as ET, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
 import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
 import DungeonCard from './DungeonCard.vue';
@@ -812,12 +813,9 @@ const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
 const enemyDisplayName = enemyDef?.name ?? props.enemyName;
 
 // --- Portrait URLs ---
-const HF_DATASET_REPO = 'Vin05/AI-Gallery';
-const HF_RESOLVE_ROOT = `https://huggingface.co/datasets/${HF_DATASET_REPO}/resolve/main`;
-const HF_TREE_API_ROOT = `https://huggingface.co/api/datasets/${HF_DATASET_REPO}/tree/main`;
+const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
 const HF_USER_DIR = '地牢/user';
 const HF_MONSTER_DIR = '地牢/魔物';
-const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|avif|bmp|svg)$/i;
 const BOSS_FOLDER_NAMES = new Set([
   '普莉姆', '宁芙', '温蒂尼', '玛塔', '罗丝', '厄休拉',
   '希尔薇', '因克', '阿卡夏', '多萝西', '维罗妮卡',
@@ -826,23 +824,13 @@ const BOSS_FOLDER_NAMES = new Set([
   '佩恩', '西格尔', '摩尔', '利维坦', '奥赛罗', '盖亚',
 ]);
 
-type HfTreeEntry = {
-  type?: string;
-  path?: string;
-};
-
 const folderImageCache = new Map<string, string[]>();
 const folderImagePromiseCache = new Map<string, Promise<string[]>>();
 
 const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 const encodeRepoPath = (path: string) => normalizeRepoPath(path).split('/').map((seg) => encodeURIComponent(seg)).join('/');
-const toResolveUrl = (repoPath: string) => `${HF_RESOLVE_ROOT}/${encodeRepoPath(repoPath)}`;
+const toResolveUrl = (repoPath: string) => `${IMAGE_CDN_ROOT}/${encodeRepoPath(repoPath)}`;
 const pickRandom = <T,>(items: T[]): T | null => (items.length > 0 ? items[Math.floor(Math.random() * items.length)]! : null);
-const parseNextLink = (linkHeader: string | null): string | null => {
-  if (!linkHeader) return null;
-  const match = linkHeader.match(/<([^>]+)>\s*;\s*rel="next"/i);
-  return match?.[1] ?? null;
-};
 
 const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
   const folder = normalizeRepoPath(repoFolderPath);
@@ -852,34 +840,7 @@ const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
   if (pending) return pending;
 
   const task = (async () => {
-    const images: string[] = [];
-    let nextUrl: string | null = `${HF_TREE_API_ROOT}/${encodeRepoPath(folder)}?recursive=true&limit=1000`;
-
-    while (nextUrl) {
-      let response: Response;
-      try {
-        response = await fetch(nextUrl);
-      } catch {
-        break;
-      }
-      if (!response.ok) break;
-
-      let entries: HfTreeEntry[] = [];
-      try {
-        entries = await response.json() as HfTreeEntry[];
-      } catch {
-        break;
-      }
-
-      for (const entry of entries) {
-        if (entry.type !== 'file' || !entry.path) continue;
-        if (!IMAGE_EXT_RE.test(entry.path)) continue;
-        images.push(entry.path);
-      }
-
-      nextUrl = parseNextLink(response.headers.get('link'));
-    }
-
+    const images = getLocalFolderImagePaths(folder);
     folderImageCache.set(folder, images);
     return images;
   })();
@@ -938,7 +899,7 @@ const initPortraitUrls = async () => {
 const bgIsLordFallback = ref(false);
 const bgImageError = ref(false);
 
-const HF_BASE = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF';
+const HF_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF`;
 const currentArea = computed(() => (gameStore.statData._当前区域 as string) || '');
 const currentRoomType = computed(() => (gameStore.statData._当前房间类型 as string) || '');
 const bgImageUrl = computed(() => {
@@ -1497,6 +1458,14 @@ const modaoStabilizerTriggersThisTurn = ref(0);
 const bloodpoolSkinMarkTriggersThisTurn = ref(0);
 const bloodpoolFirstBleedFeastTriggered = ref(false);
 const bloodpoolCriticalReboundTriggered = ref(false);
+const nextMagicDoubleCast = ref<Record<'player' | 'enemy', number>>({
+  player: 0,
+  enemy: 0,
+});
+const nextTurnMagicCostFree = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
 
 const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
 
@@ -2151,19 +2120,34 @@ const getSecondMagicCardInPlayerHand = (): CardData | null => {
   return null;
 };
 
+const isMagicCostFreeThisTurn = (side: BattleSide): boolean => (
+  nextTurnMagicCostFree.value[side] === combatState.value.turn
+);
+
+const grantNextTurnMagicCostFree = (side: BattleSide, card: CardData) => {
+  const targetTurn = combatState.value.turn + 1;
+  if (nextTurnMagicCostFree.value[side] < targetTurn) {
+    nextTurnMagicCostFree.value[side] = targetTurn;
+  }
+  const sideLabel = side === 'player' ? '我方' : '敌方';
+  log(`<span class="text-sky-300">${sideLabel}【${card.name}】触发：下回合魔法牌消耗为0</span>`);
+};
+
 const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   const base = Math.max(0, Math.floor(card.manaCost ?? 0));
   if (card.type !== CardType.MAGIC) return base;
-  if (side !== 'player') return base;
+  if (isMagicCostFreeThisTurn(side)) return 0;
 
   let discount = 0;
-  if (hasModaoWeaveBackupInPlayerHand()) {
-    discount += 1;
-  }
+  if (side === 'player') {
+    if (hasModaoWeaveBackupInPlayerHand()) {
+      discount += 1;
+    }
 
-  const hostCount = getActiveRelicCount('modao_arcane_host');
-  if (hostCount > 0 && getSecondMagicCardInPlayerHand() === card) {
-    discount += (2 * hostCount);
+    const hostCount = getActiveRelicCount('modao_arcane_host');
+    if (hostCount > 0 && getSecondMagicCardInPlayerHand() === card) {
+      discount += (2 * hostCount);
+    }
   }
 
   return Math.max(0, base - discount);
@@ -3105,7 +3089,8 @@ function selectEnemyCard(): CardData {
     selectedCard = combatState.value.enemyDeck[idx]!;
   }
 
-  const check = canPlayCard(enemyStats.value, selectedCard, enemyTurnRawDice.value);
+  const runtimeCard = withEffectiveManaCost('enemy', selectedCard);
+  const check = canPlayCard(enemyStats.value, runtimeCard, enemyTurnRawDice.value);
   if (!check.allowed) {
     log(`<span class="text-gray-400">敌方无法出牌：${check.reason ?? '本回合跳过。'}</span>`);
     return PASS_CARD;
@@ -3217,6 +3202,10 @@ watch(
       if (combatState.value.turn === 1) {
         bloodpoolFirstBleedFeastTriggered.value = false;
         bloodpoolCriticalReboundTriggered.value = false;
+        nextMagicDoubleCast.value.player = 0;
+        nextMagicDoubleCast.value.enemy = 0;
+        nextTurnMagicCostFree.value.player = 0;
+        nextTurnMagicCostFree.value.enemy = 0;
       }
       const defeatedByFatigueDegree = applyFatigueDegreePenaltyOnTurnStart();
       if (defeatedByFatigueDegree) {
@@ -3508,6 +3497,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   try {
   let resolvedPlayerCard = pCard;
   let resolvedEnemyCard = eCard;
+  resolvedEnemyCard = withEffectiveManaCost('enemy', resolvedEnemyCard);
   if (
     resolvedEnemyCard.type === CardType.MAGIC
     && resolvedEnemyCard.id !== PASS_CARD.id
@@ -3691,9 +3681,15 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     if (successfulDodger === 'player') {
       applyLightningAttachOnDodge('player', 'enemy');
       applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
+      if (resolvedPlayerCard.id === 'modao_zero_domain_dodge') {
+        grantNextTurnMagicCostFree('player', resolvedPlayerCard);
+      }
     } else if (successfulDodger === 'enemy') {
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
+      if (resolvedEnemyCard.id === 'modao_zero_domain_dodge') {
+        grantNextTurnMagicCostFree('enemy', resolvedEnemyCard);
+      }
     }
 
     if (clashWinner === 'player' && resolvedPlayerCard.traits.destroyOnClashWin) {
@@ -4230,6 +4226,77 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         finalizeAndTrack();
         return;
       }
+      if (card.id === 'modao_mana_armor') {
+        syncCurrentPointForUi();
+        const armorGain = Math.max(0, Math.floor(attacker.mp));
+        let actualArmorGain = 0;
+        if (armorGain > 0) {
+          const armorBefore = Math.max(0, getEffectStacks(attacker, ET.ARMOR));
+          applyStatusEffectWithRelics(source, ET.ARMOR, armorGain, { source: card.id });
+          actualArmorGain = Math.max(0, getEffectStacks(attacker, ET.ARMOR) - armorBefore);
+          if (actualArmorGain > 0) {
+            pushFloatingNumber(source, actualArmorGain, 'shield', '+');
+            if (source === 'player') {
+              handlePlayerArmorGainFromSingleEvent(actualArmorGain, `卡牌【${card.name}】`);
+            }
+          }
+        }
+        log(`<span class="text-cyan-300">${label}【${card.name}】按当前魔力获得 ${actualArmorGain} 点护甲</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'modao_wager') {
+        syncCurrentPointForUi();
+        const wagerCost = Math.max(0, Math.floor(finalPoint));
+        if (wagerCost <= 0) {
+          log(`<span class="text-gray-400">${label}【${card.name}】点数不足，未触发转化</span>`);
+          finalizeAndTrack();
+          return;
+        }
+        const spent = spendManaWithShock(source, wagerCost, `法力变化（${label}【${card.name}】）`);
+        if (!spent) {
+          log(`<span class="text-gray-400">${label}【${card.name}】魔力不足，未能转化为增伤</span>`);
+          finalizeAndTrack();
+          return;
+        }
+        const beforeBoost = Math.max(0, getEffectStacks(attacker, ET.DAMAGE_BOOST));
+        applyStatusEffectWithRelics(source, ET.DAMAGE_BOOST, wagerCost, { source: card.id });
+        const actualBoostGain = Math.max(0, getEffectStacks(attacker, ET.DAMAGE_BOOST) - beforeBoost);
+        log(`<span class="text-rose-300">${label}【${card.name}】消耗 ${wagerCost} 点魔力，获得 ${actualBoostGain} 层增伤</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'yanhan_spell_echo') {
+        syncCurrentPointForUi();
+        nextMagicDoubleCast.value[source] += 1;
+        log(`<span class="text-sky-300">${label}【${card.name}】生效：下一张魔法牌将额外结算1次</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'bloodpool_life_wall') {
+        syncCurrentPointForUi();
+        const missingHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
+        applyCardEffects();
+        let actualArmorGain = 0;
+        if (missingHp > 0) {
+          const armorBefore = Math.max(0, getEffectStacks(attacker, ET.ARMOR));
+          applyStatusEffectWithRelics(source, ET.ARMOR, missingHp, { source: card.id });
+          actualArmorGain = Math.max(0, getEffectStacks(attacker, ET.ARMOR) - armorBefore);
+          if (actualArmorGain > 0) {
+            pushFloatingNumber(source, actualArmorGain, 'shield', '+');
+            if (source === 'player') {
+              handlePlayerArmorGainFromSingleEvent(actualArmorGain, `卡牌【${card.name}】`);
+            }
+          }
+        }
+        if (actualArmorGain > 0) {
+          log(`<span class="text-rose-300">${label}【${card.name}】按已损失生命获得 ${actualArmorGain} 点护甲</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】当前未损失生命，未获得额外护甲</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
 
       // Process card effects (heal, apply_buff, restore_mana, cleanse)
       syncCurrentPointForUi();
@@ -4302,6 +4369,10 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         return;
       }
 
+      const applyEffectsBeforeAttack = card.id === 'yanhan_frost_burst';
+      if (applyEffectsBeforeAttack) {
+        applyCardEffects();
+      }
       const burnStacksOnDefender = getEffectStacks(defender, ET.BURN);
       const baseHitCount = Math.max(1, Math.floor(card.hitCount ?? 1));
       const defenderSwarmStacks = Math.max(0, getEffectStacks(defender, ET.SWARM));
@@ -4313,20 +4384,22 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         extraHitCount += defenderSwarmStacks;
       }
       if (card.id === 'modao_mana_hurricane') {
-        const consumedMp = Math.min(9, Math.max(0, Math.floor(attacker.mp)));
+        const availableMp = Math.min(9, Math.max(0, Math.floor(attacker.mp)));
+        const consumedMp = Math.floor(availableMp / 3) * 3;
+        const bonusHits = Math.floor(consumedMp / 3);
         if (consumedMp > 0) {
           changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
         }
-        const bonusHits = Math.floor(consumedMp / 3);
         extraHitCount += bonusHits;
         log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
       }
       if (card.id === 'modao_ring_collapse') {
-        const consumedMp = Math.min(20, Math.max(0, Math.floor(attacker.mp)));
+        const availableMp = Math.min(20, Math.max(0, Math.floor(attacker.mp)));
+        const consumedMp = Math.floor(availableMp / 4) * 4;
+        const bonusHits = Math.floor(consumedMp / 4);
         if (consumedMp > 0) {
           changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
         }
-        const bonusHits = Math.floor(consumedMp / 4);
         extraHitCount += bonusHits;
         log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
       }
@@ -4364,6 +4437,8 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
             ? Math.floor(finalPoint * 0.5) + burnStacksOnDefender
             : card.id === 'burn_detonation'
               ? Math.floor(burnStacksOnDefender)
+              : card.id === 'yanhan_frost_burst'
+                ? Math.max(0, getEffectStacks(defender, ET.COLD))
               : card.id === 'modao_mana_hurricane'
                 ? Math.max(0, 12 - Math.floor(finalPoint))
                 : card.id === 'modao_prism_flow'
@@ -4488,7 +4563,18 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       }
 
       // 攻击牌结算后同样触发附带效果（燃烧、易伤等）
-      applyCardEffects();
+      if (!applyEffectsBeforeAttack) {
+        applyCardEffects();
+      }
+      if (card.id === 'burn_kindle') {
+        const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
+        if (burnStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.BURN, burnStacks, { source: card.id });
+          log(`<span class="text-orange-300">${label}【${card.name}】使对手燃烧翻倍（+${burnStacks}）</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】对手当前无燃烧，未触发翻倍</span>`);
+        }
+      }
       if (card.id === 'bloodpool_blood_debt_strike') {
         const bleedStacks = 3;
         if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id })) {
@@ -4583,6 +4669,37 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     baseDice: number;
   }
 
+  const applyPointSuppressBeforeQueue = () => {
+    const playerSuppress = (pSuccess && resolvedPlayerCard.id === 'basic_point_suppress')
+      ? Math.max(0, getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice))
+      : 0;
+    const enemySuppress = (eSuccess && resolvedEnemyCard.id === 'basic_point_suppress')
+      ? Math.max(0, getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice))
+      : 0;
+
+    if (playerSuppress > 0 && resolvedEnemyCard.id !== PASS_CARD.id) {
+      const before = resolvedEnemyDice;
+      resolvedEnemyDice = Math.max(0, resolvedEnemyDice - playerSuppress);
+      const reduced = Math.max(0, before - resolvedEnemyDice);
+      if (reduced > 0) {
+        combatState.value.enemyBaseDice = resolvedEnemyDice;
+        log(`<span class="text-amber-300">我方【${resolvedPlayerCard.name}】使敌方当前骰子点数 -${reduced}（${before}→${resolvedEnemyDice}）</span>`);
+      }
+    }
+
+    if (enemySuppress > 0 && resolvedPlayerCard.id !== PASS_CARD.id) {
+      const before = resolvedPlayerDice;
+      resolvedPlayerDice = Math.max(0, resolvedPlayerDice - enemySuppress);
+      const reduced = Math.max(0, before - resolvedPlayerDice);
+      if (reduced > 0) {
+        combatState.value.playerBaseDice = resolvedPlayerDice;
+        log(`<span class="text-amber-300">敌方【${resolvedEnemyCard.name}】使我方当前骰子点数 -${reduced}（${before}→${resolvedPlayerDice}）</span>`);
+      }
+    }
+  };
+
+  applyPointSuppressBeforeQueue();
+
   const queue: ActionEntry[] = [];
   let deferredEnemyAction: ActionEntry | null = null;
   if (pSuccess) queue.push({ source: 'player', card: resolvedPlayerCard, type: resolvedPlayerCard.type, baseDice: resolvedPlayerDice });
@@ -4605,19 +4722,35 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
   queue.sort((a, b) => typePriority(b.type) - typePriority(a.type));
 
+  const executeActionWithMagicEcho = async (action: ActionEntry) => {
+    await executeCard(action.source, action.card, action.baseDice);
+    if (action.type !== CardType.MAGIC) return;
+    const pending = Math.max(0, nextMagicDoubleCast.value[action.source]);
+    if (pending <= 0) return;
+
+    nextMagicDoubleCast.value[action.source] = pending - 1;
+    const sourceLabel = action.source === 'player' ? '我方' : '敌方';
+    log(`<span class="text-sky-300">${sourceLabel}[复咒] 下一张魔法额外结算一次</span>`);
+    if (endCombatPending.value) return;
+
+    await wait(320);
+    if (endCombatPending.value) return;
+    await executeCard(action.source, action.card, action.baseDice);
+  };
+
   const shouldRunSimultaneousVisuals = (
     queue.length === 2
     && queue.every((action) => action.type === CardType.DODGE || action.type === CardType.FUNCTION)
   );
 
   if (shouldRunSimultaneousVisuals) {
-    await Promise.all(queue.map((action) => executeCard(action.source, action.card, action.baseDice)));
+    await Promise.all(queue.map((action) => executeActionWithMagicEcho(action)));
     if (endCombatPending.value) return;
     await wait(630);
   } else {
     for (const action of queue) {
       if (endCombatPending.value) break;
-      await executeCard(action.source, action.card, action.baseDice);
+      await executeActionWithMagicEcho(action);
       if (endCombatPending.value) break;
       await wait(630);
     }
@@ -4643,7 +4776,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     // 连击无法继续时，再补结算一次敌方行动
     if (deferredEnemyAction && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
       if (endCombatPending.value) return;
-      await executeCard(deferredEnemyAction.source, deferredEnemyAction.card, deferredEnemyAction.baseDice);
+      await executeActionWithMagicEcho(deferredEnemyAction);
       if (endCombatPending.value) return;
       await wait(630);
     }

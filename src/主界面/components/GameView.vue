@@ -1566,6 +1566,7 @@ import { recordEncounteredCards, recordEncounteredRelics } from '../codexStore';
 import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
+import { getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, EffectType, type CardData } from '../types';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
@@ -1802,17 +1803,9 @@ interface PersistedOverlaySnapshot {
 const OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v1';
 const isRestoringOverlayState = ref(false);
 
-type HfTreeEntry = {
-  type?: string;
-  path?: string;
-};
-
-const HF_DATASET_REPO = 'Vin05/AI-Gallery';
-const HF_RESOLVE_ROOT = `https://huggingface.co/datasets/${HF_DATASET_REPO}/resolve/main`;
-const HF_TREE_API_ROOT = `https://huggingface.co/api/datasets/${HF_DATASET_REPO}/tree/main`;
+const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
 const HF_USER_DIR = '地牢/user';
 const HF_MONSTER_DIR = '地牢/魔物';
-const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|avif|bmp|svg)$/i;
 const BOSS_FOLDER_NAMES = new Set([
   '普莉姆', '宁芙', '温蒂尼', '玛塔', '罗丝', '厄休拉',
   '希尔薇', '因克', '阿卡夏', '多萝西', '维罗妮卡',
@@ -1830,13 +1823,8 @@ let bondPortraitLoaderDisposed = false;
 
 const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 const encodeRepoPath = (path: string) => normalizeRepoPath(path).split('/').map((seg) => encodeURIComponent(seg)).join('/');
-const toResolveUrl = (repoPath: string) => `${HF_RESOLVE_ROOT}/${encodeRepoPath(repoPath)}`;
+const toResolveUrl = (repoPath: string) => `${IMAGE_CDN_ROOT}/${encodeRepoPath(repoPath)}`;
 const pickRandom = <T,>(items: T[]): T | null => (items.length > 0 ? items[Math.floor(Math.random() * items.length)]! : null);
-const parseNextLink = (linkHeader: string | null): string | null => {
-  if (!linkHeader) return null;
-  const match = linkHeader.match(/<([^>]+)>\s*;\s*rel="next"/i);
-  return match?.[1] ?? null;
-};
 
 const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
   const folder = normalizeRepoPath(repoFolderPath);
@@ -1846,34 +1834,7 @@ const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
   if (pending) return pending;
 
   const task = (async () => {
-    const images: string[] = [];
-    let nextUrl: string | null = `${HF_TREE_API_ROOT}/${encodeRepoPath(folder)}?recursive=true&limit=1000`;
-
-    while (nextUrl) {
-      let response: Response;
-      try {
-        response = await fetch(nextUrl);
-      } catch {
-        break;
-      }
-      if (!response.ok) break;
-
-      let entries: HfTreeEntry[] = [];
-      try {
-        entries = await response.json() as HfTreeEntry[];
-      } catch {
-        break;
-      }
-
-      for (const entry of entries) {
-        if (entry.type !== 'file' || !entry.path) continue;
-        if (!IMAGE_EXT_RE.test(entry.path)) continue;
-        images.push(entry.path);
-      }
-
-      nextUrl = parseNextLink(response.headers.get('link'));
-    }
-
+    const images = getLocalFolderImagePaths(folder);
     bondFolderImageCache.set(folder, images);
     return images;
   })();
@@ -1992,7 +1953,7 @@ const closeBondPortraitPreview = () => {
 // --- Dynamic Background ---
 const bgIsLordFallback = ref(false);
 const bgImageError = ref(false);
-const HF_BG_BASE = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF';
+const HF_BG_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF`;
 const bgArea = computed(() => (gameStore.statData._当前区域 as string) || '');
 const bgRoomType = computed(() => (gameStore.statData._当前房间类型 as string) || '');
 const bgImageUrl = computed(() => {
@@ -2013,12 +1974,12 @@ const BG_OPACITY_KEY = 'dungeon.bg_overlay_opacity';
 const bgOverlayOpacity = ref(parseFloat(localStorage.getItem(BG_OPACITY_KEY) ?? '0.5'));
 watch(bgOverlayOpacity, (v) => localStorage.setItem(BG_OPACITY_KEY, String(v)));
 
-const CHEST_BG_CLOSED = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B11.png';
-const CHEST_BG_OPENED = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B12.png';
-const CHEST_BG_MIMIC = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B13.png';
-const SHOP_BG_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png';
-const SHOP_MERCHANT_PORTRAIT_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/%E6%B2%90%E8%8A%AF%E5%85%B0/%E6%B2%90%E8%8A%AF%E5%85%B04.png';
-const IDOL_BG_URL = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E7%A5%9E%E5%83%8F.png';
+const CHEST_BG_CLOSED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B11.png`;
+const CHEST_BG_OPENED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B12.png`;
+const CHEST_BG_MIMIC = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B13.png`;
+const SHOP_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png`;
+const SHOP_MERCHANT_PORTRAIT_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/%E6%B2%90%E8%8A%AF%E5%85%B0/%E6%B2%90%E8%8A%AF%E5%85%B04.png`;
+const IDOL_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E7%A5%9E%E5%83%8F.png`;
 const idolBackgroundUrl = IDOL_BG_URL;
 const shopBackgroundUrl = SHOP_BG_URL;
 const shopMerchantPortraitUrl = SHOP_MERCHANT_PORTRAIT_URL;
@@ -2112,7 +2073,7 @@ const filteredCardCategoryGroupsForTest = computed<Array<{ category: string; car
   if (selectedCardCategoryTab.value === '全部') return cardCategoryGroupsForTest.value;
   return cardCategoryGroupsForTest.value.filter((group) => group.category === selectedCardCategoryTab.value);
 });
-const MAGIC_BOOK_COVER_BASE = 'https://huggingface.co/datasets/Vin05/AI-Gallery/resolve/main/%E5%9C%B0%E7%89%A2/%E9%AD%94%E6%B3%95%E4%B9%A6%E5%B0%81%E9%9D%A2';
+const MAGIC_BOOK_COVER_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E6%B3%95%E4%B9%A6%E5%B0%81%E9%9D%A2`;
 const getMagicBookCoverUrl = (bookName: string) => `${MAGIC_BOOK_COVER_BASE}/${encodeURIComponent(bookName)}.png`;
 const carryableMagicBookNames = computed<string[]>(() => (
   cardCategoryGroupsForTest.value
@@ -2307,11 +2268,20 @@ const cardByNameForTest = computed(() => {
   }
   return map;
 });
+const EXCLUDED_VICTORY_REWARD_CARD_IDS = new Set<string>([
+  'basic_physical',
+  'basic_magic',
+  'basic_shield',
+  'basic_dodge',
+]);
 const rewardCardPool = computed<CardData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
-  const filtered = allCardsForTest.value.filter((card) => categorySet.has(card.category));
+  const filtered = allCardsForTest.value.filter((card) => (
+    categorySet.has(card.category)
+    && !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id)
+  ));
   if (filtered.length > 0) return filtered;
-  return [...allCardsForTest.value];
+  return allCardsForTest.value.filter((card) => !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id));
 });
 const rewardReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
   const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];

@@ -1,4 +1,5 @@
 import { readonly, ref } from 'vue';
+import { LOCAL_BGM_FILE_NAMES } from './localAssetManifest';
 
 export interface BgmTrack {
   id: string;
@@ -6,9 +7,7 @@ export interface BgmTrack {
   url: string;
 }
 
-const HF_DATASET_REPO = 'Vin05/AI-Gallery';
-const HF_RESOLVE_BASE = `https://huggingface.co/datasets/${HF_DATASET_REPO}/resolve/main`;
-const HF_API_TREE_BASE = `https://huggingface.co/api/datasets/${HF_DATASET_REPO}/tree/main`;
+const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
 
 const ENCODED_DUNGEON = encodeURIComponent('地牢');
 const ENCODED_BGM_DIR = `${encodeURIComponent('音效库')}/${encodeURIComponent('背景音乐')}`;
@@ -40,7 +39,7 @@ const toWindowsFileUrl = (windowsPath: string) => {
 };
 
 const buildHfTrackUrl = (fileName: string) => (
-  `${HF_RESOLVE_BASE}/${ENCODED_DUNGEON}/${ENCODED_BGM_DIR}/${encodeURIComponent(fileName)}`
+  `${IMAGE_CDN_ROOT}/${ENCODED_DUNGEON}/${ENCODED_BGM_DIR}/${encodeURIComponent(fileName)}`
 );
 
 const buildLocalTrackUrl = (fileName: string) => (
@@ -122,13 +121,6 @@ const sortTracks = (tracks: BgmTrack[]) => (
   })
 );
 
-const mergeTracks = (primary: BgmTrack[], secondary: BgmTrack[]) => {
-  const merged = new Map<string, BgmTrack>();
-  for (const track of secondary) merged.set(track.id, track);
-  for (const track of primary) merged.set(track.id, track);
-  return sortTracks([...merged.values()]);
-};
-
 const applyCurrentTrackToAudio = () => {
   const track = getCurrentTrack();
   if (!track) return;
@@ -169,41 +161,13 @@ const tryPlay = () => {
   });
 };
 
-const parseTrackFromApiPath = (path: string): BgmTrack | null => {
-  const parts = path.split('/');
-  const fileName = parts[parts.length - 1];
-  if (!fileName || !/\.mp3$/i.test(fileName)) return null;
-  return {
-    id: fileName,
-    name: fileName.replace(/\.[^.]+$/, ''),
-    url: buildHfTrackUrl(fileName),
-  };
-};
-
-const fetchDungeonBackgroundMusicTracks = async (): Promise<BgmTrack[]> => {
-  const url = `${HF_API_TREE_BASE}/${ENCODED_DUNGEON}/${ENCODED_BGM_DIR}`;
-  const response = await fetch(url);
-  if (!response.ok) return [];
-  const payload = await response.json() as Array<{ path?: string; type?: string }>;
-  const tracks: BgmTrack[] = [];
-  for (const item of payload) {
-    if (item.type !== 'file' || !item.path) continue;
-    const parsed = parseTrackFromApiPath(item.path);
-    if (parsed) tracks.push(parsed);
-  }
-  return tracks;
-};
+const fetchDungeonBackgroundMusicTracks = async (): Promise<BgmTrack[]> => (
+  LOCAL_BGM_FILE_NAMES.map((fileName) => createTrack(fileName))
+);
 
 const bootstrapTrackList = async () => {
-  bgmTracksState.value = sortTracks(DEFAULT_TRACKS);
-  try {
-    const remoteTracks = await fetchDungeonBackgroundMusicTracks();
-    if (remoteTracks.length > 0) {
-      bgmTracksState.value = mergeTracks(remoteTracks, DEFAULT_TRACKS);
-    }
-  } catch {
-    // Keep fallback list when remote directory is unavailable.
-  }
+  const localTracks = await fetchDungeonBackgroundMusicTracks();
+  bgmTracksState.value = sortTracks(localTracks.length > 0 ? localTracks : DEFAULT_TRACKS);
 };
 
 export const initializeBgm = async () => {
