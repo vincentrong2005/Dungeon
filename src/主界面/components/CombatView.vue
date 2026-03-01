@@ -592,7 +592,7 @@
           </div>
         </div>
 
-        <!-- Right Corner: Skip + Deck/Discard -->
+        <!-- Right Corner: Skip + Active Skills -->
         <div class="absolute right-6 bottom-6 flex flex-col items-end gap-2.5 z-50 scale-[1.1] origin-bottom-right pointer-events-auto">
           <button
             class="h-8 px-5 bg-[#252030]/90 border border-white/15 rounded-lg text-xs text-white/80 hover:border-amber-400 hover:text-amber-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
@@ -602,42 +602,49 @@
             跳过回合
           </button>
 
-          <div class="flex space-x-3">
-            <div class="relative group">
-              <button
-                class="w-14 h-14 bg-[#252030]/90 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:border-dungeon-gold active:scale-95 transition-all shadow-lg"
-                @click="overlayOpen = 'deck'"
-              >
-                <Layers class="size-5 text-dungeon-gold" />
-                <span class="text-[9px] text-white/40 mt-0.5">{{ combatState.playerDeck.length }}</span>
-              </button>
-              <div
-                class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-              >
-                牌库
-              </div>
-            </div>
-
-            <div class="relative group">
-              <button
-                class="w-14 h-14 bg-[#252030]/90 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:border-gray-400 active:scale-95 transition-all shadow-lg"
-                @click="overlayOpen = 'discard'"
-              >
-                <Trash2 class="size-5 text-gray-400" />
-                <span class="text-[9px] text-white/40 mt-0.5">{{ combatState.discardPile.length }}</span>
-              </button>
-              <div
-                class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-              >
-                弃牌堆
-              </div>
-            </div>
+          <div class="flex gap-2">
+            <button
+              v-for="slot in playerActiveSkillSlots"
+              :key="`active-skill-slot-${slot.idx}`"
+              type="button"
+              class="w-40 h-28 rounded-xl border p-2.5 text-left transition-all shadow-lg"
+              :class="[
+                slot.skill
+                  ? 'border-zinc-200/80 bg-white text-zinc-900 hover:border-zinc-300'
+                  : 'border-white/15 bg-[#1b1b24]/90 text-white/45',
+                activeSkillDisabledReason(slot.idx)
+                  ? 'opacity-80 cursor-not-allowed'
+                  : 'hover:-translate-y-0.5 active:scale-[0.98]',
+              ]"
+              :disabled="Boolean(activeSkillDisabledReason(slot.idx))"
+              @click="useActiveSkill(slot.idx)"
+            >
+              <template v-if="slot.skill">
+                <div class="flex items-center justify-between gap-1">
+                  <div class="text-xs font-semibold truncate">{{ slot.skill.name }}</div>
+                  <div class="text-[10px] px-1.5 py-0.5 rounded border border-zinc-300 bg-zinc-100">主动</div>
+                </div>
+                <div class="mt-1 flex items-center gap-1 text-[10px] text-zinc-700">
+                  <span class="px-1.5 py-0.5 rounded border border-zinc-300 bg-zinc-100">MP {{ slot.skill.manaCost }}</span>
+                  <span class="px-1.5 py-0.5 rounded border border-zinc-300 bg-zinc-100">CD {{ slot.skill.Cooldown }}</span>
+                </div>
+                <div class="mt-1 text-[10px] leading-tight text-zinc-700 line-clamp-2">{{ slot.skill.description }}</div>
+                <div class="mt-1 text-[10px] text-zinc-600 min-h-[1rem]">
+                  <span v-if="slot.cooldownRemaining > 0">冷却：{{ slot.cooldownRemaining }} 回合</span>
+                  <span v-else-if="slot.maxUses">次数：{{ slot.usedCount }}/{{ slot.maxUses }}</span>
+                  <span v-else>可用</span>
+                </div>
+              </template>
+              <template v-else>
+                <div class="h-full flex items-center justify-center text-xs">空主动槽位</div>
+              </template>
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Log Feed Overlay: top-right, below parent "退出战斗" button -->
-      <div class="absolute right-0 top-14 z-40 pointer-events-auto select-none scale-[1.1] origin-top-right">
+      <!-- Log Feed + Piles Overlay: top-right, below parent "退出战斗" button -->
+      <div class="absolute right-0 top-14 z-40 pointer-events-auto select-none scale-[1.1] origin-top-right flex flex-col items-end gap-2">
         <div class="flex items-start">
           <button
             class="h-7 px-2 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[10px] text-white/50 hover:text-white/80 transition-colors"
@@ -657,6 +664,52 @@
               class="bg-black/60 p-1 rounded border-l-2 border-gray-700"
               v-html="l"
             ></div>
+          </div>
+        </div>
+
+        <div class="flex items-start">
+          <button
+            class="h-7 px-2 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[10px] text-white/50 hover:text-white/80 transition-colors"
+            :title="pilesCollapsed ? '展开牌库与弃牌堆' : '折叠牌库与弃牌堆'"
+            @click="pilesCollapsed = !pilesCollapsed"
+          >
+            {{ pilesCollapsed ? '牌堆 ▼' : '牌堆 ▲' }}
+          </button>
+          <div
+            v-if="!pilesCollapsed"
+            class="w-44 border border-r-0 border-white/10 bg-[#18141e]/90 backdrop-blur-sm p-2"
+          >
+            <div class="flex items-center justify-center gap-2">
+              <div class="relative group">
+                <button
+                  class="w-14 h-14 bg-[#252030]/90 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:border-dungeon-gold active:scale-95 transition-all shadow-lg"
+                  @click="overlayOpen = 'deck'"
+                >
+                  <Layers class="size-5 text-dungeon-gold" />
+                <span class="text-[9px] text-white/40 mt-0.5">{{ combatState.playerDeck.length }}</span>
+              </button>
+              <div
+                class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+              >
+                牌库
+              </div>
+              </div>
+
+              <div class="relative group">
+                <button
+                  class="w-14 h-14 bg-[#252030]/90 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:border-gray-400 active:scale-95 transition-all shadow-lg"
+                  @click="overlayOpen = 'discard'"
+                >
+                  <Trash2 class="size-5 text-gray-400" />
+                  <span class="text-[9px] text-white/40 mt-0.5">{{ combatState.discardPile.length }}</span>
+                </button>
+                <div
+                  class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                >
+                  弃牌堆
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -771,7 +824,7 @@ import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderImagePaths } from '../localAssetManifest';
-import { CardType, CombatPhase, EffectType as ET, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
+import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
 import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
@@ -780,11 +833,13 @@ const props = withDefaults(defineProps<{
   initialPlayerStats: EntityStats;
   enemyName: string;
   playerDeck: CardData[];
+  playerActiveSkills?: ActiveSkillData[];
   playerRelics?: Record<string, number>;
   testStartAt999?: boolean;
   uiFontFamily?: string;
   trackDiscovery?: boolean;
 }>(), {
+  playerActiveSkills: () => [],
   playerRelics: () => ({}),
   testStartAt999: false,
   uiFontFamily: '',
@@ -1214,6 +1269,7 @@ const overlayOpen = ref<'deck' | 'discard' | null>(null);
 const settingsOpen = ref(false);
 const battleSpeedUp = ref(false);
 const logsCollapsed = ref(true);
+const pilesCollapsed = ref(true);
 const battleResultBanner = ref<'win' | 'lose' | null>(null);
 const endCombatPending = ref(false);
 const enemyIntentConsumedThisTurn = ref(false);
@@ -1232,6 +1288,19 @@ type BattleSide = 'player' | 'enemy';
 type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana' | 'true';
 type ResolvedCardAnimVariant = 'attack' | 'self' | 'fade';
 type TooltipAlign = 'center' | 'right';
+
+interface ActiveSkillRuntimeState {
+  nextAvailableTurn: number;
+  usedCount: number;
+}
+
+interface ActiveSkillSlotView {
+  idx: number;
+  skill: ActiveSkillData | null;
+  cooldownRemaining: number;
+  usedCount: number;
+  maxUses: number | null;
+}
 
 interface FloatingNumberEntry {
   id: number;
@@ -3045,6 +3114,168 @@ const drawCards = (count: number, currentDeck: CardData[], currentDiscard: CardD
     if (card) drawn.push(card);
   }
   return { drawn, newDeck: deck, newDiscard: discard };
+};
+
+const normalizedPlayerActiveSkills = computed<Array<ActiveSkillData | null>>(() => {
+  const raw: Array<ActiveSkillData | null> = Array.isArray(props.playerActiveSkills)
+    ? props.playerActiveSkills.slice(0, 2)
+    : [];
+  while (raw.length < 2) raw.push(null);
+  return raw.map((skill) => (skill ? { ...skill } : null));
+});
+
+const activeSkillRuntime = ref<ActiveSkillRuntimeState[]>([
+  { nextAvailableTurn: 1, usedCount: 0 },
+  { nextAvailableTurn: 1, usedCount: 0 },
+]);
+
+const resetActiveSkillRuntime = () => {
+  activeSkillRuntime.value = normalizedPlayerActiveSkills.value.map(() => ({
+    nextAvailableTurn: 1,
+    usedCount: 0,
+  }));
+};
+
+watch(
+  normalizedPlayerActiveSkills,
+  () => {
+    resetActiveSkillRuntime();
+  },
+  { immediate: true, deep: true },
+);
+
+const activeSkillCooldownRemaining = (idx: number): number => {
+  const runtime = activeSkillRuntime.value[idx];
+  if (!runtime) return 0;
+  return Math.max(0, runtime.nextAvailableTurn - combatState.value.turn);
+};
+
+const activeSkillDisabledReason = (idx: number): string | null => {
+  const skill = normalizedPlayerActiveSkills.value[idx];
+  if (!skill) return '未装备主动技能';
+  if (endCombatPending.value) return '战斗结束中不可使用主动技能';
+  if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return '当前阶段不可使用主动技能';
+
+  const runtime = activeSkillRuntime.value[idx];
+  const cooldown = activeSkillCooldownRemaining(idx);
+  if (cooldown > 0) return `冷却中（剩余${cooldown}回合）`;
+
+  const maxUses = Math.max(0, Math.floor(skill.最大使用次数 ?? 0));
+  if (maxUses > 0 && runtime && runtime.usedCount >= maxUses) {
+    return `本场已达到最大使用次数（${maxUses}）`;
+  }
+
+  if (playerStats.value.mp < Math.max(0, Math.floor(skill.manaCost))) {
+    return '魔力不足';
+  }
+
+  return null;
+};
+
+const playerActiveSkillSlots = computed<ActiveSkillSlotView[]>(() => normalizedPlayerActiveSkills.value.map((skill, idx) => ({
+  idx,
+  skill,
+  cooldownRemaining: activeSkillCooldownRemaining(idx),
+  usedCount: activeSkillRuntime.value[idx]?.usedCount ?? 0,
+  maxUses: skill ? Math.max(0, Math.floor(skill.最大使用次数 ?? 0)) || null : null,
+})));
+
+const rerollSideDiceByActiveSkill = (side: BattleSide, skillName: string) => {
+  const stats = side === 'player' ? playerStats.value : enemyStats.value;
+  const before = side === 'player' ? combatState.value.playerBaseDice : combatState.value.enemyBaseDice;
+  const rawRoll = rollDiceInRange(stats.minDice, stats.maxDice);
+  const after = consumeChargeOnRoll(stats, side === 'player' ? '我方' : '敌方', rawRoll);
+
+  if (side === 'player') {
+    playerTurnRawDice.value = rawRoll;
+    combatState.value.playerBaseDice = after;
+    log(`<span class="text-zinc-200">主动【${skillName}】重掷我方骰子：${before} → ${after}</span>`);
+    return;
+  }
+
+  enemyTurnRawDice.value = rawRoll;
+  combatState.value.enemyBaseDice = after;
+  log(`<span class="text-zinc-200">主动【${skillName}】重掷敌方骰子：${before} → ${after}</span>`);
+};
+
+const useActiveSkill = (idx: number) => {
+  const skill = normalizedPlayerActiveSkills.value[idx];
+  if (!skill) return;
+  const disabledReason = activeSkillDisabledReason(idx);
+  if (disabledReason) {
+    log(`<span class="text-gray-400">主动【${skill.name}】无法使用：${disabledReason}</span>`);
+    return;
+  }
+
+  const manaCost = Math.max(0, Math.floor(skill.manaCost));
+  if (manaCost > 0) {
+    const ok = spendManaWithShock('player', manaCost, `使用主动【${skill.name}】`);
+    if (!ok) {
+      log(`<span class="text-red-400">主动【${skill.name}】使用失败：魔力不足。</span>`);
+      return;
+    }
+  }
+
+  switch (skill.id) {
+    case 'active_basic_reroll_self':
+      rerollSideDiceByActiveSkill('player', skill.name);
+      break;
+    case 'active_basic_reroll_enemy':
+      rerollSideDiceByActiveSkill('enemy', skill.name);
+      break;
+    case 'active_basic_draw': {
+      const { drawn, newDeck, newDiscard } = drawCards(1, combatState.value.playerDeck, combatState.value.discardPile);
+      combatState.value.playerDeck = newDeck;
+      combatState.value.discardPile = newDiscard;
+      const card = drawn[0];
+      if (!card) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：牌库与弃牌堆都为空，未抽到卡牌。</span>`);
+      } else if (combatState.value.playerHand.length >= 3) {
+        const replaceIdx = Math.floor(Math.random() * combatState.value.playerHand.length);
+        const replaced = combatState.value.playerHand[replaceIdx]!;
+        combatState.value.playerHand.splice(replaceIdx, 1, card);
+        combatState.value.discardPile.push(replaced);
+        log(`<span class="text-zinc-200">主动【${skill.name}】：手牌已满，随机替换了【${replaced.name}】→【${card.name}】。</span>`);
+      } else {
+        combatState.value.playerHand = [...combatState.value.playerHand, card];
+        log(`<span class="text-zinc-200">主动【${skill.name}】：抽到【${card.name}】。</span>`);
+      }
+      break;
+    }
+    case 'active_basic_guard': {
+      const added = addArmorForSide('player', 2);
+      if (added > 0) {
+        log(`<span class="text-zinc-200">主动【${skill.name}】：获得 ${added} 点护甲。</span>`);
+      } else {
+        log(`<span class="text-gray-400">主动【${skill.name}】：未获得护甲。</span>`);
+      }
+      break;
+    }
+    case 'active_basic_boost': {
+      const before = combatState.value.playerBaseDice;
+      combatState.value.playerBaseDice = Math.max(0, combatState.value.playerBaseDice + 1);
+      playerTurnRawDice.value = Math.max(0, playerTurnRawDice.value + 1);
+      log(`<span class="text-zinc-200">主动【${skill.name}】：我方骰子点数 ${before} → ${combatState.value.playerBaseDice}</span>`);
+      break;
+    }
+    case 'active_basic_weaken': {
+      const before = combatState.value.enemyBaseDice;
+      combatState.value.enemyBaseDice = Math.max(0, combatState.value.enemyBaseDice - 1);
+      enemyTurnRawDice.value = Math.max(0, enemyTurnRawDice.value - 1);
+      log(`<span class="text-zinc-200">主动【${skill.name}】：敌方骰子点数 ${before} → ${combatState.value.enemyBaseDice}</span>`);
+      break;
+    }
+    default:
+      log(`<span class="text-gray-400">主动【${skill.name}】尚未实现效果。</span>`);
+      break;
+  }
+
+  const runtime = activeSkillRuntime.value[idx];
+  if (runtime) {
+    runtime.usedCount += 1;
+    const cooldown = Math.max(0, Math.floor(skill.Cooldown));
+    runtime.nextAvailableTurn = cooldown > 0 ? combatState.value.turn + cooldown : combatState.value.turn;
+  }
 };
 
 const handCardClass = (card: CardData) => {

@@ -8,6 +8,7 @@ export enum CardType {
   MAGIC = '魔法',
   FUNCTION = '功能',
   DODGE = '闪避',
+  ACTIVE = '主动',
   CURSE = '诅咒',
 }
 
@@ -140,6 +141,27 @@ export interface CardData {
   selfDamage?: number | CardSelfDamageConfig;
   /** 卡牌图片（可选） */
   image?: string;
+}
+
+// ── 主动技能数据 ──────────────────────────────────────────────
+export interface ActiveSkillData {
+  id: string;
+  name: string;
+  type: CardType.ACTIVE;
+  /** 主动技能类别（大分类）：基础、魔导等 */
+  category: string;
+  /** 稀有度 */
+  rarity: CardRarity;
+  /** 法力消耗 */
+  manaCost: number;
+  /** 冷却回合数 */
+  Cooldown: number;
+  /** 描述文本 */
+  description: string;
+  /** 使用条件描述（可选） */
+  使用条件?: string;
+  /** 单场战斗最大使用次数（可选） */
+  最大使用次数?: number;
 }
 
 /** 自伤配置 */

@@ -1415,7 +1415,15 @@
               <div>
                 <div class="font-heading text-xl text-dungeon-gold">战胜奖励</div>
                 <div class="text-xs text-dungeon-paper/65 mt-1">
-                  {{ victoryRewardStage === 'pick' ? '请选择 1 张奖励卡牌' : '选择要替换的卡组槽位（共9槽）' }}
+                  {{
+                    victoryRewardStage === 'pick'
+                      ? '请选择 1 张奖励（卡牌或主动技能）'
+                      : (
+                        victoryRewardStage === 'replaceActive'
+                          ? '选择要替换的主动技能槽位（共2槽）'
+                          : '选择要替换的卡组槽位（共9槽）'
+                      )
+                  }}
                 </div>
               </div>
               <div class="flex items-center gap-2">
@@ -1440,30 +1448,73 @@
             <template v-if="victoryRewardStage === 'pick'">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <button
-                  v-for="card in victoryRewardOptions"
-                  :key="`reward-option-${card.id}`"
+                  v-for="reward in victoryRewardOptions"
+                  :key="`reward-option-${reward.id}`"
                   type="button"
                   class="rounded-lg border border-dungeon-brown/50 bg-[#160d08]/75 p-3 transition-all hover:border-dungeon-gold/60 hover:scale-[1.01]"
-                  @click="pickVictoryRewardCard(card)"
+                  @click="pickVictoryRewardCard(reward)"
                 >
+                  <div class="mb-2 text-center text-[11px] text-dungeon-paper/75">
+                    {{ getVictoryRewardTypeText(reward) }}
+                  </div>
                   <div class="flex justify-center">
-                    <DungeonCard :card="card" disabled />
+                    <DungeonCard v-if="!isActiveSkillReward(reward)" :card="reward" disabled />
+                    <div
+                      v-else
+                      class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                    >
+                      <div class="flex items-center justify-between text-[11px] font-semibold">
+                        <span>{{ reward.name }}</span>
+                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
+                      </div>
+                      <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
+                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">MP {{ reward.manaCost }}</span>
+                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">CD {{ reward.Cooldown }}</span>
+                      </div>
+                      <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
+                        {{ reward.description }}
+                      </div>
+                      <div class="text-[11px] text-zinc-500">类别：{{ reward.category }} · {{ reward.rarity }}</div>
+                    </div>
                   </div>
                   <div class="mt-2 text-center text-xs text-dungeon-gold/90">选择此卡</div>
                 </button>
               </div>
             </template>
 
-            <template v-else>
+            <template v-else-if="victoryRewardStage === 'replaceDeck' || victoryRewardStage === 'replaceActive'">
               <div class="mb-4 rounded border border-dungeon-gold/25 bg-black/20 p-3">
-                <div class="text-xs text-dungeon-paper/70 mb-2">已选择奖励卡：</div>
+                <div class="text-xs text-dungeon-paper/70 mb-2">
+                  已选择奖励{{ selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard) ? '主动技能' : '卡牌' }}：
+                </div>
                 <div class="flex justify-center">
-                  <DungeonCard v-if="selectedVictoryRewardCard" :card="selectedVictoryRewardCard" disabled />
+                  <DungeonCard
+                    v-if="selectedVictoryRewardCard && !isActiveSkillReward(selectedVictoryRewardCard)"
+                    :card="selectedVictoryRewardCard"
+                    disabled
+                  />
+                  <div
+                    v-else-if="selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)"
+                    class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                  >
+                    <div class="flex items-center justify-between text-[11px] font-semibold">
+                      <span>{{ selectedVictoryRewardCard.name }}</span>
+                      <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
+                    </div>
+                    <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
+                      <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">MP {{ selectedVictoryRewardCard.manaCost }}</span>
+                      <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">CD {{ selectedVictoryRewardCard.Cooldown }}</span>
+                    </div>
+                    <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
+                      {{ selectedVictoryRewardCard.description }}
+                    </div>
+                    <div class="text-[11px] text-zinc-500">类别：{{ selectedVictoryRewardCard.category }} · {{ selectedVictoryRewardCard.rarity }}</div>
+                  </div>
                 </div>
               </div>
 
               <div
-                v-if="rewardReplaceEntries.length === 0"
+                v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length === 0"
                 class="rounded border border-dungeon-brown/50 bg-black/20 p-4 text-center"
               >
                 <div class="text-sm text-dungeon-paper/70">当前卡组为空，将奖励卡加入卡组。</div>
@@ -1478,11 +1529,11 @@
               </div>
 
               <div
-                v-if="rewardReplaceEntries.length > 0"
+                v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length > 0"
                 class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
               >
                 <button
-                  v-for="entry in rewardReplaceEntries"
+                  v-for="entry in rewardDeckReplaceEntries"
                   :key="`reward-replace-${entry.idx}`"
                   type="button"
                   class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1494,6 +1545,47 @@
                     <DungeonCard v-if="entry.card" :card="entry.card" disabled />
                     <div v-else class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55">
                       {{ entry.name || '空槽位' }}
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div
+                v-if="victoryRewardStage === 'replaceActive'"
+                class="grid grid-cols-1 md:grid-cols-2 gap-4"
+              >
+                <button
+                  v-for="entry in rewardActiveReplaceEntries"
+                  :key="`reward-active-replace-${entry.idx}`"
+                  type="button"
+                  class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="rewardApplying"
+                  @click="replaceActiveSkillWithReward(entry.idx)"
+                >
+                  <div class="text-[11px] text-dungeon-paper/65 mb-2">主动槽位 {{ entry.idx + 1 }}</div>
+                  <div class="flex justify-center">
+                    <div
+                      v-if="entry.skill"
+                      class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                    >
+                      <div class="flex items-center justify-between text-[11px] font-semibold">
+                        <span>{{ entry.skill.name }}</span>
+                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
+                      </div>
+                      <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
+                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">MP {{ entry.skill.manaCost }}</span>
+                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">CD {{ entry.skill.Cooldown }}</span>
+                      </div>
+                      <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
+                        {{ entry.skill.description }}
+                      </div>
+                      <div class="text-[11px] text-zinc-500">类别：{{ entry.skill.category }} · {{ entry.skill.rarity }}</div>
+                    </div>
+                    <div
+                      v-else
+                      class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
+                    >
+                      {{ entry.name || '空主动槽位' }}
                     </div>
                   </div>
                 </button>
@@ -1511,6 +1603,7 @@
           class="w-full h-full"
           :enemy-name="combatEnemyName"
           :player-deck="resolvedDeck"
+          :player-active-skills="resolvedActiveSkills"
           :player-relics="combatRelicMap"
           :test-start-at-999="combatTestStartAt999CurrentBattle"
           :track-discovery="activeCombatContext !== 'combatTest'"
@@ -1558,6 +1651,7 @@ import {
   Settings as SettingsIcon,
   Users,
 } from 'lucide-vue-next';
+import { getAllActiveSkills, resolveActiveSkillNames } from '../battle/activeSkillRegistry';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
@@ -1567,7 +1661,7 @@ import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderImagePaths } from '../localAssetManifest';
-import { CardType, EffectType, type CardData } from '../types';
+import { CardType, EffectType, type ActiveSkillData, type CardData } from '../types';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
@@ -1695,9 +1789,11 @@ const pendingCombatNarrative = ref<{
 } | null>(null);
 const dispatchedCombatNarrativeIds = new Set<string>();
 const showVictoryRewardView = ref(false);
-const victoryRewardStage = ref<'pick' | 'replace'>('pick');
-const victoryRewardOptions = ref<CardData[]>([]);
-const selectedVictoryRewardCard = ref<CardData | null>(null);
+type VictoryRewardItem = CardData | ActiveSkillData;
+type VictoryRewardStage = 'pick' | 'replaceDeck' | 'replaceActive';
+const victoryRewardStage = ref<VictoryRewardStage>('pick');
+const victoryRewardOptions = ref<VictoryRewardItem[]>([]);
+const selectedVictoryRewardCard = ref<VictoryRewardItem | null>(null);
 const rewardApplying = ref(false);
 const rewardRefreshUsed = ref(false);
 const rewardIsNormalEnemy = ref(false);
@@ -1785,9 +1881,9 @@ interface PersistedIdolState {
 }
 
 interface PersistedVictoryState {
-  stage: 'pick' | 'replace';
-  optionCardIds: string[];
-  selectedCardId: string | null;
+  stage: VictoryRewardStage;
+  optionRewardIds: string[];
+  selectedRewardId: string | null;
   refreshUsed: boolean;
   isNormalEnemy: boolean;
 }
@@ -2044,7 +2140,8 @@ const CARD_TYPE_ORDER_FOR_TEST: Record<CardType, number> = {
   [CardType.MAGIC]: 1,
   [CardType.FUNCTION]: 2,
   [CardType.DODGE]: 3,
-  [CardType.CURSE]: 4,
+  [CardType.ACTIVE]: 4,
+  [CardType.CURSE]: 5,
 };
 const cardCategoryGroupsForTest = computed<Array<{ category: string; cards: CardData[] }>>(() => {
   const grouped = new Map<string, CardData[]>();
@@ -2269,6 +2366,21 @@ const cardByNameForTest = computed(() => {
   }
   return map;
 });
+const activeSkillsForBattle = computed(() => getAllActiveSkills());
+const activeSkillByIdMap = computed(() => {
+  const map = new Map<string, ActiveSkillData>();
+  for (const skill of activeSkillsForBattle.value) {
+    map.set(skill.id, skill);
+  }
+  return map;
+});
+const activeSkillByNameMap = computed(() => {
+  const map = new Map<string, ActiveSkillData>();
+  for (const skill of activeSkillsForBattle.value) {
+    map.set(skill.name, skill);
+  }
+  return map;
+});
 const EXCLUDED_VICTORY_REWARD_CARD_IDS = new Set<string>([
   'basic_physical',
   'basic_magic',
@@ -2284,12 +2396,27 @@ const rewardCardPool = computed<CardData[]>(() => {
   if (filtered.length > 0) return filtered;
   return allCardsForTest.value.filter((card) => !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id));
 });
-const rewardReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
+const rewardActiveSkillPool = computed<ActiveSkillData[]>(() => {
+  const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
+  const filtered = activeSkillsForBattle.value.filter((skill) => categorySet.has(skill.category));
+  if (filtered.length > 0) return filtered;
+  return activeSkillsForBattle.value.filter((skill) => skill.category === '基础');
+});
+const rewardDeckReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
   const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
   return raw.slice(0, 9).map((name, idx) => ({
     idx,
     name,
     card: cardByNameForTest.value.get(name) ?? null,
+  }));
+});
+const rewardActiveReplaceEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
+  const raw = Array.isArray(gameStore.statData.$主动) ? [...(gameStore.statData.$主动 as string[])].slice(0, 2) : [];
+  while (raw.length < 2) raw.push('');
+  return raw.map((name, idx) => ({
+    idx,
+    name,
+    skill: activeSkillByNameMap.value.get(name) ?? null,
   }));
 });
 const selectedTestDeckCards = computed(() =>
@@ -2378,12 +2505,22 @@ const getCardTypeBadgeClass = (type: CardType) => {
       return 'border-yellow-500/50 text-yellow-300 bg-yellow-900/20';
     case CardType.DODGE:
       return 'border-emerald-500/50 text-emerald-300 bg-emerald-900/20';
+    case CardType.ACTIVE:
+      return 'border-zinc-300/70 text-zinc-100 bg-zinc-100/10';
     case CardType.CURSE:
       return 'border-violet-500/50 text-violet-300 bg-violet-900/20';
     default:
       return 'border-white/30 text-dungeon-paper/80 bg-white/5';
   }
 };
+
+const isActiveSkillReward = (item: VictoryRewardItem | null | undefined): item is ActiveSkillData => (
+  Boolean(item && item.type === CardType.ACTIVE)
+);
+
+const getVictoryRewardTypeText = (item: VictoryRewardItem) => (
+  isActiveSkillReward(item) ? '主动技能' : '卡牌'
+);
 
 const getCardCategoryStripClass = (category: string) => {
   switch (category) {
@@ -2406,6 +2543,10 @@ const getCardCategoryStripClass = (category: string) => {
 const resolvedDeck = computed<CardData[]>(() => {
   const skills: string[] = gameStore.statData._技能 ?? [];
   return resolveCardNames(skills.filter((s) => s !== ''));
+});
+const resolvedActiveSkills = computed<ActiveSkillData[]>(() => {
+  const skills = Array.isArray(gameStore.statData.$主动) ? (gameStore.statData.$主动 as string[]) : [];
+  return resolveActiveSkillNames(skills.filter((s) => s !== ''));
 });
 
 // ── Resolved relics from MVU _圣遗物 ──
@@ -3340,17 +3481,17 @@ const applyMerchantDefeatedShopState = () => {
   }
 };
 
-const pickUniqueRewardCard = (
-  pool: CardData[],
+const pickUniqueRewardItem = (
+  pool: VictoryRewardItem[],
   usedIds: Set<string>,
-): CardData | null => {
-  const candidates = pool.filter((card) => !usedIds.has(card.id));
+): VictoryRewardItem | null => {
+  const candidates = pool.filter((item) => !usedIds.has(item.id));
   if (candidates.length === 0) return null;
   return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
 };
 
-const buildVictoryRewardOptions = (): CardData[] => {
-  const pool = rewardCardPool.value;
+const buildVictoryRewardOptions = (): VictoryRewardItem[] => {
+  const pool: VictoryRewardItem[] = [...rewardCardPool.value, ...rewardActiveSkillPool.value];
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
   const isLordRoom = roomType === '领主房';
   const isNormalEnemy = roomType === '战斗房';
@@ -3361,17 +3502,17 @@ const buildVictoryRewardOptions = (): CardData[] => {
   const optionCount = 3 + (hasRainbowCard ? 1 : 0);
   const rareChance = isLordRoom ? 1 : (hasGoldenCard ? 0.1 : 0.05);
 
-  const normalPool = pool.filter((card) => card.rarity === '普通');
-  const rarePool = pool.filter((card) => card.rarity === '稀有');
-  const options: CardData[] = [];
+  const normalPool = pool.filter((item) => item.rarity === '普通');
+  const rarePool = pool.filter((item) => item.rarity === '稀有');
+  const options: VictoryRewardItem[] = [];
   const usedIds = new Set<string>();
 
   for (let i = 0; i < optionCount; i++) {
     const pickRare = isLordRoom || Math.random() < rareChance;
     const primaryPool = pickRare ? rarePool : normalPool;
-    let picked = pickUniqueRewardCard(primaryPool, usedIds);
+    let picked = pickUniqueRewardItem(primaryPool, usedIds);
     if (!picked) {
-      picked = pickUniqueRewardCard(pool, usedIds);
+      picked = pickUniqueRewardItem(pool, usedIds);
     }
     if (!picked) continue;
     options.push(picked);
@@ -3431,13 +3572,13 @@ const exitVictoryRewardFlow = () => {
   finalizeVictoryRewardFlow({ skipReward: true });
 };
 
-const pickVictoryRewardCard = (card: CardData) => {
+const pickVictoryRewardCard = (card: VictoryRewardItem) => {
   selectedVictoryRewardCard.value = card;
-  victoryRewardStage.value = 'replace';
+  victoryRewardStage.value = isActiveSkillReward(card) ? 'replaceActive' : 'replaceDeck';
 };
 
 const replaceDeckCardWithReward = (idx: number) => {
-  if (!selectedVictoryRewardCard.value || rewardApplying.value) return;
+  if (!selectedVictoryRewardCard.value || rewardApplying.value || isActiveSkillReward(selectedVictoryRewardCard.value)) return;
   const raw = Array.isArray(gameStore.statData._技能)
     ? [...(gameStore.statData._技能 as string[])].slice(0, 9)
     : [];
@@ -3450,6 +3591,19 @@ const replaceDeckCardWithReward = (idx: number) => {
   }
   rewardApplying.value = true;
   gameStore.mergePendingStatDataChanges({ _技能: raw });
+  finalizeVictoryRewardFlow();
+};
+
+const replaceActiveSkillWithReward = (idx: number) => {
+  if (!selectedVictoryRewardCard.value || rewardApplying.value || !isActiveSkillReward(selectedVictoryRewardCard.value)) return;
+  if (idx < 0 || idx > 1) return;
+  const raw = Array.isArray(gameStore.statData.$主动)
+    ? [...(gameStore.statData.$主动 as string[])].slice(0, 2)
+    : [];
+  while (raw.length < 2) raw.push('');
+  raw[idx] = selectedVictoryRewardCard.value.name;
+  rewardApplying.value = true;
+  gameStore.mergePendingStatDataChanges({ $主动: raw });
   finalizeVictoryRewardFlow();
 };
 
@@ -4202,8 +4356,8 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
       active: 'victoryReward',
       victory: {
         stage: victoryRewardStage.value,
-        optionCardIds: victoryRewardOptions.value.map((card) => card.id),
-        selectedCardId: selectedVictoryRewardCard.value?.id ?? null,
+        optionRewardIds: victoryRewardOptions.value.map((item) => item.id),
+        selectedRewardId: selectedVictoryRewardCard.value?.id ?? null,
         refreshUsed: rewardRefreshUsed.value,
         isNormalEnemy: rewardIsNormalEnemy.value,
       },
@@ -4348,18 +4502,32 @@ const restoreOverlaySnapshot = () => {
     }
 
     if (parsed.active === 'victoryReward' && parsed.victory) {
-      const options = parsed.victory.optionCardIds
-        .map((id) => cardByIdMap.value.get(id))
-        .filter((card): card is CardData => Boolean(card));
+      const victoryData = parsed.victory as PersistedVictoryState & {
+        optionCardIds?: string[];
+        selectedCardId?: string | null;
+        stage?: VictoryRewardStage | 'replace';
+      };
+      const optionIds = Array.isArray(victoryData.optionRewardIds)
+        ? victoryData.optionRewardIds
+        : (Array.isArray(victoryData.optionCardIds) ? victoryData.optionCardIds : []);
+      const options = optionIds
+        .map((id) => cardByIdMap.value.get(id) ?? activeSkillByIdMap.value.get(id))
+        .filter((item): item is VictoryRewardItem => Boolean(item));
       if (options.length === 0) {
         localStorage.removeItem(OVERLAY_STATE_KEY);
         return;
       }
+      const selectedId = victoryData.selectedRewardId ?? victoryData.selectedCardId ?? null;
+      const restoredStage = victoryData.stage === 'replaceActive'
+        ? 'replaceActive'
+        : victoryData.stage === 'replaceDeck' || victoryData.stage === 'replace'
+          ? 'replaceDeck'
+          : 'pick';
       showVictoryRewardView.value = true;
-      victoryRewardStage.value = parsed.victory.stage === 'replace' ? 'replace' : 'pick';
+      victoryRewardStage.value = restoredStage;
       victoryRewardOptions.value = options;
-      selectedVictoryRewardCard.value = parsed.victory.selectedCardId
-        ? (cardByIdMap.value.get(parsed.victory.selectedCardId) ?? null)
+      selectedVictoryRewardCard.value = selectedId
+        ? (cardByIdMap.value.get(selectedId) ?? activeSkillByIdMap.value.get(selectedId) ?? null)
         : null;
       rewardApplying.value = false;
       rewardRefreshUsed.value = Boolean(parsed.victory.refreshUsed);

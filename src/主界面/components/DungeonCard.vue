@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { CircleHelp, Footprints, RefreshCcw, Skull, Sparkles, Sword } from 'lucide-vue-next';
+import { CircleHelp, Footprints, RefreshCcw, Skull, Sparkles, Sword, Zap } from 'lucide-vue-next';
 import { type CardData, CardType } from '../types';
 
 const props = withDefaults(
@@ -106,6 +106,8 @@ const typeColorClass = computed(() => {
       return 'border-yellow-800 bg-yellow-950/30';
     case CardType.DODGE:
       return 'border-emerald-900 bg-emerald-950/30';
+    case CardType.ACTIVE:
+      return 'border-zinc-200/80 bg-zinc-100/15';
     case CardType.CURSE:
       return 'border-black bg-black/70';
     default:
@@ -126,6 +128,8 @@ const typeIcon = computed(() => {
       return RefreshCcw;
     case CardType.DODGE:
       return Footprints;
+    case CardType.ACTIVE:
+      return Zap;
     case CardType.CURSE:
       return Skull;
     default:
@@ -146,6 +150,8 @@ const typeIconColor = computed(() => {
       return 'text-yellow-400';
     case CardType.DODGE:
       return 'text-emerald-400';
+    case CardType.ACTIVE:
+      return 'text-zinc-200';
     case CardType.CURSE:
       return 'text-zinc-300';
     default:
@@ -176,6 +182,8 @@ const typeGradient = computed(() => {
       return 'bg-gradient-to-tr from-yellow-900 to-black';
     case CardType.DODGE:
       return 'bg-gradient-to-tr from-emerald-900 to-black';
+    case CardType.ACTIVE:
+      return 'bg-gradient-to-tr from-zinc-300/70 to-zinc-900';
     case CardType.CURSE:
       return 'bg-gradient-to-tr from-zinc-900 to-black';
     default:
@@ -189,7 +197,7 @@ const displayTypeText = computed(() => (props.maskLevel === 'full' ? '?' : props
 const displayInitial = computed(() => (displayName.value[0] ?? '?'));
 const showManaBadge = computed(() => (
   props.maskLevel !== 'full'
-  && props.card.type === CardType.MAGIC
+  && (props.card.type === CardType.MAGIC || props.card.type === CardType.ACTIVE)
   && props.card.manaCost > 0
 ));
 const isRareCard = computed(() => props.card.rarity === '稀有');
