@@ -1652,6 +1652,7 @@ const shopSpentGold = ref(0);
 const shopPurchasedItems = ref<Array<{ name: string; rarity: string; price: number }>>([]);
 const shopRobClickCount = ref(0);
 const shopRobbing = ref(false);
+const shopSessionKey = ref<string | null>(null);
 const showChestView = ref(false);
 const chestStage = ref<'closed' | 'opened' | 'mimic'>('closed');
 const chestRolling = ref(false);
@@ -3309,7 +3310,7 @@ const queueCombatMvuSync = (win: boolean, finalStats: unknown, negativeEffects: 
     .filter((item) => item.length > 0);
   let nextHp = hasHp ? Math.max(0, Math.floor(hpRaw)) : undefined;
 
-  if (nextHp !== undefined && bloodPoolCount > 0) {
+  if (win && nextHp !== undefined && bloodPoolCount > 0) {
     const combatMaxHp = hasFinalMaxHp
       ? Math.max(1, Math.floor(finalMaxHpRaw))
       : Math.max(1, baseMaxHp + passiveMaxHpBonus);
@@ -3518,15 +3519,37 @@ const generateShopProducts = () => {
   shopProducts.value = next;
 };
 
-const openShopView = () => {
-  hideRelicTooltip();
-  clearShopRobTimer();
-  shopBuying.value = false;
+const getCurrentShopSessionKey = (): string => {
+  const area = ((gameStore.statData._当前区域 as string) || '').trim();
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  const floor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
+  const roomsPassed = Math.max(0, toNonNegativeInt((gameStore.statData.$统计 as any)?.当前层已过房间, 0));
+  return `${floor}|${area}|${roomType}|${roomsPassed}`;
+};
+
+const resetShopSession = () => {
+  shopSessionKey.value = null;
+  shopProducts.value = [];
   shopSpentGold.value = 0;
   shopPurchasedItems.value = [];
   shopRobClickCount.value = 0;
   shopRobbing.value = false;
-  generateShopProducts();
+};
+
+const openShopView = () => {
+  hideRelicTooltip();
+  clearShopRobTimer();
+  shopBuying.value = false;
+  const nextSessionKey = getCurrentShopSessionKey();
+  const shouldRebuild = shopSessionKey.value !== nextSessionKey || shopProducts.value.length === 0;
+  if (shouldRebuild) {
+    shopSessionKey.value = nextSessionKey;
+    shopSpentGold.value = 0;
+    shopPurchasedItems.value = [];
+    shopRobClickCount.value = 0;
+    shopRobbing.value = false;
+    generateShopProducts();
+  }
   if (isMerchantDefeated.value) {
     applyMerchantDefeatedShopState();
   }
@@ -3556,23 +3579,15 @@ const buildNextRelicInventory = (
   return nextRelics;
 };
 
-const buyShopProduct = async (item: ShopProduct) => {
+const buyShopProduct = (item: ShopProduct) => {
   if (shopBuying.value || item.sold) return;
-  const currentGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+  const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+  const currentGold = Math.max(0, baseGold - shopSpentGold.value);
   if (currentGold < item.finalPrice) {
     return;
   }
 
   shopBuying.value = true;
-  const nextGold = currentGold - item.finalPrice;
-  const nextRelics = buildNextRelicInventory(item.relic);
-  const ok = await gameStore.updateStatDataFields({
-    _金币: nextGold,
-    _圣遗物: nextRelics,
-  });
-  shopBuying.value = false;
-  if (!ok) return;
-
   item.sold = true;
   shopSpentGold.value += item.finalPrice;
   shopPurchasedItems.value.push({
@@ -3581,12 +3596,37 @@ const buyShopProduct = async (item: ShopProduct) => {
     price: item.finalPrice,
   });
   hideRelicTooltip();
+  shopBuying.value = false;
 };
 
 const exitShop = () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
   const purchased = [...shopPurchasedItems.value];
   const total = shopSpentGold.value;
+  if (purchased.length > 0) {
+    const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+    const nextGold = Math.max(0, baseGold - total);
+    let nextRelics: Record<string, number> = gameStore.statData._圣遗物 ?? {};
+    for (const item of purchased) {
+      const relic = getRelicByName(item.name);
+      if (relic) {
+        nextRelics = buildNextRelicInventory(relic, nextRelics);
+      } else {
+        const fallbackNext: Record<string, number> = {};
+        for (const [name, value] of Object.entries(nextRelics as Record<string, number>)) {
+          const count = Math.max(0, Math.floor(Number(value ?? 0)));
+          if (!name || count <= 0) continue;
+          fallbackNext[name] = count;
+        }
+        fallbackNext[item.name] = (fallbackNext[item.name] ?? 0) + 1;
+        nextRelics = fallbackNext;
+      }
+    }
+    gameStore.mergePendingStatDataChanges({
+      _金币: nextGold,
+      _圣遗物: nextRelics,
+    });
+  }
   const narrative = pendingCombatNarrative.value;
   closeShopView();
   if (narrative && narrative.context === 'shopRobbery' && narrative.win) {
@@ -4288,6 +4328,7 @@ const restoreOverlaySnapshot = () => {
         : [];
       shopRobClickCount.value = Math.max(0, toNonNegativeInt(parsed.shop.robClickCount, 0));
       shopRobbing.value = Boolean(parsed.shop.robbing);
+      shopSessionKey.value = getCurrentShopSessionKey();
       shopBuying.value = false;
       return;
     }
@@ -4821,6 +4862,7 @@ function generateChestLeavePortals(): PortalChoice[] {
 
 const handlePortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating) return;
+  resetShopSession();
   const { actionText, pendingStatDataFields } = buildQueuedPortalAction(portal);
   gameStore.setPendingStatDataChanges(pendingStatDataFields ?? null);
   gameStore.sendAction(actionText);
@@ -4828,6 +4870,7 @@ const handlePortalClick = async (portal: PortalChoice) => {
 
 const handleChestPortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating || chestCollecting.value || chestStage.value !== 'opened') return;
+  resetShopSession();
   const { actionText, enterText, pendingStatDataFields } = buildQueuedPortalAction(portal);
   const collectedRelics = chestRewardRelics.value.filter((_, idx) => chestRewardCollectedFlags.value[idx]);
   const mergedPendingStatDataFields: Record<string, any> = {

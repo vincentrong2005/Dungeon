@@ -427,7 +427,7 @@ const 魔力飓风: CardData = {
   type: CardType.MAGIC,
   category: '魔导',
   rarity: '普通',
-  manaCost: 4,
+  manaCost: 6,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   hitCount: 1,
@@ -502,7 +502,7 @@ const 法环坍缩: CardData = {
   description: '造成1.5倍点数伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害',
 };
 
-/** 棱镜贯流：0.8倍伤害；按当前MP提高伤害倍率（结算逻辑在 CombatView） */
+/** 棱镜贯流：0.9倍伤害；按当前MP提高伤害倍率（结算逻辑在 CombatView） */
 const 棱镜贯流: CardData = {
   id: 'modao_prism_flow',
   name: '棱镜贯流',
@@ -511,11 +511,11 @@ const 棱镜贯流: CardData = {
   rarity: '普通',
   manaCost: 2,
   calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.8, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.9, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成0.8倍点数伤害；每有2点当前MP，伤害额外+0.2倍（上限+1.2倍）',
+  description: '造成0.9倍点数伤害；每有2点当前MP，伤害额外+0.3倍（上限+2.1倍）',
 };
 
 /** 导能屏障：消耗魔力转护甲，连击（结算逻辑在 CombatView） */
@@ -1534,7 +1534,7 @@ const 高压喷射: CardData = {
   negativeEffect: '[信息素]',
 };
 
-/** 渗透：为对方增加1倍点数的侵蚀 */
+/** 渗透：功能，为对方增加1倍点数的侵蚀 */
 const 渗透: CardData = {
   id: 'enemy_pollen_infiltration',
   name: '渗透',
@@ -1548,7 +1548,43 @@ const 渗透: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '为对方增加1倍点数的侵蚀',
+  description: '为对方增加1倍点数的“侵蚀”',
+};
+
+/** 入侵：物理，无直接伤害，施加1倍点数的侵蚀 */
+const 入侵: CardData = {
+  id: 'enemy_ink_slime_invasion',
+  name: '入侵',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '施加1倍点数的侵蚀',
+};
+
+/** 凝聚：回复1倍点数生命并为自身施加1层群集 */
+const 凝聚: CardData = {
+  id: 'enemy_ink_slime_condense',
+  name: '凝聚',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.SWARM, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '回复1倍点数的生命值并为自身施加1层群集',
 };
 
 /** 拥抱：点数+1，造成1倍点数伤害并施加1层束缚 */
@@ -1959,6 +1995,184 @@ const 幻象诱导: CardData = {
     },
   ],
   description: '闪避，若闪避成功或对方跳过回合，则对对方施加2层生命上限削减',
+};
+
+/** 幽灵幻象：闪避，若闪避成功或对方跳过回合，则施加5层生命上限削减 */
+const 幽灵幻象: CardData = {
+  id: 'enemy_whisper_ghost_phantom',
+  name: '幽灵幻象',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 5,
+    },
+  ],
+  description: '闪避，若闪避成功或对方跳过回合，则施加5层生命上限削减',
+};
+
+/** 知识低语：消耗2MP，无伤害，施加1倍点数的生命上限衰减 */
+const 知识低语: CardData = {
+  id: 'enemy_whisper_ghost_knowledge_whisper',
+  name: '知识低语',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '无伤害，施加1倍点数的生命上限衰减',
+};
+
+/** 禁忌知识：消耗10MP，点数*3，施加1倍点数的侵蚀 */
+const 禁忌知识: CardData = {
+  id: 'enemy_whisper_ghost_forbidden_knowledge',
+  name: '禁忌知识',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 10,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '点数*3，施加1倍点数的侵蚀',
+};
+
+/** 被动增敏：法力汲取6 */
+const 被动增敏: CardData = {
+  id: 'enemy_whisper_ghost_passive_sensitization',
+  name: '被动增敏',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  manaDrain: 6,
+  description: '法力汲取6',
+};
+
+/** 行间诱惑：消耗4MP，点数+2，造成0.4倍伤害并施加1倍点数的侵蚀 */
+const 行间诱惑: CardData = {
+  id: 'enemy_book_demon_between_lines_temptation',
+  name: '行间诱惑',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '点数+2，造成0.4倍伤害并施加1倍点数的侵蚀',
+};
+
+/** 墨迹触手：点数+1，造成1倍伤害并施加1层束缚 */
+const 墨迹触手: CardData = {
+  id: 'enemy_book_demon_ink_tentacle',
+  name: '墨迹触手',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数+1，造成1倍伤害并施加1层束缚',
+};
+
+/** 低语教唆：施加1层眩晕 */
+const 低语教唆: CardData = {
+  id: 'enemy_book_demon_whisper_incitement',
+  name: '低语教唆',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STUN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1层眩晕',
+};
+
+/** 知识渴望：点数-1，闪避，若闪避成功施加1层禁言 */
+const 知识渴望: CardData = {
+  id: 'enemy_book_demon_knowledge_thirst',
+  name: '知识渴望',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.SILENCE,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数-1，闪避，若闪避成功施加1层禁言',
 };
 
 /** 潜伏：给自己添加1层伏击 */
@@ -2395,7 +2609,217 @@ const 花蜜调教: CardData = {
   description: '获得1倍点数的护甲，若目标有束缚，则赋予目标1倍点数的中毒',
 };
 
-/** 粘液闪避 — 与普通闪避完全一致 */
+/** 禁言术：消耗1MP，造成0.5倍点数伤害并施加1层禁言 */
+const 禁言术: CardData = {
+  id: 'enemy_ursula_silence_spell',
+  name: '禁言术',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 1,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成0.5倍点数的伤害并施加1层“禁言”',
+};
+
+/** 淫纹拓印：消耗6MP，点数*1.5，造成0.2倍伤害，5连击，再施加0.5倍点数易伤 */
+const 淫纹拓印: CardData = {
+  id: 'enemy_ursula_lust_imprint',
+  name: '淫纹拓印',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
+  hitCount: 5,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数*1.5，造成0.2倍伤害，5连击。再施加0.5倍点数的“易伤”',
+};
+
+/** 束缚法：造成0.8倍点数伤害并施加3层束缚 */
+const 束缚法: CardData = {
+  id: 'enemy_ursula_binding_law',
+  name: '束缚法',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.8, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 3,
+    },
+  ],
+  description: '造成0.8倍点数的伤害并施加3层束缚',
+};
+
+/** 教鞭惩罚：点数+2，造成1倍点数伤害；若目标有束缚则额外施加0.5倍点数易伤（条件部分在 CombatView） */
+const 教鞭惩罚: CardData = {
+  id: 'enemy_ursula_whip_punish',
+  name: '教鞭惩罚',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+2，造成1倍点数的伤害；若敌人有“束缚”则额外施加0.5倍点数的“易伤”',
+};
+
+/** 言出法随：施加0.5倍点数的电击与1层禁言 */
+const 言出法随: CardData = {
+  id: 'enemy_ursula_commandment',
+  name: '言出法随',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加0.5倍点数的“电击”与1层“禁言”',
+};
+
+/** 依附：造成1倍点数伤害并施加1层束缚 */
+const 依附: CardData = {
+  id: 'enemy_floating_page_attach',
+  name: '依附',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '造成1倍点数伤害与1层束缚',
+};
+
+/** 感官灌输：消耗4MP，点数*1.5，造成0.5倍点数伤害并附加等同于目标侵蚀层数的中毒（结算逻辑在 CombatView） */
+const 感官灌输: CardData = {
+  id: 'enemy_floating_page_sensory_infusion',
+  name: '感官灌输',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.5，造成0.5倍点数伤害，并施加等同于目标侵蚀层数的中毒',
+};
+
+/** 强制代入：消耗2MP，点数+1，造成1.5倍伤害；若目标拥有束缚则附加1层认知干涉（结算逻辑在 CombatView） */
+const 强制代入: CardData = {
+  id: 'enemy_floating_page_forced_immersion',
+  name: '强制代入',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+1，造成1.5倍伤害，若目标拥有束缚则附加1层认知干涉',
+};
+
+/** 胆小：点数-1，闪避，若闪避成功则增加1点最大骰子值（结算逻辑在 CombatView） */
+const 胆小: CardData = {
+  id: 'enemy_inkmouse_cowardice',
+  name: '胆小',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，闪避，闪避成功后增加1点骰子最大值',
+};
+
+/** 墨水爆裂：消耗2MP，造成3点伤害；若发生拼点则拼点时施加3层中毒（拼点效果在 CombatView） */
+const 墨水爆裂: CardData = {
+  id: 'enemy_inkmouse_ink_burst',
+  name: '墨水爆裂',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 3 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash'],
+      kind: 'apply_buff',
+      effectType: EffectType.POISON,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 3,
+    },
+  ],
+  description: '造成3点伤害，若发生拼点则拼点时施加3层中毒',
+};
+
+/** 液化再生：自身增加1层生命上限削减与0.5倍点数的群集 */
+const 液化再生: CardData = {
+  id: 'enemy_inkmouse_liquefy_regen',
+  name: '液化再生',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.MAX_HP_REDUCTION, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.SWARM, target: 'self', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '自身增加1层生命上限削减与0.5倍点数的群集',
+};
+
+/** 粘液闪避：闪避，若闪避成功则回复1倍点数生命 */
 const 粘液闪避: CardData = {
   id: 'enemy_slime_dodge',
   name: '粘液闪避',
@@ -2406,8 +2830,16 @@ const 粘液闪避: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '若敌方攻击点数高于我方，则敌方攻击无效',
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '闪避，闪避成功后回复1倍点数生命',
 };
 
 /** 回复 — 回复自身掷出点数等量的血量 */
@@ -2689,6 +3121,8 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [蜜蜂精准采集.name, 蜜蜂精准采集],
   [高压喷射.name, 高压喷射],
   [渗透.name, 渗透],
+  [入侵.name, 入侵],
+  [凝聚.name, 凝聚],
   [普莉姆拥抱.name, 普莉姆拥抱],
   [普莉姆流体规避.name, 普莉姆流体规避],
   [普莉姆消化性爱抚.name, 普莉姆消化性爱抚],
@@ -2709,6 +3143,14 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [弹性吸附.name, 弹性吸附],
   [虹色漂浮.name, 虹色漂浮],
   [幻象诱导.name, 幻象诱导],
+  [幽灵幻象.name, 幽灵幻象],
+  [知识低语.name, 知识低语],
+  [禁忌知识.name, 禁忌知识],
+  [被动增敏.name, 被动增敏],
+  [行间诱惑.name, 行间诱惑],
+  [墨迹触手.name, 墨迹触手],
+  [低语教唆.name, 低语教唆],
+  [知识渴望.name, 知识渴望],
   [潜伏.name, 潜伏],
   [闪电伏击.name, 闪电伏击],
   [麻痹毒素.name, 麻痹毒素],
@@ -2731,6 +3173,17 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [王志鞭挞.name, 王志鞭挞],
   [生命汲取.name, 生命汲取],
   [花蜜调教.name, 花蜜调教],
+  [禁言术.name, 禁言术],
+  [淫纹拓印.name, 淫纹拓印],
+  [束缚法.name, 束缚法],
+  [教鞭惩罚.name, 教鞭惩罚],
+  [言出法随.name, 言出法随],
+  [依附.name, 依附],
+  [感官灌输.name, 感官灌输],
+  [强制代入.name, 强制代入],
+  [胆小.name, 胆小],
+  [墨水爆裂.name, 墨水爆裂],
+  [液化再生.name, 液化再生],
   [粘液闪避.name, 粘液闪避],
   [回复.name, 回复],
   [炼金废料.name, 炼金废料],

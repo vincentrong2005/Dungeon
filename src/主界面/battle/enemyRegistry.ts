@@ -144,6 +144,48 @@ const ROSE_CARD = {
   NECTAR_DISCIPLINE: 'enemy_rose_nectar_discipline',
 } as const;
 
+const URSULA_CARD = {
+  SILENCE_SPELL: 'enemy_ursula_silence_spell',
+  LUST_IMPRINT: 'enemy_ursula_lust_imprint',
+  BINDING_LAW: 'enemy_ursula_binding_law',
+  WHIP_PUNISH: 'enemy_ursula_whip_punish',
+  COMMANDMENT: 'enemy_ursula_commandment',
+} as const;
+
+const FLOATING_PAGE_CARD = {
+  ATTACH: 'enemy_floating_page_attach',
+  SENSORY_INFUSION: 'enemy_floating_page_sensory_infusion',
+  FORCED_IMMERSION: 'enemy_floating_page_forced_immersion',
+} as const;
+
+const INK_MOUSE_CARD = {
+  CHARGE: 'enemy_charge',
+  COWARDICE: 'enemy_inkmouse_cowardice',
+  INK_BURST: 'enemy_inkmouse_ink_burst',
+  LIQUEFY_REGEN: 'enemy_inkmouse_liquefy_regen',
+} as const;
+
+const INK_SLIME_CARD = {
+  CHARGE: 'enemy_charge',
+  INFILTRATION: 'enemy_ink_slime_invasion',
+  CONDENSE: 'enemy_ink_slime_condense',
+  SLIME_DODGE: 'enemy_slime_dodge',
+} as const;
+
+const WHISPER_GHOST_CARD = {
+  PHANTOM: 'enemy_whisper_ghost_phantom',
+  KNOWLEDGE_WHISPER: 'enemy_whisper_ghost_knowledge_whisper',
+  FORBIDDEN_KNOWLEDGE: 'enemy_whisper_ghost_forbidden_knowledge',
+  PASSIVE_SENSITIZATION: 'enemy_whisper_ghost_passive_sensitization',
+} as const;
+
+const BOOK_DEMON_CARD = {
+  BETWEEN_LINES_TEMPTATION: 'enemy_book_demon_between_lines_temptation',
+  INK_TENTACLE: 'enemy_book_demon_ink_tentacle',
+  WHISPER_INCITEMENT: 'enemy_book_demon_whisper_incitement',
+  KNOWLEDGE_THIRST: 'enemy_book_demon_knowledge_thirst',
+} as const;
+
 function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
   const floor = Math.max(1, Math.floor(currentFloor));
   return {
@@ -819,6 +861,231 @@ const 罗丝: EnemyDefinition = {
   },
 };
 
+const 厄休拉: EnemyDefinition = {
+  name: '厄休拉',
+  stats: {
+    hp: 80,
+    maxHp: 80,
+    mp: 3,
+    minDice: 3,
+    maxDice: 8,
+    effects: [
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    URSULA_CARD.SILENCE_SPELL,
+    URSULA_CARD.LUST_IMPRINT,
+    URSULA_CARD.BINDING_LAW,
+    URSULA_CARD.WHIP_PUNISH,
+    URSULA_CARD.COMMANDMENT,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasSilence = ctx.playerStats.effects.some((e) => e.type === EffectType.SILENCE && e.stacks > 0);
+    if (ctx.enemyStats.mp >= 6 && playerHasSilence) {
+      return pickCardById(ctx, URSULA_CARD.LUST_IMPRINT);
+    }
+
+    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    if (playerHasBind) {
+      const chosen = weightedRandom<string>([
+        { value: URSULA_CARD.SILENCE_SPELL, weight: 20 },
+        { value: URSULA_CARD.BINDING_LAW, weight: 20 },
+        { value: URSULA_CARD.WHIP_PUNISH, weight: 50 },
+        { value: URSULA_CARD.COMMANDMENT, weight: 10 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: URSULA_CARD.SILENCE_SPELL, weight: 40 },
+      { value: URSULA_CARD.BINDING_LAW, weight: 30 },
+      { value: URSULA_CARD.COMMANDMENT, weight: 30 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 浮游书页: EnemyDefinition = {
+  name: '浮游书页',
+  stats: {
+    hp: 2,
+    maxHp: 2,
+    mp: 0,
+    minDice: 1,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.SWARM, stacks: 8, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    FLOATING_PAGE_CARD.ATTACH,
+    FLOATING_PAGE_CARD.SENSORY_INFUSION,
+    FLOATING_PAGE_CARD.FORCED_IMMERSION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerCorrosion = ctx.playerStats.effects.find((e) => e.type === EffectType.CORROSION)?.stacks ?? 0;
+    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    if (ctx.enemyStats.mp >= 4 && playerCorrosion >= 3) {
+      return pickCardById(ctx, FLOATING_PAGE_CARD.SENSORY_INFUSION);
+    }
+    if (ctx.enemyStats.mp >= 2 && playerHasBind) {
+      return pickCardById(ctx, FLOATING_PAGE_CARD.FORCED_IMMERSION);
+    }
+    return pickCardById(ctx, FLOATING_PAGE_CARD.ATTACH);
+  },
+};
+
+const 墨痕鼠: EnemyDefinition = {
+  name: '墨痕鼠',
+  stats: {
+    hp: 6,
+    maxHp: 6,
+    mp: 0,
+    minDice: 2,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.SWARM, stacks: 4, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    INK_MOUSE_CARD.CHARGE,
+    INK_MOUSE_CARD.COWARDICE,
+    INK_MOUSE_CARD.INK_BURST,
+    INK_MOUSE_CARD.LIQUEFY_REGEN,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const selfSwarm = ctx.enemyStats.effects.find((e) => e.type === EffectType.SWARM)?.stacks ?? 0;
+    if (selfSwarm <= 1 && ctx.enemyStats.maxHp > 1) {
+      return pickCardById(ctx, INK_MOUSE_CARD.LIQUEFY_REGEN);
+    }
+    if (ctx.enemyStats.mp >= 2) {
+      return pickCardById(ctx, INK_MOUSE_CARD.INK_BURST);
+    }
+    const chosen = weightedRandom<string>([
+      { value: INK_MOUSE_CARD.CHARGE, weight: 75 },
+      { value: INK_MOUSE_CARD.COWARDICE, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 低语幽灵: EnemyDefinition = {
+  name: '低语幽灵',
+  stats: {
+    hp: 30,
+    maxHp: 30,
+    mp: 0,
+    minDice: 3,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.NON_LIVING, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    WHISPER_GHOST_CARD.PHANTOM,
+    WHISPER_GHOST_CARD.KNOWLEDGE_WHISPER,
+    WHISPER_GHOST_CARD.FORBIDDEN_KNOWLEDGE,
+    WHISPER_GHOST_CARD.PASSIVE_SENSITIZATION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp >= 10) {
+      return pickCardById(ctx, WHISPER_GHOST_CARD.FORBIDDEN_KNOWLEDGE);
+    }
+
+    if (ctx.turn % 4 === 0) {
+      return pickCardById(ctx, WHISPER_GHOST_CARD.PASSIVE_SENSITIZATION);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: WHISPER_GHOST_CARD.KNOWLEDGE_WHISPER, weight: 70 },
+        { value: WHISPER_GHOST_CARD.PHANTOM, weight: 30 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    return pickCardById(ctx, WHISPER_GHOST_CARD.PHANTOM);
+  },
+};
+
+const 墨水史莱姆: EnemyDefinition = {
+  name: '墨水史莱姆',
+  stats: {
+    hp: 10,
+    maxHp: 10,
+    mp: 0,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    INK_SLIME_CARD.CHARGE,
+    INK_SLIME_CARD.INFILTRATION,
+    INK_SLIME_CARD.CONDENSE,
+    INK_SLIME_CARD.SLIME_DODGE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const selfSwarm = ctx.enemyStats.effects.find((e) => e.type === EffectType.SWARM)?.stacks ?? 0;
+    if (selfSwarm <= 1) {
+      const chosen = weightedRandom<string>([
+        { value: INK_SLIME_CARD.CHARGE, weight: 20 },
+        { value: INK_SLIME_CARD.INFILTRATION, weight: 20 },
+        { value: INK_SLIME_CARD.CONDENSE, weight: 30 },
+        { value: INK_SLIME_CARD.SLIME_DODGE, weight: 30 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: INK_SLIME_CARD.CHARGE, weight: 30 },
+      { value: INK_SLIME_CARD.INFILTRATION, weight: 30 },
+      { value: INK_SLIME_CARD.SLIME_DODGE, weight: 40 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 书魔: EnemyDefinition = {
+  name: '书魔',
+  stats: {
+    hp: 30,
+    maxHp: 30,
+    mp: 20,
+    minDice: 3,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    BOOK_DEMON_CARD.BETWEEN_LINES_TEMPTATION,
+    BOOK_DEMON_CARD.INK_TENTACLE,
+    BOOK_DEMON_CARD.WHISPER_INCITEMENT,
+    BOOK_DEMON_CARD.KNOWLEDGE_THIRST,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const chosen = weightedRandom<string>([
+      { value: BOOK_DEMON_CARD.BETWEEN_LINES_TEMPTATION, weight: 35 },
+      { value: BOOK_DEMON_CARD.INK_TENTACLE, weight: 35 },
+      { value: BOOK_DEMON_CARD.WHISPER_INCITEMENT, weight: 10 },
+      { value: BOOK_DEMON_CARD.KNOWLEDGE_THIRST, weight: 20 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -837,6 +1104,12 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [温蒂尼.name, 温蒂尼],
   [玛塔.name, 玛塔],
   [罗丝.name, 罗丝],
+  [厄休拉.name, 厄休拉],
+  [浮游书页.name, 浮游书页],
+  [墨痕鼠.name, 墨痕鼠],
+  [低语幽灵.name, 低语幽灵],
+  [墨水史莱姆.name, 墨水史莱姆],
+  [书魔.name, 书魔],
 ]);
 
 const ENEMY_NAME_ORDER: readonly string[] = [

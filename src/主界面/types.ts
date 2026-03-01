@@ -68,7 +68,7 @@ export interface CardCalculation {
 /** 效果数值来源 */
 export type EffectValueMode = 'fixed' | 'point_scale' | 'max_hp_percent';
 /** 卡牌附带效果触发时机 */
-export type CardEffectTrigger = 'on_use' | 'on_dodge_success' | 'on_opponent_skip';
+export type CardEffectTrigger = 'on_use' | 'on_clash' | 'on_dodge_success' | 'on_opponent_skip';
 
 /** 卡牌打出时附带的效果 */
 export interface CardEffect {
@@ -246,6 +246,8 @@ export enum EffectType {
   LIGHTNING_ATTACH = '雷电附加',
   /** 荆棘 — 反弹50%物理直接伤害 */
   THORNS = '荆棘',
+  /** 笔墨造物 — 攻击造成伤害后附加侵蚀；受到燃烧伤害后追加等量真实伤害 */
+  INK_CREATION = '笔墨造物',
 }
 
 /** 效果极性分类 */

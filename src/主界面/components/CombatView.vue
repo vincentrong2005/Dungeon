@@ -1004,6 +1004,7 @@ const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.BLOODBLADE_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.LIGHTNING_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.THORNS]: 'fa-solid fa-leaf',
+  [ET.INK_CREATION]: 'fa-solid fa-feather-pointed',
 };
 const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {
   [ET.FLAME_ATTACH]: { color: 'rgb(255, 64, 64)' },
@@ -1066,6 +1067,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BLOODBLADE_ATTACH]: Droplet,
   [ET.LIGHTNING_ATTACH]: Zap,
   [ET.THORNS]: Leaf,
+  [ET.INK_CREATION]: Scroll,
 };
 const getEffectIconComponent = (type: EffectType) => {
   return EFFECT_ICON_COMPONENTS[type] ?? Sparkles;
@@ -1199,7 +1201,7 @@ watch(
   { deep: true },
 );
 
-// 用于“吞食”判定：仅记录每回合最初投出的裸骰点数（不含卡牌/圣遗物/后续点数改动）
+// 用于“吞食”判定：记录当前用于出牌限制判定的裸骰点数（重掷后同步更新）
 const playerTurnRawDice = ref(1);
 const enemyTurnRawDice = ref(1);
 
@@ -2271,7 +2273,7 @@ const applyCardEffectsByTrigger = (
       const applied = applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
         restrictedTypes: ce.restrictedTypes,
         source: card.id,
-        lockDecayThisTurn: ce.effectType === ET.BIND || ce.effectType === ET.SILENCE,
+        lockDecayThisTurn: ce.effectType === ET.BIND || ce.effectType === ET.SILENCE || ce.effectType === ET.STUN,
       });
       if (!applied) {
         continue;
@@ -2790,7 +2792,9 @@ const handlePlayerDiceClick = () => {
   }
 
   const before = combatState.value.playerBaseDice;
-  const after = consumeChargeOnRoll(playerStats.value, '我方', Math.max(0, Math.floor(rerolled)));
+  const rerolledRaw = Math.max(0, Math.floor(rerolled));
+  playerTurnRawDice.value = rerolledRaw;
+  const after = consumeChargeOnRoll(playerStats.value, '我方', rerolledRaw);
   combatState.value.playerBaseDice = after;
   previewPlayerDice.value = null;
   log(`<span class="text-amber-200">我方骰子重掷：${before} → ${after}</span>`);
@@ -3223,9 +3227,9 @@ watch(
           const result = processOnTurnStart(stats.value);
           let turnStartLogs = [...result.logs];
           let burnDamageTaken = 0;
-          let shownTrueDamage = 0;
           let burnIsTrueDamage = false;
-          let pendingBurnDamageNonTrue = 0;
+          let turnStartImmediateDamageTaken = 0;
+          let turnStartTrueDamageTaken = 0;
           let pendingRegenHeal = 0;
 
           const regenLog = result.logs.find((entry) => entry.includes('[生命回复]'));
@@ -3286,48 +3290,43 @@ watch(
 
               result.hpChange += rawBurnDamage; // 移除 processOnTurnStart 的基础燃烧伤害
 
-                if (burnResult.damage > 0) {
-                  if (burnResult.isTrueDamage) {
-                  const burnTrueDamage = targetSide === 'player'
-                    ? applyPlayerHemostaticValveDamageCap(burnResult.damage, '燃烧')
-                    : burnResult.damage;
-                  pushFloatingNumber(side, burnTrueDamage, 'true', '-');
-                  burnDamageTaken = burnTrueDamage;
-                  shownTrueDamage += burnTrueDamage;
-                  burnIsTrueDamage = true;
-                  result.trueDamage += burnTrueDamage;
-                  turnStartLogs.push(`[燃烧] 受到 ${burnTrueDamage} 点真实伤害。`);
+              if (burnResult.damage > 0) {
+                if (burnResult.isTrueDamage) {
+                  const { actualDamage, logs: burnApplyLogs } = applyDamageToSideWithRelics(
+                    side,
+                    stats.value,
+                    burnResult.damage,
+                    true,
+                    '燃烧',
+                  );
+                  burnDamageTaken = actualDamage;
+                  burnIsTrueDamage = actualDamage > 0;
+                  turnStartImmediateDamageTaken += actualDamage;
+                  if (actualDamage > 0) {
+                    pushFloatingNumber(side, actualDamage, 'true', '-');
+                  }
+                  turnStartLogs.push(`[燃烧] 受到 ${actualDamage} 点真实伤害。`);
+                  for (const burnApplyLog of burnApplyLogs) {
+                    turnStartLogs.push(burnApplyLog);
+                  }
                 } else {
-                  let pendingBurnDamage = burnResult.damage;
-                  if (getEffectStacks(stats.value, ET.BARRIER) > 0) {
-                    reduceEffectStacks(stats.value, ET.BARRIER, 1);
-                    pendingBurnDamage = 0;
-                    turnStartLogs.push(`[结界] 抵挡了 ${burnResult.damage} 点燃烧伤害。`);
-                  }
-
-                  if (pendingBurnDamage > 0) {
-                    const armorStacks = getEffectStacks(stats.value, ET.ARMOR);
-                    if (armorStacks > 0) {
-                      const absorbed = Math.min(armorStacks, pendingBurnDamage);
-                      if (absorbed > 0) {
-                        reduceEffectStacks(stats.value, ET.ARMOR, absorbed);
-                        pendingBurnDamage -= absorbed;
-                        turnStartLogs.push(`[护甲] 抵挡了 ${absorbed} 点燃烧伤害。`);
-                      }
-                    }
-                  }
-
-                  if (pendingBurnDamage > 0) {
-                    if (targetSide === 'player') {
-                      pendingBurnDamage = applyPlayerHemostaticValveDamageCap(pendingBurnDamage, '燃烧');
-                    }
-                    burnDamageTaken = pendingBurnDamage;
-                    pendingBurnDamageNonTrue = pendingBurnDamage;
-                    result.hpChange -= pendingBurnDamage;
-                    pushFloatingNumber(side, pendingBurnDamage, 'magic', '-');
-                    turnStartLogs.push(`[燃烧] 损失 ${pendingBurnDamage} 点生命。`);
+                  const { actualDamage, logs: burnApplyLogs } = applyDamageToSideWithRelics(
+                    side,
+                    stats.value,
+                    burnResult.damage,
+                    false,
+                    '燃烧',
+                  );
+                  burnDamageTaken = actualDamage;
+                  turnStartImmediateDamageTaken += actualDamage;
+                  if (actualDamage > 0) {
+                    pushFloatingNumber(side, actualDamage, 'magic', '-');
+                    turnStartLogs.push(`[燃烧] 损失 ${actualDamage} 点生命。`);
                   } else {
                     turnStartLogs.push('[燃烧] 伤害被完全抵挡。');
+                  }
+                  for (const burnApplyLog of burnApplyLogs) {
+                    turnStartLogs.push(burnApplyLog);
                   }
                 }
               } else {
@@ -3336,11 +3335,29 @@ watch(
             }
           }
 
-          if (pendingBurnDamageNonTrue > 0) {
-            stats.value.hp = Math.max(0, stats.value.hp - pendingBurnDamageNonTrue);
+          const inkCreationStacks = getEffectStacks(stats.value, ET.INK_CREATION);
+          if (burnDamageTaken > 0 && inkCreationStacks > 0) {
+            const extraTrueDamage = Math.max(0, Math.floor(burnDamageTaken * inkCreationStacks));
+            if (extraTrueDamage > 0) {
+              const { actualDamage, logs: inkCreationLogs } = applyDamageToSideWithRelics(
+                side,
+                stats.value,
+                extraTrueDamage,
+                true,
+                '笔墨造物',
+              );
+              turnStartImmediateDamageTaken += actualDamage;
+              if (actualDamage > 0) {
+                pushFloatingNumber(side, actualDamage, 'true', '-');
+              }
+              turnStartLogs.push(`[笔墨造物] 受到燃烧后追加 ${actualDamage} 点真实伤害。`);
+              for (const inkCreationLog of inkCreationLogs) {
+                turnStartLogs.push(inkCreationLog);
+              }
+            }
           }
 
-          const residualHpChange = result.hpChange + pendingBurnDamageNonTrue - pendingRegenHeal;
+          const residualHpChange = result.hpChange - pendingRegenHeal;
           if (pendingRegenHeal > 0) {
             healForSide(targetSide, pendingRegenHeal);
           }
@@ -3356,14 +3373,17 @@ watch(
             changeManaWithShock(side, result.mpChange, '法力变化（回合开始）', { showPositiveFloating: true });
           }
           if (result.trueDamage > 0) {
-            const trueDamageToApply = targetSide === 'player'
-              ? applyPlayerHemostaticValveDamageCap(result.trueDamage, '回合开始真实伤害')
-              : result.trueDamage;
             const hpBeforeTrueDamage = stats.value.hp;
-            stats.value.hp = Math.max(0, stats.value.hp - trueDamageToApply);
-            const pendingTrueDamage = Math.max(0, trueDamageToApply - shownTrueDamage);
-            if (pendingTrueDamage > 0) {
-              pushFloatingNumber(side, pendingTrueDamage, 'true', '-');
+            const { actualDamage } = applyDamageToSideWithRelics(
+              side,
+              stats.value,
+              result.trueDamage,
+              true,
+              '回合开始真实伤害',
+            );
+            turnStartTrueDamageTaken = actualDamage;
+            if (actualDamage > 0) {
+              pushFloatingNumber(side, actualDamage, 'true', '-');
             }
             if (
               targetSide === 'player'
@@ -3377,7 +3397,7 @@ watch(
           if (targetSide === 'player') {
             const turnStartDamageTaken = Math.max(
               0,
-              pendingBurnDamageNonTrue + result.trueDamage + Math.max(0, -residualHpChange),
+              turnStartImmediateDamageTaken + turnStartTrueDamageTaken + Math.max(0, -residualHpChange),
             );
             addPlayerDamageTakenThisTurn(turnStartDamageTaken);
           }
@@ -3599,6 +3619,8 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     // 血刃附加：进入拼点即触发
     applyBloodbladeAttachOnClash('player', 'enemy');
     applyBloodbladeAttachOnClash('enemy', 'player');
+    applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_clash');
+    applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_clash');
 
     let successfulDodger: BattleSide | null = null;
 
@@ -3681,12 +3703,20 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
     if (successfulDodger === 'player') {
       applyLightningAttachOnDodge('player', 'enemy');
       applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
+      if (resolvedPlayerCard.id === 'enemy_inkmouse_cowardice') {
+        playerStats.value.maxDice += 1;
+        log('<span class="text-cyan-300">我方【胆小】闪避成功：最大骰子点数 +1</span>');
+      }
       if (resolvedPlayerCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('player', resolvedPlayerCard);
       }
     } else if (successfulDodger === 'enemy') {
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
+      if (resolvedEnemyCard.id === 'enemy_inkmouse_cowardice') {
+        enemyStats.value.maxDice += 1;
+        log('<span class="text-cyan-300">敌方【胆小】闪避成功：最大骰子点数 +1</span>');
+      }
       if (resolvedEnemyCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('enemy', resolvedEnemyCard);
       }
@@ -3907,7 +3937,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       const coldStacks = getEffectStacks(defender, ET.COLD);
       if (coldStacks >= 10) {
         reduceEffectStacks(defender, ET.COLD, 10);
-        applyStatusEffectWithRelics(defenderSide, ET.STUN, 1, { source: card.id });
+        applyStatusEffectWithRelics(defenderSide, ET.STUN, 1, { source: card.id, lockDecayThisTurn: true });
         log(`<span class="text-sky-300">${label}【${card.name}】消耗了敌方10层寒冷并施加了1回合眩晕</span>`);
       } else {
         log(`<span class="text-gray-400">${label}【${card.name}】敌方寒冷不足10层，未触发眩晕分支</span>`);
@@ -4442,7 +4472,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
               : card.id === 'modao_mana_hurricane'
                 ? Math.max(0, 12 - Math.floor(finalPoint))
                 : card.id === 'modao_prism_flow'
-                  ? Math.floor(finalPoint * (0.8 + Math.min(1.2, Math.floor(Math.max(0, attacker.mp) / 2) * 0.2)))
+                  ? Math.floor(finalPoint * (0.9 + Math.min(2.1, Math.floor(Math.max(0, attacker.mp) / 2) * 0.3)))
                   : card.id === 'modao_arcane_lance' && arcaneLanceBonusHit && hit === totalHitCount - 1
                     ? Math.floor(finalPoint * 1.5)
               : card.id === 'enemy_rose_wangzhi_whip' && getEffectStacks(defender, ET.BIND) > 0
@@ -4562,6 +4592,15 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         }
       }
 
+      const inkCreationStacks = Math.max(0, getEffectStacks(attacker, ET.INK_CREATION));
+      if (inkCreationStacks > 0 && totalActualDamageDealt > 0) {
+        const corrosionStacks = Math.max(0, Math.floor(finalPoint * inkCreationStacks));
+        if (corrosionStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.CORROSION, corrosionStacks, { source: 'effect:ink_creation' });
+          log(`<span class="text-emerald-300">${label}[笔墨造物] 攻击命中后附加 ${corrosionStacks} 层侵蚀</span>`);
+        }
+      }
+
       // 攻击牌结算后同样触发附带效果（燃烧、易伤等）
       if (!applyEffectsBeforeAttack) {
         applyCardEffects();
@@ -4645,6 +4684,33 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
           if (healed > 0) {
             log(`<span class="text-green-300">${label}【${card.name}】触发：目标已束缚，回复了 ${healed} 点生命</span>`);
           }
+        }
+      }
+
+      if (card.id === 'enemy_ursula_whip_punish') {
+        const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
+        if (targetHasBind) {
+          const vulnerableStacks = Math.max(0, Math.floor(finalPoint * 0.5));
+          if (vulnerableStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.VULNERABLE, vulnerableStacks, { source: card.id });
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已束缚，额外施加 ${vulnerableStacks} 层易伤</span>`);
+          }
+        }
+      }
+
+      if (card.id === 'enemy_floating_page_sensory_infusion') {
+        const targetCorrosion = Math.max(0, getEffectStacks(defender, ET.CORROSION));
+        if (targetCorrosion > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.POISON, targetCorrosion, { source: card.id });
+          log(`<span class="text-emerald-300">${label}【${card.name}】触发：按目标侵蚀层数附加了 ${targetCorrosion} 层中毒</span>`);
+        }
+      }
+
+      if (card.id === 'enemy_floating_page_forced_immersion') {
+        const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
+        if (targetHasBind) {
+          applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
+          log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已束缚，施加 1 层认知干涉</span>`);
         }
       }
 

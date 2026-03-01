@@ -458,6 +458,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '反弹50%物理直接伤害',
   },
+  [EffectType.INK_CREATION]: {
+    type: EffectType.INK_CREATION,
+    name: '笔墨造物',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '攻击造成伤害后附加1倍点数侵蚀；受到燃烧伤害后追加等量真实伤害',
+  },
 };
 
 // 元素debuff分组：用于随机附加、转换、翻倍等效果
@@ -553,7 +562,7 @@ export function applyEffect(
     if (type === EffectType.BIND && options?.restrictedTypes) {
       existing.restrictedTypes = options.restrictedTypes;
     }
-    if ((type === EffectType.BIND || type === EffectType.SILENCE) && options?.lockDecayThisTurn) {
+    if ((type === EffectType.BIND || type === EffectType.SILENCE || type === EffectType.STUN) && options?.lockDecayThisTurn) {
       existing.lockDecayThisTurn = true;
     }
     if (type === EffectType.CORROSION && existing.stacks >= 30) {
@@ -572,7 +581,9 @@ export function applyEffect(
     type,
     stacks: instanceStacks,
     polarity: def.polarity,
-    lockDecayThisTurn: (type === EffectType.BIND || type === EffectType.SILENCE) ? !!options?.lockDecayThisTurn : undefined,
+    lockDecayThisTurn: (type === EffectType.BIND || type === EffectType.SILENCE || type === EffectType.STUN)
+      ? !!options?.lockDecayThisTurn
+      : undefined,
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
   };
@@ -638,7 +649,7 @@ export interface TurnStartResult {
 
 /**
  * 处理回合开始时所有效果触发
- * 调用顺序：法力枯竭 → 中毒 → 燃烧 → 流血(-1) → 生命回复 → 白浊 → 施加燃烧 → 眩晕检查
+ * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
  */
 export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   const result: TurnStartResult = {
@@ -650,13 +661,6 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     logs: [],
     applyToOpponent: [],
   };
-
-  // 法力枯竭
-  if (hasEffect(entity, EffectType.MANA_DRAIN)) {
-    result.mpChange = -entity.mp;
-    result.logs.push(`[法力枯竭] 法力值被清零。`);
-    reduceEffectStacks(entity, EffectType.MANA_DRAIN);
-  }
 
   // 中毒量
   const poisonAmount = getEffectStacks(entity, EffectType.POISON_AMOUNT);
@@ -728,6 +732,16 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     result.logs.push(`[魔力源泉] 魔力 +${manaSpringStacks}。`);
   }
 
+  // 法力枯竭（在回合开始的其它法力变动后结算）
+  if (hasEffect(entity, EffectType.MANA_DRAIN)) {
+    const projectedMp = Math.max(0, entity.mp + result.mpChange);
+    if (projectedMp > 0) {
+      result.mpChange -= projectedMp;
+    }
+    result.logs.push(`[法力枯竭] 法力值被清零。`);
+    reduceEffectStacks(entity, EffectType.MANA_DRAIN);
+  }
+
   // 冰霜附加
   const frostAttachStacks = getEffectStacks(entity, EffectType.FROST_ATTACH);
   if (frostAttachStacks > 0) {
@@ -740,7 +754,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
 
 /**
  * 处理回合结束时所有效果触发
- * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 眩晕(清除)
+ * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 眩晕(-1)
  */
 export function processOnTurnEnd(entity: EntityStats): string[] {
   const logs: string[] = [];
@@ -803,10 +817,21 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     logs.push(`[坚固] 回合结束后清空。`);
   }
 
-  // 眩晕消失
-  if (hasEffect(entity, EffectType.STUN)) {
-    removeEffect(entity, EffectType.STUN);
-    logs.push(`[眩晕] 效果消失。`);
+  // 眩晕
+  const stunEffect = findEffect(entity, EffectType.STUN);
+  if (stunEffect && stunEffect.stacks > 0) {
+    if (stunEffect.lockDecayThisTurn) {
+      stunEffect.lockDecayThisTurn = false;
+      if (stunEffect.stacks <= 1) {
+        logs.push(`[眩晕] 新施加且层数为1，本回合不衰减。`);
+      } else {
+        reduceEffectStacks(entity, EffectType.STUN);
+        logs.push(`[眩晕] 新施加但层数大于1，本回合仍衰减。`);
+      }
+    } else {
+      reduceEffectStacks(entity, EffectType.STUN);
+      logs.push(`[眩晕] 层数衰减。`);
+    }
   }
 
   return logs;

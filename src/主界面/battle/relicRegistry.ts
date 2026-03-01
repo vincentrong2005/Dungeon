@@ -759,8 +759,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '血池',
     rarity: '传奇',
     category: '血池',
-    effect: '战斗结束时若生命≤50%回复12；进入领主房时生命回满',
-    description: '战斗结算后若生命值不高于50%，回复12点生命；进入领主房时立即回满生命。',
+    effect: '战斗胜利时若生命≤50%回复12；进入领主房时生命回满',
+    description: '战斗胜利后若生命值不高于50%，回复12点生命；进入领主房时立即回满生命。',
   },
   {
     id: 'bloodpool_heart_mark',
