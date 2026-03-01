@@ -624,44 +624,165 @@
       @close="activeModal = null"
     >
       <div class="w-full max-w-[90rem] mx-auto flex flex-col gap-4">
-        <div
-          v-if="carryableMagicBookNames.length > 0"
-          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1"
-        >
+        <div class="flex items-center gap-2">
           <button
-            v-for="bookName in carryableMagicBookNames"
-            :key="`magic-book-${bookName}`"
             type="button"
-            class="relative rounded-lg border p-3 text-left transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-[#130c08]/80"
-            :class="carriedMagicBookSet.has(bookName)
-              ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.45)] ring-1 ring-dungeon-gold/70'
-              : 'border-dungeon-brown/70 hover:border-dungeon-gold/45'"
-            :disabled="isUpdatingMagicBooks"
-            @click="toggleMagicBook(bookName)"
+            class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
+            :class="magicBooksNavTab === 'books'
+              ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
+              : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'"
+            @click="magicBooksNavTab = 'books'"
           >
-            <div
-              class="relative w-full overflow-hidden rounded-md border"
-              :class="carriedMagicBookSet.has(bookName) ? 'border-dungeon-gold/60' : 'border-dungeon-brown/60'"
-            >
-              <img
-                :src="getMagicBookCoverUrl(bookName)"
-                :alt="`${bookName} 魔法书封面`"
-                class="w-full [aspect-ratio:832/1216] object-cover transition-all duration-300"
-                :class="carriedMagicBookSet.has(bookName)
-                  ? 'brightness-100 saturate-110'
-                  : 'brightness-50 saturate-60'"
-                loading="lazy"
-              />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/38"></div>
-              <div class="absolute inset-x-2 top-2 z-10">
-                <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
-              </div>
-            </div>
+            魔法书
+          </button>
+          <button
+            type="button"
+            class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
+            :class="magicBooksNavTab === 'active'
+              ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
+              : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'"
+            @click="magicBooksNavTab = 'active'"
+          >
+            主动
           </button>
         </div>
-        <div v-else class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 py-8 text-center text-sm text-dungeon-paper/50">
-          当前没有可选的附加魔法书。
-        </div>
+
+        <template v-if="magicBooksNavTab === 'books'">
+          <div
+            v-if="carryableMagicBookNames.length > 0"
+            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1"
+          >
+            <button
+              v-for="bookName in carryableMagicBookNames"
+              :key="`magic-book-${bookName}`"
+              type="button"
+              class="relative rounded-lg border p-3 text-left transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-[#130c08]/80"
+              :class="carriedMagicBookSet.has(bookName)
+                ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.45)] ring-1 ring-dungeon-gold/70'
+                : 'border-dungeon-brown/70 hover:border-dungeon-gold/45'"
+              :disabled="isUpdatingMagicBooks"
+              @click="toggleMagicBook(bookName)"
+            >
+              <div
+                class="relative w-full overflow-hidden rounded-md border"
+                :class="carriedMagicBookSet.has(bookName) ? 'border-dungeon-gold/60' : 'border-dungeon-brown/60'"
+              >
+                <img
+                  :src="getMagicBookCoverUrl(bookName)"
+                  :alt="`${bookName} 魔法书封面`"
+                  class="w-full [aspect-ratio:832/1216] object-cover transition-all duration-300"
+                  :class="carriedMagicBookSet.has(bookName)
+                    ? 'brightness-100 saturate-110'
+                    : 'brightness-50 saturate-60'"
+                  loading="lazy"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/38"></div>
+                <div class="absolute inset-x-2 top-2 z-10">
+                  <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
+                </div>
+              </div>
+            </button>
+          </div>
+          <div v-else class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 py-8 text-center text-sm text-dungeon-paper/50">
+            当前没有可选的附加魔法书。
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="rounded border border-dungeon-brown/60 bg-[#140d08]/70 p-3">
+            <div class="flex items-center justify-end gap-2">
+              <div class="text-xs text-dungeon-gold/80">当前编辑槽位：{{ selectedStartingActiveSlot + 1 }}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
+              <button
+                v-for="entry in startingActiveSkillEntries"
+                :key="`starting-active-slot-${entry.idx}`"
+                type="button"
+                class="relative w-[180px] h-[250px] rounded-xl border-2 overflow-hidden shadow-lg text-left transition-all"
+                :class="selectedStartingActiveSlot === entry.idx
+                  ? 'border-dungeon-gold/75 shadow-[0_0_20px_rgba(212,175,55,0.35)]'
+                  : 'border-dungeon-brown/60 hover:border-dungeon-gold/45'"
+                :disabled="isUpdatingStartingActiveSkills"
+                @click="selectedStartingActiveSlot = entry.idx"
+              >
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.16),rgba(18,14,24,0.96)_64%)]"></div>
+                <div v-if="entry.skill" class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
+                  <div
+                    class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
+                  >
+                    {{ entry.skill.manaCost }}
+                  </div>
+                  <div class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none">主动</div>
+                </div>
+                <div class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden">
+                  <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"></div>
+                  <span class="relative font-heading text-4xl text-white/20 select-none">{{ entry.skill?.name?.[0] ?? '槽' }}</span>
+                </div>
+                <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
+                  <div class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md">
+                    {{ entry.skill?.name ?? `主动槽位 ${entry.idx + 1}` }}
+                  </div>
+                  <div class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center">
+                    {{ entry.skill?.description ?? '空主动槽位，点击下方技能卡可装备到此槽位。' }}
+                  </div>
+                  <div class="mt-1 text-center text-white/55 font-bold text-[10px] font-ui tracking-wider">
+                    {{ selectedStartingActiveSlot === entry.idx ? '当前编辑中' : `槽位 ${entry.idx + 1}` }}
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div class="mt-2 flex justify-end">
+              <button
+                type="button"
+                class="px-3 py-1 rounded border border-dungeon-brown/60 text-xs text-dungeon-paper/70 hover:border-dungeon-gold/45 disabled:opacity-50"
+                :disabled="isUpdatingStartingActiveSkills"
+                @click="clearStartingActiveSkill(selectedStartingActiveSlot)"
+              >
+                清空当前槽位
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 justify-items-center">
+            <button
+              v-for="skill in startingActiveSkillOptions"
+              :key="`starting-active-skill-${skill.id}`"
+              type="button"
+              class="relative w-[180px] h-[250px] rounded-xl border-2 shadow-xl overflow-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              :class="isSkillEquippedInStartingActive(skill.name)
+                ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.38)]'
+                : 'border-dungeon-brown/60 hover:border-dungeon-gold/50'"
+              :disabled="isUpdatingStartingActiveSkills"
+              @click="setStartingActiveSkill(skill)"
+            >
+              <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.18),rgba(18,14,24,0.96)_64%)]"></div>
+              <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
+                <div
+                  class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
+                >
+                  {{ skill.manaCost }}
+                </div>
+                <div class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none">主动</div>
+              </div>
+              <div class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden">
+                <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"></div>
+                <span class="relative font-heading text-4xl text-white/20 select-none">{{ skill.name[0] }}</span>
+              </div>
+              <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
+                <div class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md">{{ skill.name }}</div>
+                <div class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center">
+                  {{ skill.description }}
+                </div>
+                <div class="mt-1 flex items-center justify-between text-[10px] text-white/60 font-ui">
+                  <span>CD {{ skill.Cooldown }}</span>
+                  <span :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'">
+                    {{ isSkillEquippedInStartingActive(skill.name) ? '已装备' : '点击装备' }}
+                  </span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </template>
       </div>
     </DungeonModal>
 
@@ -2222,6 +2343,9 @@ const canEditMagicBooks = computed(() => (
 const magicBookSidebarIcon = computed(() => (canEditMagicBooks.value ? Book : Lock));
 const magicHatSidebarIcon = computed(() => (canEditMagicBooks.value ? WizardHatIcon : Lock));
 const isUpdatingMagicBooks = ref(false);
+const magicBooksNavTab = ref<'books' | 'active'>('books');
+const selectedStartingActiveSlot = ref(0);
+const isUpdatingStartingActiveSkills = ref(false);
 const isUpgradingMagicHat = ref(false);
 type MagicHatUpgradeType = 'hp' | 'mp' | 'gold';
 type MagicHatTrackView = {
@@ -2242,7 +2366,7 @@ const getSafeInt = (value: unknown, fallback: number) => {
   return Math.max(0, Math.floor(parsed));
 };
 const readInitialMaxHpForUpgrade = () => {
-  return Math.max(1, getSafeInt(gameStore.statData.$初始血量上限, 10));
+  return Math.max(1, getSafeInt(gameStore.statData.$初始血量上限, 20));
 };
 const calcUpgradeLevel = (value: number, base: number, step: number, maxLevel: number) => {
   const level = Math.floor((value - base) / step);
@@ -2254,7 +2378,7 @@ const magicHatTracks = computed<MagicHatTrackView[]>(() => {
   const mpValue = Math.max(1, getSafeInt(gameStore.statData.$初始魔量, 1));
   const goldValue = getSafeInt(gameStore.statData.$初始金币, 0);
 
-  const hpLevel = calcUpgradeLevel(hpValue, 10, 2, 5);
+  const hpLevel = calcUpgradeLevel(hpValue, 20, 2, 5);
   const mpLevel = calcUpgradeLevel(mpValue, 1, 1, 3);
   const goldLevel = calcUpgradeLevel(goldValue, 0, 2, 5);
 
@@ -2269,7 +2393,7 @@ const magicHatTracks = computed<MagicHatTrackView[]>(() => {
       currentValue: hpValue,
       currentLevel: hpLevel,
       maxLevel: 5,
-      nextValue: hpIsMax ? hpValue : 10 + (hpLevel + 1) * 2,
+      nextValue: hpIsMax ? hpValue : 20 + (hpLevel + 1) * 2,
       nextCost: hpIsMax ? 0 : [1, 3, 6, 10, 15][hpLevel]!,
       isMax: hpIsMax,
       progressPercent: (hpLevel / 5) * 100,
@@ -2303,6 +2427,8 @@ const magicHatTracks = computed<MagicHatTrackView[]>(() => {
 });
 const openMagicBookModal = () => {
   if (!canEditMagicBooks.value) return;
+  magicBooksNavTab.value = 'books';
+  selectedStartingActiveSlot.value = 0;
   activeModal.value = 'magicBooks';
 };
 const openMagicHatModal = () => {
@@ -2381,11 +2507,67 @@ const activeSkillByNameMap = computed(() => {
   }
   return map;
 });
+const startingActiveSkillOptions = computed<ActiveSkillData[]>(() => (
+  activeSkillsForBattle.value.filter((skill) => skill.category === '基础')
+));
+const startingActiveSkillEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
+  const raw = Array.isArray(gameStore.statData.$主动) ? [...(gameStore.statData.$主动 as string[])].slice(0, 2) : [];
+  while (raw.length < 2) raw.push('');
+  return raw.map((name, idx) => ({
+    idx,
+    name,
+    skill: activeSkillByNameMap.value.get(name) ?? null,
+  }));
+});
+const isSkillEquippedInStartingActive = (skillName: string): boolean => (
+  startingActiveSkillEntries.value.some((entry) => entry.name === skillName)
+);
+const setStartingActiveSkill = async (skill: ActiveSkillData) => {
+  if (isUpdatingStartingActiveSkills.value) return;
+  const slot = Math.max(0, Math.min(1, Math.floor(selectedStartingActiveSlot.value)));
+  const next = startingActiveSkillEntries.value.map((entry) => entry.name);
+  const conflictSlot = next.findIndex((name, idx) => name === skill.name && idx !== slot);
+  if (conflictSlot >= 0) {
+    const previous = next[slot] ?? '';
+    next[conflictSlot] = previous;
+  }
+  next[slot] = skill.name;
+  while (next.length < 2) next.push('');
+
+  isUpdatingStartingActiveSkills.value = true;
+  const ok = await gameStore.updateStatDataFields({ $主动: next.slice(0, 2) });
+  isUpdatingStartingActiveSkills.value = false;
+  if (!ok) {
+    toastr.warning('主动技能更新失败，请稍后重试。');
+  }
+};
+const clearStartingActiveSkill = async (slotIdx: number) => {
+  if (isUpdatingStartingActiveSkills.value) return;
+  const slot = Math.max(0, Math.min(1, Math.floor(slotIdx)));
+  const next = startingActiveSkillEntries.value.map((entry) => entry.name);
+  while (next.length < 2) next.push('');
+  next[slot] = '';
+
+  isUpdatingStartingActiveSkills.value = true;
+  const ok = await gameStore.updateStatDataFields({ $主动: next.slice(0, 2) });
+  isUpdatingStartingActiveSkills.value = false;
+  if (!ok) {
+    toastr.warning('主动技能更新失败，请稍后重试。');
+  }
+};
 const EXCLUDED_VICTORY_REWARD_CARD_IDS = new Set<string>([
   'basic_physical',
   'basic_magic',
   'basic_shield',
   'basic_dodge',
+]);
+const EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS = new Set<string>([
+  'active_basic_reroll_self',
+  'active_basic_reroll_enemy',
+  'active_basic_draw',
+  'active_basic_guard',
+  'active_basic_boost',
+  'active_basic_weaken',
 ]);
 const rewardCardPool = computed<CardData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
@@ -2398,9 +2580,15 @@ const rewardCardPool = computed<CardData[]>(() => {
 });
 const rewardActiveSkillPool = computed<ActiveSkillData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
-  const filtered = activeSkillsForBattle.value.filter((skill) => categorySet.has(skill.category));
+  const filtered = activeSkillsForBattle.value.filter((skill) => (
+    categorySet.has(skill.category)
+    && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id)
+  ));
   if (filtered.length > 0) return filtered;
-  return activeSkillsForBattle.value.filter((skill) => skill.category === '基础');
+  return activeSkillsForBattle.value.filter((skill) => (
+    skill.category === '基础'
+    && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id)
+  ));
 });
 const rewardDeckReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
   const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];

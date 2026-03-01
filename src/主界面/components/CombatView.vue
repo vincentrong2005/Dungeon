@@ -593,7 +593,7 @@
         </div>
 
         <!-- Right Corner: Skip + Active Skills -->
-        <div class="absolute right-6 bottom-6 flex flex-col items-end gap-2.5 z-50 scale-[1.1] origin-bottom-right pointer-events-auto">
+        <div class="absolute right-3 bottom-2 flex flex-col items-end gap-2 z-50 origin-bottom-right pointer-events-auto">
           <button
             class="h-8 px-5 bg-[#252030]/90 border border-white/15 rounded-lg text-xs text-white/80 hover:border-amber-400 hover:text-amber-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT"
@@ -602,41 +602,68 @@
             跳过回合
           </button>
 
-          <div class="flex gap-2">
+          <div class="flex gap-1.5">
             <button
               v-for="slot in playerActiveSkillSlots"
               :key="`active-skill-slot-${slot.idx}`"
               type="button"
-              class="w-40 h-28 rounded-xl border p-2.5 text-left transition-all shadow-lg"
+              class="relative w-30 h-44 rounded-xl border-2 shadow-xl overflow-hidden transition-all"
               :class="[
                 slot.skill
-                  ? 'border-zinc-200/80 bg-white text-zinc-900 hover:border-zinc-300'
-                  : 'border-white/15 bg-[#1b1b24]/90 text-white/45',
+                  ? 'border-zinc-100/85 bg-[#1b1722] text-dungeon-paper'
+                  : 'border-white/20 bg-[#15131c]/95 text-white/45',
                 activeSkillDisabledReason(slot.idx)
-                  ? 'opacity-80 cursor-not-allowed'
-                  : 'hover:-translate-y-0.5 active:scale-[0.98]',
+                  ? 'opacity-80 cursor-not-allowed grayscale-[0.2]'
+                  : 'hover:-translate-y-1 hover:shadow-[0_0_24px_rgba(255,255,255,0.16)] active:scale-[0.98]',
               ]"
               :disabled="Boolean(activeSkillDisabledReason(slot.idx))"
               @click="useActiveSkill(slot.idx)"
             >
+              <div
+                class="absolute inset-0"
+                :class="slot.skill
+                  ? 'bg-[radial-gradient(circle_at_32%_18%,rgba(255,255,255,0.2),rgba(20,18,28,0.95)_66%)]'
+                  : 'bg-[radial-gradient(circle_at_32%_18%,rgba(255,255,255,0.08),rgba(16,14,22,0.96)_66%)]'"
+              ></div>
               <template v-if="slot.skill">
-                <div class="flex items-center justify-between gap-1">
-                  <div class="text-xs font-semibold truncate">{{ slot.skill.name }}</div>
-                  <div class="text-[10px] px-1.5 py-0.5 rounded border border-zinc-300 bg-zinc-100">主动</div>
+                <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
+                  <div
+                    class="w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center border shadow-md"
+                    :class="slot.skill.manaCost > 0
+                      ? 'bg-purple-700/80 text-white border-purple-300/40'
+                      : 'bg-zinc-700/60 text-zinc-100 border-zinc-300/35'"
+                  >
+                    {{ slot.skill.manaCost }}
+                  </div>
+                  <div class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none">
+                    主动
+                  </div>
                 </div>
-                <div class="mt-1 flex items-center gap-1 text-[10px] text-zinc-700">
-                  <span class="px-1.5 py-0.5 rounded border border-zinc-300 bg-zinc-100">MP {{ slot.skill.manaCost }}</span>
-                  <span class="px-1.5 py-0.5 rounded border border-zinc-300 bg-zinc-100">CD {{ slot.skill.Cooldown }}</span>
+
+                <div class="absolute top-8 left-2 right-2 h-16 rounded-lg border border-white/10 bg-black/45 overflow-hidden flex items-center justify-center">
+                  <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.35),rgba(140,140,160,0.08)_60%,rgba(12,10,18,0.82))]"></div>
+                  <span class="relative font-heading text-2xl text-white/25 select-none">{{ slot.skill.name[0] || '?' }}</span>
                 </div>
-                <div class="mt-1 text-[10px] leading-tight text-zinc-700 line-clamp-2">{{ slot.skill.description }}</div>
-                <div class="mt-1 text-[10px] text-zinc-600 min-h-[1rem]">
-                  <span v-if="slot.cooldownRemaining > 0">冷却：{{ slot.cooldownRemaining }} 回合</span>
-                  <span v-else-if="slot.maxUses">次数：{{ slot.usedCount }}/{{ slot.maxUses }}</span>
-                  <span v-else>可用</span>
+
+                <div class="absolute bottom-0 left-0 w-full p-1.5 z-10">
+                  <div class="text-dungeon-paper font-heading font-bold text-[11px] tracking-wide mb-1 text-center drop-shadow-md">
+                    {{ slot.skill.name }}
+                  </div>
+                  <div class="bg-[#0d0d10]/85 border border-white/10 p-1.5 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[34px] flex items-center justify-center text-center">
+                    {{ slot.skill.description }}
+                  </div>
+                  <div class="mt-1 flex items-center justify-between text-[10px]">
+                    <span class="text-zinc-200/85">CD {{ slot.skill.Cooldown }}</span>
+                    <span
+                      :class="activeSkillDisabledReason(slot.idx) ? 'text-amber-200/90' : 'text-emerald-300/90'"
+                    >
+                      {{ getActiveSkillStatusText(slot) }}
+                    </span>
+                  </div>
                 </div>
               </template>
               <template v-else>
-                <div class="h-full flex items-center justify-center text-xs">空主动槽位</div>
+                <div class="absolute inset-0 flex items-center justify-center text-xs tracking-wider">空主动槽位</div>
               </template>
             </button>
           </div>
@@ -3160,7 +3187,7 @@ const activeSkillDisabledReason = (idx: number): string | null => {
   const cooldown = activeSkillCooldownRemaining(idx);
   if (cooldown > 0) return `冷却中（剩余${cooldown}回合）`;
 
-  const maxUses = Math.max(0, Math.floor(skill.最大使用次数 ?? 0));
+  const maxUses = Math.max(0, Math.floor(skill.maxUses ?? 0));
   if (maxUses > 0 && runtime && runtime.usedCount >= maxUses) {
     return `本场已达到最大使用次数（${maxUses}）`;
   }
@@ -3177,8 +3204,17 @@ const playerActiveSkillSlots = computed<ActiveSkillSlotView[]>(() => normalizedP
   skill,
   cooldownRemaining: activeSkillCooldownRemaining(idx),
   usedCount: activeSkillRuntime.value[idx]?.usedCount ?? 0,
-  maxUses: skill ? Math.max(0, Math.floor(skill.最大使用次数 ?? 0)) || null : null,
+  maxUses: skill ? Math.max(0, Math.floor(skill.maxUses ?? 0)) || null : null,
 })));
+
+const getActiveSkillStatusText = (slot: ActiveSkillSlotView): string => {
+  const reason = activeSkillDisabledReason(slot.idx);
+  if (reason?.startsWith('冷却中')) return `冷${slot.cooldownRemaining}`;
+  if (slot.maxUses) return `${slot.usedCount}/${slot.maxUses}`;
+  if (reason === '魔力不足') return '缺蓝';
+  if (!slot.skill) return '未装备';
+  return reason ? '不可用' : '可用';
+};
 
 const rerollSideDiceByActiveSkill = (side: BattleSide, skillName: string) => {
   const stats = side === 'player' ? playerStats.value : enemyStats.value;

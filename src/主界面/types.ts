@@ -159,9 +159,9 @@ export interface ActiveSkillData {
   /** 描述文本 */
   description: string;
   /** 使用条件描述（可选） */
-  使用条件?: string;
+  useCondition?: string;
   /** 单场战斗最大使用次数（可选） */
-  最大使用次数?: number;
+  maxUses?: number;
 }
 
 /** 自伤配置 */
