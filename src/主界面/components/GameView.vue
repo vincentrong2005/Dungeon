@@ -139,7 +139,7 @@
             >
               <!-- Streaming text (during generation) -->
               <p v-if="isStreamingEnabled && gameStore.isGenerating && gameStore.streamingText" class="whitespace-pre-wrap text-dungeon-paper/85">
-                {{ gameStore.streamingText }}
+                {{ streamingDisplayText }}
               </p>
               <!-- Final main text -->
               <div v-else class="story-rich-text">
@@ -2976,9 +2976,12 @@ const bgmVolumePercent = computed<number>({
   set: (value) => setBgmVolume(value / 100),
 });
 
+const hideImageTagsForDisplay = (text: string) => text.replace(/<\/?image>/gi, '');
+
 // ── Computed display values from MVU stat_data ──
+const streamingDisplayText = computed(() => hideImageTagsForDisplay(gameStore.streamingText || ''));
 const displayText = computed(() =>
-  gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出',
+  hideImageTagsForDisplay(gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出'),
 );
 
 type MapRoomVisual = {
