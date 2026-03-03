@@ -2336,7 +2336,7 @@ const parseMerchantDefeatedValue = (value: unknown): boolean => {
   }
   return false;
 };
-const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData._是否已击败商人));
+const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人));
 const canEditMagicBooks = computed(() => (
   ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝'
 ));
@@ -3487,7 +3487,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
     _金币: initialGold,
     $技能点: currentSkillPoints + rebirthSkillPointGain,
     _技能: [...REBIRTH_STARTER_DECK],
-    _负面状态: [],
+    $负面状态: [],
     $被动: '',
     $主动: ['', ''],
     _圣遗物: {},
@@ -3496,9 +3496,9 @@ const buildRebirthResetFields = (): Record<string, any> => {
     _楼层数: 1,
     _当前区域: '魔女的小窝',
     _当前房间类型: '',
-    _当前事件: '',
+    $当前事件: '',
     _对手名称: '',
-    _是否已击败商人: false,
+    $是否已击败商人: false,
     $统计: {
       当前层已过房间: 0,
       累计已过房间: 0,
@@ -4058,7 +4058,7 @@ const showHotSpringCleanseText = () => {
 
 const useHotSpringCleanse = () => {
   showHotSpringCleanseText();
-  gameStore.setPendingStatDataChanges({ _负面状态: [] });
+  gameStore.setPendingStatDataChanges({ $负面状态: [] });
   gameStore.sendAction(HOT_SPRING_CLEANSE_ACTION_TEXT);
 };
 
@@ -4959,7 +4959,7 @@ const pickTrapByArea = (area: string): string | null => {
 };
 
 const getAvailablePortalRoomTypes = (currentArea: string) => {
-  if (parseMerchantDefeatedValue(gameStore.statData._是否已击败商人)) {
+  if (parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人)) {
     const withoutShop = PORTAL_ROOM_TYPES.filter((type) => type !== '商店房');
     if (currentArea === '呻吟阅览室') {
       return withoutShop.filter((type) => type !== '陷阱房');
@@ -5112,7 +5112,7 @@ const portalChoices = computed<PortalChoice[]>(() => {
   const area = (gameStore.statData._当前区域 as string) || '';
   const roomType = (gameStore.statData._当前房间类型 as string) || '';
   const rooms = ((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0);
-  const merchantDefeated = parseMerchantDefeatedValue(gameStore.statData._是否已击败商人);
+  const merchantDefeated = parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人);
   const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}`;
   if (fingerprint !== cachedPortalFingerprint) {
     cachedPortalFingerprint = fingerprint;
@@ -5176,7 +5176,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   let pendingStatDataFields: Record<string, any> | undefined;
   if (portal.roomType === '陷阱房') {
     pendingStatDataFields = {
-      _当前事件: trapName ?? '',
+      $当前事件: trapName ?? '',
       _血量: trapHpAfterDamage,
     };
   } else if (portal.roomType === '温泉房') {
@@ -5405,7 +5405,7 @@ const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[]
   }
 
   if (context === 'shopRobbery' && enemyName === '沐芯兰') {
-    const ok = await gameStore.updateStatDataFields({ _是否已击败商人: true });
+    const ok = await gameStore.updateStatDataFields({ $是否已击败商人: true });
     if (ok) {
       shopRobbing.value = false;
       showShopView.value = true;

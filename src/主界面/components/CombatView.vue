@@ -1639,18 +1639,49 @@ const applyPlayerHemostaticValveDamageCap = (rawDamage: number, reason: string):
   return capped;
 };
 
+const shouldSkipHeartMarkTrigger = (reason: string): boolean => (
+  reason.includes('中毒') || reason.includes('侵蚀')
+);
+
+const triggerBloodpoolHeartMarkByDamage = (
+  side: BattleSide,
+  actualDamage: number,
+  reason: string,
+  options?: { skipHeartMark?: boolean },
+) => {
+  if (side !== 'player') return;
+  const damage = Math.max(0, Math.floor(actualDamage));
+  if (damage <= 0) return;
+  if (options?.skipHeartMark) return;
+  if (shouldSkipHeartMarkTrigger(reason)) return;
+
+  const heartMarkCount = getActiveRelicCount('bloodpool_heart_mark');
+  if (heartMarkCount <= 0) return;
+
+  const state = getRelicRuntimeState('bloodpool_heart_mark');
+  const triggered = Math.max(0, Math.floor(Number(state['triggeredThisTurn'] ?? 0)));
+  if (triggered >= 2) return;
+
+  state['triggeredThisTurn'] = triggered + 1;
+  const { healed } = healForSide('player', heartMarkCount);
+  logRelicMessage(`[心脏印记] ${reason}受伤触发，回复 ${healed} 点生命（本回合 ${triggered + 1}/2）。`);
+};
+
 const applyDamageToSideWithRelics = (
   side: BattleSide,
   target: EntityStats,
   damage: number,
   isTrueDamage: boolean,
   reason: string,
+  options?: { skipHeartMark?: boolean },
 ) => {
   const incoming = Math.max(0, Math.floor(damage));
   const adjusted = side === 'player'
     ? applyPlayerHemostaticValveDamageCap(incoming, reason)
     : incoming;
-  return applyDamageToEntity(target, adjusted, isTrueDamage);
+  const result = applyDamageToEntity(target, adjusted, isTrueDamage);
+  triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, options);
+  return result;
 };
 
 const applyDirectHpLossWithRelics = (
@@ -1658,6 +1689,7 @@ const applyDirectHpLossWithRelics = (
   target: EntityStats,
   damage: number,
   reason: string,
+  options?: { skipHeartMark?: boolean },
 ): number => {
   const incoming = Math.max(0, Math.floor(damage));
   if (incoming <= 0) return 0;
@@ -1666,7 +1698,9 @@ const applyDirectHpLossWithRelics = (
     : incoming;
   const before = target.hp;
   target.hp = Math.max(0, target.hp - adjusted);
-  return Math.max(0, before - target.hp);
+  const actualDamage = Math.max(0, before - target.hp);
+  triggerBloodpoolHeartMarkByDamage(side, actualDamage, reason, options);
+  return actualDamage;
 };
 
 const handlePlayerArmorGainFromSingleEvent = (amount: number, source: string) => {
@@ -2146,7 +2180,7 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
     pushFloatingNumber(side, actualDamage, 'magic', '-');
   }
 
-  const nextStacks = Math.max(0, shockStacks - 1);
+  const nextStacks = Math.max(0, Math.floor(shockStacks / 2));
   if (nextStacks <= 0) {
     removeEffect(target, ET.SHOCK);
   } else {
@@ -2497,7 +2531,14 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
   if (poisonAmount <= 0 || poisonAmount < target.hp) return;
 
   removeEffect(target, ET.POISON_AMOUNT);
-  const { actualDamage, logs: poisonLogs } = applyDamageToSideWithRelics(side, target, poisonAmount, true, '中毒量');
+  const { actualDamage, logs: poisonLogs } = applyDamageToSideWithRelics(
+    side,
+    target,
+    poisonAmount,
+    true,
+    '中毒量',
+    { skipHeartMark: true },
+  );
   if (actualDamage > 0) {
     pushFloatingNumber(side, actualDamage, 'true', '-');
   }
@@ -3182,6 +3223,7 @@ const activeSkillDisabledReason = (idx: number): string | null => {
   if (!skill) return '未装备主动技能';
   if (endCombatPending.value) return '战斗结束中不可使用主动技能';
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return '当前阶段不可使用主动技能';
+  if (getEffectStacks(playerStats.value, ET.STUN) > 0) return '处于眩晕，无法行动';
 
   const runtime = activeSkillRuntime.value[idx];
   const cooldown = activeSkillCooldownRemaining(idx);
@@ -3647,6 +3689,7 @@ watch(
               result.trueDamage,
               true,
               '回合开始真实伤害',
+              { skipHeartMark: true },
             );
             turnStartTrueDamageTaken = actualDamage;
             if (actualDamage > 0) {

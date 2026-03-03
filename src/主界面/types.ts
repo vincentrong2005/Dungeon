@@ -127,7 +127,7 @@ export interface CardData {
   cardEffects: CardEffect[];
   /** 描述文本 */
   description: string;
-  /** 负面效果：卡牌生效后记录到战斗后写入的 _负面状态（仅对玩家结算） */
+  /** 负面效果：卡牌生效后记录到战斗后写入的 $负面状态（仅对玩家结算） */
   negativeEffect?: string;
   /** 法力汲取：卡牌生效后吸收对方对应数值法力并恢复自身；不足部分改为扣除对方生命 */
   manaDrain?: number;
@@ -250,7 +250,7 @@ export enum EffectType {
   SILENCE = '禁言',
   /** 坚固 — 每次受击固定减伤，持续1回合（回合结束清空） */
   STURDY = '坚固',
-  /** 电击 — 每次法力减少时，损失等同层数生命并层数-1 */
+  /** 电击 — 每次法力减少时，损失等同层数生命并层数减半 */
   SHOCK = '电击',
   /** 火焰附加 — 攻击卡命中后为对手施加燃烧 */
   FLAME_ATTACH = '火焰附加',

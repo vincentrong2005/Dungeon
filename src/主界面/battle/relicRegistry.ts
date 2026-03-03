@@ -767,20 +767,11 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '心脏印记',
     rarity: '稀有',
     category: '血池',
-    effect: '每次受伤回复1点生命（每回合最多2次）',
-    description: '当你受到伤害时回复1点生命值（每回合最多触发2次）。',
+    effect: '受到伤害回复1点生命（中毒/侵蚀除外，每回合最多2次）',
+    description: '当你受到伤害时回复1点生命值（中毒与侵蚀伤害除外，每回合最多触发2次）。',
     hooks: {
       onTurnStart: ({ state }) => {
         state['triggeredThisTurn'] = 0;
-      },
-      onAfterHitTaken: ({ count, side, targetSide, actualDamage, state, heal, addLog }) => {
-        if (targetSide !== side) return;
-        if (actualDamage <= 0) return;
-        const triggered = Math.max(0, Math.floor(Number(state['triggeredThisTurn'] ?? 0)));
-        if (triggered >= 2) return;
-        state['triggeredThisTurn'] = triggered + 1;
-        const { healed } = heal(side, count);
-        addLog(`[心脏印记] 受伤触发，回复 ${healed} 点生命（本回合 ${triggered + 1}/2）。`);
       },
     },
   },

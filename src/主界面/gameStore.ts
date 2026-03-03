@@ -412,18 +412,18 @@ export const useGameStore = defineStore('game', () => {
     }
 
     if (changes.addDefeatMark) {
-      const raw = sd._负面状态;
+      const raw = sd.$负面状态;
       const base = Array.isArray(raw)
         ? raw.filter((item): item is string => typeof item === 'string')
         : [];
       if (!base.includes('[败北]')) {
         base.push('[败北]');
       }
-      sd._负面状态 = base;
+      sd.$负面状态 = base;
     }
 
     if (Array.isArray(changes.negativeStatusesAdd) && changes.negativeStatusesAdd.length > 0) {
-      const raw = sd._负面状态;
+      const raw = sd.$负面状态;
       const base = Array.isArray(raw)
         ? raw.filter((item): item is string => typeof item === 'string')
         : [];
@@ -435,7 +435,7 @@ export const useGameStore = defineStore('game', () => {
           base.push(normalized);
         }
       }
-      sd._负面状态 = base;
+      sd.$负面状态 = base;
     }
 
     if (Number.isFinite(changes.goldDelta)) {

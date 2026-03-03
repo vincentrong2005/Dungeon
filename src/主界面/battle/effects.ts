@@ -384,7 +384,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: true,
     maxStacks: 0,
-    description: '每次法力减少时，受到等同层数的生命损失，随后层数-1',
+    description: '每次法力减少时，受到等同层数的生命损失，随后层数减半',
   },
   [EffectType.FLAME_ATTACH]: {
     type: EffectType.FLAME_ATTACH,
