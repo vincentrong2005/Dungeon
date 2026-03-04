@@ -105,6 +105,49 @@ const POLLEN_SPRAYER_CARD = {
   INFILTRATION: 'enemy_pollen_infiltration',
 } as const;
 
+const PEEPING_EYE_CARD = {
+  SENSITIZATION: 'enemy_peeping_eye_sensitization',
+  SCAN: 'enemy_peeping_eye_scan',
+  SHAME_BURN: 'enemy_peeping_eye_shame_burn',
+  ASCEND_DODGE: 'enemy_peeping_eye_ascend_dodge',
+} as const;
+
+const SHAME_SHADOW_CARD = {
+  MEMORY_PROJECTION: 'enemy_shame_shadow_memory_projection',
+  POSSESSION_STRINGS: 'enemy_shame_shadow_possession_strings',
+  SHAME_FEAST: 'enemy_shame_shadow_shame_feast',
+  BLACK_MIRROR_EVASION: 'enemy_shame_shadow_black_mirror_evasion',
+} as const;
+
+const FALLEN_SCHOLAR_CARD = {
+  SENSITIVE_DEVELOPMENT: 'enemy_fallen_scholar_sensitive_development',
+  RESTRAINED_SUBJECT: 'enemy_fallen_scholar_restrained_subject',
+  ACADEMIC_BRAINWASH: 'enemy_fallen_scholar_academic_brainwash',
+  COOPERATIVE_EXPERIMENT: 'enemy_fallen_scholar_cooperative_experiment',
+  CALM_ASSESSMENT: 'enemy_fallen_scholar_calm_assessment',
+} as const;
+
+const DORM_GHOST_CARD = {
+  PHASE_IMPACT: 'enemy_dorm_ghost_phase_impact',
+  COMMAND_WHISPER: 'enemy_dorm_ghost_command_whisper',
+  MULTI_RESONANCE: 'enemy_dorm_ghost_multi_resonance',
+  PHANTOM: 'enemy_whisper_ghost_phantom',
+} as const;
+
+const CHAIR_MIMIC_CARD = {
+  SILENT_DISGUISE: 'enemy_chair_mimic_silent_disguise',
+  ARMREST_BIND: 'enemy_chair_mimic_armrest_bind',
+  CUSHION_ASSAULT: 'enemy_chair_mimic_cushion_assault',
+  BACKREST_LURE: 'enemy_chair_mimic_backrest_lure',
+} as const;
+
+const DESK_TENTACLE_CARD = {
+  SILENT_DISGUISE: 'enemy_chair_mimic_silent_disguise',
+  ARMREST_BIND: 'enemy_chair_mimic_armrest_bind',
+  TABLE_EDGE_CLING: 'enemy_desk_tentacle_table_edge_cling',
+  SILENT_ENTANGLE: 'enemy_desk_tentacle_silent_entangle',
+} as const;
+
 const PRIM_CARD = {
   EMBRACE: 'enemy_prim_embrace',
   FLUID_EVASION: 'enemy_prim_fluid_evasion',
@@ -172,6 +215,19 @@ const INK_SLIME_CARD = {
   SLIME_DODGE: 'enemy_slime_dodge',
 } as const;
 
+const INK_BLOB_CARD = {
+  INK_TIDE_BIND: 'enemy_ink_blob_ink_tide_bind',
+  FLUID_INFILTRATION: 'enemy_ink_blob_fluid_infiltration',
+  INK_CURTAIN_EVASION: 'enemy_ink_blob_ink_curtain_evasion',
+} as const;
+
+const TENTACLE_QUILL_CARD = {
+  LUST_SCRIPT: 'enemy_tentacle_quill_lust_script',
+  TIP_ENTANGLE: 'enemy_tentacle_quill_tip_entangle',
+  SENSITIVE_NOTE: 'enemy_tentacle_quill_sensitive_note',
+  PLUME_EVASION: 'enemy_tentacle_quill_plume_evasion',
+} as const;
+
 const WHISPER_GHOST_CARD = {
   PHANTOM: 'enemy_whisper_ghost_phantom',
   KNOWLEDGE_WHISPER: 'enemy_whisper_ghost_knowledge_whisper',
@@ -203,6 +259,7 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
         { type: EffectType.FROST_ATTACH, stacks: 1, polarity: 'buff' },
         { type: EffectType.BLOODBLADE_ATTACH, stacks: 1, polarity: 'buff' },
         { type: EffectType.LIGHTNING_ATTACH, stacks: 1, polarity: 'buff' },
+        { type: EffectType.ELEMENTAL_ADAPTATION, stacks: 1, polarity: 'buff' },
       ],
     },
     deck: buildDeckById([
@@ -660,6 +717,181 @@ const POLLEN_SPRAYER_ENEMY: EnemyDefinition = {
   },
 };
 
+const 窥视之眼: EnemyDefinition = {
+  name: '窥视之眼',
+  stats: {
+    hp: 8,
+    maxHp: 8,
+    mp: 2,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    PEEPING_EYE_CARD.SENSITIZATION,
+    PEEPING_EYE_CARD.SCAN,
+    PEEPING_EYE_CARD.SHAME_BURN,
+    PEEPING_EYE_CARD.ASCEND_DODGE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn % 4 === 0) {
+      return pickCardById(ctx, PEEPING_EYE_CARD.SENSITIZATION);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      const chosen = weightedRandom<string>([
+        { value: PEEPING_EYE_CARD.SCAN, weight: 30 },
+        { value: PEEPING_EYE_CARD.SHAME_BURN, weight: 45 },
+        { value: PEEPING_EYE_CARD.ASCEND_DODGE, weight: 25 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    return pickCardById(ctx, PEEPING_EYE_CARD.ASCEND_DODGE);
+  },
+};
+
+const 羞耻阴影: EnemyDefinition = {
+  name: '羞耻阴影',
+  stats: {
+    hp: 24,
+    maxHp: 24,
+    mp: 0,
+    minDice: 1,
+    maxDice: 3,
+    effects: [
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.MATERIALIZATION, stacks: 6, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    SHAME_SHADOW_CARD.MEMORY_PROJECTION,
+    SHAME_SHADOW_CARD.POSSESSION_STRINGS,
+    SHAME_SHADOW_CARD.SHAME_FEAST,
+    SHAME_SHADOW_CARD.BLACK_MIRROR_EVASION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn % 4 === 0) {
+      return pickCardById(ctx, SHAME_SHADOW_CARD.SHAME_FEAST);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      const chosen = weightedRandom<string>([
+        { value: SHAME_SHADOW_CARD.MEMORY_PROJECTION, weight: 55 },
+        { value: SHAME_SHADOW_CARD.POSSESSION_STRINGS, weight: 30 },
+        { value: SHAME_SHADOW_CARD.BLACK_MIRROR_EVASION, weight: 15 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: SHAME_SHADOW_CARD.BLACK_MIRROR_EVASION, weight: 45 },
+      { value: SHAME_SHADOW_CARD.POSSESSION_STRINGS, weight: 55 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 堕落学者: EnemyDefinition = {
+  name: '堕落学者',
+  stats: {
+    hp: 40,
+    maxHp: 40,
+    mp: 0,
+    minDice: 3,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    FALLEN_SCHOLAR_CARD.SENSITIVE_DEVELOPMENT,
+    FALLEN_SCHOLAR_CARD.RESTRAINED_SUBJECT,
+    FALLEN_SCHOLAR_CARD.ACADEMIC_BRAINWASH,
+    FALLEN_SCHOLAR_CARD.COOPERATIVE_EXPERIMENT,
+    FALLEN_SCHOLAR_CARD.CALM_ASSESSMENT,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, FALLEN_SCHOLAR_CARD.SENSITIVE_DEVELOPMENT);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      const chosen = weightedRandom<string>([
+        { value: FALLEN_SCHOLAR_CARD.ACADEMIC_BRAINWASH, weight: 60 },
+        { value: FALLEN_SCHOLAR_CARD.RESTRAINED_SUBJECT, weight: 25 },
+        { value: FALLEN_SCHOLAR_CARD.CALM_ASSESSMENT, weight: 15 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    if (playerHasBind) {
+      const chosen = weightedRandom<string>([
+        { value: FALLEN_SCHOLAR_CARD.COOPERATIVE_EXPERIMENT, weight: 60 },
+        { value: FALLEN_SCHOLAR_CARD.RESTRAINED_SUBJECT, weight: 25 },
+        { value: FALLEN_SCHOLAR_CARD.CALM_ASSESSMENT, weight: 15 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: FALLEN_SCHOLAR_CARD.RESTRAINED_SUBJECT, weight: 40 },
+      { value: FALLEN_SCHOLAR_CARD.SENSITIVE_DEVELOPMENT, weight: 35 },
+      { value: FALLEN_SCHOLAR_CARD.CALM_ASSESSMENT, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 宿舍幽灵: EnemyDefinition = {
+  name: '宿舍幽灵',
+  stats: {
+    hp: 35,
+    maxHp: 35,
+    mp: 0,
+    minDice: 1,
+    maxDice: 1,
+    effects: [
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.NON_LIVING, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.POINT_GROWTH_BIG, stacks: 1, polarity: 'buff' },
+      { type: EffectType.POINT_GROWTH_SMALL, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    DORM_GHOST_CARD.PHASE_IMPACT,
+    DORM_GHOST_CARD.COMMAND_WHISPER,
+    DORM_GHOST_CARD.MULTI_RESONANCE,
+    DORM_GHOST_CARD.PHANTOM,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp >= 4) {
+      return pickCardById(ctx, DORM_GHOST_CARD.MULTI_RESONANCE);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: DORM_GHOST_CARD.COMMAND_WHISPER, weight: 45 },
+        { value: DORM_GHOST_CARD.PHASE_IMPACT, weight: 35 },
+        { value: DORM_GHOST_CARD.PHANTOM, weight: 20 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: DORM_GHOST_CARD.PHASE_IMPACT, weight: 65 },
+      { value: DORM_GHOST_CARD.PHANTOM, weight: 35 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 普莉姆: EnemyDefinition = {
   name: '普莉姆',
   stats: {
@@ -1056,6 +1288,85 @@ const 墨水史莱姆: EnemyDefinition = {
   },
 };
 
+const 墨团怪: EnemyDefinition = {
+  name: '墨团怪',
+  stats: {
+    hp: 16,
+    maxHp: 16,
+    mp: 0,
+    minDice: 2,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+      { type: EffectType.SWARM, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    INK_BLOB_CARD.INK_TIDE_BIND,
+    INK_BLOB_CARD.FLUID_INFILTRATION,
+    INK_BLOB_CARD.INK_CURTAIN_EVASION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: INK_BLOB_CARD.FLUID_INFILTRATION, weight: 70 },
+        { value: INK_BLOB_CARD.INK_TIDE_BIND, weight: 15 },
+        { value: INK_BLOB_CARD.INK_CURTAIN_EVASION, weight: 15 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: INK_BLOB_CARD.INK_TIDE_BIND, weight: 55 },
+      { value: INK_BLOB_CARD.INK_CURTAIN_EVASION, weight: 45 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 触手羽毛笔: EnemyDefinition = {
+  name: '触手羽毛笔',
+  stats: {
+    hp: 18,
+    maxHp: 18,
+    mp: 6,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    TENTACLE_QUILL_CARD.LUST_SCRIPT,
+    TENTACLE_QUILL_CARD.TIP_ENTANGLE,
+    TENTACLE_QUILL_CARD.SENSITIVE_NOTE,
+    TENTACLE_QUILL_CARD.PLUME_EVASION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 3) {
+      return pickCardById(ctx, TENTACLE_QUILL_CARD.LUST_SCRIPT);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: TENTACLE_QUILL_CARD.TIP_ENTANGLE, weight: 25 },
+        { value: TENTACLE_QUILL_CARD.SENSITIVE_NOTE, weight: 50 },
+        { value: TENTACLE_QUILL_CARD.PLUME_EVASION, weight: 25 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: TENTACLE_QUILL_CARD.TIP_ENTANGLE, weight: 60 },
+      { value: TENTACLE_QUILL_CARD.PLUME_EVASION, weight: 40 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 书魔: EnemyDefinition = {
   name: '书魔',
   stats: {
@@ -1086,6 +1397,87 @@ const 书魔: EnemyDefinition = {
   },
 };
 
+const CHAIR_MIMIC_ENEMY: EnemyDefinition = {
+  name: '椅子拟态怪',
+  stats: {
+    hp: 32,
+    maxHp: 32,
+    mp: 0,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    CHAIR_MIMIC_CARD.SILENT_DISGUISE,
+    CHAIR_MIMIC_CARD.ARMREST_BIND,
+    CHAIR_MIMIC_CARD.CUSHION_ASSAULT,
+    CHAIR_MIMIC_CARD.BACKREST_LURE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1 || ctx.turn % 4 === 0) {
+      return pickCardById(ctx, CHAIR_MIMIC_CARD.SILENT_DISGUISE);
+    }
+
+    if (ctx.enemyStats.mp < 2) {
+      const lowManaChoice = weightedRandom<string>([
+        { value: CHAIR_MIMIC_CARD.ARMREST_BIND, weight: 60 },
+        { value: CHAIR_MIMIC_CARD.BACKREST_LURE, weight: 40 },
+      ]);
+      return pickCardById(ctx, lowManaChoice);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: CHAIR_MIMIC_CARD.ARMREST_BIND, weight: 30 },
+      { value: CHAIR_MIMIC_CARD.BACKREST_LURE, weight: 20 },
+      { value: CHAIR_MIMIC_CARD.CUSHION_ASSAULT, weight: 50 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 桌面触手: EnemyDefinition = {
+  name: '桌面触手',
+  stats: {
+    hp: 28,
+    maxHp: 28,
+    mp: 0,
+    minDice: 1,
+    maxDice: 4,
+    effects: [],
+  },
+  deck: buildDeckById([
+    DESK_TENTACLE_CARD.SILENT_DISGUISE,
+    DESK_TENTACLE_CARD.ARMREST_BIND,
+    DESK_TENTACLE_CARD.TABLE_EDGE_CLING,
+    DESK_TENTACLE_CARD.SILENT_ENTANGLE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, DESK_TENTACLE_CARD.SILENT_DISGUISE);
+    }
+
+    const hasAmbush = ctx.enemyStats.effects.some((e) => e.type === EffectType.AMBUSH && e.stacks > 0);
+    if (!hasAmbush) {
+      const chosen = weightedRandom<string>([
+        { value: DESK_TENTACLE_CARD.SILENT_DISGUISE, weight: 50 },
+        { value: DESK_TENTACLE_CARD.TABLE_EDGE_CLING, weight: 15 },
+        { value: DESK_TENTACLE_CARD.ARMREST_BIND, weight: 15 },
+        { value: DESK_TENTACLE_CARD.SILENT_ENTANGLE, weight: 20 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: DESK_TENTACLE_CARD.TABLE_EDGE_CLING, weight: 30 },
+      { value: DESK_TENTACLE_CARD.ARMREST_BIND, weight: 30 },
+      { value: DESK_TENTACLE_CARD.SILENT_ENTANGLE, weight: 40 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -1099,6 +1491,12 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [穴居触手.name, 穴居触手],
   [极乐蜜蜂.name, 极乐蜜蜂],
   [POLLEN_SPRAYER_ENEMY.name, POLLEN_SPRAYER_ENEMY],
+  [窥视之眼.name, 窥视之眼],
+  [羞耻阴影.name, 羞耻阴影],
+  [堕落学者.name, 堕落学者],
+  [宿舍幽灵.name, 宿舍幽灵],
+  [CHAIR_MIMIC_ENEMY.name, CHAIR_MIMIC_ENEMY],
+  [桌面触手.name, 桌面触手],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],
@@ -1109,6 +1507,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [墨痕鼠.name, 墨痕鼠],
   [低语幽灵.name, 低语幽灵],
   [墨水史莱姆.name, 墨水史莱姆],
+  [墨团怪.name, 墨团怪],
+  [触手羽毛笔.name, 触手羽毛笔],
   [书魔.name, 书魔],
 ]);
 

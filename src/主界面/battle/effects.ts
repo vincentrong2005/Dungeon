@@ -222,7 +222,7 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: false,
     maxStacks: 1,
-    description: '完全免疫流血与中毒效果',
+    description: '免疫流血与中毒效果；若收到流血或中毒，改为受到1点真实伤害',
   },
   [EffectType.NON_ENTITY]: {
     type: EffectType.NON_ENTITY,
@@ -467,6 +467,24 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '攻击造成伤害后附加1倍点数侵蚀；受到燃烧伤害后追加等量真实伤害',
   },
+  [EffectType.ELEMENTAL_ADAPTATION]: {
+    type: EffectType.ELEMENTAL_ADAPTATION,
+    name: '元素适应体',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始时，若自身有元素debuff，则随机移除2层并回复2点生命',
+  },
+  [EffectType.MATERIALIZATION]: {
+    type: EffectType.MATERIALIZATION,
+    name: '实体化',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始层数-1；归零后清除非实体、生命回满，并使最小/最大骰子点数+4',
+  },
 };
 
 // 元素debuff分组：用于随机附加、转换、翻倍等效果
@@ -506,7 +524,7 @@ export function getEffectStacks(entity: EntityStats, type: EffectType): number {
 
 /**
  * 为实体施加效果（叠加或新增）
- * 自动处理：非生物免疫流血/中毒
+ * 自动处理：非生物免疫流血/中毒，并将其转化为1点真实伤害
  */
 export function applyEffect(
   entity: EntityStats,
@@ -517,10 +535,11 @@ export function applyEffect(
   const normalizedStacks = Math.max(0, Math.floor(stacks));
   if (normalizedStacks <= 0) return false;
 
-  // 非生物免疫检查
+  // 非生物：免疫流血/中毒，改为受到1点真实伤害
   if (hasEffect(entity, EffectType.NON_LIVING)) {
     if (type === EffectType.POISON || type === EffectType.BLEED) {
-      return false; // 免疫
+      entity.hp = Math.max(0, entity.hp - 1);
+      return false; // 不施加状态
     }
   }
 
@@ -649,7 +668,7 @@ export interface TurnStartResult {
 
 /**
  * 处理回合开始时所有效果触发
- * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
+ * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 元素适应体 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
  */
 export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   const result: TurnStartResult = {
@@ -701,6 +720,53 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (regenStacks > 0) {
     result.hpChange += regenStacks;
     result.logs.push(`[生命回复] 回复 ${regenStacks} 点生命。`);
+  }
+
+  // 元素适应体：有元素debuff时，随机移除2层并回复2点生命
+  const elementalAdaptationStacks = getEffectStacks(entity, EffectType.ELEMENTAL_ADAPTATION);
+  if (elementalAdaptationStacks > 0) {
+    const hasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some((type) => getEffectStacks(entity, type) > 0);
+    if (hasElementalDebuff) {
+      const removedByType = new Map<EffectType, number>();
+      let remainToRemove = 2;
+      while (remainToRemove > 0) {
+        const available = ELEMENTAL_DEBUFF_TYPES.filter((type) => getEffectStacks(entity, type) > 0);
+        if (available.length === 0) break;
+        const picked = available[Math.floor(Math.random() * available.length)]!;
+        reduceEffectStacks(entity, picked, 1);
+        removedByType.set(picked, (removedByType.get(picked) ?? 0) + 1);
+        remainToRemove -= 1;
+      }
+
+      result.hpChange += 2;
+      const removedSummary = [...removedByType.entries()]
+        .map(([type, count]) => `${EFFECT_REGISTRY[type]?.name ?? type} -${count}`)
+        .join('，');
+      if (removedSummary.length > 0) {
+        result.logs.push(`[元素适应体] 随机移除元素debuff：${removedSummary}；回复 2 点生命。`);
+      } else {
+        result.logs.push('[元素适应体] 回复 2 点生命。');
+      }
+    }
+  }
+
+  // 实体化：每回合-1；归零后清除非实体、生命回满、骰子范围+4
+  const materializationEffect = findEffect(entity, EffectType.MATERIALIZATION);
+  if (materializationEffect && materializationEffect.stacks > 0) {
+    materializationEffect.stacks -= 1;
+    if (materializationEffect.stacks <= 0) {
+      removeEffect(entity, EffectType.MATERIALIZATION);
+      removeEffect(entity, EffectType.NON_ENTITY);
+      const healToFull = Math.max(0, entity.maxHp - entity.hp);
+      if (healToFull > 0) {
+        result.hpChange += healToFull;
+      }
+      entity.minDice += 4;
+      entity.maxDice += 4;
+      result.logs.push(`[实体化] 完成：清除非实体，生命恢复至上限，骰子范围提升（${entity.minDice}-${entity.maxDice}）。`);
+    } else {
+      result.logs.push(`[实体化] 层数衰减，剩余 ${materializationEffect.stacks}。`);
+    }
   }
 
   // 白浊：为对手回复生命并施加侵蚀（无论是否实际回复到生命）

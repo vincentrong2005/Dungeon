@@ -79,8 +79,8 @@
                 </article>
               </div>
 
-              <div v-else class="enemy-grid">
-                <article v-for="enemy in pagedEnemies" :key="enemy.name" class="entry-card enemy-card">
+              <div v-else-if="activeTab === 'enemies' || activeTab === 'lords'" class="enemy-grid">
+                <article v-for="enemy in pagedEnemyLikeEntries" :key="enemy.name" class="entry-card enemy-card">
                   <div class="enemy-head">
                     <div class="portrait">
                       <img
@@ -96,11 +96,7 @@
                     <div class="enemy-head-text">
                       <div class="entry-title">{{ encounteredEnemyNames.has(enemy.name) ? enemy.name : '???' }}</div>
                       <div class="entry-meta">
-                        {{
-                          encounteredEnemyNames.has(enemy.name)
-                            ? `第${enemy.floorLabel}层 · ${enemy.areaLabel}`
-                            : `第${enemy.floorLabel}层 · ???`
-                        }}
+                        {{ getEnemyLocationLabel(enemy, encounteredEnemyNames.has(enemy.name)) }}
                       </div>
                     </div>
                   </div>
@@ -144,12 +140,13 @@ import { EFFECT_REGISTRY } from '../battle/effects';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics } from '../battle/relicRegistry';
 import { loadCodexState } from '../codexStore';
+import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, EffectType as ET, type EffectType } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
 
-type TabId = 'cards' | 'relics' | 'enemies' | 'status';
+type TabId = 'cards' | 'relics' | 'enemies' | 'lords' | 'status';
 type StatusKind = '正面' | '负面' | '被动';
 type NavItem = { key: string; label: string };
 
@@ -160,6 +157,7 @@ const tabs: Array<{ id: TabId; label: string }> = [
   { id: 'cards', label: '卡牌' },
   { id: 'relics', label: '圣遗物' },
   { id: 'enemies', label: '敌人' },
+  { id: 'lords', label: '领主' },
   { id: 'status', label: '状态' },
 ];
 
@@ -171,7 +169,7 @@ const CARD_TYPE_ORDER: Record<string, number> = {
   [CardType.CURSE]: 4,
 };
 const RELIC_RARITY_ORDER: Record<string, number> = { 普通: 0, 稀有: 1, 传奇: 2 };
-const PAGE_SIZE: Record<TabId, number> = { cards: 9, relics: 20, enemies: 8, status: 20 };
+const PAGE_SIZE: Record<TabId, number> = { cards: 9, relics: 20, enemies: 8, lords: 8, status: 20 };
 
 const activeTab = ref<TabId>('cards');
 const currentPage = ref(1);
@@ -181,6 +179,7 @@ const codex = ref(loadCodexState());
 const cardFilter = ref('全部');
 const relicFilter = ref('全部');
 const enemyFloorFilter = ref('全部');
+const lordFloorFilter = ref('全部');
 const statusFilter = ref<'全部' | StatusKind>('全部');
 
 const refreshCodex = () => {
@@ -221,68 +220,6 @@ const effectKind = (polarity?: string): StatusKind => {
   if (polarity === 'debuff') return '负面';
   return '被动';
 };
-const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
-  [ET.BARRIER]: 'fa-brands fa-fediverse',
-  [ET.ARMOR]: 'fa-solid fa-shield-halved',
-  [ET.BIND]: 'fa-solid fa-link',
-  [ET.DEVOUR]: 'fa-brands fa-optin-monster',
-  [ET.POISON]: 'fa-solid fa-virus',
-  [ET.POISON_AMOUNT]: 'fa-solid fa-bacterium',
-  [ET.CORROSION]: 'fa-brands fa-cloudscale',
-  [ET.BURN]: 'fa-solid fa-fire',
-  [ET.BLEED]: 'fa-solid fa-droplet',
-  [ET.VULNERABLE]: 'fa-brands fa-linode',
-  [ET.DAMAGE_BOOST]: 'fa-brands fa-superpowers',
-  [ET.REGEN]: 'fa-brands fa-medrt',
-  [ET.WHITE_TURBID]: 'fa-solid fa-droplet',
-  [ET.IGNITE_AURA]: 'fa-solid fa-fire-flame-simple',
-  [ET.STUN]: 'fa-solid fa-ban',
-  [ET.CHARGE]: 'fa-solid fa-exclamation',
-  [ET.FATIGUE]: 'fa-solid fa-bed',
-  [ET.COLD]: 'fa-regular fa-snowflake',
-  [ET.TEMPERATURE_DIFF]: 'fa-brands fa-empire',
-  [ET.NON_LIVING]: 'fa-solid fa-skull',
-  [ET.NON_ENTITY]: 'fa-solid fa-ghost',
-  [ET.ILLUSORY_BODY]: 'fa-solid fa-ghost',
-  [ET.TEMP_MAX_HP]: 'fa-solid fa-heart',
-  [ET.MAX_HP_REDUCTION]: 'fa-solid fa-heart-pulse',
-  [ET.POINT_GROWTH_BIG]: 'fa-solid fa-dice fa-lg',
-  [ET.POINT_GROWTH_SMALL]: 'fa-solid fa-dice fa-sm',
-  [ET.MANA_DRAIN]: 'fa-solid fa-battery-empty',
-  [ET.MANA_SPRING]: 'fa-brands fa-drupal',
-  [ET.SWARM]: 'fa-solid fa-bugs',
-  [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
-  [ET.INDOMITABLE]: 'fa-solid fa-shield',
-  [ET.PEEP_FORBIDDEN]: 'fa-solid fa-eye',
-  [ET.BLIND_ASH]: 'fa-regular fa-eye-slash',
-  [ET.COGNITIVE_INTERFERENCE]: 'fa-solid fa-hamsa',
-  [ET.MEMORY_FOG]: 'fa-brands fa-phabricator',
-  [ET.SILENCE]: 'fa-solid fa-circle-xmark',
-  [ET.STURDY]: 'fa-solid fa-user-shield',
-  [ET.SHOCK]: 'fa-solid fa-bolt',
-  [ET.FLAME_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.POISON_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.TOXIN_SPREAD]: 'fa-brands fa-hornbill',
-  [ET.AMBUSH]: 'fa-solid fa-user-secret',
-  [ET.FROST_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.BLOODBLADE_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.LIGHTNING_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.THORNS]: 'fa-solid fa-leaf',
-};
-const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {
-  [ET.FLAME_ATTACH]: { color: 'rgb(255, 64, 64)' },
-  [ET.POISON_ATTACH]: { color: 'rgb(81, 255, 116)' },
-  [ET.FROST_ATTACH]: { color: 'rgb(108, 230, 255)' },
-  [ET.BLOODBLADE_ATTACH]: { color: 'rgb(176, 0, 0)' },
-  [ET.LIGHTNING_ATTACH]: { color: 'rgb(201, 69, 255)' },
-  [ET.TEMP_MAX_HP]: { color: 'rgb(255, 120, 150)' },
-  [ET.ILLUSORY_BODY]: {
-    '--fa-primary-color': 'rgb(255, 255, 255)',
-    '--fa-secondary-color': 'rgb(255, 255, 255)',
-  },
-};
-const getEffectFontAwesomeClass = (type: EffectType): string | null => EFFECT_FA_ICON_CLASS[type] ?? null;
-const getEffectFontAwesomeStyle = (type: EffectType): Record<string, string> | undefined => EFFECT_FA_ICON_STYLE[type];
 const allEffects = computed(() => (
   Object.entries(EFFECT_REGISTRY)
     .map(([type, def]) => ({
@@ -303,9 +240,41 @@ const allEffects = computed(() => (
 const filteredEffects = computed(() => (statusFilter.value === '全部' ? allEffects.value : allEffects.value.filter((effect) => effect.kind === statusFilter.value)));
 
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
+const SPECIAL_ENEMY_NAMES = new Set(['沐芯兰', '宝箱怪']);
+const LORD_ENEMY_NAMES = new Set([
+  '沐芯兰',
+  '普莉姆',
+  '宁芙',
+  '温蒂尼',
+  '玛塔',
+  '罗丝',
+  '厄休拉',
+  '希尔薇',
+  '因克',
+  '阿卡夏',
+  '多萝西',
+  '维罗妮卡',
+  '伊丽莎白',
+  '尤斯蒂娅',
+  '克拉肯',
+  '布偶',
+  '赛琳娜',
+  '米拉',
+  '梦魔双子',
+  '贝希摩斯',
+  '佩恩',
+  '西格尔',
+  '摩尔',
+  '利维坦',
+  '奥赛罗',
+  '盖亚',
+]);
+// 固定楼层提示：仅用于有明确所属楼层的敌人。
+// 注意：沐芯兰、宝箱怪属于“特殊”，不在此表内固定到单一楼层。
 const ENEMY_FLOOR_HINT: Record<string, number> = {
-  沐芯兰: 1,
-  宝箱怪: 1,
+  // ============================================
+  // ===== 第一层 · 野性粘液层 =====
+  // ============================================
   游荡粘液球: 1,
   荧光蛾: 1,
   根须潜行者: 1,
@@ -323,19 +292,124 @@ const ENEMY_FLOOR_HINT: Record<string, number> = {
   温蒂尼: 1,
   玛塔: 1,
   罗丝: 1,
+
+  // ============================================
+  // ===== 第二层 · 禁忌学院层 =====
+  // ============================================
+  浮游书页: 2,
+  墨痕鼠: 2,
+  低语幽灵: 2,
+  书魔: 2,
+  墨水史莱姆: 2,
+  椅子拟态怪: 2,
+  桌面触手: 2,
+  墨团怪: 2,
+  触手羽毛笔: 2,
+  厄休拉: 2,
+  希尔薇: 2,
+  因克: 2,
+  阿卡夏: 2,
+  多萝西: 2,
+  窥视之眼: 2,
+  羞耻阴影: 2,
+  堕落学者: 2,
+  宿舍幽灵: 2,
+
+  // ============================================
+  // ===== 第三层 · 苦痛支配层 =====
+  // ============================================
+  巡逻铁蝠: 3,
+  荆棘匍匐者: 3,
+  影牢使魔: 3,
+  刺链蛇: 3,
+  惩戒傀儡: 3,
+  羞耻蛭: 3,
+  血蝙蝠: 3,
+  血仆: 3,
+  梦魇驹: 3,
+  审判蛛: 3,
+  证词虫: 3,
+  刽子手偶: 3,
+  深渊水母: 3,
+  寄生水蛭: 3,
+  缝合蜘蛛: 3,
+  丝线傀儡: 3,
+  测试者: 3,
+  维罗妮卡: 3,
+  伊丽莎白: 3,
+  尤斯蒂娅: 3,
+  克拉肯: 3,
+  布偶: 3,
+
+  // ============================================
+  // ===== 第四层 · 扭曲宫廷层 =====
+  // ============================================
+  虚空游光: 4,
+  面具侍从: 4,
+  空间裂隙虫: 4,
+  肉壁蠕虫: 4,
+  镜像分身: 4,
+  碎镜蝠: 4,
+  梦魇蛾: 4,
+  枕头精: 4,
+  画框捕食者: 4,
+  侍宴者: 4,
+  赛琳娜: 4,
+  米拉: 4,
+  梦魔双子: 4,
+  贝希摩斯: 4,
+  佩恩: 4,
+
+  // ============================================
+  // ===== 第五层 · 神域亵渎层 =====
+  // ============================================
+  祈祷烛灵: 5,
+  圣痕蝶: 5,
+  忏悔天使: 5,
+  祭司傀儡: 5,
+  神恩触手: 5,
+  圣水水母: 5,
+  深渊鱼群: 5,
+  圣水精灵: 5,
+  晶体刺猬: 5,
+  苦修幽灵: 5,
+  符文精灵: 5,
+  光球守卫: 5,
+  胎儿魔物: 5,
+  脐带触手: 5,
+  西格尔: 5,
+  摩尔: 5,
+  利维坦: 5,
+  奥赛罗: 5,
+  盖亚: 5,
 };
 
-const allEnemies = computed(() => (
+const formatEnemyFloorLabel = (floorLabel: string): string => {
+  if (floorLabel === '特殊') return '特殊';
+  if (floorLabel === '未知') return '未知';
+  return `第${floorLabel}层`;
+};
+const getEnemyLocationLabel = (
+  enemy: { floorLabel: string; areaLabel: string },
+  encountered: boolean,
+): string => {
+  if (enemy.floorLabel === '特殊') return '特殊';
+  if (encountered) return `${formatEnemyFloorLabel(enemy.floorLabel)} · ${enemy.areaLabel}`;
+  return `${formatEnemyFloorLabel(enemy.floorLabel)} · ???`;
+};
+
+const allEnemyEntries = computed(() => (
   getAllEnemyNames().map((name) => {
     const encounters = codex.value.enemies.filter((entry) => entry.name === name);
-    const floor = ENEMY_FLOOR_HINT[name] ?? (encounters[0]?.floor ?? 0);
+    const isSpecialEnemy = SPECIAL_ENEMY_NAMES.has(name);
+    const floor = isSpecialEnemy ? 0 : (ENEMY_FLOOR_HINT[name] ?? (encounters[0]?.floor ?? 0));
     const areaLabel = encounters[0]?.area ?? '未知区域';
     const def = getEnemyByName(name, Math.max(1, floor)) ?? getEnemyByName(name, 1);
     const stats = def?.stats ?? { hp: 0, maxHp: 0, mp: 0, minDice: 0, maxDice: 0 };
     return {
       name,
       floor,
-      floorLabel: floor > 0 ? String(floor) : '未知',
+      floorLabel: isSpecialEnemy ? '特殊' : (floor > 0 ? String(floor) : '未知'),
       areaLabel,
       fallbackPortraitUrl: `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/${encodeURIComponent(name)}.png`,
       stats: {
@@ -352,31 +426,53 @@ const allEnemies = computed(() => (
     return a.name.localeCompare(b.name, 'zh-Hans-CN');
   })
 ));
+const allEnemies = computed(() => allEnemyEntries.value.filter((enemy) => !LORD_ENEMY_NAMES.has(enemy.name)));
+const allLords = computed(() => allEnemyEntries.value.filter((enemy) => LORD_ENEMY_NAMES.has(enemy.name)));
 const enemyFloorItems = computed<NavItem[]>(() => {
-  const floors = Array.from(new Set(allEnemies.value.map((enemy) => enemy.floorLabel))).sort((a, b) => (a === '未知' ? 1 : b === '未知' ? -1 : Number(a) - Number(b)));
-  return [{ key: '全部', label: '全部' }, ...floors.map((floor) => ({ key: floor, label: floor === '未知' ? '未知' : `第${floor}层` }))];
+  const floorRank = (floorLabel: string): number => {
+    if (floorLabel === '特殊') return 9000;
+    if (floorLabel === '未知') return 10000;
+    return Number(floorLabel);
+  };
+  const floors = Array.from(new Set(allEnemies.value.map((enemy) => enemy.floorLabel))).sort((a, b) => floorRank(a) - floorRank(b));
+  return [{ key: '全部', label: '全部' }, ...floors.map((floor) => ({ key: floor, label: formatEnemyFloorLabel(floor) }))];
+});
+const lordFloorItems = computed<NavItem[]>(() => {
+  const floorRank = (floorLabel: string): number => {
+    if (floorLabel === '特殊') return 9000;
+    if (floorLabel === '未知') return 10000;
+    return Number(floorLabel);
+  };
+  const floors = Array.from(new Set(allLords.value.map((enemy) => enemy.floorLabel))).sort((a, b) => floorRank(a) - floorRank(b));
+  return [{ key: '全部', label: '全部' }, ...floors.map((floor) => ({ key: floor, label: formatEnemyFloorLabel(floor) }))];
 });
 const filteredEnemies = computed(() => {
   if (enemyFloorFilter.value === '全部') return allEnemies.value;
   return allEnemies.value.filter((enemy) => enemy.floorLabel === enemyFloorFilter.value);
 });
+const filteredLords = computed(() => {
+  if (lordFloorFilter.value === '全部') return allLords.value;
+  return allLords.value.filter((enemy) => enemy.floorLabel === lordFloorFilter.value);
+});
 
 const sideTitle = computed(() => {
   if (activeTab.value === 'cards') return '体系';
   if (activeTab.value === 'relics') return '体系';
-  if (activeTab.value === 'enemies') return '楼层';
+  if (activeTab.value === 'enemies' || activeTab.value === 'lords') return '楼层';
   return '状态';
 });
 const sideItems = computed<NavItem[]>(() => {
   if (activeTab.value === 'cards') return [{ key: '全部', label: '全部' }, ...cardCategories.value.map((category) => ({ key: category, label: category }))];
   if (activeTab.value === 'relics') return [{ key: '全部', label: '全部' }, ...relicCategories.value.map((category) => ({ key: category, label: category }))];
   if (activeTab.value === 'enemies') return enemyFloorItems.value;
+  if (activeTab.value === 'lords') return lordFloorItems.value;
   return [{ key: '全部', label: '全部' }, { key: '正面', label: '正面' }, { key: '负面', label: '负面' }, { key: '被动', label: '被动' }];
 });
 const currentFilter = computed(() => {
   if (activeTab.value === 'cards') return cardFilter.value;
   if (activeTab.value === 'relics') return relicFilter.value;
   if (activeTab.value === 'enemies') return enemyFloorFilter.value;
+  if (activeTab.value === 'lords') return lordFloorFilter.value;
   return statusFilter.value;
 });
 
@@ -384,6 +480,7 @@ const totalItems = computed(() => {
   if (activeTab.value === 'cards') return filteredCards.value.length;
   if (activeTab.value === 'relics') return filteredRelics.value.length;
   if (activeTab.value === 'enemies') return filteredEnemies.value.length;
+  if (activeTab.value === 'lords') return filteredLords.value.length;
   return filteredEffects.value.length;
 });
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / PAGE_SIZE[activeTab.value])));
@@ -395,6 +492,8 @@ const pagedCards = computed(() => filteredCards.value.slice(pageStart.value, pag
 const pagedRelics = computed(() => filteredRelics.value.slice(pageStart.value, pageEnd.value));
 const pagedEffects = computed(() => filteredEffects.value.slice(pageStart.value, pageEnd.value));
 const pagedEnemies = computed(() => filteredEnemies.value.slice(pageStart.value, pageEnd.value));
+const pagedLords = computed(() => filteredLords.value.slice(pageStart.value, pageEnd.value));
+const pagedEnemyLikeEntries = computed(() => (activeTab.value === 'lords' ? pagedLords.value : pagedEnemies.value));
 
 const setMainTab = (tab: TabId) => {
   if (activeTab.value === tab) return;
@@ -406,6 +505,7 @@ const setFilter = (key: string) => {
   if (activeTab.value === 'cards') cardFilter.value = key;
   if (activeTab.value === 'relics') relicFilter.value = key;
   if (activeTab.value === 'enemies') enemyFloorFilter.value = key;
+  if (activeTab.value === 'lords') lordFloorFilter.value = key;
   if (activeTab.value === 'status') statusFilter.value = key as '全部' | StatusKind;
   flipName.value = 'flip-next';
   currentPage.value = 1;
@@ -445,8 +545,9 @@ const fetchFolderImages = async (folderPath: string): Promise<string[]> => {
   }
 };
 const ensurePortraits = async () => {
-  if (activeTab.value !== 'enemies') return;
-  const targets = pagedEnemies.value.filter((enemy) => encounteredEnemyNames.value.has(enemy.name));
+  if (activeTab.value !== 'enemies' && activeTab.value !== 'lords') return;
+  const currentEntries = activeTab.value === 'lords' ? pagedLords.value : pagedEnemies.value;
+  const targets = currentEntries.filter((enemy) => encounteredEnemyNames.value.has(enemy.name));
   await Promise.all(targets.map(async (enemy) => {
     if (portraitMap.value[enemy.name]) return;
     const images = await fetchFolderImages(`地牢/魔物/${enemy.name}`);
@@ -469,7 +570,7 @@ watch(
   { immediate: true },
 );
 
-watch([activeTab, currentPage, enemyFloorFilter], () => {
+watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   if (!props.isOpen) return;
   void ensurePortraits();
 });

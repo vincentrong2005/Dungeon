@@ -336,21 +336,35 @@
       </div>
     </div>
 
-    <!-- Player Status HUD (Bottom Left) - Collapsible -->
+    <!-- Player Status HUD (Bottom Left) -->
     <div class="absolute bottom-6 left-6 z-50 flex flex-col gap-2 select-none">
-      <!-- Toggle Button -->
-      <button
-        class="w-10 h-10 rounded-lg flex items-center justify-center
-               bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim
-               hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
-               transition-all duration-300 shadow-lg backdrop-blur-md"
-        :title="isStatusOpen ? '收起状态栏' : '展开状态栏'"
-        @click="isStatusOpen = !isStatusOpen"
-      >
-        <component :is="isStatusOpen ? ChevronDown : Activity" class="size-5" />
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          class="w-10 h-10 rounded-lg flex items-center justify-center
+                 bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim
+                 hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
+                 transition-all duration-300 shadow-lg backdrop-blur-md"
+          :title="isStatusOpen ? '折叠状态栏' : '展开状态栏'"
+          @click="isStatusOpen = !isStatusOpen"
+        >
+          <ChevronDown
+            class="size-5 transition-transform duration-200"
+            :class="isStatusOpen ? '' : '-rotate-90'"
+          />
+        </button>
 
-      <!-- Expandable Status Panel -->
+        <button
+          class="w-10 h-10 rounded-lg flex items-center justify-center
+                 bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim
+                 hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
+                 transition-all duration-300 shadow-lg backdrop-blur-md"
+          :title="statusHudView === 'base' ? '切换到负面状态界面' : '切换到基础状态界面'"
+          @click="toggleStatusHudView"
+        >
+          <component :is="statusHudView === 'base' ? FileText : Activity" class="size-5" />
+        </button>
+      </div>
+
       <Transition name="status-slide">
         <div
           v-if="isStatusOpen"
@@ -361,6 +375,7 @@
           <div class="absolute -bottom-1 -right-1 size-2 bg-dungeon-gold rotate-45 border border-black"></div>
           <div class="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-dungeon-gold/50 to-transparent"></div>
 
+          <template v-if="statusHudView === 'base'">
           <!-- HP & MP: Container-fill style -->
           <div class="flex items-end gap-4 mb-3">
             <!-- HP Heart Container -->
@@ -490,6 +505,27 @@
               </span>
             </div>
             <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Gold</span>
+          </div>
+          </template>
+
+          <div v-else class="status-negative-screen">
+            <div class="status-negative-head">
+              <span class="status-negative-title">负面状态</span>
+              <span class="status-negative-count">{{ negativeStatusEntries.length }} 项</span>
+            </div>
+            <div v-if="negativeStatusEntries.length === 0" class="status-negative-empty">
+              当前没有负面状态
+            </div>
+            <div v-else class="status-negative-list custom-scrollbar">
+              <div
+                v-for="entry in negativeStatusEntries"
+                :key="`negative-status-${entry.name}`"
+                class="status-negative-bar"
+              >
+                <span class="status-negative-name">{{ entry.name }}</span>
+                <span class="status-negative-desc">{{ entry.description }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </Transition>
@@ -1857,6 +1893,7 @@ const activeModal = ref<string | null>(null);
 const inputText = ref('');
 const isVariableUpdateOpen = ref(false);
 const isStatusOpen = ref(true);
+const statusHudView = ref<'base' | 'negative'>('base');
 const showCombat = ref(false);
 const combatEnemyName = ref('');
 const showShopView = ref(false);
@@ -3411,6 +3448,53 @@ const displayGold = computed(() => gameStore.statData._金币 ?? 0);
 // Dice range
 const displayMinDice = computed(() => gameStore.statData.$最小点数 ?? 0);
 const displayMaxDice = computed(() => gameStore.statData.$最大点数 ?? 0);
+const toggleStatusHudView = () => {
+  statusHudView.value = statusHudView.value === 'base' ? 'negative' : 'base';
+};
+const normalizeNegativeStatusList = (value: unknown): string[] => {
+  const normalizeArray = (arr: unknown[]) => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const item of arr) {
+      if (typeof item !== 'string') continue;
+      const normalized = item.trim();
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      result.push(normalized);
+    }
+    return result;
+  };
+
+  if (Array.isArray(value)) return normalizeArray(value);
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) return normalizeArray(parsed);
+    } catch {
+      // no-op
+    }
+    return normalizeArray(trimmed.split(/\r?\n|、|；|;|\|/g));
+  }
+
+  return [];
+};
+const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
+  '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
+  '[淫纹]': '每场战斗开始时，你获得3层中毒。',
+  '[败北]': '记录曾在地牢中败北，会影响后续剧情分支。',
+  '[催淫]': '曾因中毒量致死，后续剧情会体现被药性支配。',
+  '[神经肌肉失调]': '曾因电击致死，后续剧情会体现神经损伤与痉挛。',
+  '[被侵蚀]': '曾因侵蚀致死，后续剧情会体现体质与生命结构崩坏。',
+};
+const negativeStatusEntries = computed(() => (
+  normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name) => ({
+    name,
+    description: NEGATIVE_STATUS_DESCRIPTION_MAP[name] ?? '未知负面状态，可能由特殊事件或敌方效果施加。',
+  }))
+));
 const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(displayMinDice.value, 1)));
 const idolDiceMax = computed(() => Math.max(idolDiceMin.value, toNonNegativeInt(displayMaxDice.value, 6)));
 
@@ -5580,6 +5664,79 @@ onBeforeUnmount(() => {
 .status-slide-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+.status-negative-screen {
+  width: 24rem;
+  max-width: min(72vw, 24rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.status-negative-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.1rem 0.1rem 0.2rem;
+}
+
+.status-negative-title {
+  color: rgba(245, 222, 179, 0.92);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.status-negative-count {
+  color: rgba(156, 163, 175, 0.95);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.status-negative-empty {
+  border-radius: 0.52rem;
+  border: 1px dashed rgba(156, 163, 175, 0.45);
+  background: rgba(17, 24, 39, 0.45);
+  color: rgba(209, 213, 219, 0.85);
+  text-align: center;
+  font-size: 0.75rem;
+  padding: 0.65rem 0.6rem;
+}
+
+.status-negative-list {
+  max-height: 12.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-right: 0.15rem;
+}
+
+.status-negative-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 0.56rem;
+  border: 1px solid rgba(251, 113, 133, 0.5);
+  background:
+    linear-gradient(120deg, rgba(69, 10, 10, 0.82), rgba(31, 41, 55, 0.72));
+  padding: 0.46rem 0.56rem;
+}
+
+.status-negative-name {
+  min-width: 5.6rem;
+  flex-shrink: 0;
+  color: rgba(253, 186, 116, 0.98);
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.status-negative-desc {
+  color: rgba(229, 231, 235, 0.92);
+  font-size: 0.7rem;
+  line-height: 1.35;
 }
 
 /* Heart container glow effect */

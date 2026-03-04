@@ -851,6 +851,7 @@ import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderImagePaths } from '../localAssetManifest';
+import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
 import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
 import DungeonCard from './DungeonCard.vue';
@@ -1039,69 +1040,6 @@ const createStatusEffectPreview = (type: EffectType, stacks: number): EffectInst
   stacks: Math.max(1, Math.floor(stacks)),
   polarity: EFFECT_REGISTRY[type]?.polarity ?? 'special',
 });
-const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
-  [ET.BARRIER]: 'fa-brands fa-fediverse',
-  [ET.ARMOR]: 'fa-solid fa-shield-halved',
-  [ET.BIND]: 'fa-solid fa-link',
-  [ET.DEVOUR]: 'fa-brands fa-optin-monster',
-  [ET.POISON]: 'fa-solid fa-virus',
-  [ET.POISON_AMOUNT]: 'fa-solid fa-bacterium',
-  [ET.CORROSION]: 'fa-brands fa-cloudscale',
-  [ET.BURN]: 'fa-solid fa-fire',
-  [ET.BLEED]: 'fa-solid fa-droplet',
-  [ET.VULNERABLE]: 'fa-brands fa-linode',
-  [ET.DAMAGE_BOOST]: 'fa-brands fa-superpowers',
-  [ET.REGEN]: 'fa-brands fa-medrt',
-  [ET.WHITE_TURBID]: 'fa-solid fa-droplet',
-  [ET.IGNITE_AURA]: 'fa-solid fa-fire-flame-simple',
-  [ET.STUN]: 'fa-solid fa-ban',
-  [ET.CHARGE]: 'fa-solid fa-exclamation',
-  [ET.FATIGUE]: 'fa-solid fa-bed',
-  [ET.COLD]: 'fa-regular fa-snowflake',
-  [ET.TEMPERATURE_DIFF]: 'fa-brands fa-empire',
-  [ET.NON_LIVING]: 'fa-solid fa-skull',
-  [ET.NON_ENTITY]: 'fa-solid fa-ghost',
-  [ET.ILLUSORY_BODY]: 'fa-solid fa-ghost',
-  [ET.TEMP_MAX_HP]: 'fa-solid fa-heart',
-  [ET.MAX_HP_REDUCTION]: 'fa-solid fa-heart-pulse',
-  [ET.POINT_GROWTH_BIG]: 'fa-solid fa-dice fa-lg',
-  [ET.POINT_GROWTH_SMALL]: 'fa-solid fa-dice fa-sm',
-  [ET.MANA_DRAIN]: 'fa-solid fa-battery-empty',
-  [ET.MANA_SPRING]: 'fa-brands fa-drupal',
-  [ET.SWARM]: 'fa-solid fa-bugs',
-  [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
-  [ET.INDOMITABLE]: 'fa-solid fa-shield',
-  [ET.PEEP_FORBIDDEN]: 'fa-solid fa-eye',
-  [ET.BLIND_ASH]: 'fa-regular fa-eye-slash',
-  [ET.COGNITIVE_INTERFERENCE]: 'fa-solid fa-hamsa',
-  [ET.MEMORY_FOG]: 'fa-brands fa-phabricator',
-  [ET.SILENCE]: 'fa-solid fa-circle-xmark',
-  [ET.STURDY]: 'fa-solid fa-user-shield',
-  [ET.SHOCK]: 'fa-solid fa-bolt',
-  [ET.FLAME_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.POISON_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.TOXIN_SPREAD]: 'fa-brands fa-hornbill',
-  [ET.AMBUSH]: 'fa-solid fa-user-secret',
-  [ET.FROST_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.BLOODBLADE_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.LIGHTNING_ATTACH]: 'fa-solid fa-flask-vial',
-  [ET.THORNS]: 'fa-solid fa-leaf',
-  [ET.INK_CREATION]: 'fa-solid fa-feather-pointed',
-};
-const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {
-  [ET.FLAME_ATTACH]: { color: 'rgb(255, 64, 64)' },
-  [ET.POISON_ATTACH]: { color: 'rgb(81, 255, 116)' },
-  [ET.FROST_ATTACH]: { color: 'rgb(108, 230, 255)' },
-  [ET.BLOODBLADE_ATTACH]: { color: 'rgb(176, 0, 0)' },
-  [ET.LIGHTNING_ATTACH]: { color: 'rgb(201, 69, 255)' },
-  [ET.TEMP_MAX_HP]: { color: 'rgb(255, 120, 150)' },
-  [ET.ILLUSORY_BODY]: {
-    '--fa-primary-color': 'rgb(255, 255, 255)',
-    '--fa-secondary-color': 'rgb(255, 255, 255)',
-  },
-};
-const getEffectFontAwesomeClass = (type: EffectType): string | null => EFFECT_FA_ICON_CLASS[type] ?? null;
-const getEffectFontAwesomeStyle = (type: EffectType): Record<string, string> | undefined => EFFECT_FA_ICON_STYLE[type];
 const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BARRIER]: ShieldCheck,
   [ET.ARMOR]: Shield,
@@ -1301,6 +1239,8 @@ const battleResultBanner = ref<'win' | 'lose' | null>(null);
 const endCombatPending = ref(false);
 const enemyIntentConsumedThisTurn = ref(false);
 const enemyIntentManaSpentThisTurn = ref(false);
+const enemyComboPreludeResolvedTurn = ref<number | null>(null);
+const drawPhasePreparing = ref(false);
 const combatRootEl = ref<HTMLElement | null>(null);
 const effectTooltip = ref<{
   x: number;
@@ -1377,6 +1317,39 @@ const combatRootStyle = computed(() => ({
 }));
 const floatingNumbers = ref<FloatingNumberEntry[]>([]);
 const pendingCardNegativeEffects = ref<string[]>([]);
+const STATUS_PHEROMONE = '[信息素]';
+const STATUS_LUST_MARK = '[淫纹]';
+const PHEROMONE_CURSE_CARD_NAME = '信息素';
+const normalizeNegativeStatusList = (value: unknown): string[] => {
+  const normalizeArray = (arr: unknown[]) => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const item of arr) {
+      if (typeof item !== 'string') continue;
+      const normalized = item.trim();
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      result.push(normalized);
+    }
+    return result;
+  };
+
+  if (Array.isArray(value)) return normalizeArray(value);
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) return normalizeArray(parsed);
+    } catch {
+      // no-op
+    }
+    return normalizeArray(trimmed.split(/\r?\n|、|；|;|\|/g));
+  }
+
+  return [];
+};
 const PLAYER_POISON_LETHAL_NEGATIVE_STATUS = '[催淫]';
 const PLAYER_SHOCK_LETHAL_NEGATIVE_STATUS = '[神经肌肉失调]';
 const PLAYER_CORROSION_LETHAL_NEGATIVE_STATUS = '[被侵蚀]';
@@ -1556,6 +1529,7 @@ const modaoStabilizerTriggersThisTurn = ref(0);
 const bloodpoolSkinMarkTriggersThisTurn = ref(0);
 const bloodpoolFirstBleedFeastTriggered = ref(false);
 const bloodpoolCriticalReboundTriggered = ref(false);
+const nonLivingConversionGuard = new Set<string>();
 const nextMagicDoubleCast = ref<Record<'player' | 'enemy', number>>({
   player: 0,
   enemy: 0,
@@ -1854,12 +1828,30 @@ const applyStatusEffectWithRelics = (
   if (value <= 0) return false;
   if (!shouldAllowStatusEffectWithRelics(side, effectType, value, options)) return false;
   const target = getEntityBySide(side);
+  const isNonLivingPenaltyEffect = effectType === ET.POISON || effectType === ET.BLEED;
+  const nonLivingGuardKey = `${combatState.value.turn}:${side}:${effectType}`;
+  if (isNonLivingPenaltyEffect && getEffectStacks(target, ET.NON_LIVING) > 0 && nonLivingConversionGuard.has(nonLivingGuardKey)) {
+    return false;
+  }
   const hpBeforeApply = target.hp;
   const applied = applyEffect(target, effectType, value, {
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
     lockDecayThisTurn: options?.lockDecayThisTurn,
   });
+  const hpLossFromNonLivingConversion = Math.max(0, hpBeforeApply - target.hp);
+  if (
+    !applied
+    && hpLossFromNonLivingConversion > 0
+    && (effectType === ET.POISON || effectType === ET.BLEED)
+  ) {
+    const label = side === 'player' ? '我方' : '敌方';
+    const effectName = EFFECT_REGISTRY[effectType]?.name ?? String(effectType);
+    pushFloatingNumber(side, hpLossFromNonLivingConversion, 'true', '-');
+    const sourceText = options?.source ? `（来源：${options.source}）` : '';
+    log(`<span class="text-zinc-300">${label}[非生物] 免疫${effectName}，改为受到 ${hpLossFromNonLivingConversion} 点真实伤害${sourceText}</span>`);
+    nonLivingConversionGuard.add(nonLivingGuardKey);
+  }
   if (
     applied
     && side === 'player'
@@ -3127,7 +3119,34 @@ if (activePlayerRelics.length > 0) {
     .join('、');
   log(`<span class="text-amber-300">本场圣遗物：${relicSummary}</span>`);
 }
+
+const applyMvuNegativeStatusesOnBattleStart = () => {
+  const statuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
+  if (statuses.length === 0) return;
+
+  if (statuses.includes(STATUS_PHEROMONE)) {
+    const pheromoneCard = getCardByName(PHEROMONE_CURSE_CARD_NAME);
+    if (pheromoneCard) {
+      for (let i = 0; i < 3; i += 1) {
+        const insertAt = Math.floor(Math.random() * (combatState.value.playerDeck.length + 1));
+        combatState.value.playerDeck.splice(insertAt, 0, cloneCardForBattle(pheromoneCard));
+      }
+      log('<span class="text-fuchsia-300">[负面状态][信息素] 开局向牌库插入了3张【信息素】。</span>');
+    } else {
+      log('<span class="text-red-400">[负面状态][信息素] 未找到【信息素】卡牌定义。</span>');
+    }
+  }
+
+  if (statuses.includes(STATUS_LUST_MARK)) {
+    const applied = applyEffect(playerStats.value, ET.POISON, 3, { source: 'negative-status:[淫纹]' });
+    if (applied) {
+      log('<span class="text-fuchsia-300">[负面状态][淫纹] 开局获得了3层中毒。</span>');
+    }
+  }
+};
+
 triggerPlayerRelicLifecycleHooks('onBattleStart');
+applyMvuNegativeStatusesOnBattleStart();
 
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
@@ -3402,6 +3421,16 @@ function selectEnemyCard(): CardData {
     selectedCard = combatState.value.enemyDeck[idx]!;
   }
 
+  // 敌方“连击前置结算”后，本回合正式意图不再重复连击牌，避免同回合循环触发。
+  if (
+    enemyComboPreludeResolvedTurn.value === combatState.value.turn
+    && selectedCard.id !== PASS_CARD.id
+    && selectedCard.traits.combo
+  ) {
+    const fallback = combatState.value.enemyDeck.find((card) => !card.traits.combo && card.id !== PASS_CARD.id);
+    selectedCard = fallback ?? PASS_CARD;
+  }
+
   const runtimeCard = withEffectiveManaCost('enemy', selectedCard);
   const check = canPlayCard(enemyStats.value, runtimeCard, enemyTurnRawDice.value);
   if (!check.allowed) {
@@ -3410,6 +3439,36 @@ function selectEnemyCard(): CardData {
   }
   return selectedCard;
 }
+
+const resolveEnemyComboPreludeIfNeeded = async (initialCard: CardData): Promise<CardData> => {
+  let current = initialCard;
+  let safety = 0;
+  while (
+    !endCombatPending.value
+    && current.id !== PASS_CARD.id
+    && current.traits.combo
+    && safety < 6
+  ) {
+    combatState.value.enemyIntentCard = current;
+    enemyIntentConsumedThisTurn.value = false;
+    enemyIntentManaSpentThisTurn.value = false;
+    await wait(320);
+    await resolveCombat(
+      PASS_CARD,
+      current,
+      combatState.value.playerBaseDice,
+      combatState.value.enemyBaseDice,
+      { enemyComboPrelude: true },
+    );
+    if (endCombatPending.value || playerStats.value.hp <= 0 || enemyStats.value.hp <= 0) {
+      return PASS_CARD;
+    }
+    enemyComboPreludeResolvedTurn.value = combatState.value.turn;
+    safety += 1;
+    current = selectEnemyCard();
+  }
+  return current;
+};
 
 // --- Phase Management ---
 
@@ -3452,6 +3511,8 @@ const startTurn = () => {
   combatState.value.enemyIntentCard = null;
   enemyIntentConsumedThisTurn.value = false;
   enemyIntentManaSpentThisTurn.value = false;
+  enemyComboPreludeResolvedTurn.value = null;
+  drawPhasePreparing.value = false;
   isRolling.value = true;
   shatteringTarget.value = null;
   showClashAnimation.value = false;
@@ -3743,18 +3804,28 @@ watch(
   [() => combatState.value.phase, isRolling],
   ([phase, rolling]) => {
     if (endCombatPending.value) return;
-    if (phase === CombatPhase.DRAW_PHASE && !rolling) {
-      // Use enemy AI to select card
-      const eCard = selectEnemyCard();
-      const { drawn, newDeck, newDiscard } = drawCards(3, combatState.value.playerDeck, combatState.value.discardPile);
+    if (phase === CombatPhase.DRAW_PHASE && !rolling && !drawPhasePreparing.value) {
+      drawPhasePreparing.value = true;
+      void (async () => {
+        try {
+          const { drawn, newDeck, newDiscard } = drawCards(3, combatState.value.playerDeck, combatState.value.discardPile);
+          combatState.value.playerHand = drawn;
+          combatState.value.playerDeck = newDeck;
+          combatState.value.discardPile = newDiscard;
 
-      combatState.value.enemyIntentCard = eCard;
-      enemyIntentConsumedThisTurn.value = false;
-      enemyIntentManaSpentThisTurn.value = false;
-      combatState.value.playerHand = drawn;
-      combatState.value.playerDeck = newDeck;
-      combatState.value.discardPile = newDiscard;
-      combatState.value.phase = CombatPhase.PLAYER_INPUT;
+          // 敌方连击牌：回合开始先亮出并直接结算，再亮出本回合正式意图牌。
+          const selected = selectEnemyCard();
+          const eCard = await resolveEnemyComboPreludeIfNeeded(selected);
+          if (endCombatPending.value) return;
+
+          combatState.value.enemyIntentCard = eCard;
+          enemyIntentConsumedThisTurn.value = false;
+          enemyIntentManaSpentThisTurn.value = false;
+          combatState.value.phase = CombatPhase.PLAYER_INPUT;
+        } finally {
+          drawPhasePreparing.value = false;
+        }
+      })();
     }
   },
 );
@@ -3822,9 +3893,17 @@ const isClashable = (card1: CardData, card2: CardData): boolean => {
 };
 
 // Resolution
-const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eDice: number) => {
+const resolveCombat = async (
+  pCard: CardData,
+  eCard: CardData,
+  pDice: number,
+  eDice: number,
+  options: { enemyComboPrelude?: boolean } = {},
+) => {
   if (endCombatPending.value) return;
   try {
+  nonLivingConversionGuard.clear();
+  const isEnemyComboPrelude = options.enemyComboPrelude === true;
   let resolvedPlayerCard = pCard;
   let resolvedEnemyCard = eCard;
   resolvedEnemyCard = withEffectiveManaCost('enemy', resolvedEnemyCard);
@@ -3860,7 +3939,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   if (!shouldClash && clashBypassedByIgnoreDodge) {
     log('<span class="text-indigo-300">[无视闪避] 闪避拼点被跳过，卡牌将直接生效。</span>');
   }
-  const playerSkippedTurn = resolvedPlayerCard.id === PASS_CARD.id;
+  const playerSkippedTurn = !isEnemyComboPrelude && resolvedPlayerCard.id === PASS_CARD.id;
   const enemySkippedTurn = resolvedEnemyCard.id === PASS_CARD.id;
   let resolvedPlayerDice = pDice;
   let resolvedEnemyDice = eDice;
@@ -4644,7 +4723,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
       if (card.id === 'enemy_rose_nectar_discipline') {
         const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
         if (targetHasBind) {
-          const poisonStacks = Math.max(0, Math.floor(finalPoint));
+          const poisonStacks = Math.max(0, Math.floor(finalPoint * 0.5));
           if (poisonStacks > 0) {
             applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id });
             log(`<span class="text-emerald-300">${label}【${card.name}】触发：目标已束缚，施加 ${poisonStacks} 层中毒</span>`);
@@ -5008,6 +5087,29 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
         }
       }
 
+      if (card.id === 'enemy_chair_mimic_cushion_assault') {
+        const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
+        if (targetHasBind) {
+          const poisonStacks = Math.max(0, Math.floor(finalPoint * 0.5));
+          if (poisonStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id });
+            log(`<span class="text-emerald-300">${label}【${card.name}】触发：目标已束缚，额外施加 ${poisonStacks} 层中毒</span>`);
+          }
+        }
+      }
+
+      if (card.id === 'enemy_fallen_scholar_cooperative_experiment') {
+        const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
+        const targetHasSilence = getEffectStacks(defender, ET.SILENCE) > 0;
+        if (targetHasBind || targetHasSilence) {
+          const poisonStacks = Math.max(0, Math.floor(finalPoint * 0.5));
+          if (poisonStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id });
+            log(`<span class="text-emerald-300">${label}【${card.name}】触发：目标存在束缚/禁言，额外施加 ${poisonStacks} 层中毒</span>`);
+          }
+        }
+      }
+
       if (card.id === 'enemy_floating_page_sensory_infusion') {
         const targetCorrosion = Math.max(0, getEffectStacks(defender, ET.CORROSION));
         if (targetCorrosion > 0) {
@@ -5078,10 +5180,12 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
 
   const queue: ActionEntry[] = [];
   let deferredEnemyAction: ActionEntry | null = null;
-  if (pSuccess) queue.push({ source: 'player', card: resolvedPlayerCard, type: resolvedPlayerCard.type, baseDice: resolvedPlayerDice });
+  if (pSuccess && !(isEnemyComboPrelude && resolvedPlayerCard.id === PASS_CARD.id)) {
+    queue.push({ source: 'player', card: resolvedPlayerCard, type: resolvedPlayerCard.type, baseDice: resolvedPlayerDice });
+  }
   if (eSuccess) {
     const enemyAction: ActionEntry = { source: 'enemy', card: resolvedEnemyCard, type: resolvedEnemyCard.type, baseDice: resolvedEnemyDice };
-    if (resolvedPlayerCard.traits.combo) {
+    if (!isEnemyComboPrelude && resolvedPlayerCard.traits.combo) {
       // 连击过程中，敌方行动延后到“连击结束”时再结算一次
       deferredEnemyAction = enemyAction;
     } else {
@@ -5133,6 +5237,7 @@ const resolveCombat = async (pCard: CardData, eCard: CardData, pDice: number, eD
   }
   stopAllCardAnimations();
   if (endCombatPending.value) return;
+  if (isEnemyComboPrelude) return;
 
   // 连击：本次打出后，若带 draw 则补抽 1 张；并允许继续从剩余手牌出牌
   if (resolvedPlayerCard.traits.combo) {
