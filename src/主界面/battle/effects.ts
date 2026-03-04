@@ -134,6 +134,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每次受到伤害的伤害增加等量层数',
   },
+  [EffectType.ORGASM]: {
+    type: EffectType.ORGASM,
+    name: '高潮',
+    polarity: 'debuff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始时，施加等同当前层数的疲劳',
+  },
   [EffectType.DAMAGE_BOOST]: {
     type: EffectType.DAMAGE_BOOST,
     name: '增伤',
@@ -368,6 +377,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '无法使用魔法卡牌。每回合结束层数-1',
   },
+  [EffectType.CONTROLLED]: {
+    type: EffectType.CONTROLLED,
+    name: '被操控',
+    polarity: 'debuff',
+    timings: ['onCardPlay', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合只能使用与对手意图同类型卡牌。每回合结束层数-1',
+  },
   [EffectType.STURDY]: {
     type: EffectType.STURDY,
     name: '坚固',
@@ -496,6 +514,14 @@ export const ELEMENTAL_DEBUFF_TYPES: EffectType[] = [
   EffectType.SHOCK,
 ];
 
+const DECAY_GRACE_EFFECT_TYPES = new Set<EffectType>([
+  EffectType.BIND,
+  EffectType.SILENCE,
+  EffectType.STUN,
+  EffectType.CONTROLLED,
+  EffectType.BLEED,
+]);
+
 // ═══════════════════════════════════════════════════════════════
 //  效果工具函数
 // ═══════════════════════════════════════════════════════════════
@@ -581,9 +607,6 @@ export function applyEffect(
     if (type === EffectType.BIND && options?.restrictedTypes) {
       existing.restrictedTypes = options.restrictedTypes;
     }
-    if ((type === EffectType.BIND || type === EffectType.SILENCE || type === EffectType.STUN) && options?.lockDecayThisTurn) {
-      existing.lockDecayThisTurn = true;
-    }
     if (type === EffectType.CORROSION && existing.stacks >= 30) {
       entity.maxHp = 0;
       entity.hp = 0;
@@ -600,7 +623,7 @@ export function applyEffect(
     type,
     stacks: instanceStacks,
     polarity: def.polarity,
-    lockDecayThisTurn: (type === EffectType.BIND || type === EffectType.SILENCE || type === EffectType.STUN)
+    lockDecayThisTurn: DECAY_GRACE_EFFECT_TYPES.has(type)
       ? !!options?.lockDecayThisTurn
       : undefined,
     restrictedTypes: options?.restrictedTypes,
@@ -668,7 +691,7 @@ export interface TurnStartResult {
 
 /**
  * 处理回合开始时所有效果触发
- * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 元素适应体 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
+ * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 高潮 → 元素适应体 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
  */
 export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   const result: TurnStartResult = {
@@ -710,9 +733,15 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   }
 
   // 流血每回合 -1
-  if (hasEffect(entity, EffectType.BLEED)) {
-    reduceEffectStacks(entity, EffectType.BLEED);
-    result.logs.push(`[流血] 层数衰减。`);
+  const bleedEffect = findEffect(entity, EffectType.BLEED);
+  if (bleedEffect && bleedEffect.stacks > 0) {
+    if (bleedEffect.lockDecayThisTurn) {
+      bleedEffect.lockDecayThisTurn = false;
+      result.logs.push('[流血] 新施加，本回合不衰减。');
+    } else {
+      reduceEffectStacks(entity, EffectType.BLEED);
+      result.logs.push('[流血] 层数衰减。');
+    }
   }
 
   // 生命回复
@@ -720,6 +749,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (regenStacks > 0) {
     result.hpChange += regenStacks;
     result.logs.push(`[生命回复] 回复 ${regenStacks} 点生命。`);
+  }
+
+  // 高潮：每回合开始时施加等同层数的疲劳
+  const orgasmStacks = getEffectStacks(entity, EffectType.ORGASM);
+  if (orgasmStacks > 0) {
+    applyEffect(entity, EffectType.FATIGUE, orgasmStacks, { source: 'effect:orgasm' });
+    result.logs.push(`[高潮] 触发：施加 ${orgasmStacks} 层疲劳。`);
   }
 
   // 元素适应体：有元素debuff时，随机移除2层并回复2点生命
@@ -820,7 +856,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
 
 /**
  * 处理回合结束时所有效果触发
- * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 眩晕(-1)
+ * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 被操控(-1) → 眩晕(-1)
  */
 export function processOnTurnEnd(entity: EntityStats): string[] {
   const logs: string[] = [];
@@ -838,12 +874,7 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
   if (bindEffect && bindEffect.stacks > 0) {
     if (bindEffect.lockDecayThisTurn) {
       bindEffect.lockDecayThisTurn = false;
-      if (bindEffect.stacks <= 1) {
-        logs.push(`[束缚] 新施加且层数为1，本回合不衰减。`);
-      } else {
-        reduceEffectStacks(entity, EffectType.BIND);
-        logs.push(`[束缚] 新施加但层数大于1，本回合仍衰减。`);
-      }
+      logs.push('[束缚] 新施加，本回合不衰减。');
     } else {
       reduceEffectStacks(entity, EffectType.BIND);
       logs.push(`[束缚] 层数衰减。`);
@@ -865,15 +896,22 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
   if (silenceEffect && silenceEffect.stacks > 0) {
     if (silenceEffect.lockDecayThisTurn) {
       silenceEffect.lockDecayThisTurn = false;
-      if (silenceEffect.stacks <= 1) {
-        logs.push(`[禁言] 新施加且层数为1，本回合不衰减。`);
-      } else {
-        reduceEffectStacks(entity, EffectType.SILENCE);
-        logs.push(`[禁言] 新施加但层数大于1，本回合仍衰减。`);
-      }
+      logs.push('[禁言] 新施加，本回合不衰减。');
     } else {
       reduceEffectStacks(entity, EffectType.SILENCE);
       logs.push(`[禁言] 层数衰减。`);
+    }
+  }
+
+  // 被操控
+  const controlledEffect = findEffect(entity, EffectType.CONTROLLED);
+  if (controlledEffect && controlledEffect.stacks > 0) {
+    if (controlledEffect.lockDecayThisTurn) {
+      controlledEffect.lockDecayThisTurn = false;
+      logs.push('[被操控] 新施加，本回合不衰减。');
+    } else {
+      reduceEffectStacks(entity, EffectType.CONTROLLED);
+      logs.push('[被操控] 层数衰减。');
     }
   }
 
@@ -888,12 +926,7 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
   if (stunEffect && stunEffect.stacks > 0) {
     if (stunEffect.lockDecayThisTurn) {
       stunEffect.lockDecayThisTurn = false;
-      if (stunEffect.stacks <= 1) {
-        logs.push(`[眩晕] 新施加且层数为1，本回合不衰减。`);
-      } else {
-        reduceEffectStacks(entity, EffectType.STUN);
-        logs.push(`[眩晕] 新施加但层数大于1，本回合仍衰减。`);
-      }
+      logs.push('[眩晕] 新施加，本回合不衰减。');
     } else {
       reduceEffectStacks(entity, EffectType.STUN);
       logs.push(`[眩晕] 层数衰减。`);
@@ -914,6 +947,7 @@ export function canPlayCard(
   entity: EntityStats,
   card: CardData,
   baseRawDice: number,
+  options?: { controlledExpectedType?: CardType | null },
 ): { allowed: boolean; reason?: string } {
   // 无法打出
   if (card.traits.unplayable) {
@@ -955,6 +989,13 @@ export function canPlayCard(
   // 禁言：禁用魔法
   if (card.type === ('魔法' as CardType) && hasEffect(entity, EffectType.SILENCE)) {
     return { allowed: false, reason: '禁言中，无法使用魔法卡牌。' };
+  }
+
+  // 被操控：只能使用与对手意图同类型卡牌
+  if (hasEffect(entity, EffectType.CONTROLLED) && options?.controlledExpectedType) {
+    if (card.type !== options.controlledExpectedType) {
+      return { allowed: false, reason: `被操控中，仅可使用${options.controlledExpectedType}卡牌或跳过。` };
+    }
   }
 
   return { allowed: true };

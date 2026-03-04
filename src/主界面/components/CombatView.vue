@@ -175,7 +175,7 @@
               :src="enemyPortraitUrl"
               class="w-full h-full object-contain object-bottom"
               alt="enemy portrait"
-              @error="enemyPortraitError = true"
+              @error="onEnemyPortraitError"
             />
           </div>
         </div>
@@ -358,7 +358,7 @@
               :src="playerPortraitUrl"
               class="w-full h-full object-contain object-bottom"
               alt="player portrait"
-              @error="playerPortraitError = true"
+              @error="onPlayerPortraitError"
             />
           </div>
         </div>
@@ -850,7 +850,7 @@ import {
 import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
-import { getLocalFolderImagePaths } from '../localAssetManifest';
+import { getLocalFolderImagePaths, getLocalFolderFirstImagePath } from '../localAssetManifest';
 import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
 import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
@@ -940,6 +940,8 @@ const playerPortraitUrl = ref(toResolveUrl(`${HF_USER_DIR}/立绘.png`));
 const enemyPortraitUrl = ref(toResolveUrl(`${HF_MONSTER_DIR}/${enemyDisplayName}.png`));
 const playerPortraitError = ref(false);
 const enemyPortraitError = ref(false);
+const playerPortraitFallbackTried = ref(false);
+const enemyPortraitFallbackTried = ref(false);
 
 let portraitLoaderDisposed = false;
 
@@ -949,12 +951,51 @@ const resolveRandomPortrait = async (
 ): Promise<string> => {
   const images = await fetchFolderImages(folderPath);
   const randomPath = pickRandom(images);
-  return randomPath ? toResolveUrl(randomPath) : toResolveUrl(fallbackFilePath);
+  const firstPath = getLocalFolderFirstImagePath(folderPath);
+  return randomPath
+    ? toResolveUrl(randomPath)
+    : firstPath
+      ? toResolveUrl(firstPath)
+      : toResolveUrl(fallbackFilePath);
+};
+
+const tryFallbackPortrait = async (
+  folderPath: string,
+  urlRef: typeof playerPortraitUrl,
+  errorRef: typeof playerPortraitError,
+  triedRef: typeof playerPortraitFallbackTried,
+) => {
+  if (triedRef.value) {
+    errorRef.value = true;
+    return;
+  }
+  triedRef.value = true;
+  const firstPath = getLocalFolderFirstImagePath(folderPath);
+  if (!firstPath) {
+    errorRef.value = true;
+    return;
+  }
+  const firstUrl = toResolveUrl(firstPath);
+  if (firstUrl === urlRef.value) {
+    errorRef.value = true;
+    return;
+  }
+  errorRef.value = false;
+  urlRef.value = firstUrl;
+};
+
+const onPlayerPortraitError = () => {
+  void tryFallbackPortrait(HF_USER_DIR, playerPortraitUrl, playerPortraitError, playerPortraitFallbackTried);
+};
+
+const onEnemyPortraitError = () => {
+  void tryFallbackPortrait(`${HF_MONSTER_DIR}/${enemyDisplayName}`, enemyPortraitUrl, enemyPortraitError, enemyPortraitFallbackTried);
 };
 
 const initPortraitUrls = async () => {
   const playerUrl = await resolveRandomPortrait(HF_USER_DIR, `${HF_USER_DIR}/立绘.png`);
   if (!portraitLoaderDisposed) {
+    playerPortraitFallbackTried.value = false;
     playerPortraitError.value = false;
     playerPortraitUrl.value = playerUrl;
   }
@@ -973,6 +1014,7 @@ const initPortraitUrls = async () => {
     }
   }
   if (!portraitLoaderDisposed) {
+    enemyPortraitFallbackTried.value = false;
     enemyPortraitError.value = false;
     enemyPortraitUrl.value = enemyUrl;
   }
@@ -2340,7 +2382,7 @@ const applyBloodbladeAttachOnClash = (sourceSide: BattleSide, targetSide: Battle
   const sourceStats = sourceSide === 'player' ? playerStats.value : enemyStats.value;
   const stacks = getEffectStacks(sourceStats, ET.BLOODBLADE_ATTACH);
   if (stacks <= 0) return;
-  applyStatusEffectWithRelics(targetSide, ET.BLEED, stacks, { source: 'effect:bloodblade_attach' });
+  applyStatusEffectWithRelics(targetSide, ET.BLEED, stacks, { source: 'effect:bloodblade_attach', lockDecayThisTurn: true });
   const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
   log(`<span class="text-rose-300">${sourceLabel}[血刃附加] 为对方施加了 ${stacks} 层流血。</span>`);
 };
@@ -2395,7 +2437,11 @@ const applyCardEffectsByTrigger = (
       const applied = applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
         restrictedTypes: ce.restrictedTypes,
         source: card.id,
-        lockDecayThisTurn: ce.effectType === ET.BIND || ce.effectType === ET.SILENCE || ce.effectType === ET.STUN,
+        lockDecayThisTurn: ce.effectType === ET.BIND
+          || ce.effectType === ET.SILENCE
+          || ce.effectType === ET.STUN
+          || ce.effectType === ET.CONTROLLED
+          || ce.effectType === ET.BLEED,
       });
       if (!applied) {
         continue;
@@ -3837,7 +3883,15 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (combatState.value.playerHand[handIdx] !== card) return;
 
   const runtimeCard = withEffectiveManaCost('player', card);
-  const check = canPlayCard(playerStats.value, runtimeCard, playerTurnRawDice.value);
+  const controlledExpectedType = (() => {
+    if (getEffectStacks(playerStats.value, ET.CONTROLLED) <= 0) return null;
+    const intentCard = combatState.value.enemyIntentCard;
+    if (!intentCard || intentCard.id === PASS_CARD.id) return null;
+    return intentCard.type;
+  })();
+  const check = canPlayCard(playerStats.value, runtimeCard, playerTurnRawDice.value, {
+    controlledExpectedType,
+  });
   if (!check.allowed) {
     triggerInvalidCardShake(card);
     log(`<span class="text-red-400">${check.reason ?? '当前无法使用该卡牌。'}</span>`);
@@ -4083,7 +4137,7 @@ const resolveCombat = async (
     if (clashWinner === 'player') {
       const pointMarkCount = getActiveRelicCount('bloodpool_clash_point_mark');
       if (pointMarkCount > 0) {
-        if (applyStatusEffectWithRelics('enemy', ET.BLEED, pointMarkCount, { source: 'relic:bloodpool_clash_point_mark' })) {
+        if (applyStatusEffectWithRelics('enemy', ET.BLEED, pointMarkCount, { source: 'relic:bloodpool_clash_point_mark', lockDecayThisTurn: true })) {
           logRelicMessage(`[骰蚀刻印] 拼点成功，对敌方施加 ${pointMarkCount} 层流血。`);
         }
       }
@@ -4376,7 +4430,7 @@ const resolveCombat = async (
       const selfBleed = Math.max(0, getEffectStacks(attacker, ET.BLEED));
       if (selfBleed > 0) {
         removeEffect(attacker, ET.BLEED);
-        applyStatusEffectWithRelics(defenderSide, ET.BLEED, selfBleed, { source: card.id });
+        applyStatusEffectWithRelics(defenderSide, ET.BLEED, selfBleed, { source: card.id, lockDecayThisTurn: true });
         log(`<span class="text-rose-300">${label}【${card.name}】将自身 ${selfBleed} 层流血转移给了对手</span>`);
       } else {
         log(`<span class="text-gray-400">${label}【${card.name}】自身没有可转移的流血</span>`);
@@ -4739,6 +4793,7 @@ const resolveCombat = async (
       }
       finalizeAndTrack();
     } else if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) {
+      const targetHasSilenceBeforeOnUse = getEffectStacks(defender, ET.SILENCE) > 0;
       if (card.id === 'burn_critical_boil') {
         const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
         const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
@@ -4994,6 +5049,34 @@ const resolveCombat = async (
       if (!applyEffectsBeforeAttack) {
         applyCardEffects();
       }
+      if (card.id === 'enemy_hilvy_silent_decree' && targetHasSilenceBeforeOnUse) {
+        const applied = applyStatusEffectWithRelics(defenderSide, ET.BIND, 1, {
+          source: card.id,
+          restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+          lockDecayThisTurn: true,
+        });
+        if (applied) {
+          log(`<span class="text-yellow-300">${label}【${card.name}】触发：目标已有禁言，额外施加 1 层束缚</span>`);
+        }
+      }
+      if (card.id === 'enemy_hilvy_mime_pull' && targetHasSilenceBeforeOnUse) {
+        const manaGain = Math.max(0, Math.floor(finalPoint));
+        if (manaGain > 0) {
+          const manaResult = changeManaWithShock(source, manaGain, `法力变化（${label}【${card.name}】）`, {
+            showPositiveFloating: true,
+          });
+          const actualGain = Math.max(0, manaResult.actualDelta);
+          if (actualGain > 0) {
+            log(`<span class="text-blue-300">${label}【${card.name}】触发：目标已有禁言，回复了 ${actualGain} 点魔力</span>`);
+          }
+        }
+      }
+      if (card.id === 'enemy_hilvy_aphonia' && targetHasSilenceBeforeOnUse) {
+        const applied = applyStatusEffectWithRelics(defenderSide, ET.ORGASM, 1, { source: card.id });
+        if (applied) {
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已有禁言，额外施加 1 层高潮</span>`);
+        }
+      }
       if (card.id === 'burn_kindle') {
         const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
         if (burnStacks > 0) {
@@ -5005,7 +5088,7 @@ const resolveCombat = async (
       }
       if (card.id === 'bloodpool_blood_debt_strike') {
         const bleedStacks = 3;
-        if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id })) {
+        if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id, lockDecayThisTurn: true })) {
           log(`<span class="text-rose-300">${label}【${card.name}】施加 ${bleedStacks} 层流血</span>`);
         }
       }
@@ -5023,7 +5106,7 @@ const resolveCombat = async (
         );
         const bleedStacks = Math.max(0, Math.floor(finalPoint * 0.5));
         if (bleedStacks > 0) {
-          if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id })) {
+          if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id, lockDecayThisTurn: true })) {
             log(`<span class="text-rose-300">${label}【${card.name}】追加施加 ${bleedStacks} 层流血</span>`);
           }
         }

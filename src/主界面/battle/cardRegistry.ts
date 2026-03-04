@@ -2381,6 +2381,123 @@ const 巨大化投影: CardData = {
   description: '移除自身的“虚幻之躯”，获得1倍点数护甲，最小点数+2，最大点数+4',
 };
 
+/** 静肃宣告：消耗2MP，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层束缚（额外效果在 CombatView） */
+const 静肃宣告: CardData = {
+  id: 'enemy_hilvy_silent_decree',
+  name: '静肃宣告',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '造成1倍点数伤害并施加2层禁言；若目标已有禁言，则额外施加1层束缚',
+};
+
+/** 纸刃切割：点数+1，造成1倍点数伤害，并施加1倍点数流血 */
+const 纸刃切割: CardData = {
+  id: 'enemy_hilvy_paper_blade_cut',
+  name: '纸刃切割',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+1，造成1倍点数伤害，并施加1倍点数的流血',
+};
+
+/** 哑剧牵引：消耗3MP，点数*1.5，造成1倍点数伤害并施加2层被操控；若目标已有禁言则回复自身1倍点数魔力（额外效果在 CombatView） */
+const 哑剧牵引: CardData = {
+  id: 'enemy_hilvy_mime_pull',
+  name: '哑剧牵引',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '点数*1.5，造成1倍点数伤害，并施加2层被操控；若目标已有禁言，则回复自身1倍点数的魔力',
+};
+
+/** 失声：消耗4MP，点数+3，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层高潮（额外效果在 CombatView） */
+const 失声: CardData = {
+  id: 'enemy_hilvy_aphonia',
+  name: '失声',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '点数+3，造成1倍点数伤害，并施加2层禁言；若目标已有禁言，则额外施加1层高潮',
+};
+
+/** 静夜规避：闪避；若闪避成功或对方跳过回合，则施加1倍点数流血 */
+const 静夜规避: CardData = {
+  id: 'enemy_hilvy_silent_night_evasion',
+  name: '静夜规避',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.BLEED,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '闪避；若闪避成功或对方跳过回合，则施加1倍点数流血',
+};
+
+/** 沉默终章：消耗6MP，点数*2，造成1倍点数伤害，施加1倍点数流血、5层禁言与2层被操控，无视闪避 */
+const 沉默终章: CardData = {
+  id: 'enemy_hilvy_silent_finale',
+  name: '沉默终章',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  ignoreDodge: true,
+  description: '点数*2，造成1倍点数伤害，施加1倍点数流血、5层禁言与2层被操控；无视闪避',
+};
+
 /** 震动感知：为自身增加1.5倍点数护甲 */
 const 震动感知: CardData = {
   id: 'enemy_root_tremor_sense',
@@ -3774,6 +3891,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [精神震荡.name, 精神震荡],
   [恶作剧.name, 恶作剧],
   [巨大化投影.name, 巨大化投影],
+  [静肃宣告.name, 静肃宣告],
+  [纸刃切割.name, 纸刃切割],
+  [哑剧牵引.name, 哑剧牵引],
+  [失声.name, 失声],
+  [静夜规避.name, 静夜规避],
+  [沉默终章.name, 沉默终章],
   [震动感知.name, 震动感知],
   [润滑分泌.name, 润滑分泌],
   [渗透攀爬.name, 渗透攀爬],

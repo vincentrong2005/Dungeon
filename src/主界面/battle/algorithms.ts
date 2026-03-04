@@ -124,7 +124,7 @@ export function calculateRawDamage(finalPoint: number, card: CardData): number {
 
 /**
  * 最终伤害（考虑攻防效果）
- * 链路：原始 → 寒冷减 → 易伤增 → 真实伤害跳过防御 → 结界 → 护甲
+ * 链路：原始 → 寒冷减 → 增伤加 → 易伤增 → 真实伤害跳过防御 → 结界 → 护甲
  */
 export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: number; isTrueDamage: boolean; logs: string[] } {
   const logs: string[] = [];

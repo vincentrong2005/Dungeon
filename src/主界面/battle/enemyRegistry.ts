@@ -195,6 +195,15 @@ const URSULA_CARD = {
   COMMANDMENT: 'enemy_ursula_commandment',
 } as const;
 
+const HILVY_CARD = {
+  SILENT_DECREE: 'enemy_hilvy_silent_decree',
+  PAPER_BLADE_CUT: 'enemy_hilvy_paper_blade_cut',
+  MIME_PULL: 'enemy_hilvy_mime_pull',
+  APHONIA: 'enemy_hilvy_aphonia',
+  SILENT_NIGHT_EVASION: 'enemy_hilvy_silent_night_evasion',
+  SILENT_FINALE: 'enemy_hilvy_silent_finale',
+} as const;
+
 const FLOATING_PAGE_CARD = {
   ATTACH: 'enemy_floating_page_attach',
   SENSORY_INFUSION: 'enemy_floating_page_sensory_infusion',
@@ -1139,6 +1148,70 @@ const 厄休拉: EnemyDefinition = {
   },
 };
 
+const 希尔薇: EnemyDefinition = {
+  name: '希尔薇',
+  stats: {
+    hp: 80,
+    maxHp: 80,
+    mp: 0,
+    minDice: 3,
+    maxDice: 7,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    HILVY_CARD.SILENT_DECREE,
+    HILVY_CARD.PAPER_BLADE_CUT,
+    HILVY_CARD.MIME_PULL,
+    HILVY_CARD.APHONIA,
+    HILVY_CARD.SILENT_NIGHT_EVASION,
+    HILVY_CARD.SILENT_FINALE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasSilence = ctx.playerStats.effects.some((e) => e.type === EffectType.SILENCE && e.stacks > 0);
+    if (ctx.enemyStats.mp >= 6 && playerHasSilence) {
+      return pickCardById(ctx, HILVY_CARD.SILENT_FINALE);
+    }
+
+    if (ctx.enemyStats.mp >= 4) {
+      const chosen = weightedRandom<string>([
+        { value: HILVY_CARD.SILENT_DECREE, weight: 15 },
+        { value: HILVY_CARD.MIME_PULL, weight: 15 },
+        { value: HILVY_CARD.APHONIA, weight: 15 },
+        { value: HILVY_CARD.SILENT_NIGHT_EVASION, weight: 25 },
+        { value: HILVY_CARD.PAPER_BLADE_CUT, weight: 30 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      const chosen = weightedRandom<string>([
+        { value: HILVY_CARD.SILENT_DECREE, weight: 20 },
+        { value: HILVY_CARD.MIME_PULL, weight: 20 },
+        { value: HILVY_CARD.SILENT_NIGHT_EVASION, weight: 25 },
+        { value: HILVY_CARD.PAPER_BLADE_CUT, weight: 35 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: HILVY_CARD.SILENT_DECREE, weight: 30 },
+        { value: HILVY_CARD.SILENT_NIGHT_EVASION, weight: 30 },
+        { value: HILVY_CARD.PAPER_BLADE_CUT, weight: 40 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: HILVY_CARD.SILENT_NIGHT_EVASION, weight: 35 },
+      { value: HILVY_CARD.PAPER_BLADE_CUT, weight: 65 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 浮游书页: EnemyDefinition = {
   name: '浮游书页',
   stats: {
@@ -1503,6 +1576,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [玛塔.name, 玛塔],
   [罗丝.name, 罗丝],
   [厄休拉.name, 厄休拉],
+  [希尔薇.name, 希尔薇],
   [浮游书页.name, 浮游书页],
   [墨痕鼠.name, 墨痕鼠],
   [低语幽灵.name, 低语幽灵],

@@ -1817,7 +1817,7 @@ import { recordEncounteredCards, recordEncounteredRelics } from '../codexStore';
 import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
-import { getLocalFolderImagePaths } from '../localAssetManifest';
+import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, EffectType, type ActiveSkillData, type CardData } from '../types';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
@@ -2072,6 +2072,7 @@ const bondFolderImageCache = new Map<string, string[]>();
 const bondFolderImagePromiseCache = new Map<string, Promise<string[]>>();
 const bondPortraitUrls = ref<Record<string, string>>({});
 const bondPortraitErrors = ref<Record<string, boolean>>({});
+const bondPortraitFallbackTried = ref<Record<string, boolean>>({});
 const bondPortraitLoadTasks = new Map<string, Promise<void>>();
 const bondPortraitPreview = ref<{ name: string; url: string } | null>(null);
 let bondPortraitLoaderDisposed = false;
@@ -2108,7 +2109,37 @@ const resolveRandomPortrait = async (
 ): Promise<string> => {
   const images = await fetchFolderImages(folderPath);
   const randomPath = pickRandom(images);
-  return randomPath ? toResolveUrl(randomPath) : toResolveUrl(fallbackFilePath);
+  const firstPath = getLocalFolderFirstImagePath(folderPath);
+  return randomPath
+    ? toResolveUrl(randomPath)
+    : firstPath
+      ? toResolveUrl(firstPath)
+      : toResolveUrl(fallbackFilePath);
+};
+
+const resolvePortraitFolderByName = (characterName: string): string => {
+  const trimmedName = characterName.trim();
+  if (trimmedName === '苏菲' || trimmedName === '玩家') return HF_USER_DIR;
+  return `${HF_MONSTER_DIR}/${trimmedName}`;
+};
+
+const tryFallbackBondPortrait = async (characterName: string): Promise<boolean> => {
+  const folderPath = resolvePortraitFolderByName(characterName);
+  const firstPath = getLocalFolderFirstImagePath(folderPath);
+  if (!firstPath) return false;
+
+  const nextUrl = toResolveUrl(firstPath);
+  if (bondPortraitUrls.value[characterName] === nextUrl) return false;
+
+  bondPortraitUrls.value = {
+    ...bondPortraitUrls.value,
+    [characterName]: nextUrl,
+  };
+  bondPortraitErrors.value = {
+    ...bondPortraitErrors.value,
+    [characterName]: false,
+  };
+  return true;
 };
 
 const resolveCharacterPortraitUrl = async (characterName: string): Promise<string> => {
@@ -2177,6 +2208,10 @@ const ensureBondPortraitLoaded = async (characterName: string) => {
       ...bondPortraitErrors.value,
       [characterName]: false,
     };
+    bondPortraitFallbackTried.value = {
+      ...bondPortraitFallbackTried.value,
+      [characterName]: false,
+    };
   })();
   bondPortraitLoadTasks.set(characterName, task);
   try {
@@ -2187,10 +2222,20 @@ const ensureBondPortraitLoaded = async (characterName: string) => {
 };
 
 const handleBondPortraitError = (characterName: string) => {
-  bondPortraitErrors.value = {
-    ...bondPortraitErrors.value,
-    [characterName]: true,
-  };
+  void (async () => {
+    if (!bondPortraitFallbackTried.value[characterName]) {
+      bondPortraitFallbackTried.value = {
+        ...bondPortraitFallbackTried.value,
+        [characterName]: true,
+      };
+      const recovered = await tryFallbackBondPortrait(characterName);
+      if (recovered) return;
+    }
+    bondPortraitErrors.value = {
+      ...bondPortraitErrors.value,
+      [characterName]: true,
+    };
+  })();
 };
 
 const formatBondAffection = (affection: number) => (affection > 0 ? `+${affection}` : String(affection));
@@ -2711,6 +2756,16 @@ watch(bondRoleEntries, (entries) => {
   }
   if (Object.keys(nextErrors).length !== Object.keys(bondPortraitErrors.value).length) {
     bondPortraitErrors.value = nextErrors;
+  }
+
+  const nextFallbackTried: Record<string, boolean> = {};
+  for (const [name, tried] of Object.entries(bondPortraitFallbackTried.value)) {
+    if (keepSet.has(name)) {
+      nextFallbackTried[name] = tried;
+    }
+  }
+  if (Object.keys(nextFallbackTried).length !== Object.keys(bondPortraitFallbackTried.value).length) {
+    bondPortraitFallbackTried.value = nextFallbackTried;
   }
 
   for (const name of names) {

@@ -141,7 +141,7 @@ import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics } from '../battle/relicRegistry';
 import { loadCodexState } from '../codexStore';
 import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
-import { getLocalFolderImagePaths } from '../localAssetManifest';
+import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, EffectType as ET, type EffectType } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
@@ -527,8 +527,10 @@ watch(totalPages, (pages) => {
 
 const portraitMap = ref<Record<string, string>>({});
 const portraitErrorMap = ref<Record<string, boolean>>({});
+const portraitFallbackTriedMap = ref<Record<string, boolean>>({});
 const folderCache = new Map<string, string[]>();
 const folderPromise = new Map<string, Promise<string[]>>();
+const toResolveUrl = (repoPath: string) => `${IMAGE_CDN_ROOT}/${encodeURIComponent(repoPath).replace(/%2F/g, '/')}`;
 const fetchFolderImages = async (folderPath: string): Promise<string[]> => {
   if (folderCache.has(folderPath)) return folderCache.get(folderPath)!;
   if (folderPromise.has(folderPath)) return folderPromise.get(folderPath)!;
@@ -550,13 +552,34 @@ const ensurePortraits = async () => {
   const targets = currentEntries.filter((enemy) => encounteredEnemyNames.value.has(enemy.name));
   await Promise.all(targets.map(async (enemy) => {
     if (portraitMap.value[enemy.name]) return;
-    const images = await fetchFolderImages(`地牢/魔物/${enemy.name}`);
+    const folderPath = `地牢/魔物/${enemy.name}`;
+    const images = await fetchFolderImages(folderPath);
     const chosen = images.length > 0 ? images[Math.floor(Math.random() * images.length)] : null;
-    portraitMap.value[enemy.name] = chosen ? `${IMAGE_CDN_ROOT}/${encodeURIComponent(chosen).replace(/%2F/g, '/')}` : enemy.fallbackPortraitUrl;
+    const firstPath = getLocalFolderFirstImagePath(folderPath);
+    portraitMap.value[enemy.name] = chosen
+      ? toResolveUrl(chosen)
+      : firstPath
+        ? toResolveUrl(firstPath)
+        : enemy.fallbackPortraitUrl;
+    portraitFallbackTriedMap.value[enemy.name] = false;
   }));
 };
 const markPortraitError = (name: string) => {
-  portraitErrorMap.value[name] = true;
+  void (async () => {
+    if (!portraitFallbackTriedMap.value[name]) {
+      portraitFallbackTriedMap.value[name] = true;
+      const firstPath = getLocalFolderFirstImagePath(`地牢/魔物/${name}`);
+      if (firstPath) {
+        const fallbackUrl = toResolveUrl(firstPath);
+        if (portraitMap.value[name] !== fallbackUrl) {
+          portraitMap.value[name] = fallbackUrl;
+          portraitErrorMap.value[name] = false;
+          return;
+        }
+      }
+    }
+    portraitErrorMap.value[name] = true;
+  })();
 };
 
 watch(

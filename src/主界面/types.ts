@@ -196,6 +196,8 @@ export enum EffectType {
   BLEED = '流血',
   /** 易伤 — 增加受到伤害的系数（加算） */
   VULNERABLE = '易伤',
+  /** 高潮 — 每回合开始时增加对应层数的疲劳 */
+  ORGASM = '高潮',
   /** 增伤 — 增加自身直接攻击伤害（加算） */
   DAMAGE_BOOST = '增伤',
   /** 生命回复 — 每回合回复生命 */
@@ -248,6 +250,8 @@ export enum EffectType {
   MEMORY_FOG = '失忆迷雾',
   /** 禁言 — 无法使用魔法卡牌，每回合结束层数-1 */
   SILENCE = '禁言',
+  /** 被操控 — 仅可使用与对手意图同类型卡牌，每回合结束层数-1 */
+  CONTROLLED = '被操控',
   /** 坚固 — 每次受击固定减伤，持续1回合（回合结束清空） */
   STURDY = '坚固',
   /** 电击 — 每次法力减少时，损失等同层数生命并层数减半 */
@@ -286,7 +290,7 @@ export interface EffectInstance {
   stacks: number;
   /** 效果极性 */
   polarity: EffectPolarity;
-  /** 本回合新施加，回合结束时先不衰减（用于束缚/禁言等） */
+  /** 本回合新施加，标记后本回合不衰减（用于束缚/禁言/眩晕/被操控/流血等） */
   lockDecayThisTurn?: boolean;
   /**
    * 束缚特有：限制的卡牌类型列表
