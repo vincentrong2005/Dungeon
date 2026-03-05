@@ -2616,6 +2616,210 @@ const 黑潮灌注: CardData = {
   description: '点数*2，造成0.5倍点数伤害并施加0.5倍点数侵蚀；若目标已有被操控，则额外插入3张“淫墨誓约”',
 };
 
+/** 档案污页：诅咒，无法打出 */
+const 档案污页: CardData = {
+  id: 'enemy_akasha_archive_smudge',
+  name: '档案污页',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
+  cardEffects: [],
+  description: '无法打出',
+};
+
+/** 欲望检索：对目标施加1层易伤，并回复自身2倍点数生命 */
+const 欲望检索: CardData = {
+  id: 'enemy_akasha_desire_retrieval',
+  name: '欲望检索',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 },
+  ],
+  description: '对目标施加1层易伤，回复自身2倍点数的生命',
+};
+
+/** 钉缚：造成1.5倍点数伤害 */
+const 钉缚: CardData = {
+  id: 'enemy_akasha_pin_bind',
+  name: '钉缚',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1.5倍点数伤害',
+};
+
+/** 催眠书页：造成0.5倍点数伤害，插入1张档案污页，并附带负面状态[被催眠] */
+const 催眠书页: CardData = {
+  id: 'enemy_akasha_hypnosis_page',
+  name: '催眠书页',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['档案污页'] },
+  cardEffects: [],
+  negativeEffect: '[被催眠]',
+  description: '造成0.5倍点数伤害，插入1张“档案污页”，附带负面状态[被催眠]',
+};
+
+/** 欲望实体化：消耗3MP，点数+2，造成1倍点数伤害并施加0.5倍点数易伤 */
+const 欲望实体化: CardData = {
+  id: 'enemy_akasha_desire_materialization',
+  name: '欲望实体化',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+2，造成1倍点数伤害并施加0.5倍点数易伤',
+};
+
+/** 审阅规避：点数-1，闪避；若闪避成功或对方跳过回合，施加2倍点数寒冷 */
+const 审阅规避: CardData = {
+  id: 'enemy_akasha_review_evasion',
+  name: '审阅规避',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.COLD,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 2.0,
+    },
+  ],
+  description: '点数-1，闪避；若闪避成功或对方跳过回合，施加2倍点数的寒冷',
+};
+
+/** 终页定论：消耗8MP，点数*3，造成0.4倍点数伤害，3连击，并施加1层眩晕 */
+const 终页定论: CardData = {
+  id: 'enemy_akasha_final_verdict',
+  name: '终页定论',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 8,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STUN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数*3，造成0.4倍点数伤害，3连击，并施加1层眩晕',
+};
+
+/** 固守：回复1倍点数生命与1倍点数护甲 */
+const 固守: CardData = {
+  id: 'enemy_dorothy_hold_ground',
+  name: '固守',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '回复1倍点数生命与护甲',
+};
+
+/** 鞭戒：点数+1，造成1倍点数伤害，2连击，并施加0.5倍点数侵蚀 */
+const 鞭戒: CardData = {
+  id: 'enemy_dorothy_whip_discipline',
+  name: '鞭戒',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 2,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+1，造成1倍点数伤害，2连击，施加0.5倍点数侵蚀',
+};
+
+/** 声音支配：点数*1.5，造成1倍点数伤害，并施加0.5倍点数侵蚀 */
+const 声音支配: CardData = {
+  id: 'enemy_dorothy_voice_domination',
+  name: '声音支配',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数*1.5，造成1倍点数伤害，并施加0.5倍点数侵蚀',
+};
+
+/** 罚站：点数-2，闪避；若闪避成功或对方跳过回合，施加1倍点数侵蚀 */
+const 罚站: CardData = {
+  id: 'enemy_dorothy_hallway_stand',
+  name: '罚站',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '点数-2，闪避；若闪避成功或对方跳过回合，施加1倍点数侵蚀',
+};
+
 /** 震动感知：为自身增加1.5倍点数护甲 */
 const 震动感知: CardData = {
   id: 'enemy_root_tremor_sense',
@@ -4021,6 +4225,17 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [强制书写.name, 强制书写],
   [墨池规避.name, 墨池规避],
   [黑潮灌注.name, 黑潮灌注],
+  [档案污页.name, 档案污页],
+  [欲望检索.name, 欲望检索],
+  [钉缚.name, 钉缚],
+  [催眠书页.name, 催眠书页],
+  [欲望实体化.name, 欲望实体化],
+  [审阅规避.name, 审阅规避],
+  [终页定论.name, 终页定论],
+  [固守.name, 固守],
+  [鞭戒.name, 鞭戒],
+  [声音支配.name, 声音支配],
+  [罚站.name, 罚站],
   [震动感知.name, 震动感知],
   [润滑分泌.name, 润滑分泌],
   [渗透攀爬.name, 渗透攀爬],

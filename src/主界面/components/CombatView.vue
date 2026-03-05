@@ -831,7 +831,7 @@ import {
 } from 'lucide-vue-next';
 import { applyDamageToEntity, calculateFinalDamage, calculateFinalPoint, consumeColdAfterDealingDamage, triggerSwarmReviveIfNeeded } from '../battle/algorithms';
 import { getCardByName } from '../battle/cardRegistry';
-import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
+import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import {
   resolveRelicMap,
@@ -1178,12 +1178,12 @@ const enemyPoisonAmountPercent = computed(() => {
   if (enemyStats.value.maxHp <= 0) return 0;
   return Math.max(0, Math.min((enemyPoisonAmount.value / enemyStats.value.maxHp) * 100, 100));
 });
-const playerVisibleEffects = computed(() => playerStats.value.effects.filter(
-  e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP,
-));
-const enemyVisibleEffects = computed(() => enemyStats.value.effects.filter(
-  e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP,
-));
+const playerVisibleEffects = computed(() => playerStats.value.effects
+  .filter(e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
+  .sort((a, b) => getEffectDisplayOrder(a.type) - getEffectDisplayOrder(b.type)));
+const enemyVisibleEffects = computed(() => enemyStats.value.effects
+  .filter(e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
+  .sort((a, b) => getEffectDisplayOrder(a.type) - getEffectDisplayOrder(b.type)));
 
 const cloneCardForBattle = (card: CardData): CardData => ({
   ...card,
@@ -3457,6 +3457,7 @@ function selectEnemyCard(): CardData {
       enemyStats: enemyStats.value,
       playerStats: playerStats.value,
       deck: combatState.value.enemyDeck,
+      playerHand: combatState.value.playerHand.slice(0, 3),
       turn: combatState.value.turn,
       flags: aiFlags,
     };

@@ -1,4 +1,4 @@
-import { type CardData, EffectType, type EnemyAIContext, type EnemyDefinition } from '../types';
+import { CardType, EffectType, type CardData, type EnemyAIContext, type EnemyDefinition } from '../types';
 import { getAllCards } from './cardRegistry';
 import { ELEMENTAL_DEBUFF_TYPES } from './effects';
 
@@ -15,6 +15,51 @@ function weightedRandom<T>(options: { value: T; weight: number }[]): T {
   }
   return options[options.length - 1]!.value;
 }
+
+const pickRandomCard = (cards: CardData[]): CardData | null => (
+  cards.length > 0 ? cards[Math.floor(Math.random() * cards.length)]! : null
+);
+
+const selectCardByMindRead = (ctx: EnemyAIContext): CardData => {
+  const hand = (ctx.playerHand ?? []).slice(0, 3);
+  const hasPhysical = hand.some((card) => card.type === CardType.PHYSICAL);
+  const hasMagic = hand.some((card) => card.type === CardType.MAGIC);
+  const hasDodge = hand.some((card) => card.type === CardType.DODGE);
+
+  const handKey = `${hasPhysical ? 1 : 0}${hasMagic ? 1 : 0}${hasDodge ? 1 : 0}`;
+  let preferredType: CardType;
+  switch (handKey) {
+    case '111': preferredType = CardType.FUNCTION; break;
+    case '110': preferredType = CardType.DODGE; break;
+    case '101': preferredType = CardType.MAGIC; break;
+    case '100': preferredType = CardType.MAGIC; break;
+    case '011': preferredType = CardType.PHYSICAL; break;
+    case '010': preferredType = CardType.PHYSICAL; break;
+    case '001': preferredType = CardType.FUNCTION; break;
+    default: preferredType = CardType.MAGIC; break;
+  }
+
+  const cardsByType = (type: CardType) => ctx.deck.filter((card) => card.type === type);
+  const playableMagicCards = cardsByType(CardType.MAGIC).filter((card) => card.manaCost <= ctx.enemyStats.mp);
+
+  if (preferredType === CardType.MAGIC) {
+    const pickedMagic = pickRandomCard(playableMagicCards);
+    if (pickedMagic) return pickedMagic;
+    const pickedPhysical = pickRandomCard(cardsByType(CardType.PHYSICAL));
+    if (pickedPhysical) return pickedPhysical;
+  } else {
+    const pickedPreferred = pickRandomCard(cardsByType(preferredType));
+    if (pickedPreferred) return pickedPreferred;
+  }
+
+  const fallback =
+    pickRandomCard(cardsByType(CardType.PHYSICAL))
+    ?? pickRandomCard(cardsByType(CardType.DODGE))
+    ?? pickRandomCard(cardsByType(CardType.FUNCTION))
+    ?? pickRandomCard(playableMagicCards)
+    ?? pickRandomCard(ctx.deck);
+  return fallback ?? ctx.deck[0]!;
+};
 
 const CARD_BY_ID = new Map<string, CardData>(getAllCards().map((card) => [card.id, card]));
 const requireCardById = (id: string): CardData => {
@@ -210,6 +255,22 @@ const INK_LORD_CARD = {
   FORCED_SCRIPT: 'enemy_ink_lord_forced_script',
   INK_POOL_EVASION: 'enemy_ink_lord_ink_pool_evasion',
   BLACK_TIDE_INFUSION: 'enemy_ink_lord_black_tide_infusion',
+} as const;
+
+const AKASHA_CARD = {
+  DESIRE_RETRIEVAL: 'enemy_akasha_desire_retrieval',
+  PIN_BIND: 'enemy_akasha_pin_bind',
+  HYPNOSIS_PAGE: 'enemy_akasha_hypnosis_page',
+  DESIRE_MATERIALIZATION: 'enemy_akasha_desire_materialization',
+  REVIEW_EVASION: 'enemy_akasha_review_evasion',
+  FINAL_VERDICT: 'enemy_akasha_final_verdict',
+} as const;
+
+const DOROTHY_CARD = {
+  HOLD_GROUND: 'enemy_dorothy_hold_ground',
+  WHIP_DISCIPLINE: 'enemy_dorothy_whip_discipline',
+  VOICE_DOMINATION: 'enemy_dorothy_voice_domination',
+  HALLWAY_STAND: 'enemy_dorothy_hallway_stand',
 } as const;
 
 const FLOATING_PAGE_CARD = {
@@ -1268,6 +1329,62 @@ const 因克: EnemyDefinition = {
   },
 };
 
+const 阿卡夏: EnemyDefinition = {
+  name: '阿卡夏',
+  stats: {
+    hp: 70,
+    maxHp: 70,
+    mp: 0,
+    minDice: 3,
+    maxDice: 7,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.MIND_READ, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    AKASHA_CARD.DESIRE_RETRIEVAL,
+    AKASHA_CARD.PIN_BIND,
+    AKASHA_CARD.HYPNOSIS_PAGE,
+    AKASHA_CARD.DESIRE_MATERIALIZATION,
+    AKASHA_CARD.REVIEW_EVASION,
+    AKASHA_CARD.FINAL_VERDICT,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    return selectCardByMindRead(ctx);
+  },
+};
+
+const 多萝西: EnemyDefinition = {
+  name: '多萝西',
+  stats: {
+    hp: 100,
+    maxHp: 100,
+    mp: 0,
+    minDice: 5,
+    maxDice: 8,
+    effects: [
+      { type: EffectType.REGEN, stacks: 1, polarity: 'buff' },
+      { type: EffectType.WHITE_TURBID, stacks: 1, polarity: 'mixed' },
+    ],
+  },
+  deck: buildDeckById([
+    DOROTHY_CARD.HOLD_GROUND,
+    DOROTHY_CARD.WHIP_DISCIPLINE,
+    DOROTHY_CARD.VOICE_DOMINATION,
+    DOROTHY_CARD.HALLWAY_STAND,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const chosen = weightedRandom<string>([
+      { value: DOROTHY_CARD.HOLD_GROUND, weight: 25 },
+      { value: DOROTHY_CARD.WHIP_DISCIPLINE, weight: 25 },
+      { value: DOROTHY_CARD.VOICE_DOMINATION, weight: 25 },
+      { value: DOROTHY_CARD.HALLWAY_STAND, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 浮游书页: EnemyDefinition = {
   name: '浮游书页',
   stats: {
@@ -1634,6 +1751,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [厄休拉.name, 厄休拉],
   [希尔薇.name, 希尔薇],
   [因克.name, 因克],
+  [阿卡夏.name, 阿卡夏],
+  [多萝西.name, 多萝西],
   [浮游书页.name, 浮游书页],
   [墨痕鼠.name, 墨痕鼠],
   [低语幽灵.name, 低语幽灵],

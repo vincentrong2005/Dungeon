@@ -43,7 +43,7 @@ export interface EffectDefinition {
 
 // ── 效果注册表 ────────────────────────────────────────────────
 
-export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
+const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   [EffectType.BARRIER]: {
     type: EffectType.BARRIER,
     name: '结界',
@@ -485,6 +485,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '攻击造成伤害后附加1倍点数侵蚀；受到燃烧伤害后追加等量真实伤害',
   },
+  [EffectType.MIND_READ]: {
+    type: EffectType.MIND_READ,
+    name: '读心',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '读取玩家的意图',
+  },
   [EffectType.ELEMENTAL_ADAPTATION]: {
     type: EffectType.ELEMENTAL_ADAPTATION,
     name: '元素适应体',
@@ -513,6 +522,98 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     description: '每回合开始层数-1；归零后清除非实体、生命回满，并使最小/最大骰子点数+4',
   },
 };
+
+const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
+  EffectType.ARMOR,
+  EffectType.POISON_AMOUNT,
+  EffectType.TEMP_MAX_HP,
+  EffectType.MAX_HP_REDUCTION,
+  EffectType.BURN,
+  EffectType.COLD,
+  EffectType.POISON,
+  EffectType.BLEED,
+  EffectType.SHOCK,
+  EffectType.TEMPERATURE_DIFF,
+  EffectType.CORROSION,
+  EffectType.VULNERABLE,
+  EffectType.DAMAGE_BOOST,
+  EffectType.CHARGE,
+  EffectType.FATIGUE,
+  EffectType.BARRIER,
+  EffectType.STURDY,
+  EffectType.INDOMITABLE,
+  EffectType.MANA_SPRING,
+  EffectType.REGEN,
+  EffectType.FLAME_ATTACH,
+  EffectType.FROST_ATTACH,
+  EffectType.POISON_ATTACH,
+  EffectType.BLOODBLADE_ATTACH,
+  EffectType.LIGHTNING_ATTACH,
+  EffectType.BLOOD_COCOON,
+  EffectType.ORGASM,
+  EffectType.BIND,
+  EffectType.DEVOUR,
+  EffectType.STUN,
+  EffectType.BIND,
+  EffectType.SILENCE,
+  EffectType.CONTROLLED,
+  EffectType.MANA_DRAIN,
+  EffectType.PEEP_FORBIDDEN,
+  EffectType.BLIND_ASH,
+  EffectType.COGNITIVE_INTERFERENCE,
+  EffectType.MEMORY_FOG,
+  EffectType.SWARM,
+  EffectType.WHITE_TURBID,
+  EffectType.AMBUSH,
+  EffectType.THORNS,
+  EffectType.IGNITE_AURA,
+  EffectType.NON_LIVING,
+  EffectType.NON_ENTITY,
+  EffectType.ILLUSORY_BODY,
+  EffectType.POINT_GROWTH_SMALL,
+  EffectType.POINT_GROWTH_BIG,
+  EffectType.TOXIN_SPREAD,
+  EffectType.INK_CREATION,
+  EffectType.MIND_READ,
+  EffectType.ELEMENTAL_CORTEX,
+  EffectType.ELEMENTAL_ADAPTATION,
+  EffectType.MATERIALIZATION,
+];
+
+const effectRegistryOrderDeduped: EffectType[] = [];
+const effectRegistryOrderSeen = new Set<EffectType>();
+for (const type of EFFECT_REGISTRY_ORDER_REQUESTED) {
+  if (!(type in EFFECT_REGISTRY_RAW)) continue;
+  if (effectRegistryOrderSeen.has(type)) continue;
+  effectRegistryOrderSeen.add(type);
+  effectRegistryOrderDeduped.push(type);
+}
+for (const type of Object.keys(EFFECT_REGISTRY_RAW) as EffectType[]) {
+  if (effectRegistryOrderSeen.has(type)) continue;
+  effectRegistryOrderSeen.add(type);
+  effectRegistryOrderDeduped.push(type);
+}
+
+export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = effectRegistryOrderDeduped.reduce(
+  (acc, type) => {
+    acc[type] = EFFECT_REGISTRY_RAW[type];
+    return acc;
+  },
+  {} as Record<EffectType, EffectDefinition>,
+);
+
+/**
+ * 状态显示顺序：使用 EFFECT_REGISTRY 的声明顺序作为全局唯一顺序来源。
+ * 这样战斗界面、图鉴等处可以保持一致。
+ */
+export const EFFECT_DISPLAY_ORDER: readonly EffectType[] = Object.keys(EFFECT_REGISTRY) as EffectType[];
+const EFFECT_DISPLAY_ORDER_INDEX = new Map<EffectType, number>(
+  EFFECT_DISPLAY_ORDER.map((type, index) => [type, index]),
+);
+
+export function getEffectDisplayOrder(type: EffectType): number {
+  return EFFECT_DISPLAY_ORDER_INDEX.get(type) ?? Number.MAX_SAFE_INTEGER;
+}
 
 // 元素debuff分组：用于随机附加、转换、翻倍等效果
 export const ELEMENTAL_DEBUFF_TYPES: EffectType[] = [

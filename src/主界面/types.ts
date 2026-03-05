@@ -274,6 +274,8 @@ export enum EffectType {
   THORNS = '荆棘',
   /** 笔墨造物 — 攻击造成伤害后附加侵蚀；受到燃烧伤害后追加等量真实伤害 */
   INK_CREATION = '笔墨造物',
+  /** 读心 — 读取玩家三张手牌并据此决定出牌类型 */
+  MIND_READ = '读心',
   /** 元素适应体 — 每回合开始若有元素debuff，随机移除2层并回复2点生命 */
   ELEMENTAL_ADAPTATION = '元素适应体',
   /** 元素皮层 — 每回合开始若有元素debuff，随机移除1层并回复1点生命 */
@@ -422,6 +424,8 @@ export interface EnemyAIContext {
   playerStats: Readonly<EntityStats>;
   /** 当前可用牌 */
   deck: CardData[];
+  /** 玩家当前手牌（最多传入3张用于读心类逻辑） */
+  playerHand?: readonly CardData[];
   /** 当前回合数 */
   turn: number;
   /**

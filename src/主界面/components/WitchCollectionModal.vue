@@ -82,7 +82,14 @@
               <div v-else-if="activeTab === 'enemies' || activeTab === 'lords'" class="enemy-grid">
                 <article v-for="enemy in pagedEnemyLikeEntries" :key="enemy.name" class="entry-card enemy-card">
                   <div class="enemy-head">
-                    <div class="portrait">
+                    <button
+                      type="button"
+                      class="portrait"
+                      :class="{ 'portrait--clickable': canPreviewPortrait(enemy.name) }"
+                      :disabled="!canPreviewPortrait(enemy.name)"
+                      :aria-label="canPreviewPortrait(enemy.name) ? `放大查看${enemy.name}立绘` : `${enemy.name}立绘不可用`"
+                      @click="openPortraitPreview(enemy.name)"
+                    >
                       <img
                         v-if="encounteredEnemyNames.has(enemy.name) && !portraitErrorMap[enemy.name]"
                         :src="portraitMap[enemy.name] || enemy.fallbackPortraitUrl"
@@ -92,7 +99,7 @@
                         @error="markPortraitError(enemy.name)"
                       />
                       <div v-else class="portrait-fallback">?</div>
-                    </div>
+                    </button>
                     <div class="enemy-head-text">
                       <div class="entry-title">{{ encounteredEnemyNames.has(enemy.name) ? enemy.name : '???' }}</div>
                       <div class="entry-meta">
@@ -131,12 +138,34 @@
         </section>
       </div>
     </div>
+    <Teleport to="body">
+      <div
+        v-if="portraitPreview.url"
+        class="portrait-lightbox"
+        @click.self="closePortraitPreview"
+      >
+        <button
+          type="button"
+          class="portrait-lightbox-close"
+          aria-label="关闭立绘预览"
+          @click="closePortraitPreview"
+        >
+          ×
+        </button>
+        <img
+          class="portrait-lightbox-image"
+          :src="portraitPreview.url"
+          :alt="`${portraitPreview.name}立绘放大预览`"
+        />
+        <div class="portrait-lightbox-name">{{ portraitPreview.name }}</div>
+      </div>
+    </Teleport>
   </DungeonModal>
 </template>
 
 <script setup lang="ts">
 import { getAllCards } from '../battle/cardRegistry';
-import { EFFECT_REGISTRY } from '../battle/effects';
+import { EFFECT_REGISTRY, getEffectDisplayOrder } from '../battle/effects';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics } from '../battle/relicRegistry';
 import { loadCodexState } from '../codexStore';
@@ -231,9 +260,8 @@ const allEffects = computed(() => (
       faStyle: getEffectFontAwesomeStyle(type as EffectType),
     }))
     .sort((a, b) => {
-      const order: Record<StatusKind, number> = { 正面: 0, 负面: 1, 被动: 2 };
-      const kindComp = (order[a.kind] ?? 99) - (order[b.kind] ?? 99);
-      if (kindComp !== 0) return kindComp;
+      const orderComp = getEffectDisplayOrder(a.type as EffectType) - getEffectDisplayOrder(b.type as EffectType);
+      if (orderComp !== 0) return orderComp;
       return a.name.localeCompare(b.name, 'zh-Hans-CN');
     })
 ));
@@ -528,6 +556,7 @@ watch(totalPages, (pages) => {
 const portraitMap = ref<Record<string, string>>({});
 const portraitErrorMap = ref<Record<string, boolean>>({});
 const portraitFallbackTriedMap = ref<Record<string, boolean>>({});
+const portraitPreview = ref<{ name: string; url: string } | { name: ''; url: '' }>({ name: '', url: '' });
 const folderCache = new Map<string, string[]>();
 const folderPromise = new Map<string, Promise<string[]>>();
 const toResolveUrl = (repoPath: string) => `${IMAGE_CDN_ROOT}/${encodeURIComponent(repoPath).replace(/%2F/g, '/')}`;
@@ -581,11 +610,30 @@ const markPortraitError = (name: string) => {
     portraitErrorMap.value[name] = true;
   })();
 };
+const canPreviewPortrait = (name: string): boolean => (
+  encounteredEnemyNames.value.has(name)
+  && !portraitErrorMap.value[name]
+  && typeof (portraitMap.value[name] || '').trim === 'function'
+  && (portraitMap.value[name] || '').trim().length > 0
+);
+const openPortraitPreview = (name: string): void => {
+  if (!canPreviewPortrait(name)) return;
+  portraitPreview.value = {
+    name,
+    url: portraitMap.value[name],
+  };
+};
+const closePortraitPreview = (): void => {
+  portraitPreview.value = { name: '', url: '' };
+};
 
 watch(
   () => props.isOpen,
   (open) => {
-    if (!open) return;
+    if (!open) {
+      closePortraitPreview();
+      return;
+    }
     refreshCodex();
     currentPage.value = 1;
     void ensurePortraits();
@@ -594,6 +642,7 @@ watch(
 );
 
 watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
+  closePortraitPreview();
   if (!props.isOpen) return;
   void ensurePortraits();
 });
@@ -883,6 +932,8 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 }
 
 .portrait {
+  appearance: none;
+  padding: 0;
   width: 3.2rem;
   height: 3.2rem;
   border-radius: 0.55rem;
@@ -892,11 +943,16 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   flex-shrink: 0;
   box-shadow: 0 0 8px rgba(160, 50, 50, 0.12);
   transition: all 0.3s ease;
+  cursor: default;
 }
 
 .enemy-card:hover .portrait {
   border-color: rgba(212, 175, 55, 0.7);
   box-shadow: 0 0 14px rgba(212, 175, 55, 0.25);
+}
+
+.portrait--clickable {
+  cursor: zoom-in;
 }
 
 .portrait-img {
@@ -919,6 +975,57 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 
 .enemy-head-text {
   min-width: 0;
+}
+
+.portrait-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.portrait-lightbox-image {
+  width: min(92vw, 820px);
+  max-height: 78vh;
+  object-fit: contain;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(212, 175, 55, 0.65);
+  box-shadow: 0 0 32px rgba(212, 175, 55, 0.25);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.portrait-lightbox-name {
+  color: rgba(255, 248, 220, 0.95);
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+}
+
+.portrait-lightbox-close {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(212, 175, 55, 0.58);
+  background: rgba(20, 10, 8, 0.78);
+  color: rgba(255, 248, 220, 0.95);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.portrait-lightbox-close:hover {
+  border-color: rgba(255, 220, 140, 0.95);
+  transform: scale(1.04);
 }
 
 /* ── Page Footer ── */

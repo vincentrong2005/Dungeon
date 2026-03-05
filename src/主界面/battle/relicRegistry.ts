@@ -893,7 +893,7 @@ const RELIC_LIST: readonly RelicData[] = [
   {
     id: 'bloodpool_clash_point_mark',
     name: '骰蚀刻印',
-    rarity: '普通',
+    rarity: '稀有',
     category: '血池',
     effect: '拼点成功时给对方施加1层流血',
     description: '每次拼点成功时，对手获得1层流血。',
