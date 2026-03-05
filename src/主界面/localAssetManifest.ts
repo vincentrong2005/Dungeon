@@ -6,7 +6,7 @@ interface LocalFolderImageRule {
 }
 
 const LOCAL_FOLDER_IMAGE_RULES: Record<string, LocalFolderImageRule> = {
-  '地牢/user': { baseName: '立绘', end: 11 },
+  '地牢/user': { baseName: 'user', end: 12 },
   '地牢/魔物/厄休拉': { baseName: '厄休拉', end: 18 },
   '地牢/魔物/因克': { baseName: '因克', end: 23 },
   '地牢/魔物/宁芙': { baseName: '宁芙', end: 31 },

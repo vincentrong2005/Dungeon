@@ -107,13 +107,10 @@ defineEmits<{
 
 const isVisible = ref(false);
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
-const splashBackgrounds: string[] = [
-  `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF1.png`,
-  `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF2.png`,
-  `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF3.png`,
-  `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF4.png`,
-  `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF5.png`,
-] ;
+const SPLASH_BACKGROUND_COUNT = 14;
+const splashBackgrounds: string[] = Array.from({ length: SPLASH_BACKGROUND_COUNT }, (_, i) => (
+  `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF${i + 1}.png`
+));
 const currentBackgroundUrl = ref<string>(splashBackgrounds[0]);
 const incomingBackgroundUrl = ref<string | null>(null);
 const outgoingBackgroundUrl = ref<string | null>(null);
