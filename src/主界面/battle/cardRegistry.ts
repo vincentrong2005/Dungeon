@@ -2498,6 +2498,124 @@ const 沉默终章: CardData = {
   description: '点数*2，造成1倍点数伤害，施加1倍点数流血、5层禁言与2层被操控；无视闪避',
 };
 
+/** 淫墨誓约：诅咒，无法打出 */
+const 淫墨誓约: CardData = {
+  id: 'enemy_ink_lord_ink_vow',
+  name: '淫墨誓约',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
+  cardEffects: [],
+  description: '无法打出',
+};
+
+/** 墨痕烙令：消耗1MP，点数+1，造成0.5倍点数伤害并施加1层被操控 */
+const 墨痕烙令: CardData = {
+  id: 'enemy_ink_lord_ink_brand_decree',
+  name: '墨痕烙令',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 1,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数+1，造成0.5倍点数伤害并施加1层被操控',
+};
+
+/** 触手缠绕：点数*1.2，造成1倍点数伤害并施加1层束缚 */
+const 触手缠绕: CardData = {
+  id: 'enemy_ink_lord_tentacle_entangle',
+  name: '触手缠绕',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.2, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数*1.2，造成1倍点数伤害并施加1层束缚',
+};
+
+/** 强制书写：附带负面效果[淫纹]并施加1层被操控；若目标有束缚则额外施加1倍点数侵蚀（额外效果在 CombatView） */
+const 强制书写: CardData = {
+  id: 'enemy_ink_lord_forced_script',
+  name: '强制书写',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  negativeEffect: '[淫纹]',
+  description: '附带负面效果[淫纹]并施加1层被操控；若目标有束缚则额外施加1倍点数的侵蚀',
+};
+
+/** 墨池规避：闪避；若闪避成功或对方跳过回合，施加1倍点数侵蚀 */
+const 墨池规避: CardData = {
+  id: 'enemy_ink_lord_ink_pool_evasion',
+  name: '墨池规避',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '闪避；若闪避成功或对方跳过回合，施加1倍点数侵蚀',
+};
+
+/** 黑潮灌注：消耗6MP，点数*2，造成0.5倍点数伤害并施加0.5倍点数侵蚀；若目标已有被操控，则额外插入3张淫墨誓约（额外效果在 CombatView） */
+const 黑潮灌注: CardData = {
+  id: 'enemy_ink_lord_black_tide_infusion',
+  name: '黑潮灌注',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数*2，造成0.5倍点数伤害并施加0.5倍点数侵蚀；若目标已有被操控，则额外插入3张“淫墨誓约”',
+};
+
 /** 震动感知：为自身增加1.5倍点数护甲 */
 const 震动感知: CardData = {
   id: 'enemy_root_tremor_sense',
@@ -3897,6 +4015,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [失声.name, 失声],
   [静夜规避.name, 静夜规避],
   [沉默终章.name, 沉默终章],
+  [淫墨誓约.name, 淫墨誓约],
+  [墨痕烙令.name, 墨痕烙令],
+  [触手缠绕.name, 触手缠绕],
+  [强制书写.name, 强制书写],
+  [墨池规避.name, 墨池规避],
+  [黑潮灌注.name, 黑潮灌注],
   [震动感知.name, 震动感知],
   [润滑分泌.name, 润滑分泌],
   [渗透攀爬.name, 渗透攀爬],

@@ -4784,6 +4784,16 @@ const resolveCombat = async (
           }
         }
       }
+      if (card.id === 'enemy_ink_lord_forced_script') {
+        const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
+        if (targetHasBind) {
+          const corrosionStacks = Math.max(0, Math.floor(finalPoint));
+          if (corrosionStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.CORROSION, corrosionStacks, { source: card.id });
+            log(`<span class="text-emerald-300">${label}【${card.name}】触发：目标已束缚，额外施加 ${corrosionStacks} 层侵蚀</span>`);
+          }
+        }
+      }
       if (!hasEffect) {
         // Fallback for special function cards (e.g. MP recovery)
         if (card.id === 'c5') {
@@ -4794,6 +4804,7 @@ const resolveCombat = async (
       finalizeAndTrack();
     } else if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) {
       const targetHasSilenceBeforeOnUse = getEffectStacks(defender, ET.SILENCE) > 0;
+      const targetHasControlledBeforeOnUse = getEffectStacks(defender, ET.CONTROLLED) > 0;
       if (card.id === 'burn_critical_boil') {
         const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
         const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
@@ -5075,6 +5086,24 @@ const resolveCombat = async (
         const applied = applyStatusEffectWithRelics(defenderSide, ET.ORGASM, 1, { source: card.id });
         if (applied) {
           log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已有禁言，额外施加 1 层高潮</span>`);
+        }
+      }
+      if (card.id === 'enemy_ink_lord_black_tide_infusion' && targetHasControlledBeforeOnUse) {
+        const curseCard = getCardByName('淫墨誓约');
+        if (curseCard) {
+          for (let i = 0; i < 3; i += 1) {
+            const battleCard = cloneCardForBattle(curseCard);
+            if (defenderSide === 'player') {
+              combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, battleCard);
+            } else {
+              combatState.value.enemyDeck = insertCardIntoDeckRandomly(combatState.value.enemyDeck, battleCard);
+            }
+          }
+          if (defenderSide === 'player') {
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已有被操控，向对方牌库插入了3张【淫墨誓约】（牌库${combatState.value.playerDeck.length} / 弃牌${combatState.value.discardPile.length}）。</span>`);
+          } else {
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已有被操控，向对方牌库插入了3张【淫墨誓约】（敌方牌库${combatState.value.enemyDeck.length} / 弃牌${combatState.value.enemyDiscard.length}）。</span>`);
+          }
         }
       }
       if (card.id === 'burn_kindle') {

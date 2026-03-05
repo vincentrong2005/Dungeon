@@ -51,6 +51,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.THORNS]: 'fa-solid fa-leaf',
   [ET.INK_CREATION]: 'fa-solid fa-feather-pointed',
   [ET.ELEMENTAL_ADAPTATION]: 'fa-solid fa-atom',
+  [ET.ELEMENTAL_CORTEX]: 'fa-solid fa-atom',
   [ET.MATERIALIZATION]: 'fa-solid fa-person',
 };
 

@@ -204,6 +204,14 @@ const HILVY_CARD = {
   SILENT_FINALE: 'enemy_hilvy_silent_finale',
 } as const;
 
+const INK_LORD_CARD = {
+  INK_BRAND_DECREE: 'enemy_ink_lord_ink_brand_decree',
+  TENTACLE_ENTANGLE: 'enemy_ink_lord_tentacle_entangle',
+  FORCED_SCRIPT: 'enemy_ink_lord_forced_script',
+  INK_POOL_EVASION: 'enemy_ink_lord_ink_pool_evasion',
+  BLACK_TIDE_INFUSION: 'enemy_ink_lord_black_tide_infusion',
+} as const;
+
 const FLOATING_PAGE_CARD = {
   ATTACH: 'enemy_floating_page_attach',
   SENSORY_INFUSION: 'enemy_floating_page_sensory_infusion',
@@ -1212,6 +1220,54 @@ const 希尔薇: EnemyDefinition = {
   },
 };
 
+const 因克: EnemyDefinition = {
+  name: '因克',
+  stats: {
+    hp: 80,
+    maxHp: 80,
+    mp: 1,
+    minDice: 3,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.INK_CREATION, stacks: 1, polarity: 'buff' },
+      { type: EffectType.ELEMENTAL_CORTEX, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    INK_LORD_CARD.INK_BRAND_DECREE,
+    INK_LORD_CARD.TENTACLE_ENTANGLE,
+    INK_LORD_CARD.FORCED_SCRIPT,
+    INK_LORD_CARD.INK_POOL_EVASION,
+    INK_LORD_CARD.BLACK_TIDE_INFUSION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasControlled = ctx.playerStats.effects.some((e) => e.type === EffectType.CONTROLLED && e.stacks > 0);
+    if ((ctx.enemyStats.mp >= 6 && playerHasControlled) || ctx.enemyStats.mp >= 10) {
+      return pickCardById(ctx, INK_LORD_CARD.BLACK_TIDE_INFUSION);
+    }
+
+    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    if (playerHasBind) {
+      const chosen = weightedRandom<string>([
+        { value: INK_LORD_CARD.FORCED_SCRIPT, weight: 50 },
+        { value: INK_LORD_CARD.INK_BRAND_DECREE, weight: 20 },
+        { value: INK_LORD_CARD.TENTACLE_ENTANGLE, weight: 20 },
+        { value: INK_LORD_CARD.INK_POOL_EVASION, weight: 10 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: INK_LORD_CARD.INK_BRAND_DECREE, weight: 35 },
+      { value: INK_LORD_CARD.TENTACLE_ENTANGLE, weight: 35 },
+      { value: INK_LORD_CARD.INK_POOL_EVASION, weight: 30 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 浮游书页: EnemyDefinition = {
   name: '浮游书页',
   stats: {
@@ -1577,6 +1633,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [罗丝.name, 罗丝],
   [厄休拉.name, 厄休拉],
   [希尔薇.name, 希尔薇],
+  [因克.name, 因克],
   [浮游书页.name, 浮游书页],
   [墨痕鼠.name, 墨痕鼠],
   [低语幽灵.name, 低语幽灵],

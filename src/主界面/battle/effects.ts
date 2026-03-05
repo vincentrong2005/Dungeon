@@ -494,6 +494,15 @@ export const EFFECT_REGISTRY: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始时，若自身有元素debuff，则随机移除2层并回复2点生命',
   },
+  [EffectType.ELEMENTAL_CORTEX]: {
+    type: EffectType.ELEMENTAL_CORTEX,
+    name: '元素皮层',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始时，若自身有元素debuff，则随机移除1层并回复1点生命',
+  },
   [EffectType.MATERIALIZATION]: {
     type: EffectType.MATERIALIZATION,
     name: '实体化',
@@ -691,7 +700,7 @@ export interface TurnStartResult {
 
 /**
  * 处理回合开始时所有效果触发
- * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 高潮 → 元素适应体 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
+ * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 高潮 → 元素适应体 → 元素皮层 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
  */
 export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   const result: TurnStartResult = {
@@ -783,6 +792,23 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
       } else {
         result.logs.push('[元素适应体] 回复 2 点生命。');
       }
+    }
+  }
+
+  // 元素皮层：有元素debuff时，随机移除1层并回复1点生命
+  const elementalCortexStacks = getEffectStacks(entity, EffectType.ELEMENTAL_CORTEX);
+  if (elementalCortexStacks > 0) {
+    const hasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some((type) => getEffectStacks(entity, type) > 0);
+    if (hasElementalDebuff) {
+      const available = ELEMENTAL_DEBUFF_TYPES.filter((type) => getEffectStacks(entity, type) > 0);
+      if (available.length > 0) {
+        const picked = available[Math.floor(Math.random() * available.length)]!;
+        reduceEffectStacks(entity, picked, 1);
+        result.logs.push(`[元素皮层] 随机移除元素debuff：${EFFECT_REGISTRY[picked]?.name ?? picked} -1；回复 1 点生命。`);
+      } else {
+        result.logs.push('[元素皮层] 回复 1 点生命。');
+      }
+      result.hpChange += 1;
     }
   }
 

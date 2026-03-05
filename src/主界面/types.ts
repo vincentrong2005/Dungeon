@@ -276,6 +276,8 @@ export enum EffectType {
   INK_CREATION = '笔墨造物',
   /** 元素适应体 — 每回合开始若有元素debuff，随机移除2层并回复2点生命 */
   ELEMENTAL_ADAPTATION = '元素适应体',
+  /** 元素皮层 — 每回合开始若有元素debuff，随机移除1层并回复1点生命 */
+  ELEMENTAL_CORTEX = '元素皮层',
   /** 实体化 — 每回合-1，归零后清除非实体并满血，骰子最小/最大值+4 */
   MATERIALIZATION = '实体化',
 }
