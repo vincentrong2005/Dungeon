@@ -23,6 +23,16 @@ export interface SaveEntry {
  */
 export const useGameStore = defineStore('game', () => {
   const STREAMING_ENABLED_KEY = 'dungeon.streaming_enabled';
+  const SUMMARY_VISIBLE_WINDOW_KEY = 'dungeon.summary_visible_window';
+  const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
+  const MIN_SUMMARY_VISIBLE_WINDOW = 1;
+  const MAX_SUMMARY_VISIBLE_WINDOW = 60;
+
+  function normalizeSummaryVisibleWindow(value: unknown): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return DEFAULT_SUMMARY_VISIBLE_WINDOW;
+    return Math.min(MAX_SUMMARY_VISIBLE_WINDOW, Math.max(MIN_SUMMARY_VISIBLE_WINDOW, Math.floor(parsed)));
+  }
 
   function readStreamingEnabledSetting(): boolean {
     try {
@@ -42,13 +52,32 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
-  // ── 游戏显示状态 ──
+  function readSummaryVisibleWindowSetting(): number {
+    try {
+      const raw = localStorage.getItem(SUMMARY_VISIBLE_WINDOW_KEY);
+      if (raw === null) return DEFAULT_SUMMARY_VISIBLE_WINDOW;
+      return normalizeSummaryVisibleWindow(raw);
+    } catch {
+      return DEFAULT_SUMMARY_VISIBLE_WINDOW;
+    }
+  }
+
+  function persistSummaryVisibleWindowSetting(value: number) {
+    try {
+      localStorage.setItem(SUMMARY_VISIBLE_WINDOW_KEY, String(normalizeSummaryVisibleWindow(value)));
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
+  // State
   const mainText = ref('');
   const options = ref<string[]>([]);
   const currentSummary = ref('');
   const isGenerating = ref(false);
   const streamingText = ref('');
   const useStreaming = ref(readStreamingEnabledSetting());
+  const summaryVisibleWindow = ref(readSummaryVisibleWindowSetting());
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
 
@@ -118,7 +147,6 @@ export const useGameStore = defineStore('game', () => {
   const AUTO_SUMMARY_ENTRY_NAME = '自动总结条目';
   const AUTO_SUMMARY_ENTRY_UID = 0;
   const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
-  const AUTO_VISIBLE_MESSAGE_WINDOW = 15;
 
   interface ChronicleEntry {
     index: number;
@@ -299,7 +327,7 @@ export const useGameStore = defineStore('game', () => {
     }
   };
 
-  const ensureLatestMessageWindow = async (maxVisible: number = AUTO_VISIBLE_MESSAGE_WINDOW) => {
+  const ensureLatestMessageWindow = async (maxVisible: number = summaryVisibleWindow.value) => {
     try {
       const lastId = getLastMessageId();
       if (lastId < 0) return;
@@ -331,6 +359,13 @@ export const useGameStore = defineStore('game', () => {
       streamingText.value = '';
     }
     persistStreamingEnabledSetting(nextEnabled);
+  }
+
+  async function setSummaryVisibleWindow(value: number) {
+    const nextVisibleWindow = normalizeSummaryVisibleWindow(value);
+    summaryVisibleWindow.value = nextVisibleWindow;
+    persistSummaryVisibleWindowSetting(nextVisibleWindow);
+    await ensureLatestMessageWindow(nextVisibleWindow);
   }
 
   function syncFloorNumberByArea(mvuData: any) {
@@ -938,6 +973,7 @@ export const useGameStore = defineStore('game', () => {
     currentSummary,
     isGenerating,
     useStreaming,
+    summaryVisibleWindow,
     streamingText,
     error,
     isInitialized,
@@ -955,6 +991,7 @@ export const useGameStore = defineStore('game', () => {
     initialize,
     sendAction,
     setUseStreaming,
+    setSummaryVisibleWindow,
     setPendingPortalChanges,
     setPendingCombatMvuChanges,
     setPendingStatDataChanges,

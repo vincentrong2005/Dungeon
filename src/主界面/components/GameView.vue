@@ -1,7 +1,9 @@
 ﻿<template>
-  <div
-    class="w-full h-screen bg-[#050505] font-body text-dungeon-paper overflow-hidden relative"
-  >
+  <div class="ui-viewport">
+    <div class="ui-stage" :style="stageStyle">
+      <div
+        class="ui-stage-content w-full h-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative"
+      >
     <!-- Dynamic Background -->
     <div class="absolute inset-0 z-0">
       <img
@@ -14,8 +16,18 @@
       <div class="absolute inset-0" :style="{ backgroundColor: `rgba(0,0,0,${bgOverlayOpacity})` }"></div>
     </div>
 
+    <div v-if="showLandscapeHint" class="landscape-hint-overlay">
+      <div class="landscape-hint-card">
+        <div class="landscape-hint-title">建议横屏体验</div>
+        <div class="landscape-hint-desc">当前主界面使用固定舞台布局，横屏时按钮和正文会更完整。你也可以继续保持竖屏。</div>
+        <div class="landscape-hint-actions">
+          <button type="button" class="landscape-hint-btn" @click="dismissLandscapeHint">继续竖屏</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Sidebar: Individual Icons Top-Left (no back button, settings already has exit) -->
-    <div class="absolute top-6 left-6 z-50 flex flex-col space-y-4">
+    <div class="absolute top-6 left-6 z-50 flex flex-col space-y-4 ui-buttons-left">
       <SidebarIcon
         :icon="SettingsIcon"
         label="设置"
@@ -48,7 +60,7 @@
     </div>
 
     <!-- Right sidebar: save/load only (reroll & edit moved into panel) -->
-    <div class="absolute top-6 right-4 z-50 flex flex-col space-y-4">
+    <div class="absolute top-6 right-4 z-50 flex flex-col space-y-4 ui-buttons-right">
       <SidebarIcon
         :icon="Maximize"
         label="全屏模式"
@@ -190,14 +202,14 @@
                           <span v-else class="story-line-empty">&nbsp;</span>
                         </p>
                       </div>
-                    </Transition>
+                      </Transition>
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- Options Section -->
-            <div v-if="!gameStore.isGenerating && (gameStore.options.length > 0 || gameStore.hasOptionE || gameStore.hasLeave || gameStore.hasRebirth)" class="mt-8 flex flex-col space-y-3">
+            <div v-if="!gameStore.isGenerating && (gameStore.options.length > 0 || gameStore.hasOptionE || gameStore.hasLeave || gameStore.hasRebirth)" class="mt-8 flex flex-col space-y-3 ui-action-buttons">
               <div
                 class="h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
               ></div>
@@ -325,7 +337,7 @@
               @keydown.enter="handleSendInput"
             />
             <button
-              class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[#1a0f08] border border-dungeon-gold/30 hover:bg-dungeon-brown hover:border-dungeon-gold text-dungeon-gold rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              class="ui-send-button absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[#1a0f08] border border-dungeon-gold/30 hover:bg-dungeon-brown hover:border-dungeon-gold text-dungeon-gold rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               :disabled="gameStore.isGenerating"
               @click="handleSendInput"
             >
@@ -337,7 +349,7 @@
     </div>
 
     <!-- Player Status HUD (Bottom Left) -->
-    <div class="absolute bottom-6 left-6 z-50 flex flex-col gap-2 select-none">
+    <div class="absolute bottom-6 left-6 z-50 flex flex-col gap-2 select-none ui-status-hud">
       <div class="flex items-center gap-2">
         <button
           class="w-10 h-10 rounded-lg flex items-center justify-center
@@ -909,44 +921,40 @@
     </div>
 
     <!-- Settings Modal -->
-    <DungeonModal title="系统设置" :is-open="activeModal === 'settings'" @close="activeModal = null">
-      <div class="flex flex-col space-y-6 w-full max-w-lg mx-auto">
-        <!-- Text Display Settings Section -->
-        <div>
-          <h3 class="font-heading text-dungeon-gold text-sm tracking-widest mb-4 uppercase">正文显示</h3>
+    <DungeonModal title="系统设置" :is-open="activeModal === 'settings'" @close="activeModal = null; closeSettingsHelp()">
+      <div class="settings-panel flex flex-col space-y-5 w-full max-w-2xl mx-auto">
+        <section class="settings-section settings-section--text">
+          <h3 class="settings-section-title">正文框设置</h3>
           <div class="space-y-4">
-            <!-- Font Size -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">字体大小</label>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 sm:shrink-0">
                 <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.fontSize = Math.max(12, textSettings.fontSize - 1)">−</button>
-                <span class="text-dungeon-paper font-ui text-sm w-10 text-center">{{ textSettings.fontSize }}px</span>
+                <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{ textSettings.fontSize }}px</span>
                 <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.fontSize = Math.min(28, textSettings.fontSize + 1)">+</button>
               </div>
             </div>
 
-            <!-- Line Height -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">行间距</label>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 sm:shrink-0">
                 <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.lineHeight = Math.max(1.2, +(textSettings.lineHeight - 0.1).toFixed(1))">−</button>
-                <span class="text-dungeon-paper font-ui text-sm w-10 text-center">{{ textSettings.lineHeight }}</span>
+                <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{ textSettings.lineHeight }}</span>
                 <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.lineHeight = Math.min(3.0, +(textSettings.lineHeight + 0.1).toFixed(1))">+</button>
               </div>
             </div>
 
-            <!-- Font Family -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">字体样式</label>
               <select
                 v-model="textSettings.fontFamily"
-                class="bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui"
+                class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui sm:min-w-[14rem]"
               >
                 <option value="'Cinzel', serif">Cinzel (默认)</option>
                 <option value="'Inter', sans-serif">Inter</option>
                 <option value="'MedievalSharp', cursive">MedievalSharp</option>
                 <option value="'MaShanZheng', 'KaiTi', serif">马善政体</option>
-                <option value="'MagicBookTitle', 'KaiTi', serif">江湖琅琊体</option>
+                <option value="'MagicBookTitle', 'KaiTi', serif">江湖琅琶体</option>
                 <option value="serif">Serif</option>
                 <option value="sans-serif">Sans-serif</option>
                 <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
@@ -955,44 +963,47 @@
               </select>
             </div>
 
-            <!-- Container Width -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">正文框宽度</label>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 sm:shrink-0">
                 <input
                   v-model.number="textSettings.containerWidth"
                   type="range"
                   min="600"
                   max="1600"
                   step="50"
-                  class="w-28 accent-dungeon-gold"
+                  class="w-32 accent-dungeon-gold"
                 />
-                <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ textSettings.containerWidth }}px</span>
+                <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ textSettings.containerWidth }}px</span>
               </div>
             </div>
 
-            <!-- Background Clarity -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">背景清晰度</label>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 sm:shrink-0">
                 <input
                   v-model.number="bgOverlayOpacity"
                   type="range"
                   min="0"
                   max="0.8"
                   step="0.05"
-                  class="w-28 accent-dungeon-gold"
+                  class="w-32 accent-dungeon-gold"
                 />
-                <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span>
+                <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div class="flex items-center justify-between">
+        <section class="settings-section settings-section--music">
+          <h3 class="settings-section-title">背景音乐</h3>
+          <div class="space-y-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐</label>
               <select
                 v-model="selectedBgmTrackId"
                 :disabled="bgmTracks.length === 0"
-                class="bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed"
+                class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[14rem]"
               >
                 <option v-if="bgmTracks.length === 0" value="">暂无可用曲目</option>
                 <option v-for="track in bgmTracks" :key="track.id" :value="track.id">
@@ -1001,41 +1012,110 @@
               </select>
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐音量</label>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 sm:shrink-0">
                 <input
                   v-model.number="bgmVolumePercent"
                   type="range"
                   min="0"
                   max="100"
                   step="1"
-                  class="w-28 accent-dungeon-gold"
+                  class="w-32 accent-dungeon-gold"
                 />
-                <span class="text-dungeon-paper font-ui text-sm w-14 text-center">{{ bgmVolumePercent }}%</span>
+                <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ bgmVolumePercent }}%</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section settings-section--ai">
+          <h3 class="settings-section-title">AI回复</h3>
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none sm:shrink-0">
+              <input
+                v-model="isStreamingEnabled"
+                type="checkbox"
+                class="h-4 w-4 accent-dungeon-gold"
+              />
+              <span class="text-dungeon-paper text-sm font-ui">{{ isStreamingEnabled ? '开启' : '关闭' }}</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section settings-section--summary">
+          <h3 class="settings-section-title">总结</h3>
+          <div class="space-y-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                <span>总结层数</span>
+                <button
+                  type="button"
+                  class="settings-help-trigger"
+                  @mouseenter="openSettingsHelp('summaryVisibleWindow')"
+                  @mouseleave="closeSettingsHelp('summaryVisibleWindow')"
+                  @focus="openSettingsHelp('summaryVisibleWindow')"
+                  @blur="closeSettingsHelp('summaryVisibleWindow')"
+                  @touchstart.passive="startSettingsHelpTouch('summaryVisibleWindow')"
+                  @touchend="endSettingsHelpTouch('summaryVisibleWindow')"
+                  @touchcancel="endSettingsHelpTouch('summaryVisibleWindow')"
+                  @click.stop.prevent="toggleSettingsHelp('summaryVisibleWindow')"
+                >?</button>
+                <Transition name="settings-help-fade">
+                  <div v-if="activeSettingsHelp === 'summaryVisibleWindow'" class="settings-help-popover">
+                    {{ settingsHelpText.summaryVisibleWindow }}
+                  </div>
+                </Transition>
+              </div>
+              <div class="flex items-center gap-2 sm:shrink-0">
+                <input
+                  v-model.lazy.number="summaryVisibleWindowValue"
+                  type="number"
+                  min="1"
+                  max="60"
+                  inputmode="numeric"
+                  class="w-20 bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui"
+                />
+                <span class="text-dungeon-paper font-ui text-sm">层</span>
               </div>
             </div>
 
-            <div class="flex items-center justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
-              <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  v-model="isStreamingEnabled"
-                  type="checkbox"
-                  class="h-4 w-4 accent-dungeon-gold"
-                />
-                <span class="text-dungeon-paper text-sm font-ui">{{ isStreamingEnabled ? '开启' : '关闭' }}</span>
-              </label>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                <span>总结按钮</span>
+                <button
+                  type="button"
+                  class="settings-help-trigger"
+                  @mouseenter="openSettingsHelp('manualSummary')"
+                  @mouseleave="closeSettingsHelp('manualSummary')"
+                  @focus="openSettingsHelp('manualSummary')"
+                  @blur="closeSettingsHelp('manualSummary')"
+                  @touchstart.passive="startSettingsHelpTouch('manualSummary')"
+                  @touchend="endSettingsHelpTouch('manualSummary')"
+                  @touchcancel="endSettingsHelpTouch('manualSummary')"
+                  @click.stop.prevent="toggleSettingsHelp('manualSummary')"
+                >?</button>
+                <Transition name="settings-help-fade">
+                  <div v-if="activeSettingsHelp === 'manualSummary'" class="settings-help-popover">
+                    {{ settingsHelpText.manualSummary }}
+                  </div>
+                </Transition>
+              </div>
+              <button
+                class="px-4 py-2 rounded border border-amber-600/45 bg-amber-950/20 text-amber-300 text-sm font-ui transition-colors hover:bg-amber-900/30 hover:border-amber-500/70 disabled:opacity-40 disabled:cursor-not-allowed sm:shrink-0"
+                :disabled="gameStore.isGenerating || isManualSummaryRunning"
+                @click="handleManualSummary"
+              >
+                {{ isManualSummaryRunning ? '补全中...' : '补全当前总结' }}
+              </button>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="h-[1px] w-full bg-dungeon-gold/20"></div>
-
-        <!-- System Section -->
-        <div>
-          <h3 class="font-heading text-dungeon-gold text-sm tracking-widest mb-4 uppercase">系统</h3>
-          <div class="grid grid-cols-2 gap-4">
+        <div class="settings-system-actions">
+          <h3 class="settings-section-title settings-section-title--neutral">系统</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               class="p-3 border border-dungeon-gold/30 hover:bg-dungeon-brown text-dungeon-gold text-sm rounded"
               @click="toggleFullScreen"
@@ -1049,7 +1129,7 @@
               退出到标题
             </button>
             <button
-              class="p-3 border border-amber-600/40 hover:bg-amber-900/20 text-amber-400 text-sm rounded col-span-2"
+              class="p-3 border border-amber-600/40 hover:bg-amber-900/20 text-amber-400 text-sm rounded sm:col-span-2"
               @click="openCombatTestBuilder"
             >
               ⚔ 进入战斗测试
@@ -1787,6 +1867,8 @@
         </button>
       </div>
     </Transition>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1889,6 +1971,35 @@ const WizardHatIcon = defineComponent({
 });
 
 const gameStore = useGameStore();
+const STAGE_BASE_WIDTH = 1920;
+const STAGE_BASE_HEIGHT = 1080;
+const viewportWidth = ref(STAGE_BASE_WIDTH);
+const viewportHeight = ref(STAGE_BASE_HEIGHT);
+const isTouchViewport = ref(false);
+const landscapeHintDismissed = ref(false);
+const updateViewportMetrics = () => {
+  if (typeof window === 'undefined') return;
+  const visualViewport = window.visualViewport;
+  viewportWidth.value = visualViewport?.width ?? window.innerWidth;
+  viewportHeight.value = visualViewport?.height ?? window.innerHeight;
+  isTouchViewport.value = window.matchMedia('(pointer: coarse)').matches;
+};
+const handleViewportResize = () => {
+  updateViewportMetrics();
+};
+const stageScale = computed(() => {
+  if (viewportWidth.value <= 0 || viewportHeight.value <= 0) return 1;
+  return Math.min(viewportWidth.value / STAGE_BASE_WIDTH, viewportHeight.value / STAGE_BASE_HEIGHT, 1);
+});
+const stageStyle = computed(() => ({
+  transform: `translate(-50%, -50%) scale(${stageScale.value})`,
+}));
+const showLandscapeHint = computed(() => (
+  isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value
+));
+const dismissLandscapeHint = () => {
+  landscapeHintDismissed.value = true;
+};
 const activeModal = ref<string | null>(null);
 const inputText = ref('');
 const isVariableUpdateOpen = ref(false);
@@ -3046,17 +3157,155 @@ const selectedRelicTotalCount = computed(() => (
 ));
 
 // ── Text display settings (reactive, persisted) ──
-const textSettings = reactive({
-  fontSize: 21,
+type TextSettingsState = {
+  fontSize: number;
+  lineHeight: number;
+  fontFamily: string;
+  containerWidth: number;
+};
+
+type SettingsHelpKey = 'summaryVisibleWindow' | 'manualSummary';
+
+const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
+const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
+  fontSize: 26,
   lineHeight: 2.0,
   fontFamily: "'Cinzel', serif",
   containerWidth: 1300,
-});
+};
+const TEXT_FONT_FAMILY_OPTIONS = new Set<string>([
+  "'Cinzel', serif",
+  "'Inter', sans-serif",
+  "'MedievalSharp', cursive",
+  "'MaShanZheng', 'KaiTi', serif",
+  "'MagicBookTitle', 'KaiTi', serif",
+  'serif',
+  'sans-serif',
+  "'Microsoft YaHei', sans-serif",
+  "'SimSun', serif",
+  "'KaiTi', serif",
+]);
+
+const clampTextSettingNumber = (value: unknown, min: number, max: number, fallback: number) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+};
+
+const normalizeTextSettings = (value: unknown): TextSettingsState => {
+  const candidate = value && typeof value === 'object' ? value as Partial<TextSettingsState> : {};
+  const normalizedFontFamily = typeof candidate.fontFamily === 'string' && TEXT_FONT_FAMILY_OPTIONS.has(candidate.fontFamily)
+    ? candidate.fontFamily
+    : DEFAULT_TEXT_SETTINGS.fontFamily;
+  return {
+    fontSize: Math.round(clampTextSettingNumber(candidate.fontSize, 12, 28, DEFAULT_TEXT_SETTINGS.fontSize)),
+    lineHeight: Number(clampTextSettingNumber(candidate.lineHeight, 1.2, 3.0, DEFAULT_TEXT_SETTINGS.lineHeight).toFixed(1)),
+    fontFamily: normalizedFontFamily,
+    containerWidth: Math.round(clampTextSettingNumber(candidate.containerWidth, 600, 1600, DEFAULT_TEXT_SETTINGS.containerWidth) / 50) * 50,
+  };
+};
+
+const readTextSettings = (): TextSettingsState => {
+  try {
+    const raw = localStorage.getItem(TEXT_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_TEXT_SETTINGS };
+    return normalizeTextSettings(JSON.parse(raw) as unknown);
+  } catch {
+    return { ...DEFAULT_TEXT_SETTINGS };
+  }
+};
+
+const persistTextSettings = (value: TextSettingsState) => {
+  try {
+    localStorage.setItem(TEXT_SETTINGS_KEY, JSON.stringify(normalizeTextSettings(value)));
+  } catch {
+    // Ignore persistence errors in restricted environments
+  }
+};
+
+const textSettings = reactive<TextSettingsState>(readTextSettings());
+
+watch(textSettings, (value) => {
+  persistTextSettings({
+    fontSize: value.fontSize,
+    lineHeight: value.lineHeight,
+    fontFamily: value.fontFamily,
+    containerWidth: value.containerWidth,
+  });
+}, { deep: true });
 
 const isStreamingEnabled = computed<boolean>({
   get: () => gameStore.useStreaming,
   set: (value) => gameStore.setUseStreaming(value),
 });
+
+const summaryVisibleWindowValue = computed<number>({
+  get: () => gameStore.summaryVisibleWindow,
+  set: (value) => {
+    void gameStore.setSummaryVisibleWindow(value);
+  },
+});
+
+const isManualSummaryRunning = ref(false);
+const activeSettingsHelp = ref<SettingsHelpKey | null>(null);
+let settingsHelpTouchTimer: number | null = null;
+const settingsHelpText: Record<SettingsHelpKey, string> = {
+  summaryVisibleWindow: '该项参数为会将正文完整发送给AI的楼层层数：设置越高，AI对于过往记忆细节越清晰，token数也会增加；设置越低，会降低AI对于过往记忆细节回想，但token数会显著下降。',
+  manualSummary: '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用。',
+};
+
+const openSettingsHelp = (key: SettingsHelpKey) => {
+  activeSettingsHelp.value = key;
+};
+
+const closeSettingsHelp = (key?: SettingsHelpKey) => {
+  if (!key || activeSettingsHelp.value === key) {
+    activeSettingsHelp.value = null;
+  }
+};
+
+const toggleSettingsHelp = (key: SettingsHelpKey) => {
+  activeSettingsHelp.value = activeSettingsHelp.value === key ? null : key;
+};
+
+const startSettingsHelpTouch = (key: SettingsHelpKey) => {
+  if (settingsHelpTouchTimer !== null) {
+    window.clearTimeout(settingsHelpTouchTimer);
+  }
+  settingsHelpTouchTimer = window.setTimeout(() => {
+    activeSettingsHelp.value = key;
+    settingsHelpTouchTimer = null;
+  }, 360);
+};
+
+const endSettingsHelpTouch = (key: SettingsHelpKey) => {
+  if (settingsHelpTouchTimer !== null) {
+    window.clearTimeout(settingsHelpTouchTimer);
+    settingsHelpTouchTimer = null;
+  }
+  if (activeSettingsHelp.value === key) {
+    activeSettingsHelp.value = null;
+  }
+};
+
+const handleManualSummary = async () => {
+  if (gameStore.isGenerating || isManualSummaryRunning.value) return;
+  isManualSummaryRunning.value = true;
+  try {
+    const writtenCount = await gameStore.rebuildAutoSummaryChronicleFromMessages();
+    if (writtenCount < 0) {
+      toastr.error('手动总结失败，请查看控制台日志。');
+      return;
+    }
+    if (writtenCount === 0) {
+      toastr.warning('未找到可重建的总结条目或自动总结条目。');
+      return;
+    }
+    toastr.success(`手动总结完成，已覆盖写入 ${writtenCount} 条。`);
+  } finally {
+    isManualSummaryRunning.value = false;
+  }
+};
 
 const selectedBgmTrackId = computed<string>({
   get: () => bgmTrackId.value,
@@ -4208,6 +4457,7 @@ onUnmounted(() => {
   clearChestCloseLongPressTimer();
   clearHotSpringCleanseTimer();
   clearIdolRollTimer();
+  closeSettingsHelp();
 });
 
 const handleChestBgLoaded = () => {
@@ -4912,6 +5162,12 @@ watch(
 
 onMounted(() => {
   restoreOverlaySnapshot();
+  updateViewportMetrics();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', handleViewportResize, { passive: true });
+    window.addEventListener('orientationchange', handleViewportResize, { passive: true });
+    window.visualViewport?.addEventListener('resize', handleViewportResize, { passive: true });
+  }
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -5562,6 +5818,15 @@ const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[]
 };
 
 onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', handleViewportResize);
+    window.removeEventListener('orientationchange', handleViewportResize);
+    window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    if (settingsHelpTouchTimer !== null) {
+      window.clearTimeout(settingsHelpTouchTimer);
+      settingsHelpTouchTimer = null;
+    }
+  }
   bondPortraitLoaderDisposed = true;
   clearShopRobTimer();
   clearChestMimicTimer();
@@ -5573,6 +5838,118 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.ui-viewport {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background: #050505;
+}
+
+.ui-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+}
+
+.ui-stage-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ui-buttons-left {
+  transform: scale(1.2);
+  transform-origin: top left;
+}
+
+.ui-buttons-right {
+  transform: scale(1.2);
+  transform-origin: top right;
+}
+
+.ui-action-buttons {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ui-send-button {
+  transform: translateY(-50%) scale(1.15);
+  transform-origin: right center;
+}
+
+.ui-status-hud {
+  transform: scale(1.2);
+  transform-origin: bottom left;
+}
+
+.landscape-hint-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 180;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(3, 4, 8, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.landscape-hint-card {
+  width: min(92vw, 28rem);
+  border-radius: 0.9rem;
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(251, 191, 36, 0.14), transparent 56%),
+    rgba(15, 11, 10, 0.94);
+  padding: 0.95rem 1rem;
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(212, 175, 55, 0.2);
+}
+
+.landscape-hint-title {
+  color: rgba(252, 211, 77, 0.95);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.landscape-hint-desc {
+  margin-top: 0.55rem;
+  color: rgba(229, 231, 235, 0.92);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.landscape-hint-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.landscape-hint-btn {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(62, 28, 16, 0.84);
+  color: rgba(253, 230, 138, 0.96);
+  font-size: 0.75rem;
+  padding: 0.44rem 0.8rem;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.landscape-hint-btn:hover {
+  border-color: rgba(245, 208, 102, 0.9);
+  background: rgba(93, 40, 21, 0.86);
+}
+
 @font-face {
   font-family: 'MaShanZheng';
   src: url('../font/MaShanZheng-Regular.ttf') format('truetype');
@@ -6537,6 +6914,158 @@ onBeforeUnmount(() => {
 .idol-exit-btn:disabled {
   opacity: 0.48;
   cursor: not-allowed;
+}
+
+
+.settings-panel {
+  width: 100%;
+}
+
+.settings-section {
+  border-radius: 1rem;
+  border: 1px solid rgba(92, 62, 38, 0.78);
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(20, 12, 8, 0.94), rgba(9, 6, 5, 0.86));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.settings-system-actions {
+  border-top: 1px solid rgba(212, 175, 55, 0.18);
+  padding-top: 1.1rem;
+}
+
+.settings-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.95rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.settings-section-title::before,
+.settings-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  opacity: 0.95;
+}
+
+.settings-section--text .settings-section-title {
+  color: rgba(232, 194, 111, 0.96);
+}
+
+.settings-section--text .settings-section-title::before,
+.settings-section--text .settings-section-title::after {
+  background: linear-gradient(90deg, transparent, rgba(232, 194, 111, 0.78), transparent);
+}
+
+.settings-section--music .settings-section-title {
+  color: rgba(134, 239, 172, 0.94);
+}
+
+.settings-section--music .settings-section-title::before,
+.settings-section--music .settings-section-title::after {
+  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.75), transparent);
+}
+
+.settings-section--ai .settings-section-title {
+  color: rgba(125, 211, 252, 0.94);
+}
+
+.settings-section--ai .settings-section-title::before,
+.settings-section--ai .settings-section-title::after {
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.74), transparent);
+}
+
+.settings-section--summary .settings-section-title {
+  color: rgba(251, 191, 114, 0.94);
+}
+
+.settings-section--summary .settings-section-title::before,
+.settings-section--summary .settings-section-title::after {
+  background: linear-gradient(90deg, transparent, rgba(251, 146, 60, 0.76), transparent);
+}
+
+.settings-section-title--neutral {
+  color: rgba(212, 175, 55, 0.88);
+}
+
+.settings-section-title--neutral::before,
+.settings-section-title--neutral::after {
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4), transparent);
+}
+
+.settings-select {
+  max-width: 100%;
+}
+
+.settings-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: min(100%, 24rem);
+}
+
+.settings-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  background: rgba(26, 15, 8, 0.9);
+  color: rgba(232, 194, 111, 0.92);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.settings-help-trigger:hover,
+.settings-help-trigger:focus-visible {
+  outline: none;
+  border-color: rgba(232, 194, 111, 0.82);
+  color: rgba(255, 231, 170, 0.98);
+  background: rgba(56, 37, 22, 0.95);
+  transform: translateY(-1px);
+}
+
+.settings-help-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.55rem);
+  z-index: 30;
+  width: min(22rem, 78vw);
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  background: rgba(8, 6, 5, 0.96);
+  color: rgba(237, 226, 205, 0.92);
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+}
+
+.settings-help-fade-enter-active,
+.settings-help-fade-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.settings-help-fade-enter-from,
+.settings-help-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 @media (max-width: 768px) {

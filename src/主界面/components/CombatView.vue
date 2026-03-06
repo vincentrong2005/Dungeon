@@ -26,7 +26,7 @@
     ></div>
 
     <!-- Top Left: Settings -->
-    <div class="absolute top-4 left-4 z-50 pointer-events-auto flex flex-col gap-2 scale-[1.1] origin-top-left">
+    <div class="absolute top-4 left-4 z-50 pointer-events-auto flex flex-col gap-2 combat-button-cluster">
       <button
         class="w-10 h-10 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
         @click="settingsOpen = !settingsOpen"
@@ -68,7 +68,7 @@
     </div>
 
     <!-- Top Center: Turn Counter -->
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none scale-[1.1] origin-top">
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none scale-[1.43] origin-top">
       <div class="flex flex-col items-center">
         <span class="text-xs text-white/60 tracking-widest">回合</span>
         <span class="text-lg font-heading font-bold text-white/90">{{ combatState.turn }}</span>
@@ -119,18 +119,21 @@
 
     <!-- Battlefield Layer -->
     <div class="absolute inset-0 z-10 pointer-events-none">
-      <!-- Enemy Position: Top Right -->
-      <div class="absolute top-[3%] right-[2%] md:top-[5%] md:right-[3%] w-96 h-[32rem] flex flex-col items-center justify-end group transition-transform duration-1000 scale-[1.1] origin-top-right">
+      <!-- Enemy Position: Right Side -->
+      <div
+        class="enemy-layout-shell absolute flex flex-col items-center justify-end group transition-transform duration-1000 origin-bottom-right"
+        :class="isTouchDevice ? 'enemy-layout-shell--touch' : 'enemy-layout-shell--desktop'"
+      >
         <!-- Enemy Intent Card -->
         <div
           v-if="showEnemyIntentCard && combatState.enemyIntentCard"
-          class="absolute -left-48 top-8"
+          class="absolute -left-[32rem] -top-[12rem]"
         >
           <div class="relative">
             <div class="absolute -top-5 left-0 text-amber-200/80 text-[10px] px-2 py-0.5 rounded">
               敌方意图
             </div>
-            <div class="rotate-[-3deg] shadow-[0_0_20px_rgba(200,120,0,0.15)]">
+            <div class="rotate-[-3deg] scale-[1.3] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]">
               <DungeonCard
                 :card="combatState.enemyIntentCard!"
                 :mask-level="enemyIntentMaskLevel"
@@ -144,7 +147,7 @@
         <!-- Enemy Dice -->
         <div
           v-if="!showClashAnimation"
-          class="absolute -left-24 bottom-20 z-20 animate-float pointer-events-auto"
+          class="absolute left-[-13.875rem] top-[6.875rem] -translate-x-1/2 z-20 animate-float pointer-events-auto scale-[1.3] origin-center"
           @mouseenter="handleEnemyDiceHoverStart"
           @mouseleave="handleEnemyDiceHoverEnd"
           @touchstart.passive="handleEnemyDiceTouchStart"
@@ -163,9 +166,10 @@
         </div>
 
         <!-- Enemy Portrait -->
-        <div class="relative w-full h-full">
+        <div class="relative w-full flex-1 min-h-0">
           <div
-            class="absolute bottom-0 left-1/2 -translate-x-1/2 scale-[1.2] origin-bottom w-64 h-80 flex items-end justify-center overflow-hidden"
+            class="absolute bottom-0 left-1/2 -translate-x-1/2 origin-bottom w-full h-full flex items-end justify-center overflow-hidden"
+            :class="isTouchDevice ? 'enemy-portrait-scale--touch' : 'enemy-portrait-scale--desktop'"
           >
             <!-- Placeholder icon (shown when portrait fails to load) -->
             <Skull v-if="enemyPortraitError" class="w-48 h-48 text-red-900/20 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
@@ -181,7 +185,7 @@
         </div>
 
         <!-- Enemy Status Bar -->
-        <div class="relative overflow-visible mt-0 w-72 scale-[1.2] origin-top bg-[#18141e]/90 border border-white/8 p-3 rounded-xl shadow-lg backdrop-blur-sm z-10 pointer-events-auto">
+        <div class="combat-status-bar combat-status-bar--enemy relative mb-6 overflow-visible w-full max-w-[22rem] origin-bottom bg-[#18141e]/90 border border-white/8 p-3 rounded-xl shadow-lg backdrop-blur-sm z-20 pointer-events-auto">
           <div class="flex justify-between text-sm text-white/90 font-bold mb-1.5">
             <span>{{ enemyDisplayName }}</span>
           </div>
@@ -317,11 +321,11 @@
       </div>
 
       <!-- Player Position: Bottom Left -->
-      <div class="absolute bottom-[18%] left-[3%] md:bottom-[22%] md:left-[6%] w-64 h-80 flex flex-col items-center justify-end z-20 translate-y-28 md:translate-y-32 scale-[1.1] origin-bottom-left">
+      <div class="absolute bottom-[26%] left-[3%] md:bottom-[30%] md:left-[6%] w-64 h-80 flex flex-col items-center justify-end z-20 scale-[1.1] origin-bottom-left">
         <!-- Player Dice -->
         <div
           v-if="!showClashAnimation"
-          class="absolute -top-[1rem] left-[140%] -translate-x-1/2 z-20 animate-float pointer-events-auto"
+          class="absolute -top-[1rem] left-[140%] -translate-x-1/2 z-20 animate-float pointer-events-auto scale-[1.3] origin-center"
           :class="canPlayerRerollDice ? 'cursor-pointer' : 'cursor-default'"
           :title="playerDiceRerollHint"
           style="animation-delay: 1s"
@@ -348,7 +352,7 @@
         <!-- Player Portrait -->
         <div class="relative w-full h-full">
           <div
-            class="absolute bottom-4 left-1/2 -translate-x-1/2 scale-[1.2] origin-bottom w-64 h-80 flex items-end justify-center overflow-hidden"
+            class="absolute bottom-4 left-1/2 -translate-x-1/2 scale-[1.44] origin-bottom w-64 h-80 flex items-end justify-center overflow-hidden"
           >
             <!-- Placeholder glow (shown when portrait fails to load) -->
             <div v-if="playerPortraitError" class="size-20 bg-dungeon-gold/15 blur-2xl rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
@@ -364,7 +368,7 @@
         </div>
 
         <!-- Player Status Bar -->
-        <div class="relative overflow-visible mt-2 w-60 scale-[1.2] origin-bottom bg-[#18141e]/90 border border-white/8 p-2.5 rounded-xl shadow-xl backdrop-blur-sm z-10 pointer-events-auto">
+        <div class="combat-status-bar combat-status-bar--player relative overflow-visible mt-2 w-60 origin-bottom bg-[#18141e]/90 border border-white/8 p-2.5 rounded-xl shadow-xl backdrop-blur-sm z-10 pointer-events-auto">
           <div class="flex justify-between text-xs text-white/80 font-bold mb-1.5">
               <span>冒险者</span>
           </div>
@@ -508,7 +512,9 @@
         :style="playerPlayedCardStyle"
       >
         <div :class="playerPlayedCardVisual.entered ? 'player-played-card-bob' : ''">
-          <DungeonCard :card="playerPlayedCardVisual.card" disabled />
+          <div class="combat-card-visual-scale">
+            <DungeonCard :card="playerPlayedCardVisual.card" disabled />
+          </div>
         </div>
       </div>
 
@@ -519,7 +525,9 @@
         :class="visual.source === 'player' ? 'resolved-card-visual--player' : 'resolved-card-visual--enemy'"
       >
         <div class="resolved-card-visual-inner" :class="resolvedCardVisualInnerClass(visual)">
-          <DungeonCard :card="visual.card" disabled />
+          <div class="combat-card-visual-scale">
+            <DungeonCard :card="visual.card" disabled />
+          </div>
         </div>
       </div>
     </div>
@@ -532,7 +540,7 @@
         <div v-if="showClashAnimation" class="relative w-full h-64 flex items-center justify-center z-50">
           <!-- Player Dice Flying In -->
           <div
-            class="absolute right-1/2 mr-[-0.5rem] transition-all duration-300"
+            class="absolute right-1/2 mr-[-0.5rem] transition-all duration-300 scale-[1.3] origin-center"
             :class="shatteringTarget === 'player' || shatteringTarget === 'both' ? 'animate-shatter' : 'animate-clash-left'"
             :style="transitionStyle(300)"
           >
@@ -548,7 +556,7 @@
 
           <!-- Enemy Dice Flying In -->
           <div
-            class="absolute left-1/2 ml-[-0.5rem] transition-all duration-300"
+            class="absolute left-1/2 ml-[-0.5rem] transition-all duration-300 scale-[1.3] origin-center"
             :class="shatteringTarget === 'enemy' || shatteringTarget === 'both' ? 'animate-shatter' : 'animate-clash-right'"
             :style="transitionStyle(300)"
           >
@@ -570,7 +578,7 @@
         class="pointer-events-none min-h-[200px] w-full flex items-end justify-center pb-6 px-4 space-x-4 relative"
       >
         <!-- Center: Hand Cards -->
-        <div class="flex space-x-4 items-end mb-2 z-40 scale-[1.1] origin-bottom pointer-events-auto">
+        <div class="flex space-x-4 items-end mb-2 z-40 scale-[1.37] origin-bottom pointer-events-auto -translate-x-8 md:-translate-x-10">
           <div
             v-for="(card, idx) in combatState.playerHand"
             :key="handCardKey(card)"
@@ -592,8 +600,8 @@
           </div>
         </div>
 
-        <!-- Right Corner: Skip + Active Skills -->
-        <div class="absolute right-3 bottom-2 flex flex-col items-end gap-2 z-50 origin-bottom-right pointer-events-auto">
+        <!-- Left Corner: Skip + Active Skills -->
+        <div class="absolute left-3 md:left-6 bottom-2 md:bottom-4 flex flex-col items-start gap-2 z-50 origin-bottom-left pointer-events-auto combat-button-cluster--bottom-left">
           <button
             class="h-8 px-5 bg-[#252030]/90 border border-white/15 rounded-lg text-xs text-white/80 hover:border-amber-400 hover:text-amber-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT"
@@ -671,7 +679,7 @@
       </div>
 
       <!-- Log Feed + Piles Overlay: top-right, below parent "退出战斗" button -->
-      <div class="absolute right-0 top-14 z-40 pointer-events-auto select-none scale-[1.1] origin-top-right flex flex-col items-end gap-2">
+      <div class="absolute right-0 top-14 z-40 pointer-events-auto select-none origin-top-right flex flex-col items-end gap-2 combat-button-cluster--top-right">
         <div class="flex items-start">
           <button
             class="h-7 px-2 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[10px] text-white/50 hover:text-white/80 transition-colors"
@@ -847,13 +855,13 @@ import {
   type RelicSide,
   type ResolvedRelicEntry,
 } from '../battle/relicRegistry';
+import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
+import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
-import { getLocalFolderImagePaths, getLocalFolderFirstImagePath } from '../localAssetManifest';
-import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
+import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
-import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 
@@ -1279,6 +1287,7 @@ const logsCollapsed = ref(true);
 const pilesCollapsed = ref(true);
 const battleResultBanner = ref<'win' | 'lose' | null>(null);
 const endCombatPending = ref(false);
+const isTouchDevice = ref(false);
 const enemyIntentConsumedThisTurn = ref(false);
 const enemyIntentManaSpentThisTurn = ref(false);
 const enemyComboPreludeResolvedTurn = ref<number | null>(null);
@@ -1292,6 +1301,11 @@ const effectTooltip = ref<{
   stacks: number;
   align: 'center' | 'right';
 } | null>(null);
+
+const updateCombatViewportMode = () => {
+  if (typeof window === 'undefined') return;
+  isTouchDevice.value = window.matchMedia('(pointer: coarse)').matches;
+};
 
 type BattleSide = 'player' | 'enemy';
 type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana' | 'true';
@@ -3198,9 +3212,20 @@ onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
   loadFatigueDegree();
   addFatigueDegree(10);
+  updateCombatViewportMode();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateCombatViewportMode, { passive: true });
+    window.addEventListener('orientationchange', updateCombatViewportMode, { passive: true });
+    window.visualViewport?.addEventListener('resize', updateCombatViewportMode, { passive: true });
+  }
   void initPortraitUrls();
 });
 onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateCombatViewportMode);
+    window.removeEventListener('orientationchange', updateCombatViewportMode);
+    window.visualViewport?.removeEventListener('resize', updateCombatViewportMode);
+  }
   portraitLoaderDisposed = true;
   if (hoverPreviewTimer) {
     clearTimeout(hoverPreviewTimer);
@@ -5609,6 +5634,11 @@ watch(
   filter: drop-shadow(0 0 18px rgba(0, 0, 0, 0.45));
 }
 
+.combat-card-visual-scale {
+  transform: scale(1.37);
+  transform-origin: center center;
+}
+
 .resolved-card-visual-inner--player.resolved-card-visual-inner--attack {
   animation: card-attack-player calc(0.93s / var(--combat-speed-multiplier)) cubic-bezier(0.18, 0.9, 0.2, 1) forwards;
 }
@@ -5896,5 +5926,60 @@ watch(
   54% { left: -5px; }
   72% { left: 4px; }
   100% { left: 0; }
+}
+
+.combat-button-cluster {
+  transform: scale(1.2);
+  transform-origin: top left;
+}
+
+.combat-button-cluster--bottom-left {
+  transform: scale(1.392);
+  transform-origin: bottom left;
+}
+
+.combat-button-cluster--top-right {
+  transform: scale(1.16);
+  transform-origin: top right;
+}
+
+.combat-status-bar {
+  transform-origin: bottom center;
+}
+
+.combat-status-bar--enemy {
+  align-self: flex-end;
+  margin-right: 9rem;
+  transform: scale(1.534);
+}
+
+.combat-status-bar--player {
+  transform: scale(1.24);
+}
+
+.enemy-layout-shell {
+  width: 26rem;
+  height: 42rem;
+}
+
+.enemy-layout-shell--desktop {
+  right: 0;
+  bottom: 0.9rem;
+}
+
+.enemy-layout-shell--touch {
+  width: 20rem;
+  height: 33rem;
+  right: 0.75rem;
+  bottom: 0;
+}
+
+.enemy-portrait-scale--desktop {
+  transform: translate(-38%, -4.8rem) scale(1.64);
+}
+
+
+.enemy-portrait-scale--touch {
+  transform: translateX(-48%) scale(1.36);
 }
 </style>
