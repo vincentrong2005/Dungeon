@@ -1655,7 +1655,7 @@
     <Transition name="combat-fade">
       <div v-if="showVictoryRewardView" class="absolute inset-0 z-[102] bg-black/90">
         <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
-          <div class="w-full max-w-6xl rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]">
+          <div class="w-full max-w-6xl origin-center scale-[1.3] rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]">
             <div class="mb-4 flex items-center justify-between gap-3">
               <div>
                 <div class="font-heading text-xl text-dungeon-gold">战胜奖励</div>
@@ -4577,12 +4577,17 @@ const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null =>
   const diceEl = idolDiceRef.value;
   if (!stageEl || !diceEl) return null;
 
+  const scale = stageScale.value > 0 ? stageScale.value : 1;
   const stageRect = stageEl.getBoundingClientRect();
   const diceRect = diceEl.getBoundingClientRect();
-  const maxX = Math.max(0, stageRect.width - diceRect.width);
-  const maxY = Math.max(0, stageRect.height - diceRect.height);
-  const diceCenterX = x + (diceRect.width / 2);
-  const diceCenterY = y + (diceRect.height / 2);
+  const stageWidth = stageEl.clientWidth || (stageRect.width / scale);
+  const stageHeight = stageEl.clientHeight || (stageRect.height / scale);
+  const diceWidth = diceRect.width / scale;
+  const diceHeight = diceRect.height / scale;
+  const maxX = Math.max(0, stageWidth - diceWidth);
+  const maxY = Math.max(0, stageHeight - diceHeight);
+  const diceCenterX = x + (diceWidth / 2);
+  const diceCenterY = y + (diceHeight / 2);
 
   let best: IdolSnapCandidate | null = null;
   const targets: IdolBlessingTarget[] = ['maxHp', 'mp', 'gold'];
@@ -4590,11 +4595,13 @@ const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null =>
     const slotEl = getIdolSlotElement(target);
     if (!slotEl) continue;
     const slotRect = slotEl.getBoundingClientRect();
-    const slotCenterX = (slotRect.left - stageRect.left) + (slotRect.width / 2);
-    const slotCenterY = (slotRect.top - stageRect.top) + (slotRect.height / 2);
+    const slotWidth = slotRect.width / scale;
+    const slotHeight = slotRect.height / scale;
+    const slotCenterX = ((slotRect.left - stageRect.left) / scale) + (slotWidth / 2);
+    const slotCenterY = ((slotRect.top - stageRect.top) / scale) + (slotHeight / 2);
     const distance = Math.hypot(slotCenterX - diceCenterX, slotCenterY - diceCenterY);
-    const snapX = clampNumber(slotCenterX - (diceRect.width / 2), 0, maxX);
-    const snapY = clampNumber(slotCenterY - (diceRect.height / 2), 0, maxY);
+    const snapX = clampNumber(slotCenterX - (diceWidth / 2), 0, maxX);
+    const snapY = clampNumber(slotCenterY - (diceHeight / 2), 0, maxY);
     if (!best || distance < best.distance) {
       best = { target, distance, snapX, snapY };
     }
@@ -4608,12 +4615,17 @@ const placeIdolDiceAtStart = () => {
   const stageEl = idolDiceStageRef.value;
   const diceEl = idolDiceRef.value;
   if (!stageEl || !diceEl) return;
+  const scale = stageScale.value > 0 ? stageScale.value : 1;
   const stageRect = stageEl.getBoundingClientRect();
   const diceRect = diceEl.getBoundingClientRect();
-  const maxX = Math.max(0, stageRect.width - diceRect.width);
-  const maxY = Math.max(0, stageRect.height - diceRect.height);
-  const x = Math.max(0, (stageRect.width - diceRect.width) / 2);
-  const y = clampNumber(stageRect.height * 0.72, 0, maxY);
+  const stageWidth = stageEl.clientWidth || (stageRect.width / scale);
+  const stageHeight = stageEl.clientHeight || (stageRect.height / scale);
+  const diceWidth = diceRect.width / scale;
+  const diceHeight = diceRect.height / scale;
+  const maxX = Math.max(0, stageWidth - diceWidth);
+  const maxY = Math.max(0, stageHeight - diceHeight);
+  const x = Math.max(0, (stageWidth - diceWidth) / 2);
+  const y = clampNumber(stageHeight * 0.72, 0, maxY);
   idolDicePosition.value = { x: clampNumber(x, 0, maxX), y };
   idolSnapPreviewTarget.value = null;
 };
@@ -4661,12 +4673,17 @@ const handleIdolDicePointerMove = (event: PointerEvent) => {
   const diceEl = idolDiceRef.value;
   if (!stageEl || !diceEl) return;
 
+  const scale = stageScale.value > 0 ? stageScale.value : 1;
   const stageRect = stageEl.getBoundingClientRect();
   const diceRect = diceEl.getBoundingClientRect();
-  const maxX = Math.max(0, stageRect.width - diceRect.width);
-  const maxY = Math.max(0, stageRect.height - diceRect.height);
-  const dx = event.clientX - idolDragStart.value.x;
-  const dy = event.clientY - idolDragStart.value.y;
+  const stageWidth = stageEl.clientWidth || (stageRect.width / scale);
+  const stageHeight = stageEl.clientHeight || (stageRect.height / scale);
+  const diceWidth = diceRect.width / scale;
+  const diceHeight = diceRect.height / scale;
+  const maxX = Math.max(0, stageWidth - diceWidth);
+  const maxY = Math.max(0, stageHeight - diceHeight);
+  const dx = (event.clientX - idolDragStart.value.x) / scale;
+  const dy = (event.clientY - idolDragStart.value.y) / scale;
   const nextX = clampNumber(idolDragStartPos.value.x + dx, 0, maxX);
   const nextY = clampNumber(idolDragStartPos.value.y + dy, 0, maxY);
   idolDicePosition.value = { x: nextX, y: nextY };
@@ -5348,11 +5365,11 @@ function pickLordMonsterByArea(area: string): string | null {
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
 const PORTAL_ROOM_WEIGHTS: Record<string, number> = {
-  '战斗房': 50,
+  '战斗房': 40,
   '宝箱房': 20,
-  '商店房': 5,
+  '商店房': 10,
   '温泉房': 10,
-  '神像房': 10,
+  '神像房': 15,
   '事件房': 0,
   '陷阱房': 5,
 };
@@ -5454,8 +5471,8 @@ function shuffle<T>(arr: T[]): T[] {
 
 function rollPortalCount(): number {
   const roll = Math.random();
-  // 传送门数量概率：1/2/3 = 30% / 50% / 20%
-  return roll < 0.3 ? 1 : roll < 0.8 ? 2 : 3;
+  // 传送门数量概率：1/2/3 = 55% / 40% / 5%
+  return roll < 0.55 ? 1 : roll < 0.95 ? 2 : 3;
 }
 
 function pickWeightedRoomTypes(roomTypes: string[], count: number): string[] {
@@ -6856,44 +6873,80 @@ onBeforeUnmount(() => {
 }
 
 .idol-slot {
-  width: clamp(4.8rem, 7.2vw, 6.9rem);
-  height: clamp(4.2rem, 6.6vw, 6.1rem);
-  clip-path: polygon(50% 0%, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
-  border: 2px solid rgba(255, 255, 255, 0.95);
-  background: rgba(255, 255, 255, 0.9);
+  width: clamp(6.6rem, 8.6vw, 8.1rem);
+  aspect-ratio: 1;
+  clip-path: polygon(50% 2%, 93% 25%, 93% 75%, 50% 98%, 7% 75%, 7% 25%);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(226, 232, 240, 0.14)),
+    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.1) 60%, rgba(148, 163, 184, 0.06) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
+  overflow: hidden;
+  isolation: isolate;
+  backdrop-filter: blur(8px) saturate(1.15);
   box-shadow:
-    0 0 12px rgba(255, 255, 255, 0.35),
-    0 0 26px rgba(255, 255, 255, 0.2);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 12px 28px rgba(15, 23, 42, 0.28),
+    0 0 18px rgba(255, 255, 255, 0.12);
   transition: all 0.2s ease;
   position: relative;
+}
+
+.idol-slot::before,
+.idol-slot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: inherit;
+  pointer-events: none;
+}
+
+.idol-slot::before {
+  inset: 9%;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.03));
+  opacity: 0.92;
+}
+
+.idol-slot::after {
+  inset: 17%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 62%),
+    linear-gradient(180deg, rgba(191, 219, 254, 0.18), rgba(255, 255, 255, 0));
+  opacity: 0.85;
 }
 
 .idol-slot-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.52rem;
+  gap: 0.68rem;
   pointer-events: none;
 }
 
 .idol-slot.is-preview {
-  border-color: rgba(253, 224, 71, 1);
-  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(253, 224, 71, 0.96);
+  background:
+    linear-gradient(145deg, rgba(255, 248, 220, 0.58), rgba(255, 255, 255, 0.18)),
+    radial-gradient(circle at 50% 35%, rgba(255, 250, 205, 0.68), rgba(255, 255, 255, 0.08) 64%, rgba(250, 204, 21, 0.08) 100%);
   box-shadow:
-    0 0 20px rgba(253, 224, 71, 0.5),
-    0 0 36px rgba(253, 224, 71, 0.35);
+    inset 0 0 0 1px rgba(253, 224, 71, 0.18),
+    0 0 22px rgba(253, 224, 71, 0.44),
+    0 0 38px rgba(253, 224, 71, 0.26);
 }
 
 .idol-slot.is-selected {
-  border-color: rgba(255, 255, 255, 1);
-  background: rgba(255, 255, 255, 1);
+  border-color: rgba(255, 255, 255, 0.98);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(241, 245, 249, 0.22)),
+    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.12) 64%, rgba(250, 204, 21, 0.1) 100%);
   box-shadow:
-    0 0 24px rgba(255, 255, 255, 0.55),
-    0 0 40px rgba(253, 224, 71, 0.35);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 26px rgba(255, 255, 255, 0.4),
+    0 0 44px rgba(253, 224, 71, 0.26);
 }
 
 .idol-slot-hint {
@@ -6905,7 +6958,7 @@ onBeforeUnmount(() => {
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.7),
     0 0 8px rgba(148, 163, 184, 0.35);
-  animation: idolHintFloat 3.4s ease-in-out infinite;
+  animation: idolHintFloat 3.8s ease-in-out infinite;
   z-index: 3;
 }
 
@@ -6925,6 +6978,7 @@ onBeforeUnmount(() => {
   cursor: grab;
   touch-action: none;
   user-select: none;
+  will-change: transform;
   transition: transform 0.08s linear;
   pointer-events: auto;
 }
@@ -6942,11 +6996,17 @@ onBeforeUnmount(() => {
   0%,
   100% {
     transform: translateY(0px);
-    opacity: 0.9;
+    opacity: 0.94;
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.68),
+      0 0 8px rgba(148, 163, 184, 0.32);
   }
   50% {
-    transform: translateY(-6px);
+    transform: translateY(-1px);
     opacity: 1;
+    text-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.72),
+      0 0 14px rgba(226, 232, 240, 0.44);
   }
 }
 
@@ -7163,8 +7223,7 @@ onBeforeUnmount(() => {
   }
 
   .idol-slot {
-    width: 4.4rem;
-    height: 3.9rem;
+    width: 5.2rem;
   }
 
   .idol-slot-hint {
