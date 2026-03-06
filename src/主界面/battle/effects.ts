@@ -611,8 +611,17 @@ const EFFECT_DISPLAY_ORDER_INDEX = new Map<EffectType, number>(
   EFFECT_DISPLAY_ORDER.map((type, index) => [type, index]),
 );
 
+const getEffectPolaritySortRank = (type: EffectType): number => {
+  const polarity = EFFECT_REGISTRY[type]?.polarity;
+  if (polarity === 'trait') return 0;
+  if (polarity === 'buff') return 1;
+  if (polarity === 'debuff') return 2;
+  return 3;
+};
+
 export function getEffectDisplayOrder(type: EffectType): number {
-  return EFFECT_DISPLAY_ORDER_INDEX.get(type) ?? Number.MAX_SAFE_INTEGER;
+  const baseOrder = EFFECT_DISPLAY_ORDER_INDEX.get(type) ?? Number.MAX_SAFE_INTEGER;
+  return getEffectPolaritySortRank(type) * 1000 + baseOrder;
 }
 
 // 元素debuff分组：用于随机附加、转换、翻倍等效果
