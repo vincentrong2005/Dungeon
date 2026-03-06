@@ -146,23 +146,25 @@
 
         <!-- Enemy Dice -->
         <div
-          v-if="!showClashAnimation"
-          class="enemy-dice-anchor absolute z-20 animate-float pointer-events-auto"
+          v-if="showIdleDice"
+          class="enemy-dice-anchor absolute z-20 pointer-events-auto"
           @mouseenter="handleEnemyDiceHoverStart"
           @mouseleave="handleEnemyDiceHoverEnd"
           @touchstart.passive="handleEnemyDiceTouchStart"
           @touchend="handleEnemyDiceTouchEnd"
           @touchcancel="handleEnemyDiceTouchEnd"
         >
-          <DungeonDice
-            :value="displayEnemyDice"
-            :rolling="isRolling"
-            :rolling-min="enemyStats.minDice"
-            :rolling-max="enemyStats.maxDice"
-            :number-class="enemyDiceNumberClass"
-            color="red"
-            size="md"
-          />
+          <div class="animate-float">
+            <DungeonDice
+              :value="displayEnemyDice"
+              :rolling="isRolling"
+              :rolling-min="enemyStats.minDice"
+              :rolling-max="enemyStats.maxDice"
+              :number-class="enemyDiceNumberClass"
+              color="red"
+              size="lg"
+            />
+          </div>
         </div>
 
         <!-- Enemy Portrait -->
@@ -323,25 +325,26 @@
       <div class="player-layout-shell absolute flex flex-col items-center justify-end z-20">
         <!-- Player Dice -->
         <div
-          v-if="!showClashAnimation"
-          class="player-dice-anchor absolute z-20 animate-float pointer-events-auto"
+          v-if="showIdleDice"
+          class="player-dice-anchor absolute z-20 pointer-events-auto"
           :class="canPlayerRerollDice ? 'cursor-pointer' : 'cursor-default'"
           :title="playerDiceRerollHint"
-          style="animation-delay: 1s"
           @click="handlePlayerDiceClick"
         >
-          <DungeonDice
-            :value="displayPlayerDice"
-            :rolling="isRolling"
-            :rolling-min="playerStats.minDice"
-            :rolling-max="playerStats.maxDice"
-            :number-class="playerDiceNumberClass"
-            color="gold"
-            size="md"
-          />
+          <div class="animate-float" style="animation-delay: 1s">
+            <DungeonDice
+              :value="displayPlayerDice"
+              :rolling="isRolling"
+              :rolling-min="playerStats.minDice"
+              :rolling-max="playerStats.maxDice"
+              :number-class="playerDiceNumberClass"
+              color="gold"
+              size="lg"
+            />
+          </div>
           <div
             v-if="playerDiceRerollCharges > 0"
-            class="absolute left-1/2 top-[5.9rem] -translate-x-1/2 rounded-md border border-amber-300/35 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap"
+            class="absolute left-1/2 top-[8.9rem] -translate-x-1/2 rounded-md border border-amber-300/35 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap"
             :class="canPlayerRerollDice ? 'text-amber-200' : 'text-amber-200/70'"
           >
             重掷次数：{{ playerDiceRerollCharges }}
@@ -537,7 +540,7 @@
         <div v-if="showClashAnimation" class="relative w-full h-64 flex items-center justify-center z-50">
           <!-- Player Dice Flying In -->
           <div
-            class="absolute right-1/2 mr-[-0.5rem] transition-all duration-300 scale-[1.3] origin-center"
+            class="absolute right-1/2 mr-[-0.5rem] transition-all duration-300 scale-[1.04] origin-center"
             :class="shatteringTarget === 'player' || shatteringTarget === 'both' ? 'animate-shatter' : 'animate-clash-left'"
             :style="transitionStyle(300)"
           >
@@ -553,7 +556,7 @@
 
           <!-- Enemy Dice Flying In -->
           <div
-            class="absolute left-1/2 ml-[-0.5rem] transition-all duration-300 scale-[1.3] origin-center"
+            class="absolute left-1/2 ml-[-0.5rem] transition-all duration-300 scale-[1.04] origin-center"
             :class="shatteringTarget === 'enemy' || shatteringTarget === 'both' ? 'animate-shatter' : 'animate-clash-right'"
             :style="transitionStyle(300)"
           >
@@ -1528,9 +1531,16 @@ const playerHandMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
 const playerPlayedCardVisual = ref<PlayerPlayedCardVisual | null>(null);
 const resolvedPlayerCardVisual = ref<ResolvedCardVisual | null>(null);
 const resolvedEnemyCardVisual = ref<ResolvedCardVisual | null>(null);
+const hideIdleDiceUntilNextTurn = ref(false);
 const resolvedCardVisualEntries = computed(() => (
   [resolvedPlayerCardVisual.value, resolvedEnemyCardVisual.value]
     .filter((visual): visual is ResolvedCardVisual => !!visual)
+));
+const showIdleDice = computed(() => (
+  !showClashAnimation.value
+  && !hideIdleDiceUntilNextTurn.value
+  && !playerPlayedCardVisual.value
+  && resolvedCardVisualEntries.value.length === 0
 ));
 let hoverPreviewTimer: ReturnType<typeof setTimeout> | null = null;
 let enemyDicePreviewTimer: ReturnType<typeof setTimeout> | null = null;
@@ -3544,6 +3554,7 @@ const resolveEnemyComboPreludeIfNeeded = async (initialCard: CardData): Promise<
 const startTurn = () => {
   if (endCombatPending.value) return;
   log(`<span class="text-slate-300">——第${combatState.value.turn}回合——</span>`);
+  hideIdleDiceUntilNextTurn.value = false;
   enemyManaLackHintTurn = -1;
   if (sealCircuitPendingMana.value > 0) {
     const pending = sealCircuitPendingMana.value;
@@ -4196,6 +4207,7 @@ const resolveCombat = async (
 
     await wait(650);
     showClashAnimation.value = false;
+    hideIdleDiceUntilNextTurn.value = true;
     clearDicePreview();
   } else {
     await wait(500);
@@ -6002,9 +6014,9 @@ watch(
 }
 
 .player-dice-anchor {
-  left: calc(var(--player-shell-width) * var(--player-dice-left-ratio));
+  left: calc(var(--player-shell-width) * var(--player-dice-left-ratio) + 50px);
   top: calc(var(--player-shell-height) * var(--player-dice-top-ratio));
-  transform: translateX(-50%) scale(1.3);
+  transform: translateX(-50%) scale(1.04);
   transform-origin: center;
 }
 
@@ -6026,7 +6038,7 @@ watch(
   --enemy-portrait-translate-x: -38%;
   --enemy-portrait-translate-y-ratio: -0.1142857143;
   --enemy-portrait-scale: 1.64;
-  --enemy-dice-scale: 1.3;
+  --enemy-dice-scale: 1.04;
   width: var(--enemy-shell-width);
   height: var(--enemy-shell-height);
 }
@@ -6051,7 +6063,7 @@ watch(
 }
 
 .enemy-dice-anchor {
-  left: calc(var(--enemy-shell-width) * var(--enemy-dice-left-ratio));
+  left: calc(var(--enemy-shell-width) * var(--enemy-dice-left-ratio) - 60px);
   top: calc(var(--enemy-shell-height) * var(--enemy-dice-top-ratio));
   transform: translateX(-50%) scale(var(--enemy-dice-scale));
   transform-origin: center;

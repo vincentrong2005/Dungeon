@@ -247,7 +247,9 @@
                 ]"
                 @click="handleSpecialOption"
               >
-                <span class="text-xl mr-2">{{ specialOptionConfig.icon }}</span>
+                <span class="text-xl mr-2 inline-flex items-center justify-center" aria-hidden="true">
+                  <i :class="specialOptionConfig.icon"></i>
+                </span>
                 {{ specialOptionConfig.label }}
               </button>
 
@@ -3298,6 +3300,18 @@ const closeSettingsHelp = (key?: SettingsHelpKey) => {
   }
 };
 
+const normalizeVictoryRewardStage = (stage: string | undefined): VictoryRewardStage => {
+  switch (stage) {
+    case 'replaceActive':
+      return 'replaceActive';
+    case 'replaceDeck':
+    case 'replace':
+      return 'replaceDeck';
+    default:
+      return 'pick';
+  }
+};
+
 const toggleSettingsHelp = (key: SettingsHelpKey) => {
   activeSettingsHelp.value = activeSettingsHelp.value === key ? null : key;
 };
@@ -3960,12 +3974,12 @@ interface RoomConfig {
 }
 
 const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
-  '战斗房': { label: '战斗', icon: '⚔', bgColor: 'rgba(185,28,28,0.25)', borderColor: '#dc2626', textColor: '#fca5a5', glowColor: '#dc262680' },
-  '领主房': { label: '战斗', icon: '⚔', bgColor: 'rgba(185,28,28,0.3)',  borderColor: '#ef4444', textColor: '#fca5a5', glowColor: '#ef444480' },
-  '宝箱房': { label: '打开宝箱', icon: '📦', bgColor: 'rgba(161,98,7,0.25)',  borderColor: '#eab308', textColor: '#fde68a', glowColor: '#eab30880' },
-  '商店房': { label: '打开商店', icon: '🛒', bgColor: 'rgba(21,128,61,0.25)', borderColor: '#22c55e', textColor: '#bbf7d0', glowColor: '#22c55e80' },
-  '温泉房': { label: '清除诅咒', icon: '💧', bgColor: 'rgba(8,145,178,0.25)',  borderColor: '#06b6d4', textColor: '#a5f3fc', glowColor: '#06b6d480' },
-  '神像房': { label: '膜拜', icon: '🙏', bgColor: 'rgba(126,34,206,0.25)', borderColor: '#a855f7', textColor: '#e9d5ff', glowColor: '#a855f780' },
+  '宝箱房': { label: '打开宝箱', icon: 'fa-solid fa-gem', bgColor: 'rgba(161,98,7,0.25)', borderColor: '#eab308', textColor: '#fde68a', glowColor: '#eab30880' },
+  '战斗房': { label: '战斗', icon: 'fa-solid fa-khanda', bgColor: 'rgba(185,28,28,0.25)', borderColor: '#dc2626', textColor: '#fca5a5', glowColor: '#dc262680' },
+  '领主房': { label: '战斗', icon: 'fa-brands fa-fulcrum', bgColor: 'rgba(185,28,28,0.3)', borderColor: '#ef4444', textColor: '#fca5a5', glowColor: '#ef444480' },
+  '商店房': { label: '打开商店', icon: 'fa-solid fa-store', bgColor: 'rgba(21,128,61,0.25)', borderColor: '#22c55e', textColor: '#bbf7d0', glowColor: '#22c55e80' },
+  '温泉房': { label: '清除诅咒', icon: 'fa-solid fa-spa', bgColor: 'rgba(8,145,178,0.25)', borderColor: '#06b6d4', textColor: '#a5f3fc', glowColor: '#06b6d480' },
+  '神像房': { label: '膜拜', icon: 'fa-solid fa-person-praying', bgColor: 'rgba(126,34,206,0.25)', borderColor: '#a855f7', textColor: '#e9d5ff', glowColor: '#a855f780' },
 };
 
 // E option: no button for 事件房 / 陷阱房
@@ -5132,11 +5146,7 @@ const restoreOverlaySnapshot = () => {
         return;
       }
       const selectedId = victoryData.selectedRewardId ?? victoryData.selectedCardId ?? null;
-      const restoredStage = victoryData.stage === 'replaceActive'
-        ? 'replaceActive'
-        : victoryData.stage === 'replaceDeck' || victoryData.stage === 'replace'
-          ? 'replaceDeck'
-          : 'pick';
+      const restoredStage = normalizeVictoryRewardStage(victoryData.stage);
       showVictoryRewardView.value = true;
       victoryRewardStage.value = restoredStage;
       victoryRewardOptions.value = options;
