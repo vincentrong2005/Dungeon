@@ -225,6 +225,7 @@
                        transition-all duration-300
                        hover:shadow-[0_0_12px_rgba(212,175,55,0.08)]
                        hover:translate-x-1"
+                :style="optionButtonTextStyle"
                 @click="handleOptionClick(option)"
               >
                 {{ option }}
@@ -235,12 +236,15 @@
                 v-if="gameStore.hasOptionE && specialOptionConfig"
                 class="w-full text-center px-6 py-4 rounded-lg border-2 font-heading text-base tracking-wider
                        transition-all duration-400 hover:scale-[1.02] active:scale-[0.98]"
-                :style="{
-                  backgroundColor: specialOptionConfig.bgColor,
-                  borderColor: specialOptionConfig.borderColor,
-                  color: specialOptionConfig.textColor,
-                  boxShadow: `0 0 20px ${specialOptionConfig.glowColor}, inset 0 1px 0 rgba(255,255,255,0.1)`,
-                }"
+                :style="[
+                  specialOptionButtonTextStyle,
+                  {
+                    backgroundColor: specialOptionConfig.bgColor,
+                    borderColor: specialOptionConfig.borderColor,
+                    color: specialOptionConfig.textColor,
+                    boxShadow: `0 0 20px ${specialOptionConfig.glowColor}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+                  },
+                ]"
                 @click="handleSpecialOption"
               >
                 <span class="text-xl mr-2">{{ specialOptionConfig.icon }}</span>
@@ -257,7 +261,7 @@
                     v-for="(portal, i) in portalChoices"
                     :key="'portal-' + i"
                     class="portal-btn group relative flex flex-col items-center justify-center
-                           w-24 h-24 rounded-lg border-2 backdrop-blur-sm
+                           rounded-lg border-2 backdrop-blur-sm
                            transition-all duration-500 hover:scale-110
                            active:scale-95"
                     :style="{
@@ -273,10 +277,10 @@
                       :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
                     ></div>
                     <!-- Portal icon -->
-                    <span class="text-2xl mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
+                    <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
                     <!-- Portal label -->
                     <span
-                      class="text-[10px] font-ui tracking-wide relative z-10 text-center leading-tight"
+                      class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
                       :style="{ color: portal.textColor }"
                     >{{ portal.label }}</span>
                     <!-- Animated ring -->
@@ -641,17 +645,19 @@
         <span class="font-ui text-sm text-dungeon-paper/50">暂无可显示的羁绊角色</span>
       </div>
     </DungeonModal>
-    <Transition name="combat-fade">
-      <div v-if="bondPortraitPreview" class="fixed inset-0 z-[230] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm" @click="closeBondPortraitPreview">
-        <div class="bond-preview-panel" @click.stop>
-          <img :src="bondPortraitPreview.url" :alt="`${bondPortraitPreview.name} 立绘大图`" class="bond-preview-image" />
-          <div class="bond-preview-footer">
-            <span class="bond-preview-name">{{ bondPortraitPreview.name }}</span>
-            <button type="button" class="bond-preview-close-btn" @click="closeBondPortraitPreview">关闭</button>
+    <Teleport to="body">
+      <Transition name="combat-fade">
+        <div v-if="bondPortraitPreview" class="fixed inset-0 z-[230] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm" @click="closeBondPortraitPreview">
+          <div class="bond-preview-panel" @click.stop>
+            <img :src="bondPortraitPreview.url" :alt="`${bondPortraitPreview.name} 立绘大图`" class="bond-preview-image" />
+            <div class="bond-preview-footer">
+              <span class="bond-preview-name">{{ bondPortraitPreview.name }}</span>
+              <button type="button" class="bond-preview-close-btn" @click="closeBondPortraitPreview">关闭</button>
+            </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
 
     <DungeonModal title="符文卡组" :is-open="activeModal === 'deck'" @close="activeModal = null">
       <div v-if="resolvedDeck.length > 0" class="grid grid-cols-3 gap-8 overflow-y-auto max-h-[60%] p-4">
@@ -931,7 +937,7 @@
               <div class="flex items-center gap-2 sm:shrink-0">
                 <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.fontSize = Math.max(12, textSettings.fontSize - 1)">−</button>
                 <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{ textSettings.fontSize }}px</span>
-                <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.fontSize = Math.min(28, textSettings.fontSize + 1)">+</button>
+                <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.fontSize = Math.min(40, textSettings.fontSize + 1)">+</button>
               </div>
             </div>
 
@@ -1521,7 +1527,7 @@
                 v-for="(portal, i) in chestPortalChoices"
                 :key="`chest-portal-${i}`"
                 class="portal-btn group relative flex flex-col items-center justify-center
-                       w-24 h-24 rounded-lg border-2 backdrop-blur-sm
+                       rounded-lg border-2 backdrop-blur-sm
                        transition-all duration-500 hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                 :style="{
                   backgroundColor: portal.bgColor,
@@ -1535,9 +1541,9 @@
                   class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
                   :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
                 ></div>
-                <span class="text-2xl mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
+                <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
                 <span
-                  class="text-[10px] font-ui tracking-wide relative z-10 text-center leading-tight"
+                  class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
                   :style="{ color: portal.textColor }"
                 >{{ portal.label }}</span>
                 <div
@@ -3198,7 +3204,7 @@ const normalizeTextSettings = (value: unknown): TextSettingsState => {
     ? candidate.fontFamily
     : DEFAULT_TEXT_SETTINGS.fontFamily;
   return {
-    fontSize: Math.round(clampTextSettingNumber(candidate.fontSize, 12, 28, DEFAULT_TEXT_SETTINGS.fontSize)),
+    fontSize: Math.round(clampTextSettingNumber(candidate.fontSize, 12, 40, DEFAULT_TEXT_SETTINGS.fontSize)),
     lineHeight: Number(clampTextSettingNumber(candidate.lineHeight, 1.2, 3.0, DEFAULT_TEXT_SETTINGS.lineHeight).toFixed(1)),
     fontFamily: normalizedFontFamily,
     containerWidth: Math.round(clampTextSettingNumber(candidate.containerWidth, 600, 1600, DEFAULT_TEXT_SETTINGS.containerWidth) / 50) * 50,
@@ -3224,6 +3230,34 @@ const persistTextSettings = (value: TextSettingsState) => {
 };
 
 const textSettings = reactive<TextSettingsState>(readTextSettings());
+
+const optionButtonFontSize = computed(() => (
+  Math.round(clampTextSettingNumber(
+    textSettings.fontSize * (14 / DEFAULT_TEXT_SETTINGS.fontSize),
+    11,
+    18,
+    14,
+  ))
+));
+
+const optionButtonTextStyle = computed(() => ({
+  fontSize: `${optionButtonFontSize.value}px`,
+  lineHeight: '1.6',
+}));
+
+const specialOptionButtonFontSize = computed(() => (
+  Math.round(clampTextSettingNumber(
+    textSettings.fontSize * (16 / DEFAULT_TEXT_SETTINGS.fontSize),
+    13,
+    20,
+    16,
+  ))
+));
+
+const specialOptionButtonTextStyle = computed(() => ({
+  fontSize: `${specialOptionButtonFontSize.value}px`,
+  lineHeight: '1.5',
+}));
 
 watch(textSettings, (value) => {
   persistTextSettings({
@@ -5878,6 +5912,22 @@ onBeforeUnmount(() => {
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
+}
+
+.portal-btn {
+  width: 7.8rem;
+  height: 7.8rem;
+}
+
+.portal-btn__icon {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.portal-btn__label {
+  max-width: 6.2rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
 }
 
 .ui-send-button {

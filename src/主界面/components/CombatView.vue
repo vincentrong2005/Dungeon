@@ -26,7 +26,7 @@
     ></div>
 
     <!-- Top Left: Settings -->
-    <div class="absolute top-4 left-4 z-50 pointer-events-auto flex flex-col gap-2 combat-button-cluster">
+    <div class="combat-top-left-panel absolute z-50 pointer-events-auto flex flex-col gap-2 combat-button-cluster">
       <button
         class="w-10 h-10 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
         @click="settingsOpen = !settingsOpen"
@@ -68,7 +68,7 @@
     </div>
 
     <!-- Top Center: Turn Counter -->
-    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-40 pointer-events-none scale-[1.43] origin-top">
+    <div class="combat-turn-anchor absolute z-40 pointer-events-none">
       <div class="flex flex-col items-center">
         <span class="text-xs text-white/60 tracking-widest">回合</span>
         <span class="text-lg font-heading font-bold text-white/90">{{ combatState.turn }}</span>
@@ -127,7 +127,7 @@
         <!-- Enemy Intent Card -->
         <div
           v-if="showEnemyIntentCard && combatState.enemyIntentCard"
-          class="absolute -left-[32rem] -top-[12rem]"
+          class="enemy-intent-anchor absolute"
         >
           <div class="relative">
             <div class="absolute -top-5 left-0 text-amber-200/80 text-[10px] px-2 py-0.5 rounded">
@@ -147,7 +147,7 @@
         <!-- Enemy Dice -->
         <div
           v-if="!showClashAnimation"
-          class="absolute left-[-13.875rem] top-[6.875rem] -translate-x-1/2 z-20 animate-float pointer-events-auto scale-[1.3] origin-center"
+          class="enemy-dice-anchor absolute z-20 animate-float pointer-events-auto"
           @mouseenter="handleEnemyDiceHoverStart"
           @mouseleave="handleEnemyDiceHoverEnd"
           @touchstart.passive="handleEnemyDiceTouchStart"
@@ -168,8 +168,7 @@
         <!-- Enemy Portrait -->
         <div class="relative w-full flex-1 min-h-0">
           <div
-            class="absolute bottom-0 left-1/2 -translate-x-1/2 origin-bottom w-full h-full flex items-end justify-center overflow-hidden"
-            :class="isTouchDevice ? 'enemy-portrait-scale--touch' : 'enemy-portrait-scale--desktop'"
+            class="enemy-portrait-scale absolute bottom-0 left-1/2 -translate-x-1/2 origin-bottom w-full h-full flex items-end justify-center overflow-hidden"
           >
             <!-- Placeholder icon (shown when portrait fails to load) -->
             <Skull v-if="enemyPortraitError" class="w-48 h-48 text-red-900/20 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
@@ -321,11 +320,11 @@
       </div>
 
       <!-- Player Position: Bottom Left -->
-      <div class="absolute bottom-[26%] left-[3%] md:bottom-[30%] md:left-[6%] w-64 h-80 flex flex-col items-center justify-end z-20 scale-[1.1] origin-bottom-left">
+      <div class="player-layout-shell absolute flex flex-col items-center justify-end z-20">
         <!-- Player Dice -->
         <div
           v-if="!showClashAnimation"
-          class="absolute -top-[1rem] left-[140%] -translate-x-1/2 z-20 animate-float pointer-events-auto scale-[1.3] origin-center"
+          class="player-dice-anchor absolute z-20 animate-float pointer-events-auto"
           :class="canPlayerRerollDice ? 'cursor-pointer' : 'cursor-default'"
           :title="playerDiceRerollHint"
           style="animation-delay: 1s"
@@ -351,9 +350,7 @@
 
         <!-- Player Portrait -->
         <div class="relative w-full h-full">
-          <div
-            class="absolute bottom-4 left-1/2 -translate-x-1/2 scale-[1.44] origin-bottom w-64 h-80 flex items-end justify-center overflow-hidden"
-          >
+          <div class="player-portrait-scale absolute left-1/2 w-64 h-80 flex items-end justify-center overflow-hidden">
             <!-- Placeholder glow (shown when portrait fails to load) -->
             <div v-if="playerPortraitError" class="size-20 bg-dungeon-gold/15 blur-2xl rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
             <!-- Player portrait image -->
@@ -578,7 +575,7 @@
         class="pointer-events-none min-h-[200px] w-full flex items-end justify-center pb-6 px-4 space-x-4 relative"
       >
         <!-- Center: Hand Cards -->
-        <div class="flex space-x-4 items-end mb-2 z-40 scale-[1.37] origin-bottom pointer-events-auto -translate-x-8 md:-translate-x-10">
+        <div class="combat-hand-anchor flex space-x-4 items-end mb-2 z-40 pointer-events-auto">
           <div
             v-for="(card, idx) in combatState.playerHand"
             :key="handCardKey(card)"
@@ -601,7 +598,7 @@
         </div>
 
         <!-- Left Corner: Skip + Active Skills -->
-        <div class="absolute left-3 md:left-6 bottom-2 md:bottom-4 flex flex-col items-start gap-2 z-50 origin-bottom-left pointer-events-auto combat-button-cluster--bottom-left">
+        <div class="combat-bottom-left-controls absolute flex flex-col items-start gap-2 z-50 pointer-events-auto combat-button-cluster--bottom-left">
           <button
             class="h-8 px-5 bg-[#252030]/90 border border-white/15 rounded-lg text-xs text-white/80 hover:border-amber-400 hover:text-amber-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT"
@@ -679,7 +676,7 @@
       </div>
 
       <!-- Log Feed + Piles Overlay: top-right, below parent "退出战斗" button -->
-      <div class="absolute right-0 top-14 z-40 pointer-events-auto select-none origin-top-right flex flex-col items-end gap-2 combat-button-cluster--top-right">
+      <div class="combat-top-right-panel absolute z-40 pointer-events-auto select-none flex flex-col items-end gap-2 combat-button-cluster--top-right">
         <div class="flex items-start">
           <button
             class="h-7 px-2 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[10px] text-white/50 hover:text-white/80 transition-colors"
@@ -755,7 +752,7 @@
       class="absolute inset-0 z-[70] flex items-center justify-center pointer-events-none"
     >
       <div
-        class="px-12 py-5 rounded-2xl border-2 text-5xl md:text-6xl font-heading tracking-[0.2em] drop-shadow-[0_0_30px_rgba(0,0,0,0.9)] animate-pulse backdrop-blur-md"
+        class="battle-result-banner px-12 py-5 rounded-2xl border-2 font-heading tracking-[0.2em] drop-shadow-[0_0_30px_rgba(0,0,0,0.9)] animate-pulse backdrop-blur-md"
         :class="battleResultBanner === 'win'
           ? 'bg-emerald-950/70 border-emerald-400/60 text-emerald-300'
           : 'bg-red-950/70 border-red-500/60 text-red-300'"
@@ -5933,14 +5930,46 @@ watch(
   transform-origin: top left;
 }
 
+.combat-top-left-panel {
+  top: 1rem;
+  left: 1rem;
+}
+
+.combat-turn-anchor {
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%) scale(1.43);
+  transform-origin: top;
+}
+
 .combat-button-cluster--bottom-left {
   transform: scale(1.392);
   transform-origin: bottom left;
 }
 
+.combat-bottom-left-controls {
+  left: 1.5rem;
+  bottom: 1rem;
+}
+
 .combat-button-cluster--top-right {
   transform: scale(1.16);
   transform-origin: top right;
+}
+
+.combat-top-right-panel {
+  right: 0;
+  top: 3.5rem;
+}
+
+.combat-hand-anchor {
+  transform: translateX(-2.5rem) scale(1.37);
+  transform-origin: bottom;
+}
+
+.battle-result-banner {
+  font-size: 3.75rem;
+  line-height: 1;
 }
 
 .combat-status-bar {
@@ -5949,37 +5978,86 @@ watch(
 
 .combat-status-bar--enemy {
   align-self: flex-end;
-  margin-right: 9rem;
-  transform: scale(1.534);
+  margin-right: calc(var(--enemy-shell-width) * var(--enemy-status-margin-right-ratio));
+  transform: scale(var(--enemy-status-scale));
 }
 
 .combat-status-bar--player {
   transform: scale(1.24);
 }
 
+.player-layout-shell {
+  --player-shell-width: 16rem;
+  --player-shell-height: 20rem;
+  --player-dice-left-ratio: 1.4;
+  --player-dice-top-ratio: -0.05;
+  --player-portrait-bottom-ratio: 0.05;
+  --player-portrait-scale: 1.44;
+  width: var(--player-shell-width);
+  height: var(--player-shell-height);
+  left: 6%;
+  bottom: 30%;
+  transform: scale(1.1);
+  transform-origin: bottom left;
+}
+
+.player-dice-anchor {
+  left: calc(var(--player-shell-width) * var(--player-dice-left-ratio));
+  top: calc(var(--player-shell-height) * var(--player-dice-top-ratio));
+  transform: translateX(-50%) scale(1.3);
+  transform-origin: center;
+}
+
+.player-portrait-scale {
+  bottom: calc(var(--player-shell-height) * var(--player-portrait-bottom-ratio));
+  transform: translateX(-50%) scale(var(--player-portrait-scale));
+  transform-origin: bottom;
+}
+
 .enemy-layout-shell {
-  width: 26rem;
-  height: 42rem;
+  --enemy-shell-width: 26rem;
+  --enemy-shell-height: 42rem;
+  --enemy-intent-left-ratio: -1.2307692308;
+  --enemy-intent-top-ratio: -0.2857142857;
+  --enemy-dice-left-ratio: -0.5336538462;
+  --enemy-dice-top-ratio: 0.1636904762;
+  --enemy-status-margin-right-ratio: 0.3461538462;
+  --enemy-status-scale: 1.534;
+  --enemy-portrait-translate-x: -38%;
+  --enemy-portrait-translate-y-ratio: -0.1142857143;
+  --enemy-portrait-scale: 1.64;
+  --enemy-dice-scale: 1.3;
+  width: var(--enemy-shell-width);
+  height: var(--enemy-shell-height);
 }
 
 .enemy-layout-shell--desktop {
+  --enemy-shell-width: 26rem;
+  --enemy-shell-height: 42rem;
   right: 0;
   bottom: 0.9rem;
 }
 
 .enemy-layout-shell--touch {
-  width: 20rem;
-  height: 33rem;
+  --enemy-shell-width: 20rem;
+  --enemy-shell-height: 33rem;
   right: 0.75rem;
   bottom: 0;
 }
 
-.enemy-portrait-scale--desktop {
-  transform: translate(-38%, -4.8rem) scale(1.64);
+.enemy-intent-anchor {
+  left: calc(var(--enemy-shell-width) * var(--enemy-intent-left-ratio));
+  top: calc(var(--enemy-shell-height) * var(--enemy-intent-top-ratio));
 }
 
+.enemy-dice-anchor {
+  left: calc(var(--enemy-shell-width) * var(--enemy-dice-left-ratio));
+  top: calc(var(--enemy-shell-height) * var(--enemy-dice-top-ratio));
+  transform: translateX(-50%) scale(var(--enemy-dice-scale));
+  transform-origin: center;
+}
 
-.enemy-portrait-scale--touch {
-  transform: translateX(-48%) scale(1.36);
+.enemy-portrait-scale {
+  transform: translate(var(--enemy-portrait-translate-x), calc(var(--enemy-shell-height) * var(--enemy-portrait-translate-y-ratio))) scale(var(--enemy-portrait-scale));
 }
 </style>
