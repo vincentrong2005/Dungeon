@@ -105,6 +105,22 @@ const 普通物理攻击加4: CardData = {
   description: '点数+4，造成1倍最终点数的伤害',
 };
 
+/** 双刃剑：点数+1，0.5倍伤害，2连击 */
+const 双刃剑: CardData = {
+  id: 'modao_double_blade',
+  name: '双刃剑',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 2,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+1，造成0.5倍点数伤害，2连击',
+};
+
 /** 普通魔法攻击 */
 const 普通魔法攻击: CardData = {
   id: 'basic_magic',
@@ -356,22 +372,6 @@ const 魔剑: CardData = {
   description: '造成1倍点数伤害，并回复等同本次实际伤害的魔力',
 };
 
-/** 双刃剑：点数+1，0.5倍伤害，2连击 */
-const 双刃剑: CardData = {
-  id: 'modao_double_blade',
-  name: '双刃剑',
-  type: CardType.PHYSICAL,
-  category: '魔导',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 1 },
-  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
-  hitCount: 2,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '点数+1，造成0.5倍点数伤害，2连击',
-};
-
 /** 导路采样：点数，回复1.5倍点数魔力 */
 const 导路采样: CardData = {
   id: 'modao_route_sampling',
@@ -420,20 +420,20 @@ const 魔压提纯: CardData = {
   description: '将自身当前魔力翻倍（最多额外获得20点）',
 };
 
-/** 魔力飓风：造成(12-点数)伤害，并按额外消耗魔力追加攻击次数（结算逻辑在 CombatView） */
+/** 魔力飓风：造成(12-点数)伤害（结算逻辑在 CombatView） */
 const 魔力飓风: CardData = {
   id: 'modao_mana_hurricane',
   name: '魔力飓风',
   type: CardType.MAGIC,
-  category: '魔导',
+  category: '基础',
   rarity: '普通',
-  manaCost: 6,
+  manaCost: 2,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成(12-点数)伤害；额外消耗自身至多9MP，每消耗3MP追加1次攻击',
+  description: '造成(12-点数)伤害',
 };
 
 /** 回声回灌：造成1倍伤害，目标每有1层群集额外造成1次伤害（结算逻辑在 CombatView） */
@@ -470,7 +470,7 @@ const 逆相咏唱: CardData = {
   description: '造成0.7倍点数伤害并施加1层禁言',
 };
 
-/** 奥术裂枪：点数*1.5，1倍伤害；MP≥8时额外消耗4MP追加一次1.5倍伤害（结算逻辑在 CombatView） */
+/** 奥术裂枪：点数*1.5，1倍伤害；MP≥8时额外消耗4MP追加一次2倍伤害（结算逻辑在 CombatView） */
 const 奥术裂枪: CardData = {
   id: 'modao_arcane_lance',
   name: '奥术裂枪',
@@ -483,7 +483,23 @@ const 奥术裂枪: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.5，造成1倍点数伤害；若当前MP≥8，再消耗4MP追加一次1.5倍伤害',
+  description: '点数*1.5，造成1倍点数伤害；若当前MP≥8，再消耗4MP追加一次2倍伤害',
+};
+
+/** 魔导序曲：8MP，点数*1.5，2倍伤害；每次抽到该牌时其费用-1（结算逻辑在 CombatView） */
+const 魔导序曲: CardData = {
+  id: 'modao_overture',
+  name: '魔导序曲',
+  type: CardType.MAGIC,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 8,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 2.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗8MP，点数*1.5，造成2倍点数伤害；每次抽到该牌时该牌费用-1',
 };
 
 /** 法环坍缩：1.5倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
@@ -612,7 +628,7 @@ const 魔力增强: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗1倍点数的魔力，获得1倍点数的增伤',
+  description: '消耗1倍点数的魔力，获得1倍点数的增伤。若魔力不足则增强失败。',
 };
 
 // ── 燃烧体系卡牌 ────────────────────────────────────────────────
@@ -2163,6 +2179,100 @@ const DESK_TENTACLE_SILENT_ENTANGLE: CardData = {
   description: '闪避，若闪避成功或对方跳过回合，则施加1层束缚',
 };
 
+/** 钩爪撕扯：造成1倍点数伤害并附加0.5倍点数流血 */
+const PATROL_BAT_CLAW_REND: CardData = {
+  id: 'enemy_patrol_bat_claw_rend',
+  name: '钩爪撕扯',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '造成1倍点数的伤害并附加0.5倍点数的流血',
+};
+
+/** 金属尖啸：点数*2，为自身增加1倍点数蓄力 */
+const PATROL_BAT_METAL_SCREECH: CardData = {
+  id: 'enemy_patrol_bat_metal_screech',
+  name: '金属尖啸',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数*2，为自身增加1倍点数的蓄力',
+};
+
+/** 标记：点数*2，造成0.1倍点数伤害，附带负面效果[被标记]，无视闪避 */
+const PATROL_BAT_MARK: CardData = {
+  id: 'enemy_patrol_bat_mark',
+  name: '标记',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.1, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  negativeEffect: '[被标记]',
+  ignoreDodge: true,
+  description: '点数*2，造成0.1倍点数伤害，附带负面效果[被标记]，无视闪避',
+};
+
+/** 飞离：功能，触发后立即结束战斗 */
+const PATROL_BAT_FLY_AWAY: CardData = {
+  id: 'enemy_patrol_bat_fly_away',
+  name: '飞离',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  excape: true,
+  description: '逃离',
+};
+
+/** 盘旋：点数-1，闪避，若闪避成功施加1倍点数流血 */
+const PATROL_BAT_CIRCLING: CardData = {
+  id: 'enemy_patrol_bat_circling',
+  name: '盘旋',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.BLEED,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '点数-1，闪避，若闪避成功施加1倍点数的流血',
+};
+
 /** 入侵：物理，无直接伤害，施加1倍点数的侵蚀 */
 const 入侵: CardData = {
   id: 'enemy_ink_slime_invasion',
@@ -2364,7 +2474,7 @@ const 恶作剧: CardData = {
   description: '闪避，若闪避成功或对方跳过回合，对对方施加1倍点数的电击',
 };
 
-/** 巨大化投影：移除自身的虚幻之躯，获得1倍点数护甲，最小点数+2，最大点数+4（结算逻辑在 CombatView） */
+/** 巨大化投影：移除自身的虚幻之躯，获得2倍点数生命与护甲，最小点数+2，最大点数+4（结算逻辑在 CombatView） */
 const 巨大化投影: CardData = {
   id: 'enemy_nymph_giant_projection',
   name: '巨大化投影',
@@ -2376,9 +2486,10 @@ const 巨大化投影: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 2.0 },
   ],
-  description: '移除自身的“虚幻之躯”，获得1倍点数护甲，最小点数+2，最大点数+4',
+  description: '移除自身的“虚幻之躯”，获得2倍点数生命与护甲，最小点数+2，最大点数+4',
 };
 
 /** 静肃宣告：消耗2MP，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层束缚（额外效果在 CombatView） */
@@ -2665,7 +2776,7 @@ const 钉缚: CardData = {
   description: '造成1.5倍点数伤害',
 };
 
-/** 催眠书页：造成0.5倍点数伤害，插入1张档案污页，并附带负面状态[被催眠] */
+/** 催眠书页：造成0.5倍点数伤害，插入1张档案污页，并附带负面状态[淫乱知识] */
 const 催眠书页: CardData = {
   id: 'enemy_akasha_hypnosis_page',
   name: '催眠书页',
@@ -2678,8 +2789,8 @@ const 催眠书页: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['档案污页'] },
   cardEffects: [],
-  negativeEffect: '[被催眠]',
-  description: '造成0.5倍点数伤害，插入1张“档案污页”，附带负面状态[被催眠]',
+  negativeEffect: '[淫乱知识]',
+  description: '造成0.5倍点数伤害，插入1张“档案污页”，附带负面状态[淫乱知识]',
 };
 
 /** 欲望实体化：消耗3MP，点数+2，造成1倍点数伤害并施加0.5倍点数易伤 */
@@ -4090,6 +4201,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [普通物理攻击加1.name, 普通物理攻击加1],
   [普通物理攻击加2.name, 普通物理攻击加2],
   [普通物理攻击加4.name, 普通物理攻击加4],
+  [双刃剑.name, 双刃剑],
   [普通魔法攻击.name, 普通魔法攻击],
   [聚焦魔法攻击.name, 聚焦魔法攻击],
   [普通护盾.name, 普通护盾],
@@ -4104,7 +4216,6 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [魔力偏移.name, 魔力偏移],
   [零域闪步.name, 零域闪步],
   [魔剑.name, 魔剑],
-  [双刃剑.name, 双刃剑],
   [导路采样.name, 导路采样],
   [织式备份.name, 织式备份],
   [魔压提纯.name, 魔压提纯],
@@ -4112,6 +4223,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [回声回灌.name, 回声回灌],
   [逆相咏唱.name, 逆相咏唱],
   [奥术裂枪.name, 奥术裂枪],
+  [魔导序曲.name, 魔导序曲],
   [法环坍缩.name, 法环坍缩],
   [棱镜贯流.name, 棱镜贯流],
   [导能屏障.name, 导能屏障],
@@ -4300,6 +4412,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [等价交换.name, 等价交换],
   [溢价护盾.name, 溢价护盾],
   [设下埋伏.name, 设下埋伏],
+  [PATROL_BAT_CLAW_REND.name, PATROL_BAT_CLAW_REND],
+  [PATROL_BAT_METAL_SCREECH.name, PATROL_BAT_METAL_SCREECH],
+  [PATROL_BAT_MARK.name, PATROL_BAT_MARK],
+  [PATROL_BAT_FLY_AWAY.name, PATROL_BAT_FLY_AWAY],
+  [PATROL_BAT_CIRCLING.name, PATROL_BAT_CIRCLING],
 ]);
 
 // ── 公共 API ────────────────────────────────────────────────────

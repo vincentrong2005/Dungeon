@@ -27,7 +27,7 @@
     </div>
 
     <!-- Sidebar: Individual Icons Top-Left (no back button, settings already has exit) -->
-    <div class="absolute top-6 left-6 z-50 flex flex-col space-y-4 ui-buttons-left">
+    <div class="absolute top-8 left-8 z-50 flex flex-col space-y-4 ui-buttons-left">
       <SidebarIcon
         :icon="SettingsIcon"
         label="设置"
@@ -60,7 +60,7 @@
     </div>
 
     <!-- Right sidebar: save/load only (reroll & edit moved into panel) -->
-    <div class="absolute top-6 right-4 z-50 flex flex-col space-y-4 ui-buttons-right">
+    <div class="absolute top-8 right-8 z-50 flex flex-col space-y-4 ui-buttons-right">
       <SidebarIcon
         :icon="Maximize"
         label="全屏模式"
@@ -84,9 +84,9 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="h-full w-full flex flex-col items-center">
+    <div class="h-full min-h-0 w-full flex flex-col items-center">
       <div
-        class="w-full flex flex-col pt-2 pb-2 px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
+        class="w-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
         :style="{ maxWidth: textSettings.containerWidth + 'px' }"
       >
         <!-- Story Text Area -->
@@ -96,6 +96,9 @@
           <!-- Decorative Corners -->
           <div class="absolute top-2 left-2 w-4 h-4 border-t border-l border-dungeon-gold/30"></div>
           <div class="absolute top-2 right-2 w-4 h-4 border-t border-r border-dungeon-gold/30"></div>
+          <div class="story-floor-indicator pointer-events-none select-none">
+            消息楼层 第 {{ currentTavernFloorNumber }} 层
+          </div>
 
           <!-- Loading Indicator -->
           <div v-if="gameStore.isGenerating" class="flex items-center gap-3 mb-4">
@@ -331,23 +334,27 @@
           </template>
         </div>
 
-        <!-- Input Area -->
-        <div class="bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-4 shrink-0">
-          <div class="relative w-full">
+      </div>
+    </div>
+    <!-- Input Area (Stage-Anchored) -->
+    <div class="ui-input-anchor absolute left-0 right-0 bottom-0 z-[60] pb-2">
+      <div class="w-full mx-auto px-4 md:px-12 md:pl-24" :style="{ maxWidth: textSettings.containerWidth + 'px' }">
+        <div class="bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
+          <div class="w-full flex items-stretch gap-2">
             <input
               v-model="inputText"
               type="text"
               :disabled="gameStore.isGenerating"
               :placeholder="gameStore.isGenerating ? '等待回复中...' : '输入你的行动...'"
-              class="w-full bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper px-4 py-3 pr-14 rounded focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui placeholder-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="flex-1 h-[4.5rem] bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-tight px-5 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui placeholder-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               @keydown.enter="handleSendInput"
             />
             <button
-              class="ui-send-button absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[#1a0f08] border border-dungeon-gold/30 hover:bg-dungeon-brown hover:border-dungeon-gold text-dungeon-gold rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              class="ui-send-button h-[4.5rem] min-w-[4.5rem] px-3 bg-[#1a0f08] border border-dungeon-gold/30 hover:bg-dungeon-brown hover:border-dungeon-gold text-dungeon-gold rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
               :disabled="gameStore.isGenerating"
               @click="handleSendInput"
             >
-              <Send class="size-5" />
+              <Send class="size-7" />
             </button>
           </div>
         </div>
@@ -355,7 +362,7 @@
     </div>
 
     <!-- Player Status HUD (Bottom Left) -->
-    <div class="absolute bottom-6 left-6 z-50 flex flex-col gap-2 select-none ui-status-hud">
+    <div class="absolute bottom-8 left-8 z-[70] flex flex-col gap-2 select-none ui-status-hud">
       <div class="flex items-center gap-2">
         <button
           class="w-10 h-10 rounded-lg flex items-center justify-center
@@ -919,14 +926,16 @@
         <span class="font-ui text-dungeon-paper/40 text-sm">尚未获得圣遗物</span>
       </div>
     </DungeonModal>
-    <div
-      v-if="relicTooltip"
-      class="fixed z-[220] pointer-events-none relic-tooltip"
-      :style="{ left: `${relicTooltip.x}px`, top: `${relicTooltip.y}px` }"
-    >
-      <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
-      <div class="relic-tooltip-desc">{{ relicTooltip.description }}</div>
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="relicTooltip"
+        class="fixed z-[220] pointer-events-none relic-tooltip"
+        :style="{ left: `${relicTooltip.x}px`, top: `${relicTooltip.y}px` }"
+      >
+        <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
+        <div class="relic-tooltip-desc">{{ relicTooltip.description }}</div>
+      </div>
+    </Teleport>
 
     <!-- Settings Modal -->
     <DungeonModal title="系统设置" :is-open="activeModal === 'settings'" @close="activeModal = null; closeSettingsHelp()">
@@ -2016,6 +2025,18 @@ const stageScale = computed(() => {
 const stageStyle = computed(() => ({
   transform: `translate(-50%, -50%) scale(${stageScale.value})`,
 }));
+const currentTavernFloorNumber = computed<number>(() => {
+  // 绑定到 gameStore 的响应式状态，确保消息刷新时会重新取最新 message_id
+  void gameStore.mainText;
+  void gameStore.currentSummary;
+  void gameStore.options.length;
+  void gameStore.isGenerating;
+  void gameStore.streamingText;
+
+  const lastMessageId = Number(getLastMessageId());
+  if (!Number.isFinite(lastMessageId) || lastMessageId < 0) return 0;
+  return Math.floor(lastMessageId);
+});
 const showLandscapeHint = computed(() => (
   isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value
 ));
@@ -2035,6 +2056,8 @@ const shopProducts = ref<ShopProduct[]>([]);
 const shopBuying = ref(false);
 const shopSpentGold = ref(0);
 const shopPurchasedItems = ref<Array<{ name: string; rarity: string; price: number }>>([]);
+const shopEntrySpentGold = ref(0);
+const shopEntryPurchasedCount = ref(0);
 const shopRobClickCount = ref(0);
 const shopRobbing = ref(false);
 const shopSessionKey = ref<string | null>(null);
@@ -2074,7 +2097,7 @@ const activeCombatContext = ref<'normal' | 'shopRobbery' | 'chestMimic' | 'comba
 const pendingCombatNarrative = ref<{
   id: string;
   context: 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
-  win: boolean;
+  outcome: 'win' | 'lose' | 'escape';
   enemyName: string;
   text: string;
 } | null>(null);
@@ -2119,6 +2142,7 @@ interface ShopProduct {
 }
 
 type CombatContext = 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
+type CombatOutcome = 'win' | 'lose' | 'escape';
 type IdolBlessingTarget = 'maxHp' | 'mp' | 'gold';
 interface IdolBlessingConfig {
   target: IdolBlessingTarget;
@@ -2524,12 +2548,27 @@ const carriedMagicBooks = computed<string[]>(() => {
   return rawCarriedMagicBooks.value.filter((name) => available.has(name));
 });
 const carriedMagicBookSet = computed(() => new Set(carriedMagicBooks.value));
+const ownedLegendaryRelicNameSet = computed<Set<string>>(() => {
+  const rawInventory = (gameStore.statData._圣遗物 ?? {}) as Record<string, number>;
+  const owned = new Set<string>();
+  for (const relic of getAllRelics()) {
+    if (relic.rarity !== '传奇') continue;
+    const countByName = Math.max(0, Math.floor(Number(rawInventory[relic.name] ?? 0)));
+    const countById = Math.max(0, Math.floor(Number(rawInventory[relic.id] ?? 0)));
+    if (countByName > 0 || countById > 0) {
+      owned.add(relic.name);
+    }
+  }
+  return owned;
+});
 const selectableRelicPool = computed<RelicData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
   let pool = getAllRelics().filter((relic) => categorySet.has(relic.category));
   if (pool.length === 0) {
     pool = getAllRelics().filter((relic) => relic.category === '基础');
   }
+  const ownedLegendaryNames = ownedLegendaryRelicNameSet.value;
+  pool = pool.filter((relic) => relic.rarity !== '传奇' || !ownedLegendaryNames.has(relic.name));
   return [...pool];
 });
 const muxinlanFavor = computed<number>(() => {
@@ -3036,7 +3075,10 @@ const showRelicTooltipForTarget = (target: HTMLElement, relic: RelicEntryView) =
   const rect = target.getBoundingClientRect();
   const tooltipWidth = 240;
   const margin = 8;
-  const x = Math.max(margin, Math.min(rect.left + rect.width / 2, window.innerWidth - tooltipWidth - margin));
+  const centerX = rect.left + rect.width / 2;
+  const minX = margin + tooltipWidth / 2;
+  const maxX = window.innerWidth - margin - tooltipWidth / 2;
+  const x = Math.max(minX, Math.min(centerX, maxX));
   const y = Math.max(margin, rect.top - margin);
   relicTooltip.value = {
     x,
@@ -3850,10 +3892,12 @@ const normalizeNegativeStatusList = (value: unknown): string[] => {
 const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
   '[淫纹]': '每场战斗开始时，你获得3层中毒。',
-  '[败北]': '记录曾在地牢中败北，会影响后续剧情分支。',
-  '[催淫]': '曾因中毒量致死，后续剧情会体现被药性支配。',
-  '[神经肌肉失调]': '曾因电击致死，后续剧情会体现神经损伤与痉挛。',
-  '[被侵蚀]': '曾因侵蚀致死，后续剧情会体现体质与生命结构崩坏。',
+  '[淫乱知识]': '每场战斗开始时向你的牌库随机插入3张【档案污页】。',
+  '[被标记]': '战斗房出现概率大幅增加，且每场战斗开始时你获得2层易伤。',
+  '[败北]': '在地牢中战败，沦为俘虏。',
+  '[催淫]': '因中毒量hp归零，后续剧情会体现身体被药性支配。',
+  '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
+  '[被侵蚀]': '曾因侵蚀hp归零，后续剧情会体现身体被操控。',
 };
 const negativeStatusEntries = computed(() => (
   normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name) => ({
@@ -4059,10 +4103,12 @@ const formatCombatLogs = (logs: string[]) => {
   return ordered.join('\n');
 };
 
-const buildCombatNarrative = (win: boolean, enemyName: string, context: CombatContext, logs: string[]) => {
-  const outcomeLine = win
+const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context: CombatContext, logs: string[]) => {
+  const outcomeLine = outcome === 'win'
     ? `<user>战斗结果：[胜利]，<user>战胜了${enemyName}。`
-    : `<user>战斗结果：[败北]，<user>被${enemyName}击败。`;
+    : outcome === 'lose'
+      ? `<user>战斗结果：[败北]，<user>被${enemyName}击败。`
+      : '<user>战斗结果：[脱离]，一方逃离战斗。';
   const contextLine = context === 'shopRobbery'
     ? '<user>本次战斗发生在抢夺商店的冲突中。'
     : context === 'chestMimic'
@@ -4070,9 +4116,11 @@ const buildCombatNarrative = (win: boolean, enemyName: string, context: CombatCo
     : context === 'combatTest'
     ? '<user>本次战斗来自战斗测试。'
     : '<user>本次战斗发生在地牢探索途中。';
-  const followupLine = win
+  const followupLine = outcome === 'win'
     ? '<user>请根据以下完整战斗日志继续剧情，并体现胜利后的后续发展。'
-    : '<user>请根据以下完整战斗日志继续剧情，并体现战败后的后续发展。';
+    : outcome === 'lose'
+      ? '<user>请根据以下完整战斗日志继续剧情，并体现战败后的后续发展。'
+      : '<user>请根据以下完整战斗日志继续剧情，并体现脱离战斗后的后续发展。';
   return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
 };
 
@@ -4085,14 +4133,16 @@ const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
   gameStore.sendAction(text);
 };
 
-const queueCombatMvuSync = (win: boolean, finalStats: unknown, negativeEffects: string[]) => {
+const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativeEffects: string[]) => {
+  const win = outcome === 'win';
+  const lose = outcome === 'lose';
   const hpRaw = Number((finalStats as { hp?: unknown } | null | undefined)?.hp);
   const hasHp = Number.isFinite(hpRaw);
   const finalMaxHpRaw = Number((finalStats as { maxHp?: unknown } | null | undefined)?.maxHp);
   const hasFinalMaxHp = Number.isFinite(finalMaxHpRaw);
   const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
   const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
-  const goldReward = 3 + (2 * floor);
+  const goldReward = 3 + floor;
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
   const stomachMarkCount = getOwnedRelicCountById('bloodpool_stomach_mark');
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
@@ -4122,7 +4172,7 @@ const queueCombatMvuSync = (win: boolean, finalStats: unknown, negativeEffects: 
 
   gameStore.setPendingCombatMvuChanges({
     hp: nextHp,
-    addDefeatMark: !win,
+    addDefeatMark: lose,
     goldDelta: win ? goldReward : undefined,
     negativeStatusesAdd: normalizedNegativeEffects,
   });
@@ -4339,6 +4389,8 @@ const resetShopSession = () => {
   shopProducts.value = [];
   shopSpentGold.value = 0;
   shopPurchasedItems.value = [];
+  shopEntrySpentGold.value = 0;
+  shopEntryPurchasedCount.value = 0;
   shopRobClickCount.value = 0;
   shopRobbing.value = false;
 };
@@ -4353,10 +4405,15 @@ const openShopView = () => {
     shopSessionKey.value = nextSessionKey;
     shopSpentGold.value = 0;
     shopPurchasedItems.value = [];
+    shopEntrySpentGold.value = 0;
+    shopEntryPurchasedCount.value = 0;
     shopRobClickCount.value = 0;
     shopRobbing.value = false;
     generateShopProducts();
   }
+  // Record a per-opening baseline. Exit only commits purchases made after this point.
+  shopEntrySpentGold.value = shopSpentGold.value;
+  shopEntryPurchasedCount.value = shopPurchasedItems.value.length;
   if (isMerchantDefeated.value) {
     applyMerchantDefeatedShopState();
   }
@@ -4381,6 +4438,13 @@ const buildNextRelicInventory = (
     const count = Math.max(0, Math.floor(Number(value ?? 0)));
     if (!name || count <= 0) continue;
     nextRelics[name] = count;
+  }
+  if (pickedRelic.rarity === '传奇') {
+    const existingByName = Math.max(0, Math.floor(Number(nextRelics[pickedRelic.name] ?? 0)));
+    const existingById = Math.max(0, Math.floor(Number(nextRelics[pickedRelic.id] ?? 0)));
+    if (existingByName > 0 || existingById > 0) {
+      return nextRelics;
+    }
   }
   nextRelics[pickedRelic.name] = (nextRelics[pickedRelic.name] ?? 0) + 1;
   return nextRelics;
@@ -4408,8 +4472,9 @@ const buyShopProduct = (item: ShopProduct) => {
 
 const exitShop = () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
-  const purchased = [...shopPurchasedItems.value];
-  const total = shopSpentGold.value;
+  const purchasedStartIndex = Math.max(0, Math.min(shopEntryPurchasedCount.value, shopPurchasedItems.value.length));
+  const purchased = shopPurchasedItems.value.slice(purchasedStartIndex).map((item) => ({ ...item }));
+  const total = Math.max(0, shopSpentGold.value - shopEntrySpentGold.value);
   if (purchased.length > 0) {
     const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
     const nextGold = Math.max(0, baseGold - total);
@@ -4436,7 +4501,7 @@ const exitShop = () => {
   }
   const narrative = pendingCombatNarrative.value;
   closeShopView();
-  if (narrative && narrative.context === 'shopRobbery' && narrative.win) {
+  if (narrative && narrative.context === 'shopRobbery' && narrative.outcome === 'win') {
     const lootedText = purchased.length > 0
       ? `<user>我在失守的货架上拿走了${purchased.map((item) => `${item.name}（${item.rarity}）`).join('，')}。`
       : '<user>我没有额外拿走商店货架上的物品。';
@@ -5355,15 +5420,6 @@ const LORD_MONSTER_BY_AREA: Record<string, string> = (() => {
   return mapping;
 })();
 
-// 当前规则：70% 抽普通魔物，30% 抽区域特有魔物（若存在）
-const COMMON_MONSTER_RATE_BY_FLOOR: Record<string, number> = {
-  '第一层': 0.7,
-  '第二层': 0.7,
-  '第三层': 0.7,
-  '第四层': 0.7,
-  '第五层': 0.7,
-};
-
 function pickOne<T>(arr: T[]): T | null {
   if (!arr.length) return null;
   return arr[Math.floor(Math.random() * arr.length)]!;
@@ -5374,21 +5430,12 @@ function pickBattleMonsterByArea(area: string): string | null {
   const config = FLOOR_MONSTER_CONFIG[floor];
   if (!config) return null;
 
-  const commonPool = config.common;
-  const uniquePool = config.uniqueByArea[area] ?? [];
-  const commonRate = COMMON_MONSTER_RATE_BY_FLOOR[floor] ?? 0.7;
-
-  let pool: string[] = [];
-  if (commonPool.length === 0 && uniquePool.length === 0) return null;
-  if (commonPool.length === 0) {
-    pool = uniquePool;
-  } else if (uniquePool.length === 0) {
-    pool = commonPool;
-  } else {
-    pool = Math.random() < commonRate ? commonPool : uniquePool;
-  }
-
-  return pickOne(pool);
+  // 等概率：普通池 + 当前区域特有池 合并后随机（去重避免重复项改变概率）
+  const mergedPool = Array.from(new Set([
+    ...config.common,
+    ...(config.uniqueByArea[area] ?? []),
+  ]));
+  return pickOne(mergedPool);
 }
 
 function pickLordMonsterByArea(area: string): string | null {
@@ -5400,11 +5447,11 @@ function pickLordMonsterByArea(area: string): string | null {
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
 const PORTAL_ROOM_WEIGHTS: Record<string, number> = {
-  '战斗房': 40,
+  '战斗房': 45,
   '宝箱房': 20,
   '商店房': 10,
   '温泉房': 10,
-  '神像房': 15,
+  '神像房': 10,
   '事件房': 0,
   '陷阱房': 5,
 };
@@ -5510,14 +5557,21 @@ function rollPortalCount(): number {
   return roll < 0.55 ? 1 : roll < 0.95 ? 2 : 3;
 }
 
+const NEGATIVE_STATUS_MARKED = '[被标记]';
+const MARKED_BATTLE_ROOM_WEIGHT = 95;
+
 function pickWeightedRoomTypes(roomTypes: string[], count: number): string[] {
   const picked: string[] = [];
   if (roomTypes.length === 0 || count <= 0) return picked;
+  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态)
+    .includes(NEGATIVE_STATUS_MARKED);
 
   // 允许可重复抽取：每次都从同一候选池按权重抽取，不移除已抽中的房间类型
   const weightedPool = roomTypes.map((type) => ({
     type,
-    weight: Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
+    weight: type === '战斗房' && hasMarkedNegativeStatus
+      ? MARKED_BATTLE_ROOM_WEIGHT
+      : Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
   }));
   const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
 
@@ -5604,7 +5658,9 @@ const portalChoices = computed<PortalChoice[]>(() => {
   const roomType = (gameStore.statData._当前房间类型 as string) || '';
   const rooms = ((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0);
   const merchantDefeated = parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人);
-  const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}`;
+  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态)
+    .includes(NEGATIVE_STATUS_MARKED);
+  const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}|${hasMarkedNegativeStatus ? 1 : 0}`;
   if (fingerprint !== cachedPortalFingerprint) {
     cachedPortalFingerprint = fingerprint;
     cachedPortals = generatePortals();
@@ -5866,32 +5922,32 @@ const confirmCombatTestEnemyAndStart = async () => {
   showCombat.value = true;
 };
 
-const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[], negativeEffects: string[]) => {
+const handleCombatEnd = async (outcome: CombatOutcome, finalStats: unknown, logs: string[], negativeEffects: string[]) => {
   const context = activeCombatContext.value;
   const enemyName = combatEnemyName.value || ((gameStore.statData._对手名称 as string) || '未知敌人');
   pendingCombatNarrative.value = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     context,
-    win,
+    outcome,
     enemyName,
-    text: buildCombatNarrative(win, enemyName, context, logs ?? []),
+    text: buildCombatNarrative(outcome, enemyName, context, logs ?? []),
   };
 
-  queueCombatMvuSync(win, finalStats, negativeEffects ?? []);
+  queueCombatMvuSync(outcome, finalStats, negativeEffects ?? []);
 
   showCombat.value = false;
   showVictoryRewardView.value = false;
   combatTestStartAt999CurrentBattle.value = false;
   activeCombatContext.value = 'normal';
 
-  if (!win) {
+  if (outcome !== 'win') {
     closeShopView();
     const narrative = pendingCombatNarrative.value;
     pendingCombatNarrative.value = null;
     if (narrative) {
       sendCombatNarrativeOnce(narrative, narrative.text);
     }
-    console.log('[Combat] Result:', 'LOSE');
+    console.log('[Combat] Result:', outcome.toUpperCase());
     return;
   }
 
@@ -5996,13 +6052,25 @@ onBeforeUnmount(() => {
 }
 
 .ui-send-button {
-  transform: translateY(-50%) scale(1.15);
-  transform-origin: right center;
+  transform: none;
 }
 
 .ui-status-hud {
   transform: scale(1.2);
   transform-origin: bottom left;
+}
+
+.story-floor-indicator {
+  position: absolute;
+  top: 0.9rem;
+  right: 1.55rem;
+  z-index: 8;
+  color: rgba(251, 191, 36, 0.95);
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
 }
 
 .landscape-hint-overlay {

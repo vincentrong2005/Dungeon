@@ -14,6 +14,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.ORGASM]: 'fa-solid fa-bullseye',
   [ET.DAMAGE_BOOST]: 'fa-brands fa-superpowers',
   [ET.REGEN]: 'fa-brands fa-medrt',
+  [ET.SELF_REPAIR]: 'fa-solid fa-gear',
   [ET.WHITE_TURBID]: 'fa-solid fa-droplet',
   [ET.IGNITE_AURA]: 'fa-solid fa-fire-flame-simple',
   [ET.STUN]: 'fa-solid fa-spiral',

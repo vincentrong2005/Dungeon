@@ -560,6 +560,43 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  const findLatestAssistantMessageId = (): number => {
+    const lastId = getLastMessageId();
+    if (lastId < 0) return -1;
+    const assistantMessages = getChatMessages(`0-${lastId}`, { role: 'assistant' });
+    if (assistantMessages.length === 0) return -1;
+    return assistantMessages[assistantMessages.length - 1].message_id;
+  };
+
+  const normalizeTailUserMessage = async (): Promise<number | null> => {
+    const lastId = getLastMessageId();
+    if (lastId < 0) return null;
+
+    const allMessages = getChatMessages(`0-${lastId}`);
+    if (allMessages.length === 0) return null;
+
+    const tailUserMessageIds: number[] = [];
+    for (let i = allMessages.length - 1; i >= 0; i -= 1) {
+      if (allMessages[i].role !== 'user') break;
+      tailUserMessageIds.push(allMessages[i].message_id);
+    }
+
+    if (tailUserMessageIds.length === 0) return null;
+
+    // Keep only the latest tail user message; delete older tail user messages.
+    if (tailUserMessageIds.length > 1) {
+      const staleUserIds = tailUserMessageIds.slice(1);
+      await deleteChatMessages(staleUserIds, { refresh: 'none' });
+    }
+
+    const normalizedLastId = getLastMessageId();
+    if (normalizedLastId < 0) return null;
+    const latestMessages = getChatMessages(`${normalizedLastId}-${normalizedLastId}`);
+    const latestMessage = latestMessages[0];
+    if (!latestMessage || latestMessage.role !== 'user') return null;
+    return latestMessage.message_id;
+  };
+
   /**
    * 核心游戏循环：发送用户行动
    * 1. 获取当前楼层 MVU 变量（作为继承基础）
@@ -578,7 +615,13 @@ export const useGameStore = defineStore('game', () => {
 
     try {
       // 1. 在创建新消息前，获取最新楼层的 MVU 变量（用于继承）
-      const oldMvuData = Mvu.getMvuData({ type: 'message', message_id: getLastMessageId() });
+      const overwriteUserMessageId = await normalizeTailUserMessage();
+      const baseMessageId = overwriteUserMessageId !== null
+        ? findLatestAssistantMessageId()
+        : getLastMessageId();
+      const oldMvuData = baseMessageId >= 0
+        ? Mvu.getMvuData({ type: 'message', message_id: baseMessageId })
+        : {};
       const currentPendingPortalChanges = pendingPortalChanges.value;
       const currentPendingCombatChanges = pendingCombatMvuChanges.value;
       const currentPendingStatDataChanges = pendingStatDataChanges.value;
@@ -591,10 +634,18 @@ export const useGameStore = defineStore('game', () => {
 
       // 3. 创建 user 楼层（携带已应用按钮变更后的 MVU 数据）
       console.info('[GameStore] Creating user message:', userInput);
-      await createChatMessages(
-        [{ role: 'user', message: userInput, data: userMvuData }],
-        { refresh: 'none' },
-      );
+      if (overwriteUserMessageId !== null) {
+        console.info('[GameStore] Overwriting tail user message:', overwriteUserMessageId);
+        await setChatMessages(
+          [{ message_id: overwriteUserMessageId, role: 'user', message: userInput, data: userMvuData }],
+          { refresh: 'none' },
+        );
+      } else {
+        await createChatMessages(
+          [{ role: 'user', message: userInput, data: userMvuData }],
+          { refresh: 'none' },
+        );
+      }
 
       // user 层已写入成功后，清空待应用变更，避免后续重复叠加
       pendingPortalChanges.value = null;

@@ -758,21 +758,25 @@
         class="battle-result-banner px-12 py-5 rounded-2xl border-2 font-heading tracking-[0.2em] drop-shadow-[0_0_30px_rgba(0,0,0,0.9)] animate-pulse backdrop-blur-md"
         :class="battleResultBanner === 'win'
           ? 'bg-emerald-950/70 border-emerald-400/60 text-emerald-300'
-          : 'bg-red-950/70 border-red-500/60 text-red-300'"
+          : battleResultBanner === 'escape'
+            ? 'bg-zinc-900/75 border-zinc-300/50 text-zinc-100'
+            : 'bg-red-950/70 border-red-500/60 text-red-300'"
       >
-        {{ battleResultBanner === 'win' ? '胜利' : '败北' }}
+        {{ battleResultBanner === 'win' ? '胜利' : battleResultBanner === 'escape' ? '脱离' : '败北' }}
       </div>
     </div>
-    <div
-      v-if="effectTooltip"
-      class="effect-tooltip absolute z-[72] pointer-events-none"
-      :class="effectTooltip.align === 'right' ? 'effect-tooltip--right text-right' : 'effect-tooltip--center'"
-      :style="{ left: `${effectTooltip.x}px`, top: `${effectTooltip.y}px` }"
-    >
-      <div class="effect-tooltip-name">{{ effectTooltip.name }}</div>
-      <div class="effect-tooltip-desc">{{ effectTooltip.description }}</div>
-      <div v-if="effectTooltip.stacks > 1" class="effect-tooltip-stacks">层数: {{ effectTooltip.stacks }}</div>
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="effectTooltip"
+        class="effect-tooltip fixed z-[240] pointer-events-none"
+        :class="effectTooltip.align === 'right' ? 'effect-tooltip--right text-right' : 'effect-tooltip--center'"
+        :style="{ left: `${effectTooltip.x}px`, top: `${effectTooltip.y}px` }"
+      >
+        <div class="effect-tooltip-name">{{ effectTooltip.name }}</div>
+        <div class="effect-tooltip-desc">{{ effectTooltip.description }}</div>
+        <div v-if="effectTooltip.stacks > 1" class="effect-tooltip-stacks">层数: {{ effectTooltip.stacks }}</div>
+      </div>
+    </Teleport>
 
     <!-- Deck/Discard Overlay -->
     <div
@@ -883,7 +887,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  endCombat: [win: boolean, finalStats: EntityStats, logs: string[], negativeEffects: string[]];
+  endCombat: [outcome: 'win' | 'lose' | 'escape', finalStats: EntityStats, logs: string[], negativeEffects: string[]];
   openDeck: [];
   openRelics: [];
 }>();
@@ -1285,7 +1289,7 @@ const settingsOpen = ref(false);
 const battleSpeedUp = ref(false);
 const logsCollapsed = ref(true);
 const pilesCollapsed = ref(true);
-const battleResultBanner = ref<'win' | 'lose' | null>(null);
+const battleResultBanner = ref<CombatOutcome | null>(null);
 const endCombatPending = ref(false);
 const isTouchDevice = ref(false);
 const enemyIntentConsumedThisTurn = ref(false);
@@ -1308,6 +1312,7 @@ const updateCombatViewportMode = () => {
 };
 
 type BattleSide = 'player' | 'enemy';
+type CombatOutcome = 'win' | 'lose' | 'escape';
 type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana' | 'true';
 type ResolvedCardAnimVariant = 'attack' | 'self' | 'fade';
 type TooltipAlign = 'center' | 'right';
@@ -1375,7 +1380,10 @@ const floatingNumbers = ref<FloatingNumberEntry[]>([]);
 const pendingCardNegativeEffects = ref<string[]>([]);
 const STATUS_PHEROMONE = '[信息素]';
 const STATUS_LUST_MARK = '[淫纹]';
+const STATUS_LUST_KNOWLEDGE = '[淫乱知识]';
+const STATUS_MARKED = '[被标记]';
 const PHEROMONE_CURSE_CARD_NAME = '信息素';
+const ARCHIVE_TAINT_CURSE_CARD_NAME = '档案污页';
 const normalizeNegativeStatusList = (value: unknown): string[] => {
   const normalizeArray = (arr: unknown[]) => {
     const seen = new Set<string>();
@@ -1581,6 +1589,19 @@ const addFatigueDegree = (delta: number) => {
 
 // Default relic modifiers (no relics yet)
 const NO_RELIC_MOD = { globalMultiplier: 1, globalAddition: 0 };
+const MAGIC_DOLL_DAMAGE_CARD: CardData = {
+  id: 'relic_modao_magic_doll_damage',
+  name: '魔法玩偶',
+  type: CardType.MAGIC,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 2 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '圣遗物固定伤害结算占位卡',
+};
 const activePlayerRelics = resolveRelicMap(props.playerRelics);
 const playerDiceRerollCharges = ref(0);
 const relicRuntimeState = reactive<Record<string, Record<string, unknown>>>({});
@@ -3066,15 +3087,16 @@ const clearEffectTooltipTimers = () => {
 };
 
 const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance, align: TooltipAlign = 'center') => {
-  const rootRect = combatRootEl.value?.getBoundingClientRect();
-  if (!rootRect) return;
-
   const rect = target.getBoundingClientRect();
-  const top = Math.max(8, rect.top - rootRect.top - 8);
   const tooltipMaxWidth = 256;
+  const margin = 8;
+  const top = Math.max(margin, rect.top - margin);
   const x = align === 'right'
-    ? Math.max(8, Math.min(rect.right - rootRect.left + 10, rootRect.width - tooltipMaxWidth - 8))
-    : Math.max(100, Math.min(rect.left + rect.width / 2 - rootRect.left, rootRect.width - 100));
+    ? Math.max(margin, Math.min(rect.right + 10, window.innerWidth - tooltipMaxWidth - margin))
+    : Math.max(
+      margin + tooltipMaxWidth / 2,
+      Math.min(rect.left + rect.width / 2, window.innerWidth - margin - tooltipMaxWidth / 2),
+    );
   effectTooltip.value = {
     x,
     y: top,
@@ -3210,6 +3232,26 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
       log('<span class="text-fuchsia-300">[负面状态][淫纹] 开局获得了3层中毒。</span>');
     }
   }
+
+  if (statuses.includes(STATUS_LUST_KNOWLEDGE)) {
+    const taintCard = getCardByName(ARCHIVE_TAINT_CURSE_CARD_NAME);
+    if (taintCard) {
+      for (let i = 0; i < 3; i += 1) {
+        const insertAt = Math.floor(Math.random() * (combatState.value.playerDeck.length + 1));
+        combatState.value.playerDeck.splice(insertAt, 0, cloneCardForBattle(taintCard));
+      }
+      log('<span class="text-fuchsia-300">[负面状态][淫乱知识] 开局向牌库插入了3张【档案污页】。</span>');
+    } else {
+      log('<span class="text-red-400">[负面状态][淫乱知识] 未找到【档案污页】卡牌定义。</span>');
+    }
+  }
+
+  if (statuses.includes(STATUS_MARKED)) {
+    const applied = applyEffect(playerStats.value, ET.VULNERABLE, 2, { source: 'negative-status:[被标记]' });
+    if (applied) {
+      log('<span class="text-fuchsia-300">[负面状态][被标记] 开局获得了2层易伤。</span>');
+    }
+  }
 };
 
 triggerPlayerRelicLifecycleHooks('onBattleStart');
@@ -3279,6 +3321,19 @@ const drawCards = (count: number, currentDeck: CardData[], currentDiscard: CardD
     if (card) drawn.push(card);
   }
   return { drawn, newDeck: deck, newDiscard: discard };
+};
+
+const applyOnDrawCardEffects = (drawn: CardData[]) => {
+  for (const card of drawn) {
+    if (card.id === 'modao_overture') {
+      const beforeCost = Math.max(0, Math.floor(card.manaCost ?? 0));
+      const afterCost = Math.max(0, beforeCost - 1);
+      if (afterCost !== beforeCost) {
+        card.manaCost = afterCost;
+        log(`<span class="text-blue-300">【${card.name}】被抽到：魔力消耗 ${beforeCost} → ${afterCost}</span>`);
+      }
+    }
+  }
 };
 
 const normalizedPlayerActiveSkills = computed<Array<ActiveSkillData | null>>(() => {
@@ -3400,6 +3455,7 @@ const useActiveSkill = (idx: number) => {
       break;
     case 'active_basic_draw': {
       const { drawn, newDeck, newDiscard } = drawCards(1, combatState.value.playerDeck, combatState.value.discardPile);
+      applyOnDrawCardEffects(drawn);
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
       const card = drawn[0];
@@ -3889,6 +3945,7 @@ watch(
       void (async () => {
         try {
           const { drawn, newDeck, newDiscard } = drawCards(3, combatState.value.playerDeck, combatState.value.discardPile);
+          applyOnDrawCardEffects(drawn);
           combatState.value.playerHand = drawn;
           combatState.value.playerDeck = newDeck;
           combatState.value.discardPile = newDiscard;
@@ -4249,6 +4306,13 @@ const resolveCombat = async (
     }
     await playResolvedCardAnimation(source, card);
     if (endCombatPending.value) return;
+    if (card.excape) {
+      const sourceLabel = source === 'player' ? '我方' : '敌方';
+      log(`<span class="text-zinc-300">${sourceLabel}触发逃离：一方逃离战斗。</span>`);
+      endCombatPending.value = true;
+      void runEndCombatSequence('escape');
+      return;
+    }
 
     // Calculate final point for this card
     const finalPoint = getCardFinalPoint(source, card, baseDice);
@@ -4369,6 +4433,12 @@ const resolveCombat = async (
     };
 
     const finalizeCardExecution = () => {
+      if (source === 'enemy') {
+        aiFlags.patrolBatLastEnemyCardId = card.id;
+        if (card.id === 'enemy_patrol_bat_mark') {
+          aiFlags.patrolBatMarkHit = true;
+        }
+      }
       applyCardExtraAttributes();
       queueCardNegativeEffectForPlayer(source, card);
       applyInsertTrait(source, card);
@@ -4903,16 +4973,6 @@ const resolveCombat = async (
       if (card.id === 'modao_echo_feedback') {
         extraHitCount += defenderSwarmStacks;
       }
-      if (card.id === 'modao_mana_hurricane') {
-        const availableMp = Math.min(9, Math.max(0, Math.floor(attacker.mp)));
-        const consumedMp = Math.floor(availableMp / 3) * 3;
-        const bonusHits = Math.floor(consumedMp / 3);
-        if (consumedMp > 0) {
-          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
-        }
-        extraHitCount += bonusHits;
-        log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
-      }
       if (card.id === 'modao_ring_collapse') {
         const availableMp = Math.min(20, Math.max(0, Math.floor(attacker.mp)));
         const consumedMp = Math.floor(availableMp / 4) * 4;
@@ -4928,7 +4988,7 @@ const resolveCombat = async (
         if (canConsume) {
           extraHitCount += 1;
           arcaneLanceBonusHit = true;
-          log(`<span class="text-blue-300">${label}【${card.name}】额外消耗4点魔力，追加一次1.5倍伤害</span>`);
+          log(`<span class="text-blue-300">${label}【${card.name}】额外消耗4点魔力，追加一次2倍伤害</span>`);
         }
       }
       const totalHitCount = baseHitCount + extraHitCount;
@@ -4964,7 +5024,7 @@ const resolveCombat = async (
                 : card.id === 'modao_prism_flow'
                   ? Math.floor(finalPoint * (0.9 + Math.min(2.1, Math.floor(Math.max(0, attacker.mp) / 2) * 0.3)))
                   : card.id === 'modao_arcane_lance' && arcaneLanceBonusHit && hit === totalHitCount - 1
-                    ? Math.floor(finalPoint * 1.5)
+                    ? Math.floor(finalPoint * 2)
               : card.id === 'enemy_rose_wangzhi_whip' && getEffectStacks(defender, ET.BIND) > 0
                 ? Math.floor(finalPoint) + 2
               : null;
@@ -5390,6 +5450,7 @@ const resolveCombat = async (
   if (resolvedPlayerCard.traits.combo) {
     if (resolvedPlayerCard.traits.draw) {
       const { drawn, newDeck, newDiscard } = drawCards(1, combatState.value.playerDeck, combatState.value.discardPile);
+      applyOnDrawCardEffects(drawn);
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
       combatState.value.playerHand = [...combatState.value.playerHand, ...drawn];
@@ -5445,12 +5506,29 @@ const resolveCombat = async (
     for (let i = 0; i < magicDollCount; i++) {
       const canSpend = spendManaWithShock('player', 1, '魔法玩偶');
       if (!canSpend) break;
-      const { actualDamage, logs: dollLogs } = applyDamageToSideWithRelics('enemy', enemyStats.value, 2, false, '魔法玩偶');
+      const { damage: dollDamage, isTrueDamage: dollIsTrueDamage, logs: dollDamageLogs } = calculateFinalDamage({
+        finalPoint: 0,
+        card: MAGIC_DOLL_DAMAGE_CARD,
+        attackerEffects: playerStats.value.effects,
+        defenderEffects: enemyStats.value.effects,
+        relicModifiers: NO_RELIC_MOD,
+      });
+      const { actualDamage, logs: dollApplyLogs } = applyDamageToSideWithRelics(
+        'enemy',
+        enemyStats.value,
+        dollDamage,
+        dollIsTrueDamage,
+        '魔法玩偶',
+      );
       if (actualDamage > 0) {
         pushFloatingNumber('enemy', actualDamage, 'magic', '-');
       }
       logRelicMessage(`[魔法玩偶] 消耗1点魔力，对敌方造成 ${actualDamage} 点伤害。`);
-      for (const dl of dollLogs) {
+      for (const dl of dollDamageLogs) {
+        if (dl.startsWith('原始伤害:')) continue;
+        log(`<span class="text-gray-500 text-[9px]">${dl}</span>`);
+      }
+      for (const dl of dollApplyLogs) {
         const normalized = dl.startsWith('受到') ? `敌方${dl}` : dl;
         log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
       }
@@ -5489,7 +5567,7 @@ watch(
   },
 );
 
-const runEndCombatSequence = async (win: boolean) => {
+const runEndCombatSequence = async (outcome: CombatOutcome) => {
   const token = ++endCombatSequenceToken;
   await wait(HP_BAR_ANIMATION_MS);
   if (token !== endCombatSequenceToken) return;
@@ -5498,17 +5576,19 @@ const runEndCombatSequence = async (win: boolean) => {
   if (token !== endCombatSequenceToken) return;
 
   stopAllCardAnimations();
-  battleResultBanner.value = win ? 'win' : 'lose';
-  combatState.value.phase = win ? CombatPhase.WIN : CombatPhase.LOSE;
+  battleResultBanner.value = outcome;
+  combatState.value.phase = outcome === 'win' ? CombatPhase.WIN : CombatPhase.LOSE;
 
   await wait(RESULT_BANNER_STAY_MS);
   if (token !== endCombatSequenceToken) return;
-  setFatigueDegree(0);
+  if (outcome !== 'escape') {
+    setFatigueDegree(0);
+  }
   const finalPlayerStats = cloneEntityStats(playerStats.value);
   if (getEffectStacks(finalPlayerStats, ET.TEMP_MAX_HP) > 0) {
     removeEffect(finalPlayerStats, ET.TEMP_MAX_HP);
   }
-  emit('endCombat', win, finalPlayerStats, [...combatState.value.logs], [...pendingCardNegativeEffects.value]);
+  emit('endCombat', outcome, finalPlayerStats, [...combatState.value.logs], [...pendingCardNegativeEffects.value]);
 };
 
 watch(
@@ -5571,13 +5651,13 @@ watch(
   ([pHp, eHp]) => {
     if (endCombatPending.value) return;
 
-    let win: boolean | null = null;
-    if (pHp <= 0) win = false;
-    else if (eHp <= 0) win = true;
-    if (win === null) return;
+    let outcome: CombatOutcome | null = null;
+    if (pHp <= 0) outcome = 'lose';
+    else if (eHp <= 0) outcome = 'win';
+    if (outcome === null) return;
 
     endCombatPending.value = true;
-    void runEndCombatSequence(win);
+    void runEndCombatSequence(outcome);
   },
 );
 </script>

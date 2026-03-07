@@ -161,6 +161,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始时回复等量层数的生命',
   },
+  [EffectType.SELF_REPAIR]: {
+    type: EffectType.SELF_REPAIR,
+    name: '自修复',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: false,
+    maxStacks: 1,
+    description: '回合开始时若生命低于50%，回复1点生命并移除1层随机负面效果；每触发3次，自身增加1层生命上限削减',
+  },
   [EffectType.WHITE_TURBID]: {
     type: EffectType.WHITE_TURBID,
     name: '白浊',
@@ -544,6 +553,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.INDOMITABLE,
   EffectType.MANA_SPRING,
   EffectType.REGEN,
+  EffectType.SELF_REPAIR,
   EffectType.FLAME_ATTACH,
   EffectType.FROST_ATTACH,
   EffectType.POISON_ATTACH,
@@ -868,6 +878,30 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (regenStacks > 0) {
     result.hpChange += regenStacks;
     result.logs.push(`[生命回复] 回复 ${regenStacks} 点生命。`);
+  }
+
+  // 自修复：生命低于50%时，回复1并随机移除1层debuff；每触发3次增加1层生命上限削减
+  const selfRepair = findEffect(entity, EffectType.SELF_REPAIR);
+  if (selfRepair && selfRepair.stacks > 0 && entity.hp < entity.maxHp * 0.5) {
+    result.hpChange += 1;
+    result.logs.push('[自修复] 生命低于50%，回复 1 点生命。');
+
+    const removableDebuffs = entity.effects
+      .filter((effect) => effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff');
+    if (removableDebuffs.length > 0) {
+      const picked = removableDebuffs[Math.floor(Math.random() * removableDebuffs.length)]!;
+      reduceEffectStacks(entity, picked.type, 1);
+      result.logs.push(`[自修复] 随机移除 1 层${EFFECT_REGISTRY[picked.type]?.name ?? picked.type}。`);
+    }
+
+    const nextCount = Math.max(0, Math.floor(selfRepair.runtimeCounter ?? 0)) + 1;
+    selfRepair.runtimeCounter = nextCount;
+    if (nextCount % 3 === 0) {
+      const applied = applyEffect(entity, EffectType.MAX_HP_REDUCTION, 1, { source: 'effect:self_repair' });
+      if (applied) {
+        result.logs.push('[自修复] 累计触发 3 次：自身获得 1 层生命上限削减。');
+      }
+    }
   }
 
   // 高潮：每回合开始时施加等同层数的疲劳

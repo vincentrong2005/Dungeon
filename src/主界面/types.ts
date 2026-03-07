@@ -133,6 +133,8 @@ export interface CardData {
   manaDrain?: number;
   /** 无视闪避：对闪避牌时不进入闪避拼点，直接生效 */
   ignoreDodge?: boolean;
+  /** 逃离：任意一方打出后立刻结束战斗（无金币/卡牌奖励） */
+  excape?: boolean;
   /**
    * 自伤：卡牌生效后对自己造成伤害（真实伤害或生命上限削减）
    * - number：固定生命伤害
@@ -202,6 +204,8 @@ export enum EffectType {
   DAMAGE_BOOST = '增伤',
   /** 生命回复 — 每回合回复生命 */
   REGEN = '生命回复',
+  /** 自修复 — 回合开始时若生命低于50%，回复1并移除1层随机负面效果；每触发3次增加1层生命上限削减 */
+  SELF_REPAIR = '自修复',
   /** 白浊 — 每回合开始时为对手回复生命并施加侵蚀 */
   WHITE_TURBID = '白浊',
   /** 施加燃烧 — 每回合为双方施加一层燃烧 */
@@ -303,6 +307,8 @@ export interface EffectInstance {
   restrictedTypes?: CardType[];
   /** 效果来源标识（可选，调试/追溯用） */
   source?: string;
+  /** 运行时计数（可选，供跨回合累计触发次数的效果使用） */
+  runtimeCounter?: number;
 }
 
 // ── 游戏阶段枚举 ──────────────────────────────────────────────

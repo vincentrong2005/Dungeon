@@ -150,6 +150,14 @@ const POLLEN_SPRAYER_CARD = {
   INFILTRATION: 'enemy_pollen_infiltration',
 } as const;
 
+const PATROL_BAT_CARD = {
+  CLAW_REND: 'enemy_patrol_bat_claw_rend',
+  METAL_SCREECH: 'enemy_patrol_bat_metal_screech',
+  MARK: 'enemy_patrol_bat_mark',
+  FLY_AWAY: 'enemy_patrol_bat_fly_away',
+  CIRCLING: 'enemy_patrol_bat_circling',
+} as const;
+
 const PEEPING_EYE_CARD = {
   SENSITIZATION: 'enemy_peeping_eye_sensitization',
   SCAN: 'enemy_peeping_eye_scan',
@@ -795,6 +803,48 @@ const POLLEN_SPRAYER_ENEMY: EnemyDefinition = {
   },
 };
 
+const PATROL_BAT_ENEMY: EnemyDefinition = {
+  name: '巡逻铁蝠',
+  stats: {
+    hp: 15,
+    maxHp: 15,
+    mp: 0,
+    minDice: 3,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.SELF_REPAIR, stacks: 1, polarity: 'buff' },
+      { type: EffectType.SWARM, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    PATROL_BAT_CARD.CLAW_REND,
+    PATROL_BAT_CARD.METAL_SCREECH,
+    PATROL_BAT_CARD.MARK,
+    PATROL_BAT_CARD.FLY_AWAY,
+    PATROL_BAT_CARD.CIRCLING,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.flags.patrolBatMarkHit) {
+      return pickCardById(ctx, PATROL_BAT_CARD.FLY_AWAY);
+    }
+
+    if (ctx.flags.patrolBatLastEnemyCardId === PATROL_BAT_CARD.METAL_SCREECH) {
+      return pickCardById(ctx, PATROL_BAT_CARD.MARK);
+    }
+
+    const playerHasBleed = ctx.playerStats.effects.some((e) => e.type === EffectType.BLEED && e.stacks > 0);
+    if (playerHasBleed || ctx.turn === 6) {
+      return pickCardById(ctx, PATROL_BAT_CARD.METAL_SCREECH);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: PATROL_BAT_CARD.CLAW_REND, weight: 70 },
+      { value: PATROL_BAT_CARD.CIRCLING, weight: 30 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 窥视之眼: EnemyDefinition = {
   name: '窥视之眼',
   stats: {
@@ -1174,8 +1224,8 @@ const 罗丝: EnemyDefinition = {
 const 厄休拉: EnemyDefinition = {
   name: '厄休拉',
   stats: {
-    hp: 80,
-    maxHp: 80,
+    hp: 100,
+    maxHp: 100,
     mp: 3,
     minDice: 3,
     maxDice: 8,
@@ -1220,8 +1270,8 @@ const 厄休拉: EnemyDefinition = {
 const 希尔薇: EnemyDefinition = {
   name: '希尔薇',
   stats: {
-    hp: 80,
-    maxHp: 80,
+    hp: 100,
+    maxHp: 100,
     mp: 0,
     minDice: 3,
     maxDice: 7,
@@ -1284,8 +1334,8 @@ const 希尔薇: EnemyDefinition = {
 const 因克: EnemyDefinition = {
   name: '因克',
   stats: {
-    hp: 80,
-    maxHp: 80,
+    hp: 100,
+    maxHp: 100,
     mp: 1,
     minDice: 3,
     maxDice: 6,
@@ -1332,8 +1382,8 @@ const 因克: EnemyDefinition = {
 const 阿卡夏: EnemyDefinition = {
   name: '阿卡夏',
   stats: {
-    hp: 70,
-    maxHp: 70,
+    hp: 90,
+    maxHp: 90,
     mp: 0,
     minDice: 3,
     maxDice: 7,
@@ -1358,8 +1408,8 @@ const 阿卡夏: EnemyDefinition = {
 const 多萝西: EnemyDefinition = {
   name: '多萝西',
   stats: {
-    hp: 100,
-    maxHp: 100,
+    hp: 120,
+    maxHp: 120,
     mp: 0,
     minDice: 5,
     maxDice: 8,
@@ -1737,6 +1787,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [穴居触手.name, 穴居触手],
   [极乐蜜蜂.name, 极乐蜜蜂],
   [POLLEN_SPRAYER_ENEMY.name, POLLEN_SPRAYER_ENEMY],
+  [PATROL_BAT_ENEMY.name, PATROL_BAT_ENEMY],
   [窥视之眼.name, 窥视之眼],
   [羞耻阴影.name, 羞耻阴影],
   [堕落学者.name, 堕落学者],
