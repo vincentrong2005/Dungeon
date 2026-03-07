@@ -110,6 +110,7 @@ defineProps<{
 
 const emit = defineEmits<{
   close: [];
+  rollback: [];
 }>();
 
 const gameStore = useGameStore();
@@ -120,10 +121,13 @@ function handleRollback(messageId: number) {
 }
 
 async function doRollback() {
-  if (confirmTarget.value !== null) {
-    await gameStore.rollbackTo(confirmTarget.value);
-    confirmTarget.value = null;
-  }
+  const targetMessageId = confirmTarget.value;
+  if (targetMessageId === null) return;
+
+  confirmTarget.value = null;
+  emit('rollback');
+  emit('close');
+  await gameStore.rollbackTo(targetMessageId);
 }
 
 function handleReroll() {

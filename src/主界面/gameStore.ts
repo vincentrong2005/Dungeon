@@ -703,6 +703,8 @@ export const useGameStore = defineStore('game', () => {
 
     const messages = getChatMessages(`0-${lastId}`, { role: 'assistant' });
     for (const msg of messages) {
+      if (msg.message_id >= lastId) continue;
+
       const summary = extractSummary(msg.message);
       if (summary) {
         entries.push({
@@ -718,6 +720,8 @@ export const useGameStore = defineStore('game', () => {
    * 回档到指定楼层（删除该楼层之后的所有消息，然后重新加载）
    */
   async function rollbackTo(targetMessageId: number) {
+    isSaveLoadOpen.value = false;
+
     try {
       const lastId = getLastMessageId();
       if (targetMessageId >= lastId) {
@@ -750,9 +754,8 @@ export const useGameStore = defineStore('game', () => {
         loadStatData();
       }
 
-      // 关闭读档面板
+      // 刷新到最新消息窗口
       await ensureLatestMessageWindow();
-      isSaveLoadOpen.value = false;
 
       toastr.success('回档成功！');
       console.info('[GameStore] Rollback completed');

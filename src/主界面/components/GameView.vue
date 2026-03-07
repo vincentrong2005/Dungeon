@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="ui-viewport">
+  <div ref="viewportRef" class="ui-viewport">
     <div class="ui-stage" :style="stageStyle">
       <div
         class="ui-stage-content w-full h-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative"
@@ -1382,6 +1382,7 @@
       :is-open="gameStore.isSaveLoadOpen"
       :entries="gameStore.saveEntries"
       @close="gameStore.isSaveLoadOpen = false"
+      @rollback="resetTransientUiState"
     />
 
     <!-- Variable Update Viewer -->
@@ -1981,15 +1982,28 @@ const WizardHatIcon = defineComponent({
 const gameStore = useGameStore();
 const STAGE_BASE_WIDTH = 1920;
 const STAGE_BASE_HEIGHT = 1080;
+const viewportRef = ref<HTMLElement | null>(null);
 const viewportWidth = ref(STAGE_BASE_WIDTH);
 const viewportHeight = ref(STAGE_BASE_HEIGHT);
 const isTouchViewport = ref(false);
 const landscapeHintDismissed = ref(false);
+let viewportResizeObserver: ResizeObserver | null = null;
+
 const updateViewportMetrics = () => {
   if (typeof window === 'undefined') return;
+
+  const viewportRect = viewportRef.value?.getBoundingClientRect();
+  const docEl = document.documentElement;
+  const docWidth = docEl?.clientWidth ?? 0;
+  const docHeight = docEl?.clientHeight ?? 0;
   const visualViewport = window.visualViewport;
-  viewportWidth.value = visualViewport?.width ?? window.innerWidth;
-  viewportHeight.value = visualViewport?.height ?? window.innerHeight;
+
+  viewportWidth.value = viewportRect && viewportRect.width > 0
+    ? viewportRect.width
+    : (docWidth > 0 ? docWidth : (visualViewport?.width ?? window.innerWidth));
+  viewportHeight.value = viewportRect && viewportRect.height > 0
+    ? viewportRect.height
+    : (docHeight > 0 ? docHeight : (visualViewport?.height ?? window.innerHeight));
   isTouchViewport.value = window.matchMedia('(pointer: coarse)').matches;
 };
 const handleViewportResize = () => {
@@ -3950,14 +3964,26 @@ const buildRebirthResetFields = (): Record<string, any> => {
   };
 };
 
-const handleRebirthClick = () => {
-  if (gameStore.isGenerating) return;
+const resetTransientUiState = () => {
+  activeModal.value = null;
+  isVariableUpdateOpen.value = false;
   showCombat.value = false;
   showVictoryRewardView.value = false;
   closeShopView();
   closeChestView();
   closeIdolView();
   pendingCombatNarrative.value = null;
+  hideRelicTooltip();
+  closeBondPortraitPreview();
+  closeSettingsHelp();
+  clearHotSpringCleanseTimer();
+  hotSpringCleanseMessage.value = null;
+  requestAnimationFrame(() => updateViewportMetrics());
+};
+
+const handleRebirthClick = () => {
+  if (gameStore.isGenerating) return;
+  resetTransientUiState();
   gameStore.setPendingCombatMvuChanges(null);
   gameStore.setPendingStatDataChanges(buildRebirthResetFields());
   gameStore.sendAction('<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。');
@@ -5223,11 +5249,20 @@ watch(
 
 onMounted(() => {
   restoreOverlaySnapshot();
-  updateViewportMetrics();
+  nextTick(() => {
+    updateViewportMetrics();
+    if (typeof ResizeObserver !== 'undefined' && viewportRef.value) {
+      viewportResizeObserver = new ResizeObserver(() => {
+        updateViewportMetrics();
+      });
+      viewportResizeObserver.observe(viewportRef.value);
+    }
+  });
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', handleViewportResize, { passive: true });
     window.addEventListener('orientationchange', handleViewportResize, { passive: true });
     window.visualViewport?.addEventListener('resize', handleViewportResize, { passive: true });
+    document.addEventListener('fullscreenchange', handleViewportResize);
   }
 });
 
@@ -5879,10 +5914,13 @@ const handleCombatEnd = async (win: boolean, finalStats: unknown, logs: string[]
 };
 
 onBeforeUnmount(() => {
+  viewportResizeObserver?.disconnect();
+  viewportResizeObserver = null;
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', handleViewportResize);
     window.removeEventListener('orientationchange', handleViewportResize);
     window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    document.removeEventListener('fullscreenchange', handleViewportResize);
     if (settingsHelpTouchTimer !== null) {
       window.clearTimeout(settingsHelpTouchTimer);
       settingsHelpTouchTimer = null;
