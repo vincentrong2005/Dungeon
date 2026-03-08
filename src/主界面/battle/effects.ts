@@ -152,6 +152,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '自身直接攻击造成的伤害增加等量层数',
   },
+  [EffectType.WEAKEN]: {
+    type: EffectType.WEAKEN,
+    name: '虚弱',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '自身直接攻击造成的伤害减少等量层数',
+  },
   [EffectType.REGEN]: {
     type: EffectType.REGEN,
     name: '生命回复',
@@ -546,6 +555,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.CORROSION,
   EffectType.VULNERABLE,
   EffectType.DAMAGE_BOOST,
+  EffectType.WEAKEN,
   EffectType.CHARGE,
   EffectType.FATIGUE,
   EffectType.BARRIER,

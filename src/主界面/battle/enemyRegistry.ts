@@ -158,6 +158,19 @@ const PATROL_BAT_CARD = {
   CIRCLING: 'enemy_patrol_bat_circling',
 } as const;
 
+const SHADOW_JAILER_CARD = {
+  SHADOW_ASSAULT: 'enemy_shadow_jailer_shadow_assault',
+  ENFORCEMENT_LOCK: 'enemy_shadow_jailer_enforcement_lock',
+  NUMBING_WHIP: 'enemy_shadow_jailer_numbing_whip',
+  FORM_SHIFT: 'enemy_shadow_jailer_form_shift',
+} as const;
+
+const THORN_CRAWLER_CARD = {
+  BARBED_GRASP: 'enemy_thorncrawler_barbed_grasp',
+  NEURAL_PIERCE: 'enemy_thorncrawler_neural_pierce',
+  TOXIN_PULSE: 'enemy_thorncrawler_toxin_pulse',
+} as const;
+
 const PEEPING_EYE_CARD = {
   SENSITIZATION: 'enemy_peeping_eye_sensitization',
   SCAN: 'enemy_peeping_eye_scan',
@@ -806,8 +819,8 @@ const POLLEN_SPRAYER_ENEMY: EnemyDefinition = {
 const PATROL_BAT_ENEMY: EnemyDefinition = {
   name: '巡逻铁蝠',
   stats: {
-    hp: 15,
-    maxHp: 15,
+    hp: 20,
+    maxHp: 20,
     mp: 0,
     minDice: 3,
     maxDice: 4,
@@ -842,6 +855,72 @@ const PATROL_BAT_ENEMY: EnemyDefinition = {
       { value: PATROL_BAT_CARD.CIRCLING, weight: 30 },
     ]);
     return pickCardById(ctx, chosen);
+  },
+};
+
+const 影牢使魔: EnemyDefinition = {
+  name: '影牢使魔',
+  stats: {
+    hp: 70,
+    maxHp: 70,
+    mp: 0,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.ILLUSORY_BODY, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    SHADOW_JAILER_CARD.SHADOW_ASSAULT,
+    SHADOW_JAILER_CARD.ENFORCEMENT_LOCK,
+    SHADOW_JAILER_CARD.NUMBING_WHIP,
+    SHADOW_JAILER_CARD.FORM_SHIFT,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn % 3 === 0 && ctx.flags.shadowJailerFormShiftTurn !== ctx.turn) {
+      ctx.flags.shadowJailerFormShiftTurn = ctx.turn;
+      return pickCardById(ctx, SHADOW_JAILER_CARD.FORM_SHIFT);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: SHADOW_JAILER_CARD.ENFORCEMENT_LOCK, weight: 30 },
+      { value: SHADOW_JAILER_CARD.NUMBING_WHIP, weight: 30 },
+      { value: SHADOW_JAILER_CARD.SHADOW_ASSAULT, weight: 40 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 荆棘匍匐者: EnemyDefinition = {
+  name: '荆棘匍匐者',
+  stats: {
+    hp: 80,
+    maxHp: 80,
+    mp: 0,
+    minDice: 3,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.POINT_GROWTH_BIG, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    THORN_CRAWLER_CARD.BARBED_GRASP,
+    THORN_CRAWLER_CARD.NEURAL_PIERCE,
+    THORN_CRAWLER_CARD.TOXIN_PULSE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+
+    if (playerHasBind && ctx.enemyStats.mp >= 2) {
+      return pickCardById(ctx, THORN_CRAWLER_CARD.TOXIN_PULSE);
+    }
+
+    if (playerHasBind) {
+      return pickCardById(ctx, THORN_CRAWLER_CARD.NEURAL_PIERCE);
+    }
+
+    return pickCardById(ctx, THORN_CRAWLER_CARD.BARBED_GRASP);
   },
 };
 
@@ -1788,6 +1867,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [极乐蜜蜂.name, 极乐蜜蜂],
   [POLLEN_SPRAYER_ENEMY.name, POLLEN_SPRAYER_ENEMY],
   [PATROL_BAT_ENEMY.name, PATROL_BAT_ENEMY],
+  [影牢使魔.name, 影牢使魔],
+  [荆棘匍匐者.name, 荆棘匍匐者],
   [窥视之眼.name, 窥视之眼],
   [羞耻阴影.name, 羞耻阴影],
   [堕落学者.name, 堕落学者],

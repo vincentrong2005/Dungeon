@@ -790,7 +790,7 @@ const 炎狱判决: CardData = {
   description: '敌方每有2层燃烧点数额外+1，随后造成1倍最终点数伤害',
 };
 
-/** 炼狱波及：双方燃烧+2，自身结界+1 */
+/** 炼狱波及：自身燃烧+1，自身结界+1，连击*/
 const 炼狱波及: CardData = {
   id: 'burn_hell_waves',
   name: '炼狱波及',
@@ -800,13 +800,12 @@ const 炼狱波及: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
+  traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
     { kind: 'apply_buff', effectType: EffectType.BARRIER, target: 'self', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '双方燃烧+2，自身结界+1',
+  description: '自身燃烧+1，自身结界+1，连击',
 };
 
 /** 临界沸腾：按2:1消耗目标寒冷/燃烧并造成真实伤害（结算逻辑在 CombatView 中） */
@@ -1112,6 +1111,40 @@ const 赤潮压制: CardData = {
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
   description: '消耗2MP，造成1倍点数伤害，敌方流血+2',
+};
+
+/** 疼痛反馈：造成1倍点数伤害；本场战斗自身每受到1次伤害，伤害+1（加伤结算在 CombatView） */
+const 疼痛反馈: CardData = {
+  id: 'bloodpool_pain_feedback',
+  name: '疼痛反馈',
+  type: CardType.PHYSICAL,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害；当前战斗自己每收到一次伤害，伤害+1',
+};
+
+/** 放血：自伤2，回复2点魔力，连击 */
+const 放血: CardData = {
+  id: 'bloodpool_bloodletting',
+  name: '放血',
+  type: CardType.FUNCTION,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  selfDamage: 2,
+  description: '自伤2，回复2点魔力，连击',
 };
 
 /** 噬血劈斩：造成1倍点数伤害，并回复0.5倍造成伤害量的生命 */
@@ -2271,6 +2304,134 @@ const PATROL_BAT_CIRCLING: CardData = {
     },
   ],
   description: '点数-1，闪避，若闪避成功施加1倍点数的流血',
+};
+
+/** 影袭：点数-1，闪避；若闪避成功或对方跳过回合，造成1倍点数伤害（伤害分支在 CombatView） */
+const SHADOW_JAILER_SHADOW_ASSAULT: CardData = {
+  id: 'enemy_shadow_jailer_shadow_assault',
+  name: '影袭',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，闪避；若闪避成功或对方跳过回合，造成1倍点数的伤害',
+};
+
+/** 执法锁拿：造成1.5倍点数伤害，并施加1层虚弱 */
+const SHADOW_JAILER_ENFORCEMENT_LOCK: CardData = {
+  id: 'enemy_shadow_jailer_enforcement_lock',
+  name: '执法锁拿',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.WEAKEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1.5倍点数伤害，并施加1层虚弱',
+};
+
+/** 刺麻鞭挞：造成1倍点数伤害，并施加1倍点数电击 */
+const SHADOW_JAILER_NUMBING_WHIP: CardData = {
+  id: 'enemy_shadow_jailer_numbing_whip',
+  name: '刺麻鞭挞',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '造成1倍点数伤害，并施加1倍点数电击',
+};
+
+/** 形态切换：按是否拥有虚幻之躯切换形态（结算逻辑在 CombatView） */
+const SHADOW_JAILER_FORM_SHIFT: CardData = {
+  id: 'enemy_shadow_jailer_form_shift',
+  name: '形态切换',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '切换形态，连击',
+};
+
+/** 倒刺缠握：点数+2，造成0.6倍点数伤害，并施加1层束缚 */
+const THORN_CRAWLER_BARBED_GRASP: CardData = {
+  id: 'enemy_thorncrawler_barbed_grasp',
+  name: '倒刺缠握',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数+2，造成0.6倍点数伤害，并施加1层束缚',
+};
+
+/** 神经刺鸣：造成0.5倍点数伤害，并施加0.5倍点数电击；若目标已有束缚，额外施加1倍点数电击与疲劳（额外效果在 CombatView） */
+const THORN_CRAWLER_NEURAL_PIERCE: CardData = {
+  id: 'enemy_thorncrawler_neural_pierce',
+  name: '神经刺鸣',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '造成0.5倍点数伤害，并施加0.5倍点数的电击；若目标已有束缚，额外施加1倍点数电击与疲劳',
+};
+
+/** 毒素脉冲：点数*1.5，法力汲取1，施加1倍点数电击；若目标已有束缚，额外施加1层束缚（额外效果在 CombatView） */
+const THORN_CRAWLER_TOXIN_PULSE: CardData = {
+  id: 'enemy_thorncrawler_toxin_pulse',
+  name: '毒素脉冲',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  manaDrain: 3,
+  description: '点数*1.5，法力汲取3，施加1倍点数电击；若目标已有束缚，额外施加1层束缚',
 };
 
 /** 入侵：物理，无直接伤害，施加1倍点数的侵蚀 */
@@ -4259,6 +4420,8 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [复咒.name, 复咒],
   [刺络放血.name, 刺络放血],
   [赤潮压制.name, 赤潮压制],
+  [疼痛反馈.name, 疼痛反馈],
+  [放血.name, 放血],
   [噬血劈斩.name, 噬血劈斩],
   [血池扩容.name, 血池扩容],
   [活性血池.name, 活性血池],
@@ -4417,6 +4580,13 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [PATROL_BAT_MARK.name, PATROL_BAT_MARK],
   [PATROL_BAT_FLY_AWAY.name, PATROL_BAT_FLY_AWAY],
   [PATROL_BAT_CIRCLING.name, PATROL_BAT_CIRCLING],
+  [SHADOW_JAILER_SHADOW_ASSAULT.name, SHADOW_JAILER_SHADOW_ASSAULT],
+  [SHADOW_JAILER_ENFORCEMENT_LOCK.name, SHADOW_JAILER_ENFORCEMENT_LOCK],
+  [SHADOW_JAILER_NUMBING_WHIP.name, SHADOW_JAILER_NUMBING_WHIP],
+  [SHADOW_JAILER_FORM_SHIFT.name, SHADOW_JAILER_FORM_SHIFT],
+  [THORN_CRAWLER_BARBED_GRASP.name, THORN_CRAWLER_BARBED_GRASP],
+  [THORN_CRAWLER_NEURAL_PIERCE.name, THORN_CRAWLER_NEURAL_PIERCE],
+  [THORN_CRAWLER_TOXIN_PULSE.name, THORN_CRAWLER_TOXIN_PULSE],
 ]);
 
 // ── 公共 API ────────────────────────────────────────────────────

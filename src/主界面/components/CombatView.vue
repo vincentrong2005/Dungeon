@@ -28,24 +28,24 @@
     <!-- Top Left: Settings -->
     <div class="combat-top-left-panel absolute z-50 pointer-events-auto flex flex-col gap-2 combat-button-cluster">
       <button
-        class="w-10 h-10 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
+        class="w-12 h-12 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
         @click="settingsOpen = !settingsOpen"
       >
-        <Settings2 class="size-5" />
+        <Settings2 class="size-6" />
         <span class="sr-only">设置</span>
       </button>
       <button
-        class="w-10 h-10 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
+        class="w-12 h-12 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
         @click="emit('openDeck')"
       >
-        <Scroll class="size-5" />
+        <Scroll class="size-6" />
         <span class="sr-only">卡组</span>
       </button>
       <button
-        class="w-10 h-10 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
+        class="w-12 h-12 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
         @click="emit('openRelics')"
       >
-        <Box class="size-5" />
+        <Box class="size-6" />
         <span class="sr-only">物品</span>
       </button>
       <div
@@ -682,7 +682,7 @@
       <div class="combat-top-right-panel absolute z-40 pointer-events-auto select-none flex flex-col items-end gap-2 combat-button-cluster--top-right">
         <div class="flex items-start">
           <button
-            class="h-7 px-2 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[10px] text-white/50 hover:text-white/80 transition-colors"
+            class="h-[2.625rem] px-3 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[15px] leading-none text-white/50 hover:text-white/80 transition-colors"
             :title="logsCollapsed ? '展开日志' : '折叠日志'"
             @click="logsCollapsed = !logsCollapsed"
           >
@@ -704,7 +704,7 @@
 
         <div class="flex items-start">
           <button
-            class="h-7 px-2 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[10px] text-white/50 hover:text-white/80 transition-colors"
+            class="h-[2.625rem] px-3 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[15px] leading-none text-white/50 hover:text-white/80 transition-colors"
             :title="pilesCollapsed ? '展开牌库与弃牌堆' : '折叠牌库与弃牌堆'"
             @click="pilesCollapsed = !pilesCollapsed"
           >
@@ -1106,6 +1106,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BLEED]: Droplet,
   [ET.VULNERABLE]: TriangleAlert,
   [ET.DAMAGE_BOOST]: Sword,
+  [ET.WEAKEN]: TriangleAlert,
   [ET.REGEN]: Heart,
   [ET.WHITE_TURBID]: Droplet,
   [ET.IGNITE_AURA]: Sparkles,
@@ -1606,6 +1607,10 @@ const activePlayerRelics = resolveRelicMap(props.playerRelics);
 const playerDiceRerollCharges = ref(0);
 const relicRuntimeState = reactive<Record<string, Record<string, unknown>>>({});
 const playerDamageTakenThisTurn = ref(0);
+const damageHitTakenThisCombat = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
 const freezePumpTriggersThisTurn = ref(0);
 const freezeFlowCoreTriggeredThisTurn = ref(false);
 const sealCircuitPendingMana = ref(0);
@@ -1673,6 +1678,16 @@ const addPlayerDamageTakenThisTurn = (amount: number) => {
   playerDamageTakenThisTurn.value += value;
 };
 
+const addDamageHitTakenThisCombat = (side: BattleSide, actualDamage: number) => {
+  const value = Math.max(0, Math.floor(actualDamage));
+  if (value <= 0) return;
+  damageHitTakenThisCombat.value[side] += 1;
+};
+
+const getDamageHitTakenThisCombat = (side: BattleSide): number => (
+  Math.max(0, Math.floor(damageHitTakenThisCombat.value[side] ?? 0))
+);
+
 const applyPlayerSkinMarkDamageReduction = (rawDamage: number, reason: string): number => {
   const damage = Math.max(0, Math.floor(rawDamage));
   if (damage <= 0) return 0;
@@ -1738,6 +1753,7 @@ const applyDamageToSideWithRelics = (
     ? applyPlayerHemostaticValveDamageCap(incoming, reason)
     : incoming;
   const result = applyDamageToEntity(target, adjusted, isTrueDamage);
+  addDamageHitTakenThisCombat(side, result.actualDamage);
   triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, options);
   return result;
 };
@@ -1757,6 +1773,7 @@ const applyDirectHpLossWithRelics = (
   const before = target.hp;
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
+  addDamageHitTakenThisCombat(side, actualDamage);
   triggerBloodpoolHeartMarkByDamage(side, actualDamage, reason, options);
   return actualDamage;
 };
@@ -2542,6 +2559,73 @@ const applyCardEffectsByTrigger = (
   }
 
   return hasEffect;
+};
+
+const triggerShadowAssaultDamage = (
+  source: BattleSide,
+  card: CardData,
+  finalPoint: number,
+  trigger: 'on_dodge_success' | 'on_opponent_skip',
+) => {
+  if (card.id !== 'enemy_shadow_jailer_shadow_assault') return;
+
+  const attacker = source === 'player' ? playerStats.value : enemyStats.value;
+  const defender = source === 'player' ? enemyStats.value : playerStats.value;
+  const label = source === 'player' ? '我方' : '敌方';
+  const defenderSide = source === 'player' ? 'enemy' : 'player';
+  const defenderLabel = defenderSide === 'player' ? '我方' : '敌方';
+  const triggerText = trigger === 'on_dodge_success' ? '闪避成功' : '对方跳过回合';
+
+  const damageCard: CardData = {
+    ...card,
+    type: CardType.PHYSICAL,
+    damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  };
+
+  const { damage, isTrueDamage, logs: dmgLogs } = calculateFinalDamage({
+    finalPoint,
+    card: damageCard,
+    attackerEffects: attacker.effects,
+    defenderEffects: defender.effects,
+    relicModifiers: NO_RELIC_MOD,
+  });
+  const adjustedDamage = defenderSide === 'player'
+    ? applyPlayerSkinMarkDamageReduction(damage, `${defenderLabel}受击`)
+    : damage;
+  const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+    defenderSide,
+    defender,
+    adjustedDamage,
+    isTrueDamage,
+    `卡牌【${card.name}】(${triggerText})`,
+  );
+  const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
+  log(`${label}【${card.name}】${triggerText}触发，造成 <span class="${damageLogColorClass} font-bold">${actualDamage}</span> 点伤害`);
+  if (actualDamage > 0) {
+    pushFloatingNumber(defenderSide, actualDamage, isTrueDamage ? 'true' : 'physical', '-');
+  }
+  for (const dl of dmgLogs) {
+    if (dl.startsWith('原始伤害:')) continue;
+    log(`<span class="text-gray-500 text-[9px]">${dl}</span>`);
+  }
+  for (const dl of applyLogs) {
+    const normalized = dl.startsWith('受到') ? `${defenderLabel}${dl}` : dl;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+  triggerPlayerRelicHitHooks(
+    source,
+    defenderSide,
+    card,
+    finalPoint,
+    1,
+    1,
+    adjustedDamage,
+    actualDamage,
+  );
+  const reviveResult = triggerSwarmReviveIfNeeded(defender);
+  for (const reviveLog of reviveResult.logs) {
+    log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+  }
 };
 
 const applyToxinSpreadOnPhysicalPlay = (source: BattleSide, card: CardData) => {
@@ -4237,6 +4321,7 @@ const resolveCombat = async (
     if (successfulDodger === 'player') {
       applyLightningAttachOnDodge('player', 'enemy');
       applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
+      triggerShadowAssaultDamage('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
       if (resolvedPlayerCard.id === 'enemy_inkmouse_cowardice') {
         playerStats.value.maxDice += 1;
         log('<span class="text-cyan-300">我方【胆小】闪避成功：最大骰子点数 +1</span>');
@@ -4247,6 +4332,7 @@ const resolveCombat = async (
     } else if (successfulDodger === 'enemy') {
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
+      triggerShadowAssaultDamage('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
       if (resolvedEnemyCard.id === 'enemy_inkmouse_cowardice') {
         enemyStats.value.maxDice += 1;
         log('<span class="text-cyan-300">敌方【胆小】闪避成功：最大骰子点数 +1</span>');
@@ -4478,6 +4564,7 @@ const resolveCombat = async (
 
     if (opponentSkippedTurn) {
       applyCardEffects('on_opponent_skip');
+      triggerShadowAssaultDamage(source, card, finalPoint, 'on_opponent_skip');
     }
     triggerLowTempEngraverOnFunctionPlay();
 
@@ -4685,6 +4772,38 @@ const resolveCombat = async (
       syncCurrentPointForUi();
       log(`<span class="text-violet-300">${label}【${card.name}】${hadIllusoryBody ? '移除了自身的虚幻之躯，' : ''}最小点数 +2，最大点数 +4（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
       applyCardEffects();
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_shadow_jailer_form_shift') {
+      const hadIllusoryBody = getEffectStacks(attacker, ET.ILLUSORY_BODY) > 0;
+      if (hadIllusoryBody) {
+        removeEffect(attacker, ET.ILLUSORY_BODY);
+        const armorGain = Math.max(0, Math.floor(finalPoint));
+        if (armorGain > 0) {
+          applyStatusEffectWithRelics(source, ET.ARMOR, armorGain, { source: card.id });
+          pushFloatingNumber(source, armorGain, 'shield', '+');
+          if (source === 'player') {
+            handlePlayerArmorGainFromSingleEvent(armorGain, `卡牌【${card.name}】`);
+          }
+        }
+        attacker.minDice += 4;
+        attacker.maxDice += 4;
+        if (attacker.minDice > attacker.maxDice) {
+          attacker.maxDice = attacker.minDice;
+        }
+        syncCurrentPointForUi();
+        log(`<span class="text-violet-300">${label}【${card.name}】移除虚幻之躯，获得 ${armorGain} 点护甲，最小/最大点数 +4（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
+      } else {
+        applyStatusEffectWithRelics(source, ET.ILLUSORY_BODY, 1, { source: card.id });
+        const healAmount = Math.max(0, Math.floor(finalPoint));
+        const { healed } = healForSide(source, healAmount);
+        attacker.minDice = Math.max(1, attacker.minDice - 4);
+        attacker.maxDice = Math.max(attacker.minDice, attacker.maxDice - 4);
+        syncCurrentPointForUi();
+        log(`<span class="text-violet-300">${label}【${card.name}】获得虚幻之躯并回复 ${healed} 点生命，最小/最大点数 -4（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
+      }
       finalizeAndTrack();
       return;
     }
@@ -4908,6 +5027,7 @@ const resolveCombat = async (
       }
       finalizeAndTrack();
     } else if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) {
+      const targetHasBindBeforeOnUse = getEffectStacks(defender, ET.BIND) > 0;
       const targetHasSilenceBeforeOnUse = getEffectStacks(defender, ET.SILENCE) > 0;
       const targetHasControlledBeforeOnUse = getEffectStacks(defender, ET.CONTROLLED) > 0;
       if (card.id === 'burn_critical_boil') {
@@ -4992,6 +5112,12 @@ const resolveCombat = async (
         }
       }
       const totalHitCount = baseHitCount + extraHitCount;
+      const painFeedbackBonus = card.id === 'bloodpool_pain_feedback'
+        ? getDamageHitTakenThisCombat(source)
+        : 0;
+      if (card.id === 'bloodpool_pain_feedback' && painFeedbackBonus > 0) {
+        log(`<span class="text-rose-300">${label}【${card.name}】本场已受伤 ${painFeedbackBonus} 次，本次伤害 +${painFeedbackBonus}</span>`);
+      }
 
       if (card.id === 'yanhan_cold_chamber_duplicate') {
         const currentCold = getEffectStacks(defender, ET.COLD);
@@ -5025,6 +5151,8 @@ const resolveCombat = async (
                   ? Math.floor(finalPoint * (0.9 + Math.min(2.1, Math.floor(Math.max(0, attacker.mp) / 2) * 0.3)))
                   : card.id === 'modao_arcane_lance' && arcaneLanceBonusHit && hit === totalHitCount - 1
                     ? Math.floor(finalPoint * 2)
+                  : card.id === 'bloodpool_pain_feedback'
+                    ? Math.max(0, Math.floor(finalPoint) + painFeedbackBonus)
               : card.id === 'enemy_rose_wangzhi_whip' && getEffectStacks(defender, ET.BIND) > 0
                 ? Math.floor(finalPoint) + 2
               : null;
@@ -5199,6 +5327,28 @@ const resolveCombat = async (
           } else {
             log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已有被操控，向对方牌库插入了3张【淫墨誓约】（敌方牌库${combatState.value.enemyDeck.length} / 弃牌${combatState.value.enemyDiscard.length}）。</span>`);
           }
+        }
+      }
+      if (card.id === 'enemy_thorncrawler_neural_pierce' && targetHasBindBeforeOnUse) {
+        const extraShockStacks = Math.max(0, Math.floor(finalPoint));
+        if (extraShockStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.SHOCK, extraShockStacks, { source: card.id });
+          log(`<span class="text-yellow-300">${label}【${card.name}】触发：目标已有束缚，额外施加 ${extraShockStacks} 层电击</span>`);
+        }
+        const fatigueStacks = Math.max(0, Math.floor(finalPoint));
+        if (fatigueStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.FATIGUE, fatigueStacks, { source: card.id });
+          log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已有束缚，额外施加 ${fatigueStacks} 层疲劳</span>`);
+        }
+      }
+      if (card.id === 'enemy_thorncrawler_toxin_pulse' && targetHasBindBeforeOnUse) {
+        const applied = applyStatusEffectWithRelics(defenderSide, ET.BIND, 1, {
+          source: card.id,
+          restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+          lockDecayThisTurn: true,
+        });
+        if (applied) {
+          log(`<span class="text-yellow-300">${label}【${card.name}】触发：目标已有束缚，额外施加 1 层束缚</span>`);
         }
       }
       if (card.id === 'burn_kindle') {
@@ -6024,7 +6174,7 @@ watch(
 
 .combat-top-left-panel {
   top: 1rem;
-  left: 1rem;
+  left: 1.6rem;
 }
 
 .combat-turn-anchor {
@@ -6050,7 +6200,7 @@ watch(
 }
 
 .combat-top-right-panel {
-  right: 0;
+  right: 1rem;
   top: 3.5rem;
 }
 

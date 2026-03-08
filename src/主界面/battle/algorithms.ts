@@ -124,7 +124,7 @@ export function calculateRawDamage(finalPoint: number, card: CardData): number {
 
 /**
  * 最终伤害（考虑攻防效果）
- * 链路：原始 → 寒冷减 → 增伤加 → 易伤增 → 真实伤害跳过防御 → 结界 → 护甲
+ * 链路：原始 → 寒冷减 → 增伤加 → 虚弱减 → 易伤增 → 真实伤害跳过防御 → 结界 → 护甲
  */
 export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: number; isTrueDamage: boolean; logs: string[] } {
   const logs: string[] = [];
@@ -140,6 +140,10 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   // 增伤加算（仅直接攻击伤害链路）
   const damageBoost = ctx.attackerEffects.find(e => e.type === EffectType.DAMAGE_BOOST)?.stacks ?? 0;
   if (damageBoost > 0) { damage += damageBoost; logs.push(`[增伤] +${damageBoost}`); }
+
+  // 虚弱减算（仅直接攻击伤害链路）
+  const weaken = ctx.attackerEffects.find(e => e.type === EffectType.WEAKEN)?.stacks ?? 0;
+  if (weaken > 0) { damage -= weaken; logs.push(`[虚弱] -${weaken}`); }
 
   // 非实体：仅影响当前卡牌造成的直接物理/魔法伤害
   const defenderHasNonEntity = ctx.defenderEffects.some((e) => e.type === EffectType.NON_ENTITY && e.stacks > 0);
