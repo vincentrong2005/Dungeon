@@ -1133,6 +1133,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.MEMORY_FOG]: EyeOff,
   [ET.SILENCE]: Ban,
   [ET.STURDY]: Shield,
+  [ET.SHIELD_BARRIER]: ShieldCheck,
   [ET.SHOCK]: Zap,
   [ET.FLAME_ATTACH]: Flame,
   [ET.POISON_ATTACH]: Bug,
@@ -1383,6 +1384,7 @@ const STATUS_PHEROMONE = '[信息素]';
 const STATUS_LUST_MARK = '[淫纹]';
 const STATUS_LUST_KNOWLEDGE = '[淫乱知识]';
 const STATUS_MARKED = '[被标记]';
+const STATUS_PARASITIZED = '[被寄生]';
 const PHEROMONE_CURSE_CARD_NAME = '信息素';
 const ARCHIVE_TAINT_CURSE_CARD_NAME = '档案污页';
 const normalizeNegativeStatusList = (value: unknown): string[] => {
@@ -2628,6 +2630,15 @@ const triggerShadowAssaultDamage = (
   }
 };
 
+const triggerRunawayEscapeOnDodgeSuccess = (source: BattleSide, card: CardData) => {
+  if (card.id !== 'enemy_inkmouse_runaway') return;
+  if (endCombatPending.value) return;
+  const sourceLabel = source === 'player' ? '我方' : '敌方';
+  log(`<span class="text-zinc-300">${sourceLabel}【${card.name}】闪避成功并逃离了战斗。</span>`);
+  endCombatPending.value = true;
+  void runEndCombatSequence('escape');
+};
+
 const applyToxinSpreadOnPhysicalPlay = (source: BattleSide, card: CardData) => {
   if (card.id === PASS_CARD.id || card.type !== CardType.PHYSICAL) return;
 
@@ -3320,11 +3331,11 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
   if (statuses.includes(STATUS_LUST_KNOWLEDGE)) {
     const taintCard = getCardByName(ARCHIVE_TAINT_CURSE_CARD_NAME);
     if (taintCard) {
-      for (let i = 0; i < 3; i += 1) {
+      for (let i = 0; i < 1; i += 1) {
         const insertAt = Math.floor(Math.random() * (combatState.value.playerDeck.length + 1));
         combatState.value.playerDeck.splice(insertAt, 0, cloneCardForBattle(taintCard));
       }
-      log('<span class="text-fuchsia-300">[负面状态][淫乱知识] 开局向牌库插入了3张【档案污页】。</span>');
+      log('<span class="text-fuchsia-300">[负面状态][淫乱知识] 开局向牌库插入了1张【档案污页】。</span>');
     } else {
       log('<span class="text-red-400">[负面状态][淫乱知识] 未找到【档案污页】卡牌定义。</span>');
     }
@@ -3334,6 +3345,13 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
     const applied = applyEffect(playerStats.value, ET.VULNERABLE, 2, { source: 'negative-status:[被标记]' });
     if (applied) {
       log('<span class="text-fuchsia-300">[负面状态][被标记] 开局获得了2层易伤。</span>');
+    }
+  }
+
+  if (statuses.includes(STATUS_PARASITIZED)) {
+    const applied = applyEffect(playerStats.value, ET.ORGASM, 1, { source: 'negative-status:[被寄生]' });
+    if (applied) {
+      log('<span class="text-fuchsia-300">[负面状态][被寄生] 开局获得了1层高潮。</span>');
     }
   }
 };
@@ -4322,6 +4340,7 @@ const resolveCombat = async (
       applyLightningAttachOnDodge('player', 'enemy');
       applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
       triggerShadowAssaultDamage('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
+      triggerRunawayEscapeOnDodgeSuccess('player', resolvedPlayerCard);
       if (resolvedPlayerCard.id === 'enemy_inkmouse_cowardice') {
         playerStats.value.maxDice += 1;
         log('<span class="text-cyan-300">我方【胆小】闪避成功：最大骰子点数 +1</span>');
@@ -4333,6 +4352,7 @@ const resolveCombat = async (
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
       triggerShadowAssaultDamage('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
+      triggerRunawayEscapeOnDodgeSuccess('enemy', resolvedEnemyCard);
       if (resolvedEnemyCard.id === 'enemy_inkmouse_cowardice') {
         enemyStats.value.maxDice += 1;
         log('<span class="text-cyan-300">敌方【胆小】闪避成功：最大骰子点数 +1</span>');
@@ -4523,6 +4543,9 @@ const resolveCombat = async (
         aiFlags.patrolBatLastEnemyCardId = card.id;
         if (card.id === 'enemy_patrol_bat_mark') {
           aiFlags.patrolBatMarkHit = true;
+        }
+        if (card.id === 'enemy_shame_leech_parasitic_drill') {
+          aiFlags.shameLeechParasiticDrillHit = true;
         }
       }
       applyCardExtraAttributes();

@@ -3892,8 +3892,9 @@ const normalizeNegativeStatusList = (value: unknown): string[] => {
 const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
   '[淫纹]': '每场战斗开始时，你获得3层中毒。',
-  '[淫乱知识]': '每场战斗开始时向你的牌库随机插入3张【档案污页】。',
+  '[淫乱知识]': '每场战斗开始时向你的牌库随机插入1张【档案污页】。',
   '[被标记]': '战斗房出现概率大幅增加，且每场战斗开始时你获得2层易伤。',
+  '[被寄生]': '每场战斗开始时，你获得1层高潮。',
   '[败北]': '在地牢中战败，沦为俘虏。',
   '[催淫]': '因中毒量hp归零，后续剧情会体现身体被药性支配。',
   '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
@@ -3902,7 +3903,7 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
 const negativeStatusEntries = computed(() => (
   normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name) => ({
     name,
-    description: NEGATIVE_STATUS_DESCRIPTION_MAP[name] ?? '未知负面状态，可能由特殊事件或敌方效果施加。',
+    description: NEGATIVE_STATUS_DESCRIPTION_MAP[name] ?? '未知负面状态，若此负面状态非你本人添加，请反馈给作者。',
   }))
 ));
 const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(displayMinDice.value, 1)));
@@ -3974,6 +3975,8 @@ const buildRebirthResetFields = (): Record<string, any> => {
   const currentSkillPoints = toNonNegativeInt(gameStore.statData.$技能点, 0);
   const currentFloor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
   const rebirthSkillPointGain = Math.floor((currentFloor * (currentFloor + 1)) / 2);
+  const currentNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
+  const retainedNegativeStatuses = currentNegativeStatuses.includes('[淫乱知识]') ? ['[淫乱知识]'] : [];
   return {
     _血量: initialMaxHp,
     _血量上限: initialMaxHp,
@@ -3981,7 +3984,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
     _金币: initialGold,
     $技能点: currentSkillPoints + rebirthSkillPointGain,
     _技能: [...REBIRTH_STARTER_DECK],
-    $负面状态: [],
+    $负面状态: retainedNegativeStatuses,
     $被动: '',
     $主动: ['', ''],
     _圣遗物: {},

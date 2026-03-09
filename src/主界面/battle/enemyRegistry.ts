@@ -158,6 +158,18 @@ const PATROL_BAT_CARD = {
   CIRCLING: 'enemy_patrol_bat_circling',
 } as const;
 
+const SHAME_LEECH_CARD = {
+  PARASITIC_DRILL: 'enemy_shame_leech_parasitic_drill',
+  INTERNAL_BREEDING: 'enemy_shame_leech_internal_breeding',
+  SHAME_AMPLIFY: 'enemy_shame_leech_shame_amplify',
+} as const;
+
+const PUNISHMENT_PUPPET_CARD = {
+  BONE_WHIP: 'enemy_punishment_puppet_bone_whip',
+  SUCTION_SUPPRESS: 'enemy_punishment_puppet_suction_suppress',
+  OVERLOAD_EXECUTE: 'enemy_punishment_puppet_overload_execute',
+} as const;
+
 const SHADOW_JAILER_CARD = {
   SHADOW_ASSAULT: 'enemy_shadow_jailer_shadow_assault',
   ENFORCEMENT_LOCK: 'enemy_shadow_jailer_enforcement_lock',
@@ -166,6 +178,13 @@ const SHADOW_JAILER_CARD = {
 } as const;
 
 const THORN_CRAWLER_CARD = {
+  BARBED_GRASP: 'enemy_thorncrawler_barbed_grasp',
+  NEURAL_PIERCE: 'enemy_thorncrawler_neural_pierce',
+  TOXIN_PULSE: 'enemy_thorncrawler_toxin_pulse',
+} as const;
+
+const SPINE_CHAIN_SNAKE_CARD = {
+  LURK: 'enemy_vinewalker_lurk',
   BARBED_GRASP: 'enemy_thorncrawler_barbed_grasp',
   NEURAL_PIERCE: 'enemy_thorncrawler_neural_pierce',
   TOXIN_PULSE: 'enemy_thorncrawler_toxin_pulse',
@@ -303,6 +322,7 @@ const FLOATING_PAGE_CARD = {
 const INK_MOUSE_CARD = {
   CHARGE: 'enemy_charge',
   COWARDICE: 'enemy_inkmouse_cowardice',
+  RUNAWAY: 'enemy_inkmouse_runaway',
   INK_BURST: 'enemy_inkmouse_ink_burst',
   LIQUEFY_REGEN: 'enemy_inkmouse_liquefy_regen',
 } as const;
@@ -858,6 +878,79 @@ const PATROL_BAT_ENEMY: EnemyDefinition = {
   },
 };
 
+const 羞耻蛭: EnemyDefinition = {
+  name: '羞耻蛭',
+  stats: {
+    hp: 4,
+    maxHp: 4,
+    mp: 2,
+    minDice: 2,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    SHAME_LEECH_CARD.PARASITIC_DRILL,
+    SHAME_LEECH_CARD.INTERNAL_BREEDING,
+    SHAME_LEECH_CARD.SHAME_AMPLIFY,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (!ctx.flags.shameLeechParasiticDrillHit) {
+      return pickCardById(ctx, SHAME_LEECH_CARD.PARASITIC_DRILL);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: SHAME_LEECH_CARD.SHAME_AMPLIFY, weight: 70 },
+        { value: SHAME_LEECH_CARD.INTERNAL_BREEDING, weight: 30 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    return pickCardById(ctx, SHAME_LEECH_CARD.INTERNAL_BREEDING);
+  },
+};
+
+const 惩戒傀儡: EnemyDefinition = {
+  name: '惩戒傀儡',
+  stats: {
+    hp: 72,
+    maxHp: 72,
+    mp: 0,
+    minDice: 3,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.THORNS, stacks: 1, polarity: 'buff' },
+      { type: EffectType.SHIELD_BARRIER, stacks: 3, polarity: 'buff' },
+      { type: EffectType.SELF_REPAIR, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    PUNISHMENT_PUPPET_CARD.BONE_WHIP,
+    PUNISHMENT_PUPPET_CARD.SUCTION_SUPPRESS,
+    PUNISHMENT_PUPPET_CARD.OVERLOAD_EXECUTE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp >= 5) {
+      const chosen = weightedRandom<string>([
+        { value: PUNISHMENT_PUPPET_CARD.BONE_WHIP, weight: 35 },
+        { value: PUNISHMENT_PUPPET_CARD.OVERLOAD_EXECUTE, weight: 45 },
+        { value: PUNISHMENT_PUPPET_CARD.SUCTION_SUPPRESS, weight: 20 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: PUNISHMENT_PUPPET_CARD.BONE_WHIP, weight: 75 },
+      { value: PUNISHMENT_PUPPET_CARD.SUCTION_SUPPRESS, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 影牢使魔: EnemyDefinition = {
   name: '影牢使魔',
   stats: {
@@ -894,8 +987,8 @@ const 影牢使魔: EnemyDefinition = {
 const 荆棘匍匐者: EnemyDefinition = {
   name: '荆棘匍匐者',
   stats: {
-    hp: 80,
-    maxHp: 80,
+    hp: 70,
+    maxHp: 70,
     mp: 0,
     minDice: 3,
     maxDice: 4,
@@ -921,6 +1014,72 @@ const 荆棘匍匐者: EnemyDefinition = {
     }
 
     return pickCardById(ctx, THORN_CRAWLER_CARD.BARBED_GRASP);
+  },
+};
+
+const 刺链蛇: EnemyDefinition = {
+  name: '刺链蛇',
+  stats: {
+    hp: 80,
+    maxHp: 80,
+    mp: 0,
+    minDice: 2,
+    maxDice: 3,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.POINT_GROWTH_BIG, stacks: 1, polarity: 'buff' },
+      { type: EffectType.POINT_GROWTH_SMALL, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    SPINE_CHAIN_SNAKE_CARD.LURK,
+    SPINE_CHAIN_SNAKE_CARD.BARBED_GRASP,
+    SPINE_CHAIN_SNAKE_CARD.NEURAL_PIERCE,
+    SPINE_CHAIN_SNAKE_CARD.TOXIN_PULSE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (!ctx.flags.spineChainSnakeOpenedWithLurk) {
+      ctx.flags.spineChainSnakeOpenedWithLurk = true;
+      return pickCardById(ctx, SPINE_CHAIN_SNAKE_CARD.LURK);
+    }
+
+    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const selfHasAmbush = ctx.enemyStats.effects.some((e) => e.type === EffectType.AMBUSH && e.stacks > 0);
+
+    if (playerHasBind && ctx.enemyStats.mp >= 2) {
+      return pickCardById(ctx, SPINE_CHAIN_SNAKE_CARD.TOXIN_PULSE);
+    }
+
+    if (playerHasBind) {
+      const chosen = weightedRandom<string>([
+        { value: SPINE_CHAIN_SNAKE_CARD.NEURAL_PIERCE, weight: 70 },
+        { value: SPINE_CHAIN_SNAKE_CARD.BARBED_GRASP, weight: 30 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    if (!selfHasAmbush) {
+      const chosen = weightedRandom<string>([
+        { value: SPINE_CHAIN_SNAKE_CARD.BARBED_GRASP, weight: 55 },
+        { value: SPINE_CHAIN_SNAKE_CARD.LURK, weight: 45 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: SPINE_CHAIN_SNAKE_CARD.BARBED_GRASP, weight: 45 },
+        { value: SPINE_CHAIN_SNAKE_CARD.NEURAL_PIERCE, weight: 35 },
+        { value: SPINE_CHAIN_SNAKE_CARD.TOXIN_PULSE, weight: 20 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: SPINE_CHAIN_SNAKE_CARD.BARBED_GRASP, weight: 60 },
+      { value: SPINE_CHAIN_SNAKE_CARD.NEURAL_PIERCE, weight: 40 },
+    ]);
+    return pickCardById(ctx, chosen);
   },
 };
 
@@ -1553,7 +1712,7 @@ const 墨痕鼠: EnemyDefinition = {
     maxHp: 6,
     mp: 0,
     minDice: 2,
-    maxDice: 6,
+    maxDice: 4,
     effects: [
       { type: EffectType.SWARM, stacks: 4, polarity: 'buff' },
       { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
@@ -1563,11 +1722,15 @@ const 墨痕鼠: EnemyDefinition = {
   deck: buildDeckById([
     INK_MOUSE_CARD.CHARGE,
     INK_MOUSE_CARD.COWARDICE,
+    INK_MOUSE_CARD.RUNAWAY,
     INK_MOUSE_CARD.INK_BURST,
     INK_MOUSE_CARD.LIQUEFY_REGEN,
   ]),
   selectCard(ctx: EnemyAIContext) {
     const selfSwarm = ctx.enemyStats.effects.find((e) => e.type === EffectType.SWARM)?.stacks ?? 0;
+    if (selfSwarm <= 0 && ctx.enemyStats.maxHp <= 1) {
+      return pickCardById(ctx, INK_MOUSE_CARD.RUNAWAY);
+    }
     if (selfSwarm <= 1 && ctx.enemyStats.maxHp > 1) {
       return pickCardById(ctx, INK_MOUSE_CARD.LIQUEFY_REGEN);
     }
@@ -1867,8 +2030,11 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [极乐蜜蜂.name, 极乐蜜蜂],
   [POLLEN_SPRAYER_ENEMY.name, POLLEN_SPRAYER_ENEMY],
   [PATROL_BAT_ENEMY.name, PATROL_BAT_ENEMY],
+  [羞耻蛭.name, 羞耻蛭],
+  [惩戒傀儡.name, 惩戒傀儡],
   [影牢使魔.name, 影牢使魔],
   [荆棘匍匐者.name, 荆棘匍匐者],
+  [刺链蛇.name, 刺链蛇],
   [窥视之眼.name, 窥视之眼],
   [羞耻阴影.name, 羞耻阴影],
   [堕落学者.name, 堕落学者],

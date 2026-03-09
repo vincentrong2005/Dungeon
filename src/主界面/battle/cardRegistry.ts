@@ -2306,6 +2306,114 @@ const PATROL_BAT_CIRCLING: CardData = {
   description: '点数-1，闪避，若闪避成功施加1倍点数的流血',
 };
 
+/** 寄生钻入：点数+1，造成0.5倍点数伤害，附带负面效果[被寄生] */
+const SHAME_LEECH_PARASITIC_DRILL: CardData = {
+  id: 'enemy_shame_leech_parasitic_drill',
+  name: '寄生钻入',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  negativeEffect: '[被寄生]',
+  description: '点数+1，造成0.5倍点数伤害，附带负面效果[被寄生]',
+};
+
+/** 体内繁殖：自身获得1层群集，并为目标施加1倍点数中毒 */
+const SHAME_LEECH_INTERNAL_BREEDING: CardData = {
+  id: 'enemy_shame_leech_internal_breeding',
+  name: '体内繁殖',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SWARM, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '自身获得1层群集，并为目标施加1倍点数的中毒',
+};
+
+/** 羞耻放大：施加1倍点数中毒与1层高潮 */
+const SHAME_LEECH_SHAME_AMPLIFY: CardData = {
+  id: 'enemy_shame_leech_shame_amplify',
+  name: '羞耻放大',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1倍点数中毒与1层高潮',
+};
+
+/** 骨鞭：点数+1，造成1倍点数伤害，并施加0.5倍点数电击 */
+const PUNISHMENT_PUPPET_BONE_WHIP: CardData = {
+  id: 'enemy_punishment_puppet_bone_whip',
+  name: '骨鞭',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+1，造成1倍点数伤害，并施加0.5倍点数电击',
+};
+
+/** 吸盘压制：施加0.5倍点数电击与1层虚弱，并获得0.5倍点数护甲 */
+const PUNISHMENT_PUPPET_SUCTION_SUPPRESS: CardData = {
+  id: 'enemy_punishment_puppet_suction_suppress',
+  name: '吸盘压制',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.WEAKEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '施加0.5倍点数电击与1层虚弱，回复自身0.5倍点数护甲',
+};
+
+/** 过载执行：点数+2，造成0.8倍点数伤害，2连击，并施加1倍点数电击 */
+const PUNISHMENT_PUPPET_OVERLOAD_EXECUTE: CardData = {
+  id: 'enemy_punishment_puppet_overload_execute',
+  name: '过载执行',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 5,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 0.8, scaleAddition: 0 },
+  hitCount: 2,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+2，造成0.8倍点数伤害，2连击，施加1倍点数电击',
+};
+
 /** 影袭：点数-1，闪避；若闪避成功或对方跳过回合，造成1倍点数伤害（伤害分支在 CombatView） */
 const SHADOW_JAILER_SHADOW_ASSAULT: CardData = {
   id: 'enemy_shadow_jailer_shadow_assault',
@@ -4099,6 +4207,21 @@ const 胆小: CardData = {
   description: '点数-1，闪避，闪避成功后增加1点骰子最大值',
 };
 
+/** 逃窜：点数-1，闪避，若闪避成功则逃离（逃离逻辑在 CombatView） */
+const 逃窜: CardData = {
+  id: 'enemy_inkmouse_runaway',
+  name: '逃窜',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，闪避，若闪避成功则逃离',
+};
+
 /** 墨水爆裂：消耗2MP，造成3点伤害；若发生拼点则拼点时施加3层中毒（拼点效果在 CombatView） */
 const 墨水爆裂: CardData = {
   id: 'enemy_inkmouse_ink_burst',
@@ -4561,6 +4684,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [感官灌输.name, 感官灌输],
   [强制代入.name, 强制代入],
   [胆小.name, 胆小],
+  [逃窜.name, 逃窜],
   [墨水爆裂.name, 墨水爆裂],
   [液化再生.name, 液化再生],
   [粘液闪避.name, 粘液闪避],
@@ -4580,6 +4704,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [PATROL_BAT_MARK.name, PATROL_BAT_MARK],
   [PATROL_BAT_FLY_AWAY.name, PATROL_BAT_FLY_AWAY],
   [PATROL_BAT_CIRCLING.name, PATROL_BAT_CIRCLING],
+  [SHAME_LEECH_PARASITIC_DRILL.name, SHAME_LEECH_PARASITIC_DRILL],
+  [SHAME_LEECH_INTERNAL_BREEDING.name, SHAME_LEECH_INTERNAL_BREEDING],
+  [SHAME_LEECH_SHAME_AMPLIFY.name, SHAME_LEECH_SHAME_AMPLIFY],
+  [PUNISHMENT_PUPPET_BONE_WHIP.name, PUNISHMENT_PUPPET_BONE_WHIP],
+  [PUNISHMENT_PUPPET_SUCTION_SUPPRESS.name, PUNISHMENT_PUPPET_SUCTION_SUPPRESS],
+  [PUNISHMENT_PUPPET_OVERLOAD_EXECUTE.name, PUNISHMENT_PUPPET_OVERLOAD_EXECUTE],
   [SHADOW_JAILER_SHADOW_ASSAULT.name, SHADOW_JAILER_SHADOW_ASSAULT],
   [SHADOW_JAILER_ENFORCEMENT_LOCK.name, SHADOW_JAILER_ENFORCEMENT_LOCK],
   [SHADOW_JAILER_NUMBING_WHIP.name, SHADOW_JAILER_NUMBING_WHIP],

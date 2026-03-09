@@ -175,9 +175,9 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     name: '自修复',
     polarity: 'buff',
     timings: ['onTurnStart'],
-    stackable: false,
-    maxStacks: 1,
-    description: '回合开始时若生命低于50%，回复1点生命并移除1层随机负面效果；每触发3次，自身增加1层生命上限削减',
+    stackable: true,
+    maxStacks: 0,
+    description: '回合开始时若生命低于50%，按层数回复生命并随机移除等量元素debuff；每触发3次，自身增加1层生命上限削减',
   },
   [EffectType.WHITE_TURBID]: {
     type: EffectType.WHITE_TURBID,
@@ -413,6 +413,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每次受到伤害时固定减伤，持续1回合并在回合结束清空',
   },
+  [EffectType.SHIELD_BARRIER]: {
+    type: EffectType.SHIELD_BARRIER,
+    name: '屏障',
+    polarity: 'buff',
+    timings: ['onBeforeDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每次受到伤害时固定减伤',
+  },
   [EffectType.SHOCK]: {
     type: EffectType.SHOCK,
     name: '电击',
@@ -560,6 +569,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.FATIGUE,
   EffectType.BARRIER,
   EffectType.STURDY,
+  EffectType.SHIELD_BARRIER,
   EffectType.INDOMITABLE,
   EffectType.MANA_SPRING,
   EffectType.REGEN,
@@ -890,18 +900,30 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     result.logs.push(`[生命回复] 回复 ${regenStacks} 点生命。`);
   }
 
-  // 自修复：生命低于50%时，回复1并随机移除1层debuff；每触发3次增加1层生命上限削减
+  // 自修复：生命低于50%时，按层数回复生命并随机移除等量元素debuff；每触发3次增加1层生命上限削减
   const selfRepair = findEffect(entity, EffectType.SELF_REPAIR);
   if (selfRepair && selfRepair.stacks > 0 && entity.hp < entity.maxHp * 0.5) {
-    result.hpChange += 1;
-    result.logs.push('[自修复] 生命低于50%，回复 1 点生命。');
+    const selfRepairStacks = Math.max(0, Math.floor(selfRepair.stacks));
+    result.hpChange += selfRepairStacks;
+    result.logs.push(`[自修复] 生命低于50%，回复 ${selfRepairStacks} 点生命。`);
 
-    const removableDebuffs = entity.effects
-      .filter((effect) => effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff');
-    if (removableDebuffs.length > 0) {
-      const picked = removableDebuffs[Math.floor(Math.random() * removableDebuffs.length)]!;
-      reduceEffectStacks(entity, picked.type, 1);
-      result.logs.push(`[自修复] 随机移除 1 层${EFFECT_REGISTRY[picked.type]?.name ?? picked.type}。`);
+    const removedByType = new Map<EffectType, number>();
+    let remainToRemove = selfRepairStacks;
+    while (remainToRemove > 0) {
+      const available = ELEMENTAL_DEBUFF_TYPES.filter((type) => getEffectStacks(entity, type) > 0);
+      if (available.length === 0) break;
+      const picked = available[Math.floor(Math.random() * available.length)]!;
+      reduceEffectStacks(entity, picked, 1);
+      removedByType.set(picked, (removedByType.get(picked) ?? 0) + 1);
+      remainToRemove -= 1;
+    }
+    const removedSummary = [...removedByType.entries()]
+      .map(([type, count]) => `${EFFECT_REGISTRY[type]?.name ?? type} -${count}`)
+      .join('，');
+    if (removedSummary.length > 0) {
+      result.logs.push(`[自修复] 随机移除元素debuff：${removedSummary}。`);
+    } else {
+      result.logs.push('[自修复] 未检测到可移除的元素debuff。');
     }
 
     const nextCount = Math.max(0, Math.floor(selfRepair.runtimeCounter ?? 0)) + 1;

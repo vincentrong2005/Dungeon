@@ -42,6 +42,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.SILENCE]: 'fa-solid fa-ban',
   [ET.CONTROLLED]: 'fa-solid fa-face-dizzy',
   [ET.STURDY]: 'fa-solid fa-user-shield',
+  [ET.SHIELD_BARRIER]: 'fa-solid fa-shield-heart',
   [ET.SHOCK]: 'fa-solid fa-bolt',
   [ET.FLAME_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.POISON_ATTACH]: 'fa-solid fa-flask-vial',
