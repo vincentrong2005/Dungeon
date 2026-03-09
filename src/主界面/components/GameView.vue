@@ -4127,8 +4127,6 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
   return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
 };
 
-const VICTORY_REWARD_SKIP_ACTION_TEXT = '<user>未选择奖励直接离开。';
-
 const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
   if (dispatchedCombatNarrativeIds.has(narrative.id)) return;
   if (gameStore.isGenerating) return;
@@ -4250,8 +4248,7 @@ const refreshVictoryRewardOptions = () => {
   victoryRewardStage.value = 'pick';
 };
 
-const finalizeVictoryRewardFlow = (options?: { skipReward?: boolean }) => {
-  const skipReward = Boolean(options?.skipReward);
+const finalizeVictoryRewardFlow = () => {
   showVictoryRewardView.value = false;
   victoryRewardStage.value = 'pick';
   victoryRewardOptions.value = [];
@@ -4261,21 +4258,13 @@ const finalizeVictoryRewardFlow = (options?: { skipReward?: boolean }) => {
   rewardIsNormalEnemy.value = false;
   const narrative = pendingCombatNarrative.value;
   pendingCombatNarrative.value = null;
-  if (skipReward) {
-    if (narrative) {
-      sendCombatNarrativeOnce(narrative, VICTORY_REWARD_SKIP_ACTION_TEXT);
-    } else if (!gameStore.isGenerating) {
-      gameStore.sendAction(VICTORY_REWARD_SKIP_ACTION_TEXT);
-    }
-    return;
-  }
   if (!narrative) return;
   if (narrative.context === 'shopRobbery') return;
   sendCombatNarrativeOnce(narrative, narrative.text);
 };
 
 const exitVictoryRewardFlow = () => {
-  finalizeVictoryRewardFlow({ skipReward: true });
+  finalizeVictoryRewardFlow();
 };
 
 const pickVictoryRewardCard = (card: VictoryRewardItem) => {
