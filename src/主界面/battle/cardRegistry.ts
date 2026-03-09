@@ -3200,6 +3200,84 @@ const 罚站: CardData = {
   description: '点数-2，闪避；若闪避成功或对方跳过回合，施加1倍点数侵蚀',
 };
 
+/** 倒刺乱舞：造成0.4倍点数伤害，3连击，并施加0.5倍点数流血 */
+const 倒刺乱舞: CardData = {
+  id: 'enemy_veronica_barbed_flurry',
+  name: '倒刺乱舞',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '造成0.4倍点数伤害，3连击，并施加0.5倍点数流血',
+};
+
+/** 骨鞭缠绕：点数+1，造成0.5倍点数伤害，并施加0.5倍点数流血与1层束缚 */
+const 骨鞭缠绕: CardData = {
+  id: 'enemy_veronica_bone_whip_bind',
+  name: '骨鞭缠绕',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数+1，造成0.5倍点数伤害，并施加0.5倍点数流血与1层束缚',
+};
+
+/** 折磨循环：消耗6MP，点数*2，造成0.2倍点数伤害，2连击，并结算目标流血1次（结算逻辑在 CombatView） */
+const 折磨循环: CardData = {
+  id: 'enemy_veronica_torment_cycle',
+  name: '折磨循环',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
+  hitCount: 2,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗6MP，点数*2，造成0.2倍点数伤害，2连击，并结算目标流血1次',
+};
+
+/** 狂暴化：获得1层增伤与3层无视闪避 */
+const 狂暴化: CardData = {
+  id: 'enemy_veronica_berserk',
+  name: '狂暴化',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.IGNORE_DODGE, target: 'self', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '获得1层增伤与3层无视闪避',
+};
+
 /** 震动感知：为自身增加1.5倍点数护甲 */
 const 震动感知: CardData = {
   id: 'enemy_root_tremor_sense',
@@ -4634,6 +4712,10 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [鞭戒.name, 鞭戒],
   [声音支配.name, 声音支配],
   [罚站.name, 罚站],
+  [倒刺乱舞.name, 倒刺乱舞],
+  [骨鞭缠绕.name, 骨鞭缠绕],
+  [折磨循环.name, 折磨循环],
+  [狂暴化.name, 狂暴化],
   [震动感知.name, 震动感知],
   [润滑分泌.name, 润滑分泌],
   [渗透攀爬.name, 渗透攀爬],

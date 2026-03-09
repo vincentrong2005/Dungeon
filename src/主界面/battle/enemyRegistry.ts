@@ -313,6 +313,14 @@ const DOROTHY_CARD = {
   HALLWAY_STAND: 'enemy_dorothy_hallway_stand',
 } as const;
 
+const VERONICA_CARD = {
+  BARBED_FLURRY: 'enemy_veronica_barbed_flurry',
+  BONE_WHIP_BIND: 'enemy_veronica_bone_whip_bind',
+  BLOOD_DEBT_STRIKE: 'bloodpool_blood_debt_strike',
+  TORMENT_CYCLE: 'enemy_veronica_torment_cycle',
+  BERSERK: 'enemy_veronica_berserk',
+} as const;
+
 const FLOATING_PAGE_CARD = {
   ATTACH: 'enemy_floating_page_attach',
   SENSORY_INFUSION: 'enemy_floating_page_sensory_infusion',
@@ -1673,6 +1681,63 @@ const 多萝西: EnemyDefinition = {
   },
 };
 
+const 维罗妮卡: EnemyDefinition = {
+  name: '维罗妮卡',
+  stats: {
+    hp: 200,
+    maxHp: 200,
+    mp: 0,
+    minDice: 4,
+    maxDice: 10,
+    effects: [
+      { type: EffectType.OBEDIENCE_BRAND, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    VERONICA_CARD.BARBED_FLURRY,
+    VERONICA_CARD.BONE_WHIP_BIND,
+    VERONICA_CARD.BLOOD_DEBT_STRIKE,
+    VERONICA_CARD.TORMENT_CYCLE,
+    VERONICA_CARD.BERSERK,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const hpRatio = ctx.enemyStats.maxHp > 0 ? ctx.enemyStats.hp / ctx.enemyStats.maxHp : 0;
+    const playerHasBleed = ctx.playerStats.effects.some((e) => e.type === EffectType.BLEED && e.stacks > 0);
+    const berserkNotUsed = ctx.flags.veronicaBerserkUsed !== true;
+    const canUseBerserkNow = ctx.deck.some((card) => card.id === VERONICA_CARD.BERSERK);
+
+    if (berserkNotUsed && hpRatio < 0.5 && canUseBerserkNow) {
+      ctx.flags.veronicaBerserkUsed = true;
+      return pickCardById(ctx, VERONICA_CARD.BERSERK);
+    }
+
+    if (ctx.enemyStats.mp >= 6 && playerHasBleed) {
+      const chosen = weightedRandom<string>([
+        { value: VERONICA_CARD.BARBED_FLURRY, weight: 30 },
+        { value: VERONICA_CARD.BONE_WHIP_BIND, weight: 20 },
+        { value: VERONICA_CARD.TORMENT_CYCLE, weight: 50 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    if (hpRatio < 0.75) {
+      const chosen = weightedRandom<string>([
+        { value: VERONICA_CARD.BARBED_FLURRY, weight: 40 },
+        { value: VERONICA_CARD.BONE_WHIP_BIND, weight: 30 },
+        { value: VERONICA_CARD.BLOOD_DEBT_STRIKE, weight: 30 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: VERONICA_CARD.BARBED_FLURRY, weight: 60 },
+      { value: VERONICA_CARD.BONE_WHIP_BIND, weight: 40 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 浮游书页: EnemyDefinition = {
   name: '浮游书页',
   stats: {
@@ -2051,6 +2116,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [因克.name, 因克],
   [阿卡夏.name, 阿卡夏],
   [多萝西.name, 多萝西],
+  [维罗妮卡.name, 维罗妮卡],
   [浮游书页.name, 浮游书页],
   [墨痕鼠.name, 墨痕鼠],
   [低语幽灵.name, 低语幽灵],

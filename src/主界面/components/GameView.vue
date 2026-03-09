@@ -1597,7 +1597,7 @@
         <div class="idol-layout absolute inset-0 z-[97]">
           <div class="idol-slots-row">
             <div class="idol-slot-wrap">
-              <div class="idol-slot-hint">增加1倍点数的生命上限</div>
+              <div class="idol-slot-hint">增加1.5倍点数的生命上限</div>
               <div
                 ref="idolSlotMaxHpRef"
                 class="idol-slot"
@@ -2450,7 +2450,7 @@ const IDOL_BLESSING_CONFIG: Record<IdolBlessingTarget, IdolBlessingConfig> = {
     target: 'maxHp',
     slotLabel: '生命上限',
     statueName: '生命神像',
-    rewardText: (dice) => `生命上限+${dice}`,
+    rewardText: (dice) => `生命上限+${Math.floor(dice * 1.5)}`,
   },
   mp: {
     target: 'mp',
@@ -3925,7 +3925,11 @@ const idolRewardSummary = computed(() => {
   if (!target) return null;
   const config = IDOL_BLESSING_CONFIG[target];
   const dice = idolDiceValue.value;
-  const amount = target === 'gold' ? dice * 2 : dice;
+  const amount = target === 'gold'
+    ? dice * 2
+    : target === 'maxHp'
+      ? Math.floor(dice * 1.5)
+      : dice;
   return {
     target,
     statueName: config.statueName,
@@ -4143,7 +4147,7 @@ const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativ
   const hasFinalMaxHp = Number.isFinite(finalMaxHpRaw);
   const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
   const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
-  const goldReward = 3 + floor;
+  const goldReward = 2 + floor;
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
   const stomachMarkCount = getOwnedRelicCountById('bloodpool_stomach_mark');
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
@@ -5439,11 +5443,11 @@ function pickLordMonsterByArea(area: string): string | null {
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
 const PORTAL_ROOM_WEIGHTS: Record<string, number> = {
-  '战斗房': 45,
+  '战斗房': 35,
   '宝箱房': 20,
-  '商店房': 10,
-  '温泉房': 10,
-  '神像房': 10,
+  '商店房': 12,
+  '温泉房': 12,
+  '神像房': 16,
   '事件房': 0,
   '陷阱房': 5,
 };

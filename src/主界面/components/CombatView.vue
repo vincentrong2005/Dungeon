@@ -2624,6 +2624,7 @@ const triggerShadowAssaultDamage = (
     adjustedDamage,
     actualDamage,
   );
+  triggerObedienceBrandOnDirectHit(source, defenderSide);
   const reviveResult = triggerSwarmReviveIfNeeded(defender);
   for (const reviveLog of reviveResult.logs) {
     log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
@@ -2672,6 +2673,54 @@ const applyAmbushOnCardPlay = (source: BattleSide, card: CardData) => {
   const sourceLabel = source === 'player' ? '我方' : '敌方';
   const ambushOwnerLabel = ambushOwnerSide === 'player' ? '我方' : '敌方';
   log(`<span class="text-violet-300">${ambushOwnerLabel}[伏击] 触发：${sourceLabel}获得 1 层束缚。</span>`);
+};
+
+const withIgnoreDodgeBuffOnAttackCard = (source: BattleSide, card: CardData): CardData => {
+  if (card.id === PASS_CARD.id) return card;
+  if (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC) return card;
+
+  const sourceStats = source === 'player' ? playerStats.value : enemyStats.value;
+  const stacks = getEffectStacks(sourceStats, ET.IGNORE_DODGE);
+  if (stacks <= 0) return card;
+
+  reduceEffectStacks(sourceStats, ET.IGNORE_DODGE, 1);
+  const sourceLabel = source === 'player' ? '我方' : '敌方';
+  log(`<span class="text-indigo-300">${sourceLabel}[无视闪避] 本次攻击获得无视闪避（剩余${Math.max(0, getEffectStacks(sourceStats, ET.IGNORE_DODGE))}层）</span>`);
+
+  if (card.ignoreDodge) return card;
+  const boosted = cloneCardForBattle(card);
+  boosted.ignoreDodge = true;
+  return boosted;
+};
+
+const triggerObedienceBrandOnDirectHit = (
+  attackerSide: BattleSide,
+  defenderSide: BattleSide,
+) => {
+  const attacker = attackerSide === 'player' ? playerStats.value : enemyStats.value;
+  const defender = defenderSide === 'player' ? playerStats.value : enemyStats.value;
+  const attackerLabel = attackerSide === 'player' ? '我方' : '敌方';
+  const defenderLabel = defenderSide === 'player' ? '我方' : '敌方';
+
+  const defenderObedienceStacks = Math.max(0, getEffectStacks(defender, ET.OBEDIENCE_BRAND));
+  if (defenderObedienceStacks > 0) {
+    const applied = applyStatusEffectWithRelics(attackerSide, ET.BRAND_MARK, defenderObedienceStacks, {
+      source: 'effect:obedience_brand',
+      lockDecayThisTurn: true,
+    });
+    if (applied) {
+      log(`<span class="text-fuchsia-300">${defenderLabel}[服从烙印] 为${attackerLabel}施加了 ${defenderObedienceStacks} 层烙印</span>`);
+    }
+  }
+
+  const attackerObedienceStacks = Math.max(0, getEffectStacks(attacker, ET.OBEDIENCE_BRAND));
+  if (attackerObedienceStacks <= 0) return;
+  const targetBrandStacks = Math.max(0, getEffectStacks(defender, ET.BRAND_MARK));
+  if (targetBrandStacks <= 0) return;
+  const { healed } = healForSide(attackerSide, targetBrandStacks);
+  if (healed > 0) {
+    log(`<span class="text-emerald-300">${attackerLabel}[服从烙印] 命中后按目标烙印回复 ${healed} 点生命</span>`);
+  }
 };
 
 const withFirstUseLightningAmbushBonus = (
@@ -4170,6 +4219,8 @@ const resolveCombat = async (
 
   resolvedPlayerCard = withFirstUseLightningAmbushBonus('player', resolvedPlayerCard);
   resolvedEnemyCard = withFirstUseLightningAmbushBonus('enemy', resolvedEnemyCard);
+  resolvedPlayerCard = withIgnoreDodgeBuffOnAttackCard('player', resolvedPlayerCard);
+  resolvedEnemyCard = withIgnoreDodgeBuffOnAttackCard('enemy', resolvedEnemyCard);
 
   if (resolvedPlayerCard.traits.combo) {
     comboUiMaskBridge.value = true;
@@ -5078,6 +5129,7 @@ const resolveCombat = async (
             actualTrueDamage,
             actualTrueDamage,
           );
+          triggerObedienceBrandOnDirectHit(source, defenderSide);
           const reviveResult = triggerSwarmReviveIfNeeded(defender);
           for (const reviveLog of reviveResult.logs) {
             log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
@@ -5262,6 +5314,7 @@ const resolveCombat = async (
           adjustedDamage,
           actualDamage,
         );
+        triggerObedienceBrandOnDirectHit(source, defenderSide);
         applyHitAttachEffects(source, card, attacker, defenderSide);
         if (defender.hp <= 0) break;
       }
@@ -5407,6 +5460,19 @@ const resolveCombat = async (
             log(`<span class="text-rose-300">${label}【${card.name}】追加施加 ${bleedStacks} 层流血</span>`);
           }
         }
+      }
+      if (card.id === 'enemy_veronica_torment_cycle') {
+        const bleedDamage = triggerBleedProc(defenderSide, `${label}【${card.name}】`);
+        triggerPlayerRelicHitHooks(
+          source,
+          defenderSide,
+          card,
+          finalPoint,
+          1,
+          1,
+          bleedDamage,
+          bleedDamage,
+        );
       }
 
       if (card.id === 'yanhan_feedback_freeze_wheel') {
