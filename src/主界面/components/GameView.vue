@@ -637,7 +637,7 @@
               <span
                 class="bond-affection-value"
                 :class="entry.affection >= 0 ? 'bond-affection-value--positive' : 'bond-affection-value--negative'"
-              >{{ formatBondAffection(entry.affection) }} / 1000</span>
+              >{{ formatBondAffection(entry.affection) }} / 200</span>
             </div>
             <div class="bond-affection-track">
               <div
@@ -2317,7 +2317,7 @@ const resolveCharacterPortraitUrl = async (characterName: string): Promise<strin
 const clampBondAffection = (value: unknown): number => {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
-  return Math.max(-1000, Math.min(1000, Math.floor(n)));
+  return Math.max(-200, Math.min(200, Math.floor(n)));
 };
 
 const bondRoleEntries = computed<Array<{ name: string; affection: number }>>(() => {
@@ -2343,7 +2343,7 @@ const bondEntries = computed(() => (
   bondRoleEntries.value.map((entry) => ({
     ...entry,
     portraitUrl: getBondPortraitUrl(entry.name),
-    affectionAbsRatio: Math.min(1, Math.abs(entry.affection) / 1000),
+    affectionAbsRatio: Math.min(1, Math.abs(entry.affection) / 200),
   }))
 ));
 
@@ -2575,9 +2575,9 @@ const muxinlanFavor = computed<number>(() => {
   const roles = (gameStore.statData.角色 ?? {}) as Record<string, any>;
   const raw = Number(roles?.['沐芯兰']?.['好感度'] ?? 0);
   const safe = Number.isFinite(raw) ? raw : 0;
-  return Math.max(-1000, Math.min(1000, safe));
+  return Math.max(-200, Math.min(200, safe));
 });
-const shopDiscountRate = computed(() => Math.max(0, Math.min(1000, muxinlanFavor.value)) * 0.0002);
+const shopDiscountRate = computed(() => Math.max(0, Math.min(200, muxinlanFavor.value)) * 0.001);
 const shopRobBtnOpacity = computed(() => {
   const revealed = Math.min(5, shopRobClickCount.value);
   return (0.32 + revealed * 0.13).toFixed(2);
@@ -4341,7 +4341,7 @@ const handleShopProductTouchStart = (event: TouchEvent, item: ShopProduct) => {
 const generateShopProducts = () => {
   const pool = [...selectableRelicPool.value];
   const favorForCount = Math.max(0, muxinlanFavor.value);
-  const targetCount = Math.max(0, 3 + Math.floor(favorForCount / 200));
+  const targetCount = Math.max(0, 3 + Math.floor(favorForCount / 40));
   const count = Math.min(targetCount, pool.length);
   const usedNames = new Set<string>();
   const discountRate = shopDiscountRate.value;

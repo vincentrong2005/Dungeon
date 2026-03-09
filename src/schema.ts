@@ -51,7 +51,7 @@ export const Schema = z.object({
     .record(
       z.string().describe('角色名'),
       z.object({
-        好感度: z.coerce.number().transform(v => _.clamp(v, -1000, 1000)).prefault(0),
+        好感度: z.coerce.number().transform(v => _.clamp(v, -200, 200)).prefault(0),
       }).prefault({ 好感度: 0 }),
     )
     .prefault({}),
