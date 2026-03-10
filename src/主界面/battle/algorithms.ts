@@ -194,10 +194,21 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
 /**
  * 应用伤害到实体（含效果层数消耗），返回实际伤害
  */
-export function triggerSwarmReviveIfNeeded(target: EntityStats): { revived: boolean; logs: string[] } {
+export function triggerSwarmReviveIfNeeded(
+  target: EntityStats,
+  options?: { disableRevive?: boolean },
+): { revived: boolean; logs: string[] } {
   const logs: string[] = [];
   if (target.hp > 0) return { revived: false, logs };
   if (target.maxHp <= 0) return { revived: false, logs };
+  if (options?.disableRevive) {
+    const hasAnyRevive =
+      getEffectStacks(target, EffectType.SWARM) > 0
+      || getEffectStacks(target, EffectType.BLOOD_COCOON) > 0
+      || getEffectStacks(target, EffectType.INDOMITABLE) > 0;
+    void hasAnyRevive;
+    return { revived: false, logs };
+  }
 
   const swarmStacks = getEffectStacks(target, EffectType.SWARM);
   if (swarmStacks > 0) {
@@ -252,7 +263,12 @@ export function consumeColdAfterDealingDamage(attacker: EntityStats, actualDamag
 /**
  * 应用伤害到实体（含结界/护甲/群集/不屈），返回实际伤害
  */
-export function applyDamageToEntity(target: EntityStats, damage: number, isTrueDamage: boolean): { actualDamage: number; logs: string[] } {
+export function applyDamageToEntity(
+  target: EntityStats,
+  damage: number,
+  isTrueDamage: boolean,
+  options?: { disableRevive?: boolean },
+): { actualDamage: number; logs: string[] } {
   const logs: string[] = [];
   if (!isTrueDamage) {
     if (hasEffect(target, EffectType.BARRIER) && damage > 0) {
@@ -271,7 +287,9 @@ export function applyDamageToEntity(target: EntityStats, damage: number, isTrueD
   const actual = Math.min(damage, target.hp);
   target.hp -= actual;
   logs.push(`受到${actual}点伤害(HP: ${target.hp}/${target.maxHp})。`);
-  const reviveResult = triggerSwarmReviveIfNeeded(target);
+  const reviveResult = triggerSwarmReviveIfNeeded(target, {
+    disableRevive: options?.disableRevive,
+  });
   logs.push(...reviveResult.logs);
   return { actualDamage: actual, logs };
 }

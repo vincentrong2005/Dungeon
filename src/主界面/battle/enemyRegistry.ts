@@ -164,6 +164,26 @@ const SHAME_LEECH_CARD = {
   SHAME_AMPLIFY: 'enemy_shame_leech_shame_amplify',
 } as const;
 
+const BLOOD_BAT_CARD = {
+  PREDATORY_NIBBLE: 'enemy_blood_bat_predatory_nibble',
+  ULTRASONIC_STIMULUS: 'enemy_blood_bat_ultrasonic_stimulus',
+  SWARM_RESONANCE: 'enemy_blood_bat_swarm_resonance',
+  LOW_GLIDE: 'enemy_blood_bat_low_glide',
+} as const;
+
+const BLOOD_SERVANT_CARD = {
+  OFFERING_SMILE: 'enemy_blood_servant_offering_smile',
+  INVITATION: 'enemy_blood_servant_invitation',
+  LURE: 'enemy_blood_servant_lure',
+} as const;
+
+const NIGHTMARE_STEED_CARD = {
+  SNIFF: 'enemy_nightmare_steed_sniff',
+  BRANDED_STOMP: 'enemy_nightmare_steed_branded_stomp',
+  SADDLE_CAPTURE: 'enemy_nightmare_steed_saddle_capture',
+  MIST_DUST: 'enemy_nightmare_steed_mist_dust',
+} as const;
+
 const PUNISHMENT_PUPPET_CARD = {
   BONE_WHIP: 'enemy_punishment_puppet_bone_whip',
   SUCTION_SUPPRESS: 'enemy_punishment_puppet_suction_suppress',
@@ -287,6 +307,15 @@ const HILVY_CARD = {
   APHONIA: 'enemy_hilvy_aphonia',
   SILENT_NIGHT_EVASION: 'enemy_hilvy_silent_night_evasion',
   SILENT_FINALE: 'enemy_hilvy_silent_finale',
+} as const;
+
+const ELIZABETH_CARD = {
+  BLOOD_THORNS: 'enemy_elizabeth_blood_thorns',
+  COAGULATE_SOLDIER: 'enemy_elizabeth_coagulate_soldier',
+  BAT_RAID: 'enemy_elizabeth_bat_raid',
+  BOILING_BLOOD_PULSE: 'enemy_elizabeth_boiling_blood_pulse',
+  BLOOD_STASIS: 'enemy_elizabeth_blood_stasis',
+  BLOOD_MIST_AVATAR: 'enemy_elizabeth_blood_mist_avatar',
 } as const;
 
 const INK_LORD_CARD = {
@@ -918,6 +947,115 @@ const 羞耻蛭: EnemyDefinition = {
     }
 
     return pickCardById(ctx, SHAME_LEECH_CARD.INTERNAL_BREEDING);
+  },
+};
+
+const 血蝙蝠: EnemyDefinition = {
+  name: '血蝙蝠',
+  stats: {
+    hp: 22,
+    maxHp: 22,
+    mp: 0,
+    minDice: 2,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.SWARM, stacks: 4, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    BLOOD_BAT_CARD.PREDATORY_NIBBLE,
+    BLOOD_BAT_CARD.ULTRASONIC_STIMULUS,
+    BLOOD_BAT_CARD.SWARM_RESONANCE,
+    BLOOD_BAT_CARD.LOW_GLIDE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp >= 4) {
+      return pickCardById(ctx, BLOOD_BAT_CARD.SWARM_RESONANCE);
+    }
+
+    if (ctx.enemyStats.mp >= 1) {
+      const chosen = weightedRandom<string>([
+        { value: BLOOD_BAT_CARD.PREDATORY_NIBBLE, weight: 40 },
+        { value: BLOOD_BAT_CARD.ULTRASONIC_STIMULUS, weight: 40 },
+        { value: BLOOD_BAT_CARD.LOW_GLIDE, weight: 20 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: BLOOD_BAT_CARD.PREDATORY_NIBBLE, weight: 70 },
+      { value: BLOOD_BAT_CARD.LOW_GLIDE, weight: 30 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 血仆: EnemyDefinition = {
+  name: '血仆',
+  stats: {
+    hp: 75,
+    maxHp: 75,
+    mp: 0,
+    minDice: 2,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.WHITE_TURBID, stacks: 1, polarity: 'mixed' },
+      { type: EffectType.REGEN, stacks: 5, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    BLOOD_SERVANT_CARD.OFFERING_SMILE,
+    BLOOD_SERVANT_CARD.INVITATION,
+    BLOOD_SERVANT_CARD.LURE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, BLOOD_SERVANT_CARD.OFFERING_SMILE);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: BLOOD_SERVANT_CARD.INVITATION, weight: 50 },
+      { value: BLOOD_SERVANT_CARD.LURE, weight: 50 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 梦魇驹: EnemyDefinition = {
+  name: '梦魇驹',
+  stats: {
+    hp: 110,
+    maxHp: 110,
+    mp: 0,
+    minDice: 3,
+    maxDice: 7,
+    effects: [
+      { type: EffectType.SHIELD_BARRIER, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    NIGHTMARE_STEED_CARD.SNIFF,
+    NIGHTMARE_STEED_CARD.BRANDED_STOMP,
+    NIGHTMARE_STEED_CARD.SADDLE_CAPTURE,
+    NIGHTMARE_STEED_CARD.MIST_DUST,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, NIGHTMARE_STEED_CARD.SNIFF);
+    }
+    if (ctx.turn === 2) {
+      return pickCardById(ctx, NIGHTMARE_STEED_CARD.BRANDED_STOMP);
+    }
+    if (ctx.turn === 3) {
+      return pickCardById(ctx, NIGHTMARE_STEED_CARD.MIST_DUST);
+    }
+    const chosen = weightedRandom<string>([
+      { value: NIGHTMARE_STEED_CARD.SNIFF, weight: 50 },
+      { value: NIGHTMARE_STEED_CARD.BRANDED_STOMP, weight: 40 },
+      { value: NIGHTMARE_STEED_CARD.SADDLE_CAPTURE, weight: 10 },
+    ]);
+    return pickCardById(ctx, chosen);
   },
 };
 
@@ -1577,6 +1715,63 @@ const 希尔薇: EnemyDefinition = {
   },
 };
 
+const 伊丽莎白: EnemyDefinition = {
+  name: '伊丽莎白',
+  stats: {
+    hp: 250,
+    maxHp: 250,
+    mp: 0,
+    minDice: 6,
+    maxDice: 10,
+    effects: [
+      { type: EffectType.BLOODLINE, stacks: 1, polarity: 'buff' },
+      { type: EffectType.CONTRACT_CURSE, stacks: 1, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    ELIZABETH_CARD.BLOOD_THORNS,
+    ELIZABETH_CARD.COAGULATE_SOLDIER,
+    ELIZABETH_CARD.BAT_RAID,
+    ELIZABETH_CARD.BOILING_BLOOD_PULSE,
+    ELIZABETH_CARD.BLOOD_STASIS,
+    ELIZABETH_CARD.BLOOD_MIST_AVATAR,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const hasIllusoryBody = ctx.enemyStats.effects.some((e) => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
+    const isBelowHalfHp = ctx.enemyStats.maxHp > 0 && (ctx.enemyStats.hp * 2) < ctx.enemyStats.maxHp;
+    if (isBelowHalfHp && !hasIllusoryBody) {
+      return pickCardById(ctx, ELIZABETH_CARD.BLOOD_MIST_AVATAR);
+    }
+
+    if (ctx.enemyStats.mp >= 4) {
+      const chosen = weightedRandom<string>([
+        { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 25 },
+        { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 15 },
+        { value: ELIZABETH_CARD.BOILING_BLOOD_PULSE, weight: 30 },
+        { value: ELIZABETH_CARD.BLOOD_STASIS, weight: 30 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      const chosen = weightedRandom<string>([
+        { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 40 },
+        { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 20 },
+        { value: ELIZABETH_CARD.BLOOD_STASIS, weight: 40 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 20 },
+      { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 20 },
+      { value: ELIZABETH_CARD.BAT_RAID, weight: 60 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 因克: EnemyDefinition = {
   name: '因克',
   stats: {
@@ -2096,6 +2291,9 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [POLLEN_SPRAYER_ENEMY.name, POLLEN_SPRAYER_ENEMY],
   [PATROL_BAT_ENEMY.name, PATROL_BAT_ENEMY],
   [羞耻蛭.name, 羞耻蛭],
+  [血蝙蝠.name, 血蝙蝠],
+  [血仆.name, 血仆],
+  [梦魇驹.name, 梦魇驹],
   [惩戒傀儡.name, 惩戒傀儡],
   [影牢使魔.name, 影牢使魔],
   [荆棘匍匐者.name, 荆棘匍匐者],
@@ -2113,6 +2311,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [罗丝.name, 罗丝],
   [厄休拉.name, 厄休拉],
   [希尔薇.name, 希尔薇],
+  [伊丽莎白.name, 伊丽莎白],
   [因克.name, 因克],
   [阿卡夏.name, 阿卡夏],
   [多萝西.name, 多萝西],

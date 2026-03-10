@@ -136,7 +136,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.ORGASM]: {
     type: EffectType.ORGASM,
-    name: '高潮',
+    name: '性兴奋',
     polarity: 'debuff',
     timings: ['onTurnStart'],
     stackable: true,
@@ -530,6 +530,24 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '反弹50%物理直接伤害',
   },
+  [EffectType.BLOODLINE]: {
+    type: EffectType.BLOODLINE,
+    name: '血族',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '造成直接伤害或触发对方流血伤害后，回复2倍等量生命；受到来自对方的治疗时改为等量真实伤害',
+  },
+  [EffectType.CONTRACT_CURSE]: {
+    type: EffectType.CONTRACT_CURSE,
+    name: '契约诅咒',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '无视一切复活手段',
+  },
   [EffectType.INK_CREATION]: {
     type: EffectType.INK_CREATION,
     name: '笔墨造物',
@@ -625,6 +643,8 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.WHITE_TURBID,
   EffectType.AMBUSH,
   EffectType.THORNS,
+  EffectType.BLOODLINE,
+  EffectType.CONTRACT_CURSE,
   EffectType.IGNITE_AURA,
   EffectType.NON_LIVING,
   EffectType.NON_ENTITY,
@@ -782,10 +802,6 @@ export function applyEffect(
         }
       }
     }
-    // 更新束缚的限制类型
-    if (type === EffectType.BIND && options?.restrictedTypes) {
-      existing.restrictedTypes = options.restrictedTypes;
-    }
     if (type === EffectType.CORROSION && existing.stacks >= 30) {
       entity.maxHp = 0;
       entity.hp = 0;
@@ -805,7 +821,7 @@ export function applyEffect(
     lockDecayThisTurn: DECAY_GRACE_EFFECT_TYPES.has(type)
       ? !!options?.lockDecayThisTurn
       : undefined,
-    restrictedTypes: options?.restrictedTypes,
+    restrictedTypes: type === EffectType.BIND ? undefined : options?.restrictedTypes,
     source: options?.source,
   };
   entity.effects.push(instance);
@@ -870,7 +886,7 @@ export interface TurnStartResult {
 
 /**
  * 处理回合开始时所有效果触发
- * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 高潮 → 元素适应体 → 元素皮层 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
+ * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 性兴奋 → 元素适应体 → 元素皮层 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
  */
 export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   const result: TurnStartResult = {
@@ -966,11 +982,11 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     }
   }
 
-  // 高潮：每回合开始时施加等同层数的疲劳
+  // 性兴奋：每回合开始时施加等同层数的疲劳
   const orgasmStacks = getEffectStacks(entity, EffectType.ORGASM);
   if (orgasmStacks > 0) {
     applyEffect(entity, EffectType.FATIGUE, orgasmStacks, { source: 'effect:orgasm' });
-    result.logs.push(`[高潮] 触发：施加 ${orgasmStacks} 层疲劳。`);
+    result.logs.push(`[性兴奋] 触发：施加 ${orgasmStacks} 层疲劳。`);
   }
 
   // 元素适应体：有元素debuff时，随机移除2层并回复2点生命
@@ -1191,12 +1207,10 @@ export function canPlayCard(
     return { allowed: false, reason: '眩晕状态，无法行动。' };
   }
 
-  // 束缚：检查卡牌类型限制
+  // 束缚：固定限制物理/闪避
   const bindEffect = findEffect(entity, EffectType.BIND);
   if (bindEffect) {
-    const restrictedTypes = bindEffect.restrictedTypes && bindEffect.restrictedTypes.length > 0
-      ? bindEffect.restrictedTypes
-      : (['物理', '闪避'] as CardType[]);
+    const restrictedTypes = ['物理', '闪避'] as CardType[];
     if (restrictedTypes.includes(card.type)) {
       return { allowed: false, reason: `束缚中，无法使用${card.type}类型卡牌。` };
     }

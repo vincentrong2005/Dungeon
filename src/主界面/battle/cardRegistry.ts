@@ -1371,7 +1371,6 @@ const 滑腻触手: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -1704,7 +1703,6 @@ const 附身提线: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -1788,7 +1786,6 @@ const 固定实验体: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -1933,7 +1930,6 @@ const 墨潮束缚: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -2111,7 +2107,6 @@ const CHAIR_MIMIC_ARMREST_BIND: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -2204,7 +2199,6 @@ const DESK_TENTACLE_SILENT_ENTANGLE: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -2341,7 +2335,7 @@ const SHAME_LEECH_INTERNAL_BREEDING: CardData = {
   description: '自身获得1层群集，并为目标施加1倍点数的中毒',
 };
 
-/** 羞耻放大：施加1倍点数中毒与1层高潮 */
+/** 羞耻放大：施加1倍点数中毒与1层性兴奋 */
 const SHAME_LEECH_SHAME_AMPLIFY: CardData = {
   id: 'enemy_shame_leech_shame_amplify',
   name: '羞耻放大',
@@ -2356,7 +2350,219 @@ const SHAME_LEECH_SHAME_AMPLIFY: CardData = {
     { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
     { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '施加1倍点数中毒与1层高潮',
+  description: '施加1倍点数中毒与1层性兴奋',
+};
+
+/** 掠食轻咬：点数+1，造成0.5倍点数伤害，并施加0.5倍点数中毒 */
+const BLOOD_BAT_PREDATORY_NIBBLE: CardData = {
+  id: 'enemy_blood_bat_predatory_nibble',
+  name: '掠食轻咬',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+1，造成0.5倍点数伤害，并施加0.5倍点数中毒',
+};
+
+/** 超声波刺激：消耗1MP，造成0.5倍点数伤害并施加0.5倍点数性兴奋 */
+const BLOOD_BAT_ULTRASONIC_STIMULUS: CardData = {
+  id: 'enemy_blood_bat_ultrasonic_stimulus',
+  name: '超声波刺激',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 1,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '造成0.5倍点数伤害并施加0.5倍点数的性兴奋',
+};
+
+/** 群体共鸣：消耗4MP，点数*1.5，施加1层性兴奋与0.5倍点数疲劳（每层群集额外结算一次，额外逻辑在 CombatView） */
+const BLOOD_BAT_SWARM_RESONANCE: CardData = {
+  id: 'enemy_blood_bat_swarm_resonance',
+  name: '群体共鸣',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.FATIGUE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数*1.5，施加1层性兴奋与0.5倍点数的疲劳，自身每有1层群集则额外结算一次',
+};
+
+/** 低空盘旋：点数-1，闪避；若闪避成功或对方跳过回合，施加1层性兴奋 */
+const BLOOD_BAT_LOW_GLIDE: CardData = {
+  id: 'enemy_blood_bat_low_glide',
+  name: '低空盘旋',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.ORGASM,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数-1，闪避；若闪避成功或对方跳过回合，施加1层性兴奋',
+};
+
+/** 献礼微笑：施加2层性兴奋 */
+const BLOOD_SERVANT_OFFERING_SMILE: CardData = {
+  id: 'enemy_blood_servant_offering_smile',
+  name: '献礼微笑',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '施加2层“性兴奋”',
+};
+
+/** 邀请：点数+1，施加1倍点数疲劳 */
+const BLOOD_SERVANT_INVITATION: CardData = {
+  id: 'enemy_blood_servant_invitation',
+  name: '邀请',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.FATIGUE, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+1，施加1倍点数的“疲劳”',
+};
+
+/** 牵引：施加1倍点数侵蚀 */
+const BLOOD_SERVANT_LURE: CardData = {
+  id: 'enemy_blood_servant_lure',
+  name: '牵引',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '施加1倍点数的侵蚀',
+};
+
+/** 嗅探：为自身施加1倍点数蓄力 */
+const NIGHTMARE_STEED_SNIFF: CardData = {
+  id: 'enemy_nightmare_steed_sniff',
+  name: '嗅探',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '为自身施加1倍点数的蓄力',
+};
+
+/** 烙蹄奔踏：造成1倍点数伤害，施加0.5倍点数燃烧 */
+const NIGHTMARE_STEED_BRANDED_STOMP: CardData = {
+  id: 'enemy_nightmare_steed_branded_stomp',
+  name: '烙蹄奔踏',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '造成1倍点数伤害，施加0.5倍点数燃烧',
+};
+
+/** 甩鞍捕获：造成0.8倍点数伤害，施加1层束缚 */
+const NIGHTMARE_STEED_SADDLE_CAPTURE: CardData = {
+  id: 'enemy_nightmare_steed_saddle_capture',
+  name: '甩鞍捕获',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.8, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '造成0.8倍点数伤害，施加1层束缚',
+};
+
+/** 迷尘：为对手施加1层认知干涉 */
+const NIGHTMARE_STEED_MIST_DUST: CardData = {
+  id: 'enemy_nightmare_steed_mist_dust',
+  name: '迷尘',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.COGNITIVE_INTERFERENCE,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '为对手施加1层认知干涉',
 };
 
 /** 骨鞭：点数+1，造成1倍点数伤害，并施加0.5倍点数电击 */
@@ -2497,7 +2703,6 @@ const THORN_CRAWLER_BARBED_GRASP: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -2595,7 +2800,6 @@ const 普莉姆拥抱: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -2761,6 +2965,124 @@ const 巨大化投影: CardData = {
   description: '移除自身的“虚幻之躯”，获得2倍点数生命与护甲，最小点数+2，最大点数+4',
 };
 
+/** 血刺丛生：造成0.3倍点数伤害，5连击；每击有50%概率施加2层流血（概率逻辑在 CombatView） */
+const 血刺丛生: CardData = {
+  id: 'enemy_elizabeth_blood_thorns',
+  name: '血刺丛生',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.3, scaleAddition: 0 },
+  hitCount: 5,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.3倍点数伤害，5连击。每击有50%概率施加2层流血',
+};
+
+/** 凝血成兵：点数*1.5，自伤5，造成0.4倍点数伤害，3连击 */
+const 凝血成兵: CardData = {
+  id: 'enemy_elizabeth_coagulate_soldier',
+  name: '凝血成兵',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  selfDamage: 5,
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数*1.5，自伤5，造成0.4倍点数伤害，3连击，并为自身施加1层增伤',
+};
+
+/** 蝙蝠突袭：法力汲取6 */
+const 蝙蝠突袭: CardData = {
+  id: 'enemy_elizabeth_bat_raid',
+  name: '蝙蝠突袭',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  manaDrain: 6,
+  cardEffects: [],
+  description: '法力汲取6',
+};
+
+/** 沸血律动：消耗4MP，点数+2，造成1倍点数真实伤害并施加0.5倍点数流血（真实伤害逻辑在 CombatView） */
+const 沸血律动: CardData = {
+  id: 'enemy_elizabeth_boiling_blood_pulse',
+  name: '沸血律动',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+2，造成1倍点数的真实伤害并施加0.5倍点数的流血',
+};
+
+/** 血液停滞：消耗2MP，施加1倍点数电击，并触发一次目标流血（触发逻辑在 CombatView） */
+const 血液停滞: CardData = {
+  id: 'enemy_elizabeth_blood_stasis',
+  name: '血液停滞',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '施加1倍点数的电击，并触发一次目标流血',
+};
+
+/** 血雾化身：为自身施加25%生命上限的生命上限削减与1层虚幻之躯 */
+const 血雾化身: CardData = {
+  id: 'enemy_elizabeth_blood_mist_avatar',
+  name: '血雾化身',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'self',
+      valueMode: 'max_hp_percent',
+      scale: 0.25,
+    },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.ILLUSORY_BODY,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '为自身施加25%生命上限的生命上限削减与1层虚幻之躯',
+};
+
 /** 静肃宣告：消耗2MP，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层束缚（额外效果在 CombatView） */
 const 静肃宣告: CardData = {
   id: 'enemy_hilvy_silent_decree',
@@ -2815,7 +3137,7 @@ const 哑剧牵引: CardData = {
   description: '点数*1.5，造成1倍点数伤害，并施加2层被操控；若目标已有禁言，则回复自身1倍点数的魔力',
 };
 
-/** 失声：消耗4MP，点数+3，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层高潮（额外效果在 CombatView） */
+/** 失声：消耗4MP，点数+3，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层性兴奋（额外效果在 CombatView） */
 const 失声: CardData = {
   id: 'enemy_hilvy_aphonia',
   name: '失声',
@@ -2830,7 +3152,7 @@ const 失声: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '点数+3，造成1倍点数伤害，并施加2层禁言；若目标已有禁言，则额外施加1层高潮',
+  description: '点数+3，造成1倍点数伤害，并施加2层禁言；若目标已有禁言，则额外施加1层性兴奋',
 };
 
 /** 静夜规避：闪避；若闪避成功或对方跳过回合，则施加1倍点数流血 */
@@ -2928,7 +3250,6 @@ const 触手缠绕: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3236,7 +3557,6 @@ const 骨鞭缠绕: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3329,7 +3649,6 @@ const 渗透攀爬: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3370,7 +3689,6 @@ const 无感蔓延: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3431,7 +3749,6 @@ const 催情气体: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3474,7 +3791,6 @@ const 虹色漂浮: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3635,7 +3951,6 @@ const 墨迹触手: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3778,7 +4093,6 @@ const 液化渗透: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3893,7 +4207,6 @@ const 溺爱之拥: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -3996,7 +4309,6 @@ const 裙下触手: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -4061,7 +4373,6 @@ const 植物统御: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 99,
     },
@@ -4171,7 +4482,6 @@ const 束缚法: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 3,
     },
@@ -4230,7 +4540,6 @@ const 依附: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BIND,
       target: 'enemy',
-      restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
       valueMode: 'fixed',
       fixedValue: 1,
     },
@@ -4689,6 +4998,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [精神震荡.name, 精神震荡],
   [恶作剧.name, 恶作剧],
   [巨大化投影.name, 巨大化投影],
+  [血刺丛生.name, 血刺丛生],
+  [凝血成兵.name, 凝血成兵],
+  [蝙蝠突袭.name, 蝙蝠突袭],
+  [沸血律动.name, 沸血律动],
+  [血液停滞.name, 血液停滞],
+  [血雾化身.name, 血雾化身],
   [静肃宣告.name, 静肃宣告],
   [纸刃切割.name, 纸刃切割],
   [哑剧牵引.name, 哑剧牵引],
@@ -4789,6 +5104,17 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [SHAME_LEECH_PARASITIC_DRILL.name, SHAME_LEECH_PARASITIC_DRILL],
   [SHAME_LEECH_INTERNAL_BREEDING.name, SHAME_LEECH_INTERNAL_BREEDING],
   [SHAME_LEECH_SHAME_AMPLIFY.name, SHAME_LEECH_SHAME_AMPLIFY],
+  [BLOOD_BAT_PREDATORY_NIBBLE.name, BLOOD_BAT_PREDATORY_NIBBLE],
+  [BLOOD_BAT_ULTRASONIC_STIMULUS.name, BLOOD_BAT_ULTRASONIC_STIMULUS],
+  [BLOOD_BAT_SWARM_RESONANCE.name, BLOOD_BAT_SWARM_RESONANCE],
+  [BLOOD_BAT_LOW_GLIDE.name, BLOOD_BAT_LOW_GLIDE],
+  [BLOOD_SERVANT_OFFERING_SMILE.name, BLOOD_SERVANT_OFFERING_SMILE],
+  [BLOOD_SERVANT_INVITATION.name, BLOOD_SERVANT_INVITATION],
+  [BLOOD_SERVANT_LURE.name, BLOOD_SERVANT_LURE],
+  [NIGHTMARE_STEED_SNIFF.name, NIGHTMARE_STEED_SNIFF],
+  [NIGHTMARE_STEED_BRANDED_STOMP.name, NIGHTMARE_STEED_BRANDED_STOMP],
+  [NIGHTMARE_STEED_SADDLE_CAPTURE.name, NIGHTMARE_STEED_SADDLE_CAPTURE],
+  [NIGHTMARE_STEED_MIST_DUST.name, NIGHTMARE_STEED_MIST_DUST],
   [PUNISHMENT_PUPPET_BONE_WHIP.name, PUNISHMENT_PUPPET_BONE_WHIP],
   [PUNISHMENT_PUPPET_SUCTION_SUPPRESS.name, PUNISHMENT_PUPPET_SUCTION_SUPPRESS],
   [PUNISHMENT_PUPPET_OVERLOAD_EXECUTE.name, PUNISHMENT_PUPPET_OVERLOAD_EXECUTE],

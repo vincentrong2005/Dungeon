@@ -841,7 +841,13 @@ import {
   X as XIcon,
   Zap,
 } from 'lucide-vue-next';
-import { applyDamageToEntity, calculateFinalDamage, calculateFinalPoint, consumeColdAfterDealingDamage, triggerSwarmReviveIfNeeded } from '../battle/algorithms';
+import {
+  applyDamageToEntity,
+  calculateFinalDamage,
+  calculateFinalPoint,
+  consumeColdAfterDealingDamage,
+  triggerSwarmReviveIfNeeded as triggerSwarmReviveIfNeededInAlgorithm,
+} from '../battle/algorithms';
 import { getCardByName } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
@@ -1143,6 +1149,8 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BLOODBLADE_ATTACH]: Droplet,
   [ET.LIGHTNING_ATTACH]: Zap,
   [ET.THORNS]: Leaf,
+  [ET.BLOODLINE]: Heart,
+  [ET.CONTRACT_CURSE]: Skull,
   [ET.INK_CREATION]: Scroll,
 };
 const getEffectIconComponent = (type: EffectType) => {
@@ -1742,21 +1750,68 @@ const triggerBloodpoolHeartMarkByDamage = (
   logRelicMessage(`[心脏印记] ${reason}受伤触发，回复 ${healed} 点生命（本回合 ${triggered + 1}/2）。`);
 };
 
+const oppositeSide = (side: BattleSide): BattleSide => (side === 'player' ? 'enemy' : 'player');
+
+const shouldDisableReviveForSide = (targetSide: BattleSide): boolean => {
+  const opponent = getEntityBySide(oppositeSide(targetSide));
+  return getEffectStacks(opponent, ET.CONTRACT_CURSE) > 0;
+};
+
+const triggerSwarmReviveIfNeeded = (
+  target: EntityStats,
+  explicitTargetSide?: BattleSide,
+) => {
+  const targetSide = explicitTargetSide
+    ?? (target === playerStats.value
+      ? 'player'
+      : target === enemyStats.value
+        ? 'enemy'
+        : undefined);
+  return triggerSwarmReviveIfNeededInAlgorithm(target, {
+    disableRevive: targetSide ? shouldDisableReviveForSide(targetSide) : false,
+  });
+};
+
+const triggerBloodlineLifesteal = (
+  sourceSide: BattleSide | undefined,
+  actualDamage: number,
+  reason: string,
+) => {
+  if (!sourceSide) return;
+  const value = Math.max(0, Math.floor(actualDamage));
+  if (value <= 0) return;
+  const sourceStats = getEntityBySide(sourceSide);
+  if (getEffectStacks(sourceStats, ET.BLOODLINE) <= 0) return;
+  const healValue = Math.max(0, Math.floor(value * 2));
+  if (healValue <= 0) return;
+  const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
+  const { healed } = healForSide(sourceSide, healValue, {
+    sourceSide,
+    reason: `血族吸血（${reason}）`,
+  });
+  log(`<span class="text-rose-300">${sourceLabel}[血族] ${reason}触发，回复 ${healed} 点生命。</span>`);
+};
+
 const applyDamageToSideWithRelics = (
   side: BattleSide,
   target: EntityStats,
   damage: number,
   isTrueDamage: boolean,
   reason: string,
-  options?: { skipHeartMark?: boolean },
+  options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean },
 ) => {
   const incoming = Math.max(0, Math.floor(damage));
   const adjusted = side === 'player'
     ? applyPlayerHemostaticValveDamageCap(incoming, reason)
     : incoming;
-  const result = applyDamageToEntity(target, adjusted, isTrueDamage);
+  const result = applyDamageToEntity(target, adjusted, isTrueDamage, {
+    disableRevive: shouldDisableReviveForSide(side),
+  });
   addDamageHitTakenThisCombat(side, result.actualDamage);
   triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, options);
+  if (options?.isDirectDamage) {
+    triggerBloodlineLifesteal(options.sourceSide, result.actualDamage, reason);
+  }
   return result;
 };
 
@@ -1765,7 +1820,7 @@ const applyDirectHpLossWithRelics = (
   target: EntityStats,
   damage: number,
   reason: string,
-  options?: { skipHeartMark?: boolean },
+  options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean },
 ): number => {
   const incoming = Math.max(0, Math.floor(damage));
   if (incoming <= 0) return 0;
@@ -1777,6 +1832,9 @@ const applyDirectHpLossWithRelics = (
   const actualDamage = Math.max(0, before - target.hp);
   addDamageHitTakenThisCombat(side, actualDamage);
   triggerBloodpoolHeartMarkByDamage(side, actualDamage, reason, options);
+  if (options?.isDirectDamage) {
+    triggerBloodlineLifesteal(options.sourceSide, actualDamage, reason);
+  }
   return actualDamage;
 };
 
@@ -1836,10 +1894,10 @@ const restoreManaForSide = (side: RelicSide, amount: number): number => {
 const healForSide = (
   side: RelicSide,
   amount: number,
-  options?: { overflowToArmor?: boolean },
-): { healed: number; overflow: number } => {
+  options?: { overflowToArmor?: boolean; sourceSide?: RelicSide; reason?: string },
+): { healed: number; overflow: number; convertedDamage: number } => {
   const baseValue = Math.max(0, Math.floor(amount));
-  if (baseValue <= 0) return { healed: 0, overflow: 0 };
+  if (baseValue <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
 
   let value = baseValue;
   if (side === 'player') {
@@ -1848,9 +1906,31 @@ const healForSide = (
       value = Math.max(0, Math.floor(value * (1 + 0.25 * healAmpCount)));
     }
   }
-  if (value <= 0) return { healed: 0, overflow: 0 };
+  if (value <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
 
   const target = getEntityBySide(side);
+  const sourceSide = options?.sourceSide ?? side;
+  if (sourceSide !== side && getEffectStacks(target, ET.BLOODLINE) > 0) {
+    const convertedDamage = applyDirectHpLossWithRelics(
+      side,
+      target,
+      value,
+      options?.reason ?? '血族反噬治疗',
+      { sourceSide },
+    );
+    if (convertedDamage > 0) {
+      pushFloatingNumber(side, convertedDamage, 'true', '-');
+    }
+    const sideLabel = side === 'player' ? '我方' : '敌方';
+    const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
+    log(`<span class="text-rose-300">${sideLabel}[血族] 来自${sourceLabel}的治疗被反噬，受到 ${convertedDamage} 点真实伤害。</span>`);
+    const reviveResult = triggerSwarmReviveIfNeeded(target, side);
+    for (const reviveLog of reviveResult.logs) {
+      log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+    }
+    return { healed: 0, overflow: 0, convertedDamage };
+  }
+
   const before = target.hp;
   target.hp = Math.max(0, Math.min(target.maxHp, target.hp + value));
   const healed = target.hp - before;
@@ -1873,7 +1953,7 @@ const healForSide = (
       }
     }
   }
-  return { healed, overflow: overflowRaw };
+  return { healed, overflow: overflowRaw, convertedDamage: 0 };
 };
 
 const shouldAllowStatusEffectWithRelics = (
@@ -2426,6 +2506,10 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
     const normalized = dl.startsWith('受到') ? `${targetLabel}${dl}` : dl;
     log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
   }
+  if (actualDamage > 0) {
+    const sourceSide: BattleSide = targetSide === 'player' ? 'enemy' : 'player';
+    triggerBloodlineLifesteal(sourceSide, actualDamage, '流血伤害');
+  }
 
   if (targetSide === 'enemy' && actualDamage > 0) {
     const feastCount = getActiveRelicCount('bloodpool_first_bleed_feast');
@@ -2484,7 +2568,10 @@ const applyCardEffectsByTrigger = (
       const healAmount = ce.valueMode === 'point_scale'
         ? Math.floor(finalPoint * (ce.scale ?? 1))
         : Math.floor(ce.fixedValue ?? 0);
-      const { healed } = healForSide(targetSide, healAmount);
+      const { healed } = healForSide(targetSide, healAmount, {
+        sourceSide: source,
+        reason: `卡牌【${card.name}】治疗`,
+      });
       log(`<span class="text-green-400">${label}【${card.name}】回复了 ${healed} 点生命</span>`);
       hasEffect = true;
     } else if (ce.kind === 'apply_buff') {
@@ -2594,17 +2681,28 @@ const triggerShadowAssaultDamage = (
   const adjustedDamage = defenderSide === 'player'
     ? applyPlayerSkinMarkDamageReduction(damage, `${defenderLabel}受击`)
     : damage;
+  const armorBeforeHit = getEffectStacks(defender, ET.ARMOR);
+  const barrierBeforeHit = getEffectStacks(defender, ET.BARRIER);
   const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
     defenderSide,
     defender,
     adjustedDamage,
     isTrueDamage,
     `卡牌【${card.name}】(${triggerText})`,
+    { sourceSide: source, isDirectDamage: true },
   );
   const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
   log(`${label}【${card.name}】${triggerText}触发，造成 <span class="${damageLogColorClass} font-bold">${actualDamage}</span> 点伤害`);
-  if (actualDamage > 0) {
-    pushFloatingNumber(defenderSide, actualDamage, isTrueDamage ? 'true' : 'physical', '-');
+  const armorBlocked =
+    actualDamage <= 0
+    && !isTrueDamage
+    && adjustedDamage > 0
+    && barrierBeforeHit <= 0
+    && armorBeforeHit > 0;
+  if (actualDamage > 0 || armorBlocked) {
+    pushFloatingNumber(defenderSide, actualDamage, isTrueDamage ? 'true' : 'physical', '-', {
+      allowZero: armorBlocked,
+    });
   }
   for (const dl of dmgLogs) {
     if (dl.startsWith('原始伤害:')) continue;
@@ -2665,7 +2763,6 @@ const applyAmbushOnCardPlay = (source: BattleSide, card: CardData) => {
 
   applyStatusEffectWithRelics(source, ET.BIND, 1, {
     source: 'effect:ambush',
-    restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
     lockDecayThisTurn: true,
   });
   reduceEffectStacks(ambushOwner, ET.AMBUSH, 1);
@@ -3292,9 +3389,15 @@ const handleEffectTouchEnd = () => {
   }
 };
 
-const pushFloatingNumber = (side: BattleSide, value: number, kind: FloatingNumberKind, sign: '+' | '-' = '+') => {
+const pushFloatingNumber = (
+  side: BattleSide,
+  value: number,
+  kind: FloatingNumberKind,
+  sign: '+' | '-' = '+',
+  options?: { allowZero?: boolean },
+) => {
   const amount = Math.max(0, Math.floor(value));
-  if (amount <= 0) return;
+  if (amount <= 0 && !options?.allowZero) return;
 
   const id = ++floatingNumberId;
   const duration = kind === 'heal' ? scaleDuration(1800) : scaleDuration(1350);
@@ -3400,7 +3503,7 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
   if (statuses.includes(STATUS_PARASITIZED)) {
     const applied = applyEffect(playerStats.value, ET.ORGASM, 1, { source: 'negative-status:[被寄生]' });
     if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][被寄生] 开局获得了1层高潮。</span>');
+      log('<span class="text-fuchsia-300">[负面状态][被寄生] 开局获得了1层性兴奋。</span>');
     }
   }
 };
@@ -3917,8 +4020,11 @@ watch(
           }
 
           if (result.opponentHpChange !== 0) {
-            if (result.opponentHpChange > 0) {
-              healForSide(opponentSide, result.opponentHpChange);
+          if (result.opponentHpChange > 0) {
+              healForSide(opponentSide, result.opponentHpChange, {
+                sourceSide: targetSide,
+                reason: '回合开始效果治疗',
+              });
             } else {
               const hpBeforeOpponent = opponentStats.value.hp;
               opponentStats.value.hp = Math.max(0, Math.min(opponentStats.value.maxHp, opponentStats.value.hp + result.opponentHpChange));
@@ -4520,7 +4626,13 @@ const resolveCombat = async (
         let actualOverflowHpDamage = 0;
 
         if (overflowHpDamage > 0) {
-          actualOverflowHpDamage = applyDirectHpLossWithRelics(defenderSide, defender, overflowHpDamage, `卡牌【${card.name}】法力汲取溢出`);
+          actualOverflowHpDamage = applyDirectHpLossWithRelics(
+            defenderSide,
+            defender,
+            overflowHpDamage,
+            `卡牌【${card.name}】法力汲取溢出`,
+            { sourceSide: source, isDirectDamage: true },
+          );
           pushFloatingNumber(defenderSide, actualOverflowHpDamage, 'true', '-');
         }
 
@@ -4564,7 +4676,13 @@ const resolveCombat = async (
         const abyssRiftCount = getActiveRelicCount('yanhan_cold_abyss_rift');
         if (abyssRiftCount > 0) {
           const trueDamage = 2 * abyssRiftCount;
-          const actualTrueDamage = applyDirectHpLossWithRelics('enemy', enemyStats.value, trueDamage, '寒渊裂隙');
+          const actualTrueDamage = applyDirectHpLossWithRelics(
+            'enemy',
+            enemyStats.value,
+            trueDamage,
+            '寒渊裂隙',
+            { sourceSide: 'player', isDirectDamage: true },
+          );
           pushFloatingNumber('enemy', actualTrueDamage, 'true', '-');
           logRelicMessage(`[寒渊裂隙] 检测到敌方寒冷减少，对敌方造成 ${actualTrueDamage} 点真实伤害。`);
           const reviveResult = triggerSwarmReviveIfNeeded(enemyStats.value);
@@ -4734,7 +4852,13 @@ const resolveCombat = async (
       }
       const trueDamage = removedStacks * 2;
       if (trueDamage > 0) {
-        const actualTrueDamage = applyDirectHpLossWithRelics(defenderSide, defender, trueDamage, `卡牌【${card.name}】`);
+        const actualTrueDamage = applyDirectHpLossWithRelics(
+          defenderSide,
+          defender,
+          trueDamage,
+          `卡牌【${card.name}】`,
+          { sourceSide: source, isDirectDamage: true },
+        );
         pushFloatingNumber(defenderSide, actualTrueDamage, 'true', '-');
         log(`<span class="text-zinc-300">${label}【${card.name}】清算了 ${removedStacks} 层状态，造成 ${actualTrueDamage} 点真实伤害</span>`);
       } else {
@@ -5114,7 +5238,13 @@ const resolveCombat = async (
         if (consumedBurn > 0) {
           reduceEffectStacks(defender, ET.COLD, consumedCold);
           reduceEffectStacks(defender, ET.BURN, consumedBurn);
-          const actualTrueDamage = applyDirectHpLossWithRelics(defenderSide, defender, trueDamage, `卡牌【${card.name}】`);
+          const actualTrueDamage = applyDirectHpLossWithRelics(
+            defenderSide,
+            defender,
+            trueDamage,
+            `卡牌【${card.name}】`,
+            { sourceSide: source, isDirectDamage: true },
+          );
           if (actualTrueDamage > 0) {
             pushFloatingNumber(defenderSide, actualTrueDamage, 'true', '-');
           }
@@ -5238,6 +5368,7 @@ const resolveCombat = async (
             damageLogic: { mode: 'fixed', value: Math.floor(customDamage) },
           };
         }
+        const forceTrueDamage = card.id === 'enemy_elizabeth_boiling_blood_pulse';
 
         const { damage, isTrueDamage, logs: dmgLogs } = calculateFinalDamage({
           finalPoint,
@@ -5245,19 +5376,37 @@ const resolveCombat = async (
           attackerEffects: attacker.effects,
           defenderEffects: defender.effects,
           relicModifiers: NO_RELIC_MOD,
+          isTrueDamage: forceTrueDamage,
         });
         const adjustedDamage = defenderSide === 'player'
           ? applyPlayerSkinMarkDamageReduction(damage, `${defenderLabel}受击`)
           : damage;
-        const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(defenderSide, defender, adjustedDamage, isTrueDamage, `卡牌【${card.name}】`);
+        const armorBeforeHit = getEffectStacks(defender, ET.ARMOR);
+        const barrierBeforeHit = getEffectStacks(defender, ET.BARRIER);
+        const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+          defenderSide,
+          defender,
+          adjustedDamage,
+          isTrueDamage,
+          `卡牌【${card.name}】`,
+          { sourceSide: source, isDirectDamage: true },
+        );
         const hitPrefix = totalHitCount > 1 ? `第${hit + 1}段` : '';
         const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
         log(`${label}【${card.name}】${hitPrefix}点数${finalPoint}，造成 <span class="${damageLogColorClass} font-bold">${actualDamage}</span> 点伤害`);
-        if (actualDamage > 0) {
+        const armorBlocked =
+          actualDamage <= 0
+          && !isTrueDamage
+          && adjustedDamage > 0
+          && barrierBeforeHit <= 0
+          && armorBeforeHit > 0;
+        if (actualDamage > 0 || armorBlocked) {
           const damageKind: FloatingNumberKind = isTrueDamage
             ? 'true'
             : (card.type === CardType.MAGIC ? 'magic' : 'physical');
-          pushFloatingNumber(defenderSide, actualDamage, damageKind, '-');
+          pushFloatingNumber(defenderSide, actualDamage, damageKind, '-', {
+            allowZero: armorBlocked,
+          });
         }
         if (card.id === 'modao_magic_sword' && actualDamage > 0) {
           modaoMagicSwordTotalDamage += actualDamage;
@@ -5274,9 +5423,25 @@ const resolveCombat = async (
               reflectedDamage = applyPlayerSkinMarkDamageReduction(reflectedDamage, '荆棘反弹');
             }
             if (reflectedDamage > 0) {
-              const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(source, attacker, reflectedDamage, false, '荆棘反弹');
-              if (actualReflectedDamage > 0) {
-                pushFloatingNumber(source, actualReflectedDamage, 'physical', '-');
+              const attackerArmorBeforeReflect = getEffectStacks(attacker, ET.ARMOR);
+              const attackerBarrierBeforeReflect = getEffectStacks(attacker, ET.BARRIER);
+              const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(
+                source,
+                attacker,
+                reflectedDamage,
+                false,
+                '荆棘反弹',
+                { sourceSide: defenderSide, isDirectDamage: true },
+              );
+              const reflectedArmorBlocked =
+                actualReflectedDamage <= 0
+                && reflectedDamage > 0
+                && attackerBarrierBeforeReflect <= 0
+                && attackerArmorBeforeReflect > 0;
+              if (actualReflectedDamage > 0 || reflectedArmorBlocked) {
+                pushFloatingNumber(source, actualReflectedDamage, 'physical', '-', {
+                  allowZero: reflectedArmorBlocked,
+                });
               }
               log(`<span class="text-lime-300">${defenderLabel}[荆棘] 反弹了 ${actualReflectedDamage} 点伤害给${label}</span>`);
               for (const reflectedLog of reflectedLogs) {
@@ -5316,7 +5481,23 @@ const resolveCombat = async (
         );
         triggerObedienceBrandOnDirectHit(source, defenderSide);
         applyHitAttachEffects(source, card, attacker, defenderSide);
+        if (card.id === 'enemy_elizabeth_blood_thorns') {
+          const shouldApplyBleed = Math.random() < 0.5;
+          if (shouldApplyBleed) {
+            const applied = applyStatusEffectWithRelics(defenderSide, ET.BLEED, 2, {
+              source: card.id,
+              lockDecayThisTurn: true,
+            });
+            if (applied) {
+              const hitPrefixText = totalHitCount > 1 ? `第${hit + 1}段` : '';
+              log(`<span class="text-rose-300">${label}【${card.name}】${hitPrefixText}触发：施加 2 层流血</span>`);
+            }
+          }
+        }
         if (defender.hp <= 0) break;
+        if (totalHitCount > 1 && hit < totalHitCount - 1) {
+          await wait(100);
+        }
       }
       if (card.id === 'modao_magic_sword' && modaoMagicSwordTotalDamage > 0) {
         const manaResult = changeManaWithShock(source, modaoMagicSwordTotalDamage, `法力变化（${label}【${card.name}】）`, {
@@ -5362,7 +5543,6 @@ const resolveCombat = async (
       if (card.id === 'enemy_hilvy_silent_decree' && targetHasSilenceBeforeOnUse) {
         const applied = applyStatusEffectWithRelics(defenderSide, ET.BIND, 1, {
           source: card.id,
-          restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
           lockDecayThisTurn: true,
         });
         if (applied) {
@@ -5384,7 +5564,7 @@ const resolveCombat = async (
       if (card.id === 'enemy_hilvy_aphonia' && targetHasSilenceBeforeOnUse) {
         const applied = applyStatusEffectWithRelics(defenderSide, ET.ORGASM, 1, { source: card.id });
         if (applied) {
-          log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已有禁言，额外施加 1 层高潮</span>`);
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已有禁言，额外施加 1 层性兴奋</span>`);
         }
       }
       if (card.id === 'enemy_ink_lord_black_tide_infusion' && targetHasControlledBeforeOnUse) {
@@ -5420,11 +5600,28 @@ const resolveCombat = async (
       if (card.id === 'enemy_thorncrawler_toxin_pulse' && targetHasBindBeforeOnUse) {
         const applied = applyStatusEffectWithRelics(defenderSide, ET.BIND, 1, {
           source: card.id,
-          restrictedTypes: [CardType.PHYSICAL, CardType.DODGE],
           lockDecayThisTurn: true,
         });
         if (applied) {
           log(`<span class="text-yellow-300">${label}【${card.name}】触发：目标已有束缚，额外施加 1 层束缚</span>`);
+        }
+      }
+      if (card.id === 'enemy_blood_bat_swarm_resonance') {
+        const swarmStacks = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+        if (swarmStacks > 0) {
+          const fatiguePerResolution = Math.max(0, Math.floor(finalPoint * 0.5));
+          let extraExcitementApplied = 0;
+          let extraFatigueApplied = 0;
+          for (let i = 0; i < swarmStacks; i += 1) {
+            if (applyStatusEffectWithRelics(defenderSide, ET.ORGASM, 1, { source: card.id })) {
+              extraExcitementApplied += 1;
+            }
+            if (fatiguePerResolution > 0) {
+              applyStatusEffectWithRelics(defenderSide, ET.FATIGUE, fatiguePerResolution, { source: card.id });
+              extraFatigueApplied += fatiguePerResolution;
+            }
+          }
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】受群集影响额外结算 ${swarmStacks} 次：额外施加 ${extraExcitementApplied} 层性兴奋${extraFatigueApplied > 0 ? `与 ${extraFatigueApplied} 层疲劳` : ''}</span>`);
         }
       }
       if (card.id === 'burn_kindle') {
@@ -5462,6 +5659,19 @@ const resolveCombat = async (
         }
       }
       if (card.id === 'enemy_veronica_torment_cycle') {
+        const bleedDamage = triggerBleedProc(defenderSide, `${label}【${card.name}】`);
+        triggerPlayerRelicHitHooks(
+          source,
+          defenderSide,
+          card,
+          finalPoint,
+          1,
+          1,
+          bleedDamage,
+          bleedDamage,
+        );
+      }
+      if (card.id === 'enemy_elizabeth_blood_stasis') {
         const bleedDamage = triggerBleedProc(defenderSide, `${label}【${card.name}】`);
         triggerPlayerRelicHitHooks(
           source,
@@ -5758,6 +5968,7 @@ const resolveCombat = async (
         dollDamage,
         dollIsTrueDamage,
         '魔法玩偶',
+        { sourceSide: 'player', isDirectDamage: true },
       );
       if (actualDamage > 0) {
         pushFloatingNumber('enemy', actualDamage, 'magic', '-');

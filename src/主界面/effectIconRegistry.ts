@@ -55,6 +55,8 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.BLOODBLADE_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.LIGHTNING_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.THORNS]: 'fa-solid fa-leaf',
+  [ET.BLOODLINE]: 'fa-brands fa-deezer',
+  [ET.CONTRACT_CURSE]: 'fa-brands fa-debian',
   [ET.INK_CREATION]: 'fa-solid fa-feather-pointed',
   [ET.MIND_READ]: 'fa-solid fa-brain',
   [ET.ELEMENTAL_ADAPTATION]: 'fa-solid fa-atom',

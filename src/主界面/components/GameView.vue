@@ -1277,18 +1277,42 @@
           </div>
 
           <div class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar">
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-              <button
-                v-for="enemyName in allEnemyNamesForTest"
-                :key="`enemy-${enemyName}`"
-                class="text-left px-3 py-2 rounded border text-xs transition-colors"
-                :class="selectedTestEnemy === enemyName
-                  ? 'border-dungeon-gold bg-dungeon-brown/60 text-dungeon-gold'
-                  : 'border-dungeon-brown/60 bg-[#1a0f08] text-dungeon-paper hover:border-dungeon-gold/60'"
-                @click="selectedTestEnemy = enemyName"
+            <div class="space-y-2">
+              <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
+                <button
+                  v-for="floorLabel in combatTestEnemyFloorTabs"
+                  :key="`combat-test-floor-${floorLabel}`"
+                  class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
+                  :class="selectedEnemyFloorForTest === floorLabel
+                    ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
+                    : 'bg-[#1a0f08]/80 border-dungeon-brown/70 text-dungeon-paper/70 hover:border-dungeon-gold/50 hover:text-dungeon-gold/90'"
+                  @click="setCombatTestEnemyFloorFilter(floorLabel)"
+                >
+                  {{ floorLabel }}
+                </button>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <button
+                  v-for="enemy in filteredEnemyEntriesForTest"
+                  :key="`enemy-${enemy.name}`"
+                  class="text-left px-3 py-2 rounded border text-xs transition-colors"
+                  :class="selectedTestEnemy === enemy.name
+                    ? 'border-dungeon-gold bg-dungeon-brown/60 text-dungeon-gold'
+                    : 'border-dungeon-brown/60 bg-[#1a0f08] text-dungeon-paper hover:border-dungeon-gold/60'"
+                  @click="selectedTestEnemy = enemy.name"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="truncate">{{ enemy.name }}</span>
+                    <span class="text-[10px] text-dungeon-paper/55 shrink-0">{{ enemy.floorLabel }}</span>
+                  </div>
+                </button>
+              </div>
+              <div
+                v-if="filteredEnemyEntriesForTest.length === 0"
+                class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
               >
-                {{ enemyName }}
-              </button>
+                当前楼层分类暂无可选魔物
+              </div>
             </div>
           </div>
 
@@ -2090,6 +2114,7 @@ const idolDragStartPos = ref({ x: 0, y: 0 });
 const combatTestStep = ref<'deck' | 'enemy'>('deck');
 const selectedTestDeck = ref<string[]>([]);
 const selectedTestEnemy = ref('');
+const selectedEnemyFloorForTest = ref('全部');
 const selectedTestRelicCounts = ref<Record<string, number>>({});
 const selectedCardCategoryTab = ref('全部');
 const selectedRelicCategoryTab = ref('全部');
@@ -2866,7 +2891,83 @@ const selectedTestDeckCards = computed(() =>
     .map((cardName, idx) => ({ idx, card: cardByNameForTest.value.get(cardName) }))
     .filter((entry): entry is { idx: number; card: CardData } => entry.card !== undefined),
 );
-const allEnemyNamesForTest = computed(() => getAllEnemyNames());
+const SPECIAL_TEST_ENEMY_NAMES = new Set(['沐芯兰', '宝箱怪']);
+const parseFloorNumberForTest = (floorLabel: string): number | null => {
+  const trimmed = floorLabel.trim();
+  const numericMatch = trimmed.match(/^第(\d+)层$/);
+  if (numericMatch) {
+    const parsed = Number(numericMatch[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+  const namedMap: Record<string, number> = {
+    第一层: 1,
+    第二层: 2,
+    第三层: 3,
+    第四层: 4,
+    第五层: 5,
+  };
+  return namedMap[trimmed] ?? null;
+};
+const enemyFloorLabelRankForTest = (floorLabel: string): number => {
+  if (floorLabel === '特殊') return 9000;
+  if (floorLabel === '未知') return 10000;
+  const parsed = parseFloorNumberForTest(floorLabel);
+  return parsed ?? 10000;
+};
+const enemyFloorMapForTest = computed(() => {
+  const map = new Map<string, number>();
+
+  for (const [floorLabel, config] of Object.entries(FLOOR_MONSTER_CONFIG)) {
+    const floorNumber = parseFloorNumberForTest(floorLabel);
+    if (!floorNumber) continue;
+    const floorEnemies = [
+      ...config.common,
+      ...Object.values(config.uniqueByArea).flat(),
+    ];
+    for (const enemyName of floorEnemies) {
+      if (!map.has(enemyName)) {
+        map.set(enemyName, floorNumber);
+      }
+    }
+  }
+
+  for (const [area, lordName] of Object.entries(LORD_MONSTER_BY_AREA)) {
+    const floorLabel = getFloorForArea(area) ?? '';
+    const floorNumber = parseFloorNumberForTest(floorLabel);
+    if (!floorNumber || map.has(lordName)) continue;
+    map.set(lordName, floorNumber);
+  }
+
+  return map;
+});
+const allEnemyEntriesForTest = computed<Array<{ name: string; floorLabel: string; floorRank: number }>>(() => (
+  getAllEnemyNames()
+    .map((name) => {
+      if (SPECIAL_TEST_ENEMY_NAMES.has(name)) {
+        return { name, floorLabel: '特殊', floorRank: enemyFloorLabelRankForTest('特殊') };
+      }
+      const floorNumber = enemyFloorMapForTest.value.get(name) ?? null;
+      if (!floorNumber) {
+        return { name, floorLabel: '未知', floorRank: enemyFloorLabelRankForTest('未知') };
+      }
+      const floorLabel = `第${floorNumber}层`;
+      return { name, floorLabel, floorRank: enemyFloorLabelRankForTest(floorLabel) };
+    })
+    .sort((a, b) => {
+      if (a.floorRank !== b.floorRank) return a.floorRank - b.floorRank;
+      return a.name.localeCompare(b.name, 'zh-Hans-CN');
+    })
+));
+const combatTestEnemyFloorTabs = computed<string[]>(() => {
+  const floorLabels = Array.from(new Set(allEnemyEntriesForTest.value.map((entry) => entry.floorLabel)));
+  floorLabels.sort((a, b) => enemyFloorLabelRankForTest(a) - enemyFloorLabelRankForTest(b));
+  return ['全部', ...floorLabels];
+});
+const filteredEnemyEntriesForTest = computed(() => {
+  if (selectedEnemyFloorForTest.value === '全部') return allEnemyEntriesForTest.value;
+  return allEnemyEntriesForTest.value.filter((entry) => entry.floorLabel === selectedEnemyFloorForTest.value);
+});
+const allEnemyNamesForTest = computed(() => allEnemyEntriesForTest.value.map((entry) => entry.name));
 const baseRelicsForTest = computed<readonly RelicData[]>(() => (
   [...getAllRelics()].sort((a, b) => {
     const categoryDiff = compareCategory(a.category, b.category);
@@ -3894,7 +3995,7 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[淫纹]': '每场战斗开始时，你获得3层中毒。',
   '[淫乱知识]': '每场战斗开始时向你的牌库随机插入1张【档案污页】。',
   '[被标记]': '战斗房出现概率大幅增加，且每场战斗开始时你获得2层易伤。',
-  '[被寄生]': '每场战斗开始时，你获得1层高潮。',
+  '[被寄生]': '每场战斗开始时，你获得1层性兴奋。',
   '[败北]': '在地牢中战败，沦为俘虏。',
   '[催淫]': '因中毒量hp归零，后续剧情会体现身体被药性支配。',
   '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
@@ -5860,12 +5961,22 @@ const openCombatTestBuilder = () => {
 
   selectedTestDeck.value = [...presetDeck];
   selectedTestEnemy.value = '';
+  selectedEnemyFloorForTest.value = '全部';
   selectedTestRelicCounts.value = presetRelics;
   selectedCardCategoryTab.value = '全部';
   selectedRelicCategoryTab.value = '全部';
   combatTestStartAt999.value = false;
   combatTestStep.value = 'deck';
   activeModal.value = 'combatTestBuilder';
+};
+
+const setCombatTestEnemyFloorFilter = (floorLabel: string) => {
+  selectedEnemyFloorForTest.value = floorLabel;
+  if (!selectedTestEnemy.value) return;
+  const stillVisible = filteredEnemyEntriesForTest.value.some((entry) => entry.name === selectedTestEnemy.value);
+  if (!stillVisible) {
+    selectedTestEnemy.value = '';
+  }
 };
 
 const addCardToTestDeck = (cardName: string) => {
