@@ -2567,7 +2567,9 @@ const applyCardEffectsByTrigger = (
     if (ce.kind === 'heal') {
       const healAmount = ce.valueMode === 'point_scale'
         ? Math.floor(finalPoint * (ce.scale ?? 1))
-        : Math.floor(ce.fixedValue ?? 0);
+        : ce.valueMode === 'max_hp_percent'
+          ? Math.floor(targetEntity.maxHp * (ce.scale ?? 0))
+          : Math.floor(ce.fixedValue ?? 0);
       const { healed } = healForSide(targetSide, healAmount, {
         sourceSide: source,
         reason: `卡牌【${card.name}】治疗`,

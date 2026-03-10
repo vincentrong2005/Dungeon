@@ -511,9 +511,9 @@
             <div class="flex items-center gap-2 text-dungeon-paper/70">
               <Dices class="size-4 text-dungeon-gold-dim drop-shadow-sm" />
               <span class="font-ui text-sm tracking-wide">
-                <span class="text-dungeon-paper font-bold">{{ displayMinDice }}</span>
+                <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMinDice }}</span>
                 <span class="text-gray-500">~</span>
-                <span class="text-dungeon-paper font-bold">{{ displayMaxDice }}</span>
+                <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMaxDice }}</span>
               </span>
             </div>
             <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Dice</span>
@@ -3138,6 +3138,10 @@ const BLOODPOOL_PASSIVE_MAX_HP_RELICS: Array<{ id: string; bonus: number }> = [
   { id: 'bloodpool_pear', bonus: 10 },
   { id: 'bloodpool_mango', bonus: 15 },
 ];
+const RELIC_DICE_RANGE_BONUS_CONFIG = {
+  min: [{ id: 'lucky_coin_small', bonus: 1 }],
+  max: [{ id: 'lucky_coin_large', bonus: 1 }],
+} as const;
 const bloodpoolPassiveMaxHpBonus = computed(() => (
   BLOODPOOL_PASSIVE_MAX_HP_RELICS.reduce((sum, item) => {
     return sum + (getOwnedRelicCountById(item.id) * item.bonus);
@@ -3957,6 +3961,25 @@ const displayGold = computed(() => gameStore.statData._金币 ?? 0);
 // Dice range
 const displayMinDice = computed(() => gameStore.statData.$最小点数 ?? 0);
 const displayMaxDice = computed(() => gameStore.statData.$最大点数 ?? 0);
+const relicMinDiceBonus = computed(() => (
+  RELIC_DICE_RANGE_BONUS_CONFIG.min.reduce((sum, item) => {
+    return sum + (getOwnedRelicCountById(item.id) * item.bonus);
+  }, 0)
+));
+const relicMaxDiceBonus = computed(() => (
+  RELIC_DICE_RANGE_BONUS_CONFIG.max.reduce((sum, item) => {
+    return sum + (getOwnedRelicCountById(item.id) * item.bonus);
+  }, 0)
+));
+const effectiveDisplayMinDice = computed(() => {
+  const baseMin = toNonNegativeInt(displayMinDice.value, 1);
+  return Math.max(1, baseMin + relicMinDiceBonus.value);
+});
+const effectiveDisplayMaxDice = computed(() => {
+  const baseMax = toNonNegativeInt(displayMaxDice.value, 6);
+  const withRelic = baseMax + relicMaxDiceBonus.value;
+  return Math.max(effectiveDisplayMinDice.value, withRelic);
+});
 const toggleStatusHudView = () => {
   statusHudView.value = statusHudView.value === 'base' ? 'negative' : 'base';
 };
@@ -4007,8 +4030,8 @@ const negativeStatusEntries = computed(() => (
     description: NEGATIVE_STATUS_DESCRIPTION_MAP[name] ?? '未知负面状态，若此负面状态非你本人添加，请反馈给作者。',
   }))
 ));
-const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(displayMinDice.value, 1)));
-const idolDiceMax = computed(() => Math.max(idolDiceMin.value, toNonNegativeInt(displayMaxDice.value, 6)));
+const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(effectiveDisplayMinDice.value, 1)));
+const idolDiceMax = computed(() => Math.max(idolDiceMin.value, toNonNegativeInt(effectiveDisplayMaxDice.value, 6)));
 
 const hpPercent = computed(() => {
   const max = displayMaxHp.value;

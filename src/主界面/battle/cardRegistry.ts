@@ -3035,7 +3035,7 @@ const 沸血律动: CardData = {
   description: '点数+2，造成1倍点数的真实伤害并施加0.5倍点数的流血',
 };
 
-/** 血液停滞：消耗2MP，施加1倍点数电击，并触发一次目标流血（触发逻辑在 CombatView） */
+/** 血液停滞：消耗2MP，施加1倍点数流血，并触发一次目标流血（触发逻辑在 CombatView） */
 const 血液停滞: CardData = {
   id: 'enemy_elizabeth_blood_stasis',
   name: '血液停滞',
@@ -3048,12 +3048,12 @@ const 血液停滞: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '施加1倍点数的电击，并触发一次目标流血',
+  description: '施加1倍点数的流血，并触发一次目标流血',
 };
 
-/** 血雾化身：为自身施加25%生命上限的生命上限削减与1层虚幻之躯 */
+/** 血雾化身：为自身施加40%生命上限的生命上限削减与1层虚幻之躯，然后恢复至满血 */
 const 血雾化身: CardData = {
   id: 'enemy_elizabeth_blood_mist_avatar',
   name: '血雾化身',
@@ -3070,7 +3070,7 @@ const 血雾化身: CardData = {
       effectType: EffectType.MAX_HP_REDUCTION,
       target: 'self',
       valueMode: 'max_hp_percent',
-      scale: 0.25,
+      scale: 0.4,
     },
     {
       kind: 'apply_buff',
@@ -3079,8 +3079,14 @@ const 血雾化身: CardData = {
       valueMode: 'fixed',
       fixedValue: 1,
     },
+    {
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'max_hp_percent',
+      scale: 1,
+    },
   ],
-  description: '为自身施加25%生命上限的生命上限削减与1层虚幻之躯',
+  description: '为自身施加40%生命上限的生命上限削减与1层虚幻之躯，然后恢复至满血',
 };
 
 /** 静肃宣告：消耗2MP，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层束缚（额外效果在 CombatView） */

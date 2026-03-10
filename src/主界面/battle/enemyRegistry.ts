@@ -1739,8 +1739,8 @@ const 伊丽莎白: EnemyDefinition = {
   ]),
   selectCard(ctx: EnemyAIContext) {
     const hasIllusoryBody = ctx.enemyStats.effects.some((e) => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
-    const isBelowHalfHp = ctx.enemyStats.maxHp > 0 && (ctx.enemyStats.hp * 2) < ctx.enemyStats.maxHp;
-    if (isBelowHalfHp && !hasIllusoryBody) {
+    const isBelowSixtyPercentHp = ctx.enemyStats.maxHp > 0 && (ctx.enemyStats.hp * 5) < (ctx.enemyStats.maxHp * 3);
+    if (isBelowSixtyPercentHp && !hasIllusoryBody) {
       return pickCardById(ctx, ELIZABETH_CARD.BLOOD_MIST_AVATAR);
     }
 
