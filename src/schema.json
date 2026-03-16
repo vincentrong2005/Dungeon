@@ -10,7 +10,7 @@
       "default": 10,
       "type": "number"
     },
-    "_魔量": {
+    "$魔量": {
       "default": 1,
       "type": "number"
     },

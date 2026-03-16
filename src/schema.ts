@@ -2,7 +2,7 @@ export const Schema = z.object({
   // 人物属性
   _血量: z.coerce.number().prefault(10),
   _血量上限: z.coerce.number().prefault(10),
-  _魔量: z.coerce.number().prefault(1),
+  $魔量: z.coerce.number().prefault(1),
   _金币: z.coerce.number().prefault(0),
   $初始血量上限: z.coerce.number().prefault(10),
   $初始魔量: z.coerce.number().prefault(1),

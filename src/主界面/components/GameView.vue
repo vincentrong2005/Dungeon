@@ -339,18 +339,18 @@
     <!-- Input Area (Stage-Anchored) -->
     <div class="ui-input-anchor absolute left-0 right-0 bottom-0 z-[60] pb-2">
       <div class="w-full mx-auto px-4 md:px-12 md:pl-24" :style="{ maxWidth: textSettings.containerWidth + 'px' }">
-        <div class="bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
+        <div class="ui-input-shell bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
           <div class="w-full flex items-stretch gap-2">
             <input
               v-model="inputText"
               type="text"
               :disabled="gameStore.isGenerating"
-              :placeholder="gameStore.isGenerating ? '等待回复中...' : '输入你的行动...'"
-              class="flex-1 h-[4.5rem] bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-tight px-5 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui placeholder-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              :placeholder="inputPlaceholder"
+              class="ui-input-field flex-1 h-[4.5rem] bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-tight px-5 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               @keydown.enter="handleSendInput"
             />
             <button
-              class="ui-send-button h-[4.5rem] min-w-[4.5rem] px-3 bg-[#1a0f08] border border-dungeon-gold/30 hover:bg-dungeon-brown hover:border-dungeon-gold text-dungeon-gold rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
+              class="ui-send-button h-[4.5rem] min-w-[4.5rem] px-3 flex items-center justify-center shrink-0"
               :disabled="gameStore.isGenerating"
               @click="handleSendInput"
             >
@@ -946,18 +946,18 @@
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">字体大小</label>
               <div class="flex items-center gap-2 sm:shrink-0">
-                <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.fontSize = Math.max(12, textSettings.fontSize - 1)">−</button>
+                <button class="settings-stepper-btn" @click="textSettings.fontSize = Math.max(12, textSettings.fontSize - 1)">−</button>
                 <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{ textSettings.fontSize }}px</span>
-                <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.fontSize = Math.min(40, textSettings.fontSize + 1)">+</button>
+                <button class="settings-stepper-btn" @click="textSettings.fontSize = Math.min(40, textSettings.fontSize + 1)">+</button>
               </div>
             </div>
 
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label class="text-dungeon-paper/70 text-sm font-ui">行间距</label>
               <div class="flex items-center gap-2 sm:shrink-0">
-                <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.lineHeight = Math.max(1.2, +(textSettings.lineHeight - 0.1).toFixed(1))">−</button>
+                <button class="settings-stepper-btn" @click="textSettings.lineHeight = Math.max(1.2, +(textSettings.lineHeight - 0.1).toFixed(1))">−</button>
                 <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{ textSettings.lineHeight }}</span>
-                <button class="w-7 h-7 rounded border border-dungeon-brown text-dungeon-gold-dim hover:border-dungeon-gold hover:text-dungeon-gold text-sm" @click="textSettings.lineHeight = Math.min(3.0, +(textSettings.lineHeight + 0.1).toFixed(1))">+</button>
+                <button class="settings-stepper-btn" @click="textSettings.lineHeight = Math.min(3.0, +(textSettings.lineHeight + 0.1).toFixed(1))">+</button>
               </div>
             </div>
 
@@ -1120,7 +1120,7 @@
                 </Transition>
               </div>
               <button
-                class="px-4 py-2 rounded border border-amber-600/45 bg-amber-950/20 text-amber-300 text-sm font-ui transition-colors hover:bg-amber-900/30 hover:border-amber-500/70 disabled:opacity-40 disabled:cursor-not-allowed sm:shrink-0"
+                class="settings-primary-btn sm:shrink-0"
                 :disabled="gameStore.isGenerating || isManualSummaryRunning"
                 @click="handleManualSummary"
               >
@@ -1134,19 +1134,19 @@
           <h3 class="settings-section-title settings-section-title--neutral">系统</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
-              class="p-3 border border-dungeon-gold/30 hover:bg-dungeon-brown text-dungeon-gold text-sm rounded"
+              class="settings-action-btn settings-action-btn--gold"
               @click="toggleFullScreen"
             >
               切换全屏模式
             </button>
             <button
-              class="p-3 border border-red-900/50 hover:bg-red-950/30 text-red-500 text-sm rounded"
+              class="settings-action-btn settings-action-btn--danger"
               @click="$emit('backToSplash')"
             >
               退出到标题
             </button>
             <button
-              class="p-3 border border-amber-600/40 hover:bg-amber-900/20 text-amber-400 text-sm rounded sm:col-span-2"
+              class="settings-action-btn settings-action-btn--accent sm:col-span-2"
               @click="openCombatTestBuilder"
             >
               ⚔ 进入战斗测试
@@ -1420,15 +1420,23 @@
 
     <!-- Variable Update Viewer -->
     <DungeonModal title="变量更新" :is-open="isVariableUpdateOpen" @close="isVariableUpdateOpen = false">
-      <div
-        v-if="gameStore.variableUpdateText"
-        class="custom-scrollbar border-dungeon-brown/50 bg-dungeon-dark/60 max-h-[60vh]
-               overflow-y-auto rounded border p-4"
-      >
-        <pre class="text-dungeon-paper/80 font-ui text-sm break-words whitespace-pre-wrap">{{ gameStore.variableUpdateText }}</pre>
-      </div>
-      <div v-else class="text-dungeon-paper/60 font-ui py-8 text-center text-sm">
-        当前楼层没有检测到变量更新标签（&lt;UpdateVariable&gt; 或 &lt;update&gt;）。
+      <div class="variable-update-panel">
+        <div class="variable-update-head">
+          <FileText class="variable-update-head-icon" />
+          <div>
+            <div class="variable-update-title">本层变量同步记录</div>
+            <div class="variable-update-subtitle">识别标签：&lt;UpdateVariable&gt; / &lt;update&gt;</div>
+          </div>
+        </div>
+        <div
+          v-if="gameStore.variableUpdateText"
+          class="variable-update-body custom-scrollbar"
+        >
+          <pre class="variable-update-content">{{ gameStore.variableUpdateText }}</pre>
+        </div>
+        <div v-else class="variable-update-empty">
+          当前楼层没有检测到变量更新标签。
+        </div>
       </div>
     </DungeonModal>
 
@@ -1970,16 +1978,16 @@ const SidebarIcon = defineComponent({
         {
           disabled: props.disabled,
           class: [
-            'w-12 h-12 rounded-lg flex items-center justify-center transition-all duration-300 shadow-lg border relative group disabled:cursor-not-allowed',
+            'w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 shadow-lg border relative group backdrop-blur-sm disabled:cursor-not-allowed',
             props.disabled
               ? 'bg-[#120d0a] text-dungeon-paper/35 border-dungeon-brown/70'
               : props.active
               ? (props.highlight
-                ? 'bg-dungeon-gold text-black border-dungeon-gold shadow-[0_0_20px_rgba(212,175,55,0.85)]'
-                : 'bg-dungeon-gold text-black border-dungeon-paper shadow-[0_0_15px_#d4af37]')
+                ? 'bg-dungeon-gold text-[#221507] border-amber-100 shadow-[0_0_18px_rgba(212,175,55,0.68)]'
+                : 'bg-[#e3be63] text-[#221507] border-amber-100 shadow-[0_0_14px_rgba(212,175,55,0.52)]')
               : (props.highlight
-                ? 'bg-[#1a0f08] text-dungeon-gold border-dungeon-gold/75 shadow-[0_0_11px_rgba(212,175,55,0.45)] hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold'
-                : 'bg-[#1a0f08] text-dungeon-gold-dim border-dungeon-brown hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50'),
+                ? 'bg-[#1d130b]/95 text-dungeon-gold border-dungeon-gold/70 shadow-[0_0_11px_rgba(212,175,55,0.42)] hover:bg-[#2a180c] hover:text-amber-100 hover:border-dungeon-gold hover:-translate-y-0.5 hover:shadow-[0_0_14px_rgba(212,175,55,0.46)]'
+                : 'bg-[#1a0f08]/95 text-dungeon-gold-dim border-dungeon-brown/90 hover:bg-[#28170c] hover:text-dungeon-gold hover:border-dungeon-gold/60 hover:-translate-y-0.5 hover:shadow-[0_0_10px_rgba(212,175,55,0.22)]'),
           ],
           onClick: () => {
             if (!props.disabled) {
@@ -1994,7 +2002,7 @@ const SidebarIcon = defineComponent({
                 'div',
                 {
                   class: [
-                    'absolute bg-black/90 text-dungeon-paper text-xs px-2 py-1 rounded border border-dungeon-brown opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none',
+                    'absolute bg-[#0b0908]/95 text-dungeon-paper/90 text-xs px-2.5 py-1.5 rounded-md border border-dungeon-brown/85 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none',
                     props.tooltipSide === 'left' ? 'right-14' : 'left-14',
                   ],
                 },
@@ -2064,11 +2072,18 @@ const currentTavernFloorNumber = computed<number>(() => {
 const showLandscapeHint = computed(() => (
   isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value
 ));
+const activeModal = ref<string | null>(null);
+const inputText = ref('');
+const inputWaitingDotsStep = ref(1);
+let inputWaitingDotsTimer: number | null = null;
+const inputPlaceholder = computed(() => (
+  gameStore.isGenerating
+    ? `等待回复中${'.'.repeat(inputWaitingDotsStep.value)}`
+    : '输入你的行动'
+));
 const dismissLandscapeHint = () => {
   landscapeHintDismissed.value = true;
 };
-const activeModal = ref<string | null>(null);
-const inputText = ref('');
 const isVariableUpdateOpen = ref(false);
 const isStatusOpen = ref(true);
 const statusHudView = ref<'base' | 'negative'>('base');
@@ -2748,7 +2763,7 @@ const upgradeMagicHatStat = async (id: MagicHatUpgradeType) => {
     updates._血量 = track.nextValue;
   } else if (id === 'mp') {
     updates['$初始魔量'] = track.nextValue;
-    updates._魔量 = Math.max(getSafeInt(gameStore.statData._魔量, 0), track.nextValue);
+    updates.$魔量 = Math.max(getSafeInt(gameStore.statData.$魔量, 0), track.nextValue);
   } else {
     updates['$初始金币'] = track.nextValue;
     updates._金币 = Math.max(getSafeInt(gameStore.statData._金币, 0), track.nextValue);
@@ -3952,8 +3967,8 @@ const displayMaxHp = computed(() => {
   return Math.max(1, baseMaxHp + bloodpoolPassiveMaxHpBonus.value);
 });
 
-// MP: _魔量 only, no max variable. Visual cap at 20.
-const displayMp = computed(() => gameStore.statData._魔量 ?? 1);
+// MP: $魔量 only, no max variable. Visual cap at 20.
+const displayMp = computed(() => gameStore.statData.$魔量 ?? 1);
 
 // Gold
 const displayGold = computed(() => gameStore.statData._金币 ?? 0);
@@ -4108,7 +4123,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
   return {
     _血量: initialMaxHp,
     _血量上限: initialMaxHp,
-    _魔量: initialMp,
+    $魔量: initialMp,
     _金币: initialGold,
     $技能点: currentSkillPoints + rebirthSkillPointGain,
     _技能: [...REBIRTH_STARTER_DECK],
@@ -4926,13 +4941,13 @@ const buildIdolPendingFields = () => {
   if (!reward) return null;
 
   const currentMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
-  const currentMp = toNonNegativeInt(gameStore.statData._魔量, 1);
+  const currentMp = toNonNegativeInt(gameStore.statData.$魔量, 1);
   const currentGold = toNonNegativeInt(gameStore.statData._金币, 0);
   if (reward.target === 'maxHp') {
     return { _血量上限: currentMaxHp + reward.amount };
   }
   if (reward.target === 'mp') {
-    return { _魔量: currentMp + reward.amount };
+    return { $魔量: currentMp + reward.amount };
   }
   return { _金币: currentGold + reward.amount };
 };
@@ -5448,8 +5463,21 @@ onMounted(() => {
     window.addEventListener('orientationchange', handleViewportResize, { passive: true });
     window.visualViewport?.addEventListener('resize', handleViewportResize, { passive: true });
     document.addEventListener('fullscreenchange', handleViewportResize);
+    inputWaitingDotsTimer = window.setInterval(() => {
+      if (!gameStore.isGenerating) return;
+      inputWaitingDotsStep.value = (inputWaitingDotsStep.value % 3) + 1;
+    }, 420);
   }
 });
+
+watch(
+  () => gameStore.isGenerating,
+  (isGenerating) => {
+    if (!isGenerating) {
+      inputWaitingDotsStep.value = 1;
+    }
+  },
+);
 
 // ══════════════════════════════════════════════════════════════
 //  [Leave] Portal System — Floor/Area Logic
@@ -6107,6 +6135,10 @@ onBeforeUnmount(() => {
     window.removeEventListener('orientationchange', handleViewportResize);
     window.visualViewport?.removeEventListener('resize', handleViewportResize);
     document.removeEventListener('fullscreenchange', handleViewportResize);
+    if (inputWaitingDotsTimer !== null) {
+      window.clearInterval(inputWaitingDotsTimer);
+      inputWaitingDotsTimer = null;
+    }
     if (settingsHelpTouchTimer !== null) {
       window.clearTimeout(settingsHelpTouchTimer);
       settingsHelpTouchTimer = null;
@@ -6181,7 +6213,45 @@ onBeforeUnmount(() => {
   line-height: 1.2;
 }
 
+.ui-input-shell {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.06), transparent 46%),
+    #0f0f0f;
+}
+
+.ui-input-field::placeholder {
+  color: rgba(213, 197, 170, 0.74);
+}
+
 .ui-send-button {
+  transform: none;
+  border-radius: 0.72rem;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background:
+    radial-gradient(circle at 28% 18%, rgba(251, 191, 36, 0.12), transparent 52%),
+    rgba(28, 15, 8, 0.94);
+  color: rgba(251, 191, 36, 0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.34);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.ui-send-button:hover:not(:disabled),
+.ui-send-button:focus-visible {
+  border-color: rgba(251, 191, 36, 0.82);
+  color: rgba(254, 243, 199, 0.98);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 14px rgba(251, 191, 36, 0.24),
+    0 8px 18px rgba(0, 0, 0, 0.4);
+}
+
+.ui-send-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
   transform: none;
 }
 
@@ -7272,6 +7342,75 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
+.variable-update-panel {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(92, 62, 38, 0.78);
+  background:
+    radial-gradient(circle at 14% 8%, rgba(251, 191, 36, 0.08), transparent 48%),
+    linear-gradient(180deg, rgba(20, 12, 8, 0.94), rgba(9, 6, 5, 0.86));
+  padding: 0.9rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.variable-update-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+}
+
+.variable-update-head-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: rgba(232, 194, 111, 0.94);
+}
+
+.variable-update-title {
+  color: rgba(232, 194, 111, 0.98);
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+  font-family: 'Inter', sans-serif;
+}
+
+.variable-update-subtitle {
+  color: rgba(214, 211, 209, 0.72);
+  font-size: 0.7rem;
+  margin-top: 0.08rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.variable-update-body {
+  max-height: 58vh;
+  overflow-y: auto;
+  border-radius: 0.72rem;
+  border: 1px solid rgba(120, 85, 56, 0.6);
+  background: rgba(10, 9, 8, 0.7);
+  padding: 0.75rem;
+}
+
+.variable-update-content {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: rgba(231, 229, 228, 0.86);
+  font-size: 0.84rem;
+  line-height: 1.58;
+  font-family: 'Inter', sans-serif;
+}
+
+.variable-update-empty {
+  border-radius: 0.72rem;
+  border: 1px dashed rgba(120, 85, 56, 0.58);
+  background: rgba(17, 24, 39, 0.3);
+  color: rgba(214, 211, 209, 0.76);
+  text-align: center;
+  font-size: 0.82rem;
+  padding: 1.1rem 0.9rem;
+  font-family: 'Inter', sans-serif;
+}
+
 
 .settings-panel {
   width: 100%;
@@ -7359,6 +7498,116 @@ onBeforeUnmount(() => {
 
 .settings-select {
   max-width: 100%;
+}
+
+.settings-stepper-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  background:
+    radial-gradient(circle at 26% 20%, rgba(251, 191, 36, 0.12), transparent 55%),
+    rgba(26, 15, 8, 0.88);
+  color: rgba(212, 175, 55, 0.86);
+  font-size: 0.92rem;
+  line-height: 1;
+  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.settings-stepper-btn:hover,
+.settings-stepper-btn:focus-visible {
+  outline: none;
+  border-color: rgba(251, 191, 36, 0.78);
+  color: rgba(254, 240, 138, 0.98);
+  background: rgba(56, 34, 18, 0.92);
+  transform: translateY(-1px);
+}
+
+.settings-primary-btn {
+  border-radius: 0.58rem;
+  border: 1px solid rgba(217, 119, 6, 0.55);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(251, 191, 36, 0.16), transparent 52%),
+    rgba(69, 26, 3, 0.64);
+  color: rgba(252, 211, 77, 0.96);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.84rem;
+  padding: 0.52rem 1.04rem;
+  transition: border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.settings-primary-btn:hover:not(:disabled),
+.settings-primary-btn:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.8);
+  color: rgba(255, 237, 213, 0.98);
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(251, 146, 60, 0.22);
+}
+
+.settings-primary-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.settings-action-btn {
+  border-radius: 0.68rem;
+  border-width: 1px;
+  padding: 0.76rem 0.95rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+}
+
+.settings-action-btn:hover,
+.settings-action-btn:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.settings-action-btn--gold {
+  border-color: rgba(212, 175, 55, 0.38);
+  background: rgba(40, 22, 11, 0.72);
+  color: rgba(232, 194, 111, 0.94);
+}
+
+.settings-action-btn--gold:hover,
+.settings-action-btn--gold:focus-visible {
+  border-color: rgba(245, 208, 102, 0.72);
+  background: rgba(58, 31, 16, 0.82);
+  color: rgba(255, 243, 214, 0.98);
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.16);
+}
+
+.settings-action-btn--danger {
+  border-color: rgba(127, 29, 29, 0.6);
+  background: rgba(69, 10, 10, 0.34);
+  color: rgba(248, 113, 113, 0.92);
+}
+
+.settings-action-btn--danger:hover,
+.settings-action-btn--danger:focus-visible {
+  border-color: rgba(220, 38, 38, 0.75);
+  background: rgba(127, 29, 29, 0.4);
+  color: rgba(254, 202, 202, 0.98);
+  box-shadow: 0 0 14px rgba(220, 38, 38, 0.14);
+}
+
+.settings-action-btn--accent {
+  border-color: rgba(217, 119, 6, 0.56);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(251, 191, 36, 0.14), transparent 50%),
+    rgba(69, 26, 3, 0.48);
+  color: rgba(251, 191, 36, 0.94);
+}
+
+.settings-action-btn--accent:hover,
+.settings-action-btn--accent:focus-visible {
+  border-color: rgba(251, 146, 60, 0.8);
+  background: rgba(120, 53, 15, 0.45);
+  color: rgba(254, 243, 199, 0.98);
+  box-shadow: 0 0 16px rgba(251, 146, 60, 0.18);
 }
 
 .settings-help {
