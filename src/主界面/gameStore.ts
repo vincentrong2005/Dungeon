@@ -23,6 +23,7 @@ export interface SaveEntry {
  */
 export const useGameStore = defineStore('game', () => {
   const STREAMING_ENABLED_KEY = 'dungeon.streaming_enabled';
+  const AUTO_SUMMARY_ENABLED_KEY = 'dungeon.auto_summary_enabled';
   const SUMMARY_VISIBLE_WINDOW_KEY = 'dungeon.summary_visible_window';
   const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
   const MIN_SUMMARY_VISIBLE_WINDOW = 1;
@@ -47,6 +48,24 @@ export const useGameStore = defineStore('game', () => {
   function persistStreamingEnabledSetting(enabled: boolean) {
     try {
       localStorage.setItem(STREAMING_ENABLED_KEY, String(enabled));
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
+  function readAutoSummaryEnabledSetting(): boolean {
+    try {
+      const raw = localStorage.getItem(AUTO_SUMMARY_ENABLED_KEY);
+      if (raw === null) return true;
+      return raw === 'true';
+    } catch {
+      return true;
+    }
+  }
+
+  function persistAutoSummaryEnabledSetting(enabled: boolean) {
+    try {
+      localStorage.setItem(AUTO_SUMMARY_ENABLED_KEY, String(enabled));
     } catch {
       // Ignore persistence errors in restricted environments
     }
@@ -77,6 +96,7 @@ export const useGameStore = defineStore('game', () => {
   const isGenerating = ref(false);
   const streamingText = ref('');
   const useStreaming = ref(readStreamingEnabledSetting());
+  const autoSummaryEnabled = ref(readAutoSummaryEnabledSetting());
   const summaryVisibleWindow = ref(readSummaryVisibleWindowSetting());
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
@@ -253,7 +273,32 @@ export const useGameStore = defineStore('game', () => {
     return null;
   };
 
+  const overwriteAutoSummaryEntryContent = async (content: string) => {
+    const target = await resolveAutoSummaryEntryTarget();
+    if (!target) return false;
+
+    try {
+      await updateWorldbookWith(
+        target.worldbookName,
+        (worldbook) => worldbook.map((entry) => (
+          entry.uid !== target.uid
+            ? entry
+            : {
+                ...entry,
+                content,
+              }
+        )),
+        { render: 'debounced' },
+      );
+      return true;
+    } catch (err) {
+      console.warn('[GameStore] overwriteAutoSummaryEntryContent failed:', err);
+      return false;
+    }
+  };
+
   const updateAutoSummaryChronicle = async (assistantMessageId: number, summaryText: string) => {
+    if (!autoSummaryEnabled.value) return;
     const normalizedSummary = normalizeSummaryText(summaryText);
     if (!normalizedSummary) return;
 
@@ -285,6 +330,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   const rebuildAutoSummaryChronicleFromMessages = async (): Promise<number> => {
+    if (!autoSummaryEnabled.value) return 0;
     const target = await resolveAutoSummaryEntryTarget();
     if (!target) return 0;
 
@@ -359,6 +405,19 @@ export const useGameStore = defineStore('game', () => {
       streamingText.value = '';
     }
     persistStreamingEnabledSetting(nextEnabled);
+  }
+
+  async function setAutoSummaryEnabled(enabled: boolean) {
+    const nextEnabled = Boolean(enabled);
+    autoSummaryEnabled.value = nextEnabled;
+    persistAutoSummaryEnabledSetting(nextEnabled);
+
+    if (!nextEnabled) {
+      await overwriteAutoSummaryEntryContent('');
+      return;
+    }
+
+    await rebuildAutoSummaryChronicleFromMessages();
   }
 
   async function setSummaryVisibleWindow(value: number) {
@@ -509,6 +568,9 @@ export const useGameStore = defineStore('game', () => {
         loadLatestAssistantState();
         loadStatData();
         await ensureLatestMessageWindow();
+        if (!autoSummaryEnabled.value) {
+          await overwriteAutoSummaryEntryContent('');
+        }
       }
 
       isInitialized.value = true;
@@ -1027,6 +1089,7 @@ export const useGameStore = defineStore('game', () => {
     currentSummary,
     isGenerating,
     useStreaming,
+    autoSummaryEnabled,
     summaryVisibleWindow,
     streamingText,
     error,
@@ -1045,6 +1108,7 @@ export const useGameStore = defineStore('game', () => {
     initialize,
     sendAction,
     setUseStreaming,
+    setAutoSummaryEnabled,
     setSummaryVisibleWindow,
     setPendingPortalChanges,
     setPendingCombatMvuChanges,

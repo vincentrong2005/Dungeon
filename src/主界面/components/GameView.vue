@@ -1050,20 +1050,63 @@
           <h3 class="settings-section-title">AI回复</h3>
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
-            <label class="inline-flex items-center gap-2 cursor-pointer select-none sm:shrink-0">
-              <input
-                v-model="isStreamingEnabled"
-                type="checkbox"
-                class="h-4 w-4 accent-dungeon-gold"
-              />
-              <span class="text-dungeon-paper text-sm font-ui">{{ isStreamingEnabled ? '开启' : '关闭' }}</span>
-            </label>
+            <button
+              type="button"
+              class="settings-switch sm:shrink-0"
+              :class="{ 'is-on': isStreamingEnabled }"
+              :aria-checked="isStreamingEnabled"
+              role="switch"
+              @click="isStreamingEnabled = !isStreamingEnabled"
+            >
+              <span class="settings-switch-track">
+                <span class="settings-switch-label settings-switch-label--off">关</span>
+                <span class="settings-switch-label settings-switch-label--on">开</span>
+                <span class="settings-switch-thumb"></span>
+              </span>
+            </button>
           </div>
         </section>
 
         <section class="settings-section settings-section--summary">
           <h3 class="settings-section-title">总结</h3>
           <div class="space-y-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                <span>自动总结</span>
+                <button
+                  type="button"
+                  class="settings-help-trigger"
+                  @mouseenter="openSettingsHelp('autoSummaryEnabled')"
+                  @mouseleave="closeSettingsHelp('autoSummaryEnabled')"
+                  @focus="openSettingsHelp('autoSummaryEnabled')"
+                  @blur="closeSettingsHelp('autoSummaryEnabled')"
+                  @touchstart.passive="startSettingsHelpTouch('autoSummaryEnabled')"
+                  @touchend="endSettingsHelpTouch('autoSummaryEnabled')"
+                  @touchcancel="endSettingsHelpTouch('autoSummaryEnabled')"
+                  @click.stop.prevent="toggleSettingsHelp('autoSummaryEnabled')"
+                >?</button>
+                <Transition name="settings-help-fade">
+                  <div v-if="activeSettingsHelp === 'autoSummaryEnabled'" class="settings-help-popover">
+                    {{ settingsHelpText.autoSummaryEnabled }}
+                  </div>
+                </Transition>
+              </div>
+              <button
+                type="button"
+                class="settings-switch sm:shrink-0"
+                :class="{ 'is-on': isAutoSummaryEnabled }"
+                :aria-checked="isAutoSummaryEnabled"
+                role="switch"
+                @click="isAutoSummaryEnabled = !isAutoSummaryEnabled"
+              >
+                <span class="settings-switch-track">
+                  <span class="settings-switch-label settings-switch-label--off">关</span>
+                  <span class="settings-switch-label settings-switch-label--on">开</span>
+                  <span class="settings-switch-thumb"></span>
+                </span>
+              </button>
+            </div>
+
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
                 <span>总结层数</span>
@@ -1092,7 +1135,8 @@
                   min="1"
                   max="60"
                   inputmode="numeric"
-                  class="w-20 bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui"
+                  :disabled="!isAutoSummaryEnabled"
+                  class="w-20 bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-45 disabled:cursor-not-allowed"
                 />
                 <span class="text-dungeon-paper font-ui text-sm">层</span>
               </div>
@@ -1121,7 +1165,7 @@
               </div>
               <button
                 class="settings-primary-btn sm:shrink-0"
-                :disabled="gameStore.isGenerating || isManualSummaryRunning"
+                :disabled="!isAutoSummaryEnabled || gameStore.isGenerating || isManualSummaryRunning"
                 @click="handleManualSummary"
               >
                 {{ isManualSummaryRunning ? '补全中...' : '补全当前总结' }}
@@ -3348,7 +3392,7 @@ type TextSettingsState = {
   containerWidth: number;
 };
 
-type SettingsHelpKey = 'summaryVisibleWindow' | 'manualSummary';
+type SettingsHelpKey = 'autoSummaryEnabled' | 'summaryVisibleWindow' | 'manualSummary';
 
 const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
 const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
@@ -3451,6 +3495,13 @@ const isStreamingEnabled = computed<boolean>({
   set: (value) => gameStore.setUseStreaming(value),
 });
 
+const isAutoSummaryEnabled = computed<boolean>({
+  get: () => gameStore.autoSummaryEnabled,
+  set: (value) => {
+    void gameStore.setAutoSummaryEnabled(value);
+  },
+});
+
 const summaryVisibleWindowValue = computed<number>({
   get: () => gameStore.summaryVisibleWindow,
   set: (value) => {
@@ -3462,6 +3513,7 @@ const isManualSummaryRunning = ref(false);
 const activeSettingsHelp = ref<SettingsHelpKey | null>(null);
 let settingsHelpTouchTimer: number | null = null;
 const settingsHelpText: Record<SettingsHelpKey, string> = {
+  autoSummaryEnabled: '关闭后不会再把每层楼的 <sum> 自动写入总结条目，并且会清空该条目内容，从而停止这部分提示词注入；重新打开后会按历史楼层重新生成。',
   summaryVisibleWindow: '该项参数为会将正文完整发送给AI的楼层层数：设置越高，AI对于过往记忆细节越清晰，token数也会增加；设置越低，会降低AI对于过往记忆细节回想，但token数会显著下降。',
   manualSummary: '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用。',
 };
@@ -3514,6 +3566,10 @@ const endSettingsHelpTouch = (key: SettingsHelpKey) => {
 
 const handleManualSummary = async () => {
   if (gameStore.isGenerating || isManualSummaryRunning.value) return;
+  if (!gameStore.autoSummaryEnabled) {
+    toastr.warning('请先开启自动总结，再执行手动补全。');
+    return;
+  }
   isManualSummaryRunning.value = true;
   try {
     const writtenCount = await gameStore.rebuildAutoSummaryChronicleFromMessages();
@@ -7521,6 +7577,97 @@ onBeforeUnmount(() => {
   color: rgba(254, 240, 138, 0.98);
   background: rgba(56, 34, 18, 0.92);
   transform: translateY(-1px);
+}
+
+.settings-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-switch:focus-visible {
+  outline: none;
+}
+
+.settings-switch-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  width: 5.8rem;
+  height: 2.2rem;
+  border-radius: 0.72rem;
+  border: 1px solid rgba(212, 175, 55, 0.32);
+  background:
+    linear-gradient(180deg, rgba(34, 21, 14, 0.98), rgba(18, 12, 9, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 16px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.settings-switch:hover .settings-switch-track,
+.settings-switch:focus-visible .settings-switch-track {
+  border-color: rgba(251, 191, 36, 0.54);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 12px rgba(212, 175, 55, 0.12);
+}
+
+.settings-switch-label {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: color 0.18s ease;
+}
+
+.settings-switch-label--off {
+  color: rgba(245, 222, 179, 0.9);
+}
+
+.settings-switch-label--on {
+  color: rgba(212, 175, 55, 0.54);
+}
+
+.settings-switch-thumb {
+  position: absolute;
+  left: 0.17rem;
+  top: 0.17rem;
+  width: 2.58rem;
+  height: 1.84rem;
+  border-radius: 0.56rem;
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(251, 191, 36, 0.14), transparent 58%),
+    linear-gradient(180deg, rgba(82, 49, 28, 0.98), rgba(56, 33, 20, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 10px rgba(0, 0, 0, 0.28);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.settings-switch.is-on .settings-switch-thumb {
+  transform: translateX(2.88rem);
+  border-color: rgba(251, 191, 36, 0.62);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 247, 200, 0.18), transparent 58%),
+    linear-gradient(180deg, rgba(158, 98, 32, 0.98), rgba(114, 65, 22, 0.96));
+}
+
+.settings-switch.is-on .settings-switch-label--off {
+  color: rgba(212, 175, 55, 0.46);
+}
+
+.settings-switch.is-on .settings-switch-label--on {
+  color: rgba(255, 243, 214, 0.96);
 }
 
 .settings-primary-btn {
