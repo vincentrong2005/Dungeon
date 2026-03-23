@@ -470,7 +470,7 @@ const 逆相咏唱: CardData = {
   description: '造成0.7倍点数伤害并施加1层禁言',
 };
 
-/** 奥术裂枪：点数*1.5，1倍伤害；MP≥8时额外消耗4MP追加一次2倍伤害（结算逻辑在 CombatView） */
+/** 奥术裂枪：点数*1.2，1倍伤害；MP≥8时额外消耗4MP追加一次2倍伤害（结算逻辑在 CombatView） */
 const 奥术裂枪: CardData = {
   id: 'modao_arcane_lance',
   name: '奥术裂枪',
@@ -478,12 +478,12 @@ const 奥术裂枪: CardData = {
   category: '魔导',
   rarity: '普通',
   manaCost: 4,
-  calculation: { multiplier: 1.5, addition: 0 },
+  calculation: { multiplier: 1.2, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.5，造成1倍点数伤害；若当前MP≥8，再消耗4MP追加一次2倍伤害',
+  description: '点数*1.2，造成1倍点数伤害；若当前MP≥8，再消耗4MP追加一次2倍伤害',
 };
 
 /** 魔导序曲：8MP，点数*1.5，2倍伤害；每次抽到该牌时其费用-1（结算逻辑在 CombatView） */
@@ -549,7 +549,7 @@ const 导能屏障: CardData = {
   description: '消耗自身至多5MP；每消耗1MP：自身护甲+2，连击',
 };
 
-/** 魔力轰炸：8MP，点数*2，1倍伤害，3连击 */
+/** 魔力轰炸：8MP，点数+15，1倍伤害*/
 const 魔力轰炸: CardData = {
   id: 'modao_mana_bombard',
   name: '魔力轰炸',
@@ -557,12 +557,12 @@ const 魔力轰炸: CardData = {
   category: '魔导',
   rarity: '稀有',
   manaCost: 8,
-  calculation: { multiplier: 2.0, addition: 0 },
+  calculation: { multiplier: 1.0, addition: 15 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 3,
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗8MP，点数*2，造成1倍点数伤害，3连击',
+  description: '消耗8MP，点数+15，造成1倍点数伤害',
 };
 
 /** 涌流：回复魔力并叠加寒冷，连击 */
@@ -1394,7 +1394,7 @@ const 灵巧长舌: CardData = {
   description: '点数*1.3，造成1.5倍最终点数的伤害',
 };
 
-/** 血盆大口：造成1倍最终点数伤害，附加吞食+1，双方易伤+2 */
+/** 血盆大口：造成1倍最终点数伤害，附加被吞食+1，双方易伤+2 */
 const 血盆大口: CardData = {
   id: 'enemy_mimic_maw',
   name: '血盆大口',
@@ -1411,7 +1411,7 @@ const 血盆大口: CardData = {
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'self', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '造成1倍最终点数的伤害与1层吞食，对双方附加2层易伤',
+  description: '造成1倍最终点数的伤害与1层被吞食，对双方附加2层易伤',
 };
 
 /** 挤压：点数*3，造成0.5倍最终点数伤害 */
@@ -2317,6 +2317,39 @@ const SHAME_LEECH_PARASITIC_DRILL: CardData = {
   description: '点数+1，造成0.5倍点数伤害，附带负面效果[被寄生]',
 };
 
+/** 精神冲击：施加1层眩晕 */
+const WITNESS_WORM_MENTAL_SHOCK: CardData = {
+  id: 'enemy_witness_worm_mental_shock',
+  name: '精神冲击',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STUN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1层眩晕',
+};
+
+/** 退走：功能，触发后立即结束战斗 */
+const WITNESS_WORM_RETREAT: CardData = {
+  id: 'enemy_witness_worm_retreat',
+  name: '退走',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  excape: true,
+  description: '逃离',
+};
+
 /** 体内繁殖：自身获得1层群集，并为目标施加1倍点数中毒 */
 const SHAME_LEECH_INTERNAL_BREEDING: CardData = {
   id: 'enemy_shame_leech_internal_breeding',
@@ -2351,6 +2384,24 @@ const SHAME_LEECH_SHAME_AMPLIFY: CardData = {
     { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   description: '施加1倍点数中毒与1层性兴奋',
+};
+
+/** 累积催情：施加1层性兴奋，为自身施加1层毒素蔓延 */
+const PARASITIC_LEECH_CUMULATIVE_APHRO: CardData = {
+  id: 'enemy_parasitic_leech_cumulative_aphro',
+  name: '累积催情',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.TOXIN_SPREAD, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1层性兴奋，为自身施加1层毒素蔓延',
 };
 
 /** 掠食轻咬：点数+1，造成0.5倍点数伤害，并施加0.5倍点数中毒 */
@@ -2542,7 +2593,7 @@ const NIGHTMARE_STEED_SADDLE_CAPTURE: CardData = {
   description: '造成0.8倍点数伤害，施加1层束缚',
 };
 
-/** 迷尘：为对手施加1层认知干涉 */
+/** 迷尘：为对手施加1层敌意隐藏 */
 const NIGHTMARE_STEED_MIST_DUST: CardData = {
   id: 'enemy_nightmare_steed_mist_dust',
   name: '迷尘',
@@ -2562,7 +2613,77 @@ const NIGHTMARE_STEED_MIST_DUST: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '为对手施加1层认知干涉',
+  description: '为对手施加1层敌意隐藏',
+};
+
+/** 无面威慑：施加1层虚实不明与敌意隐藏 */
+const EXECUTIONER_PUPPET_FACELESS_INTIMIDATION: CardData = {
+  id: 'enemy_executioner_puppet_faceless_intimidation',
+  name: '无面威慑',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '施加1层虚实不明与敌意隐藏',
+};
+
+/** 刑具变化：增加自身最大点数和最小点数1点 */
+const EXECUTIONER_PUPPET_TOOL_SHIFT: CardData = {
+  id: 'enemy_executioner_puppet_tool_shift',
+  name: '刑具变化',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '增加自身最大点数和最小点数1点',
+};
+
+/** 行刑：点数随机-2~+2，造成1倍物理伤害（结算逻辑在 CombatView） */
+const EXECUTIONER_PUPPET_EXECUTION: CardData = {
+  id: 'enemy_executioner_puppet_execution',
+  name: '行刑',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数随机-2~+2，造成1倍物理伤害',
+};
+
+/** 避让：闪避，若闪避成功则为自身增加1倍点数的增伤 */
+const EXECUTIONER_PUPPET_EVADE: CardData = {
+  id: 'enemy_executioner_puppet_evade',
+  name: '避让',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.DAMAGE_BOOST,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '闪避，若闪避成功则为自身增加1倍点数的增伤',
 };
 
 /** 骨鞭：点数+1，造成1倍点数伤害，并施加0.5倍点数电击 */
@@ -3702,7 +3823,7 @@ const 无感蔓延: CardData = {
   description: '点数+1，造成0.5倍点数伤害并施加1层束缚',
 };
 
-/** 流体包裹：点数+2，造成0.5倍点数伤害，若玩家已被束缚，则施加吞食 */
+/** 流体包裹：点数+2，造成0.5倍点数伤害，若玩家已被束缚，则施加被吞食 */
 const 流体包裹: CardData = {
   id: 'enemy_swamp_fluid_wrap',
   name: '流体包裹',
@@ -3717,7 +3838,7 @@ const 流体包裹: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.DEVOUR, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '点数+2，造成0.5倍点数伤害，若玩家已被束缚，则施加吞食',
+  description: '点数+2，造成0.5倍点数伤害，若玩家已被束缚，则施加被吞食',
 };
 
 /** 选择性溶解：施加2层中毒 */
@@ -4003,6 +4124,196 @@ const 知识渴望: CardData = {
     },
   ],
   description: '点数-1，闪避，若闪避成功施加1层禁言',
+};
+
+/** 束缚丝：造成1倍点数伤害，并赋予1层束缚 */
+const 束缚丝: CardData = {
+  id: 'enemy_judgment_spider_binding_silk',
+  name: '束缚丝',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，赋予1层束缚',
+};
+
+/** 传导丝：施加1倍点数电击，并触发一次目标身上的电击（触发逻辑在 CombatView） */
+const 传导丝: CardData = {
+  id: 'enemy_judgment_spider_conduction_silk',
+  name: '传导丝',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '施加1倍点数电击并触发一次目标身上的电击',
+};
+
+/** 麻痹螯刺：点数+2，施加1倍点数电击 */
+const 麻痹螯刺: CardData = {
+  id: 'enemy_judgment_spider_paralytic_pincer',
+  name: '麻痹螯刺',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+2，造成1倍点数电击',
+};
+
+/** 设伏：点数-1，闪避，若闪避成功或对方跳过回合，则为自身施加1层伏击 */
+const 设伏: CardData = {
+  id: 'enemy_judgment_spider_set_ambush',
+  name: '设伏',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.AMBUSH,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数-1，闪避，若闪避成功或对方跳过回合，则为自身施加1层伏击',
+};
+
+/** 神经兴奋刺丝：施加0.5倍点数中毒与1层性兴奋 */
+const ABYSS_JELLYFISH_NEURAL_EXCITE_FILAMENT: CardData = {
+  id: 'enemy_abyss_jellyfish_neural_excite_filament',
+  name: '神经兴奋刺丝',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加0.5倍点数中毒与1层性兴奋',
+};
+
+/** 迂回：为自身添加1倍点数护甲与蓄力 */
+const ABYSS_JELLYFISH_CIRCUITOUS: CardData = {
+  id: 'enemy_abyss_jellyfish_circuitous',
+  name: '迂回',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '为自身添加1倍点数护甲与蓄力',
+};
+
+/** 全身包裹：造成0.5倍点数中毒与1层被吞食，为自身施加2层易伤 */
+const ABYSS_JELLYFISH_FULL_WRAP: CardData = {
+  id: 'enemy_abyss_jellyfish_full_wrap',
+  name: '全身包裹',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.DEVOUR, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '造成0.5倍点数中毒与1层被吞食，为自身施加2层易伤',
+};
+
+/** 毒素分泌：造成1倍点数中毒 */
+const ABYSS_JELLYFISH_TOXIN_SECRETION: CardData = {
+  id: 'enemy_abyss_jellyfish_toxin_secretion',
+  name: '毒素分泌',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '造成1倍点数中毒',
+};
+
+/** 群体围猎：点数+自身群集数，造成1倍点数伤害并施加自身群集数层束缚，自身群集+1 */
+const STITCHED_SPIDER_PACK_HUNT: CardData = {
+  id: 'enemy_stitched_spider_pack_hunt',
+  name: '群体围猎',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SWARM, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数+自身群集数，造成1倍点数伤害并施加自身群集数层束缚，自身群集+1',
+};
+
+/** 精密注射：施加1倍点数电击，法力汲取1 */
+const STITCHED_SPIDER_PRECISE_INJECTION: CardData = {
+  id: 'enemy_stitched_spider_precise_injection',
+  name: '精密注射',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  manaDrain: 1,
+  description: '造成1倍点数电击，法力汲取1',
 };
 
 /** 潜伏：给自己添加1层伏击 */
@@ -4569,7 +4880,7 @@ const 感官灌输: CardData = {
   description: '点数*1.5，造成0.5倍点数伤害，并施加等同于目标侵蚀层数的中毒',
 };
 
-/** 强制代入：消耗2MP，点数+1，造成1.5倍伤害；若目标拥有束缚则附加1层认知干涉（结算逻辑在 CombatView） */
+/** 强制代入：消耗2MP，点数+1，造成1.5倍伤害；若目标拥有束缚则附加1层敌意隐藏（结算逻辑在 CombatView） */
 const 强制代入: CardData = {
   id: 'enemy_floating_page_forced_immersion',
   name: '强制代入',
@@ -4582,7 +4893,7 @@ const 强制代入: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数+1，造成1.5倍伤害，若目标拥有束缚则附加1层认知干涉',
+  description: '点数+1，造成1.5倍伤害，若目标拥有束缚则附加1层敌意隐藏',
 };
 
 /** 胆小：点数-1，闪避，若闪避成功则增加1点最大骰子值（结算逻辑在 CombatView） */
@@ -4718,7 +5029,7 @@ const 炼金废料: CardData = {
   description: '点数-2，连击，抽1张牌',
 };
 
-/** 惑心咒：开局仅使用一次，为对手施加窥视禁忌与认知干涉（结算逻辑在 CombatView） */
+/** 惑心咒：开局仅使用一次，为对手施加虚实不明与敌意隐藏（结算逻辑在 CombatView） */
 const 惑心咒: CardData = {
   id: 'enemy_muxinlan_cunning',
   name: '惑心咒',
@@ -4730,7 +5041,7 @@ const 惑心咒: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '为对手施加1层窥视禁忌与1层认知干涉',
+  description: '为对手施加1层虚实不明与1层敌意隐藏',
 };
 
 /** 强制收购：造成0.5倍最终点数的伤害，销毁 */
@@ -5056,6 +5367,16 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [墨迹触手.name, 墨迹触手],
   [低语教唆.name, 低语教唆],
   [知识渴望.name, 知识渴望],
+  [ABYSS_JELLYFISH_NEURAL_EXCITE_FILAMENT.name, ABYSS_JELLYFISH_NEURAL_EXCITE_FILAMENT],
+  [ABYSS_JELLYFISH_CIRCUITOUS.name, ABYSS_JELLYFISH_CIRCUITOUS],
+  [ABYSS_JELLYFISH_FULL_WRAP.name, ABYSS_JELLYFISH_FULL_WRAP],
+  [ABYSS_JELLYFISH_TOXIN_SECRETION.name, ABYSS_JELLYFISH_TOXIN_SECRETION],
+  [束缚丝.name, 束缚丝],
+  [传导丝.name, 传导丝],
+  [麻痹螯刺.name, 麻痹螯刺],
+  [设伏.name, 设伏],
+  [STITCHED_SPIDER_PACK_HUNT.name, STITCHED_SPIDER_PACK_HUNT],
+  [STITCHED_SPIDER_PRECISE_INJECTION.name, STITCHED_SPIDER_PRECISE_INJECTION],
   [潜伏.name, 潜伏],
   [闪电伏击.name, 闪电伏击],
   [麻痹毒素.name, 麻痹毒素],
@@ -5108,8 +5429,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [PATROL_BAT_FLY_AWAY.name, PATROL_BAT_FLY_AWAY],
   [PATROL_BAT_CIRCLING.name, PATROL_BAT_CIRCLING],
   [SHAME_LEECH_PARASITIC_DRILL.name, SHAME_LEECH_PARASITIC_DRILL],
+  [WITNESS_WORM_MENTAL_SHOCK.name, WITNESS_WORM_MENTAL_SHOCK],
+  [WITNESS_WORM_RETREAT.name, WITNESS_WORM_RETREAT],
   [SHAME_LEECH_INTERNAL_BREEDING.name, SHAME_LEECH_INTERNAL_BREEDING],
   [SHAME_LEECH_SHAME_AMPLIFY.name, SHAME_LEECH_SHAME_AMPLIFY],
+  [PARASITIC_LEECH_CUMULATIVE_APHRO.name, PARASITIC_LEECH_CUMULATIVE_APHRO],
   [BLOOD_BAT_PREDATORY_NIBBLE.name, BLOOD_BAT_PREDATORY_NIBBLE],
   [BLOOD_BAT_ULTRASONIC_STIMULUS.name, BLOOD_BAT_ULTRASONIC_STIMULUS],
   [BLOOD_BAT_SWARM_RESONANCE.name, BLOOD_BAT_SWARM_RESONANCE],
@@ -5121,6 +5445,10 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [NIGHTMARE_STEED_BRANDED_STOMP.name, NIGHTMARE_STEED_BRANDED_STOMP],
   [NIGHTMARE_STEED_SADDLE_CAPTURE.name, NIGHTMARE_STEED_SADDLE_CAPTURE],
   [NIGHTMARE_STEED_MIST_DUST.name, NIGHTMARE_STEED_MIST_DUST],
+  [EXECUTIONER_PUPPET_FACELESS_INTIMIDATION.name, EXECUTIONER_PUPPET_FACELESS_INTIMIDATION],
+  [EXECUTIONER_PUPPET_TOOL_SHIFT.name, EXECUTIONER_PUPPET_TOOL_SHIFT],
+  [EXECUTIONER_PUPPET_EXECUTION.name, EXECUTIONER_PUPPET_EXECUTION],
+  [EXECUTIONER_PUPPET_EVADE.name, EXECUTIONER_PUPPET_EVADE],
   [PUNISHMENT_PUPPET_BONE_WHIP.name, PUNISHMENT_PUPPET_BONE_WHIP],
   [PUNISHMENT_PUPPET_SUCTION_SUPPRESS.name, PUNISHMENT_PUPPET_SUCTION_SUPPRESS],
   [PUNISHMENT_PUPPET_OVERLOAD_EXECUTE.name, PUNISHMENT_PUPPET_OVERLOAD_EXECUTE],

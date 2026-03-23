@@ -73,7 +73,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.DEVOUR]: {
     type: EffectType.DEVOUR,
-    name: '吞食',
+    name: '被吞食',
     polarity: 'debuff',
     timings: ['onCardPlay'],
     stackable: false,
@@ -379,7 +379,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.PEEP_FORBIDDEN]: {
     type: EffectType.PEEP_FORBIDDEN,
-    name: '窥视禁忌',
+    name: '虚实不明',
     polarity: 'debuff',
     timings: ['passive'],
     stackable: false,
@@ -388,7 +388,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.BLIND_ASH]: {
     type: EffectType.BLIND_ASH,
-    name: '盲目之蚀',
+    name: '思绪被扰乱',
     polarity: 'debuff',
     timings: ['passive'],
     stackable: false,
@@ -397,7 +397,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.COGNITIVE_INTERFERENCE]: {
     type: EffectType.COGNITIVE_INTERFERENCE,
-    name: '认知干涉',
+    name: '敌意隐藏',
     polarity: 'debuff',
     timings: ['passive'],
     stackable: false,
@@ -406,7 +406,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.MEMORY_FOG]: {
     type: EffectType.MEMORY_FOG,
-    name: '失忆迷雾',
+    name: '视野模糊',
     polarity: 'debuff',
     timings: ['passive'],
     stackable: false,
@@ -1189,7 +1189,7 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * 检查指定卡牌是否可使用（考虑束缚、吞食效果）
+ * 检查指定卡牌是否可使用（考虑束缚、被吞食效果）
  */
 export function canPlayCard(
   entity: EntityStats,
@@ -1216,14 +1216,14 @@ export function canPlayCard(
     }
   }
 
-  // 吞食：基础骰值≤3 时禁用物理/魔法/闪避
+  // 被吞食：基础骰值≤3 时禁用物理/魔法/闪避
   if (hasEffect(entity, EffectType.DEVOUR) && baseRawDice <= 3) {
     if (
       card.type === '物理' as CardType
       || card.type === '魔法' as CardType
       || card.type === '闪避' as CardType
     ) {
-      return { allowed: false, reason: `吞食效果生效（基础骰值≤3），无法使用${card.type}卡牌。` };
+      return { allowed: false, reason: `被吞食效果生效（基础骰值≤3），无法使用${card.type}卡牌。` };
     }
   }
 

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div ref="viewportRef" class="ui-viewport">
     <div class="ui-stage" :style="stageStyle">
       <div
@@ -4084,6 +4084,9 @@ const normalizeNegativeStatusList = (value: unknown): string[] => {
 
   return [];
 };
+const REBIRTH_PERSISTENT_NEGATIVE_STATUSES = new Set<string>(['[淫乱知识]', '[血族印记]']);
+const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>(['[血族印记]']);
+
 const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
   '[淫纹]': '每场战斗开始时，你获得3层中毒。',
@@ -4094,11 +4097,12 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[催淫]': '因中毒量hp归零，后续剧情会体现身体被药性支配。',
   '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
   '[被侵蚀]': '曾因侵蚀hp归零，后续剧情会体现身体被操控。',
+  '[血族印记]': '被血族支配后留下的烙印，后续剧情会体现其持续影响。',
 };
 const negativeStatusEntries = computed(() => (
   normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name) => ({
     name,
-    description: NEGATIVE_STATUS_DESCRIPTION_MAP[name] ?? '未知负面状态，若此负面状态非你本人添加，请反馈给作者。',
+    description: NEGATIVE_STATUS_DESCRIPTION_MAP[name] ?? '如果你看到了这串字，且你没有动变量，那么说明你遇到bug了，请反馈给作者。',
   }))
 ));
 const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(effectiveDisplayMinDice.value, 1)));
@@ -4175,7 +4179,8 @@ const buildRebirthResetFields = (): Record<string, any> => {
   const currentFloor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
   const rebirthSkillPointGain = Math.floor((currentFloor * (currentFloor + 1)) / 2);
   const currentNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
-  const retainedNegativeStatuses = currentNegativeStatuses.includes('[淫乱知识]') ? ['[淫乱知识]'] : [];
+  const retainedNegativeStatuses = currentNegativeStatuses
+    .filter((status) => REBIRTH_PERSISTENT_NEGATIVE_STATUSES.has(status));
   return {
     _血量: initialMaxHp,
     _血量上限: initialMaxHp,
@@ -4776,7 +4781,9 @@ const showHotSpringCleanseText = () => {
 
 const useHotSpringCleanse = () => {
   showHotSpringCleanseText();
-  gameStore.setPendingStatDataChanges({ $负面状态: [] });
+  const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态)
+    .filter((status) => HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES.has(status));
+  gameStore.setPendingStatDataChanges({ $负面状态: retainedNegativeStatuses });
   gameStore.sendAction(HOT_SPRING_CLEANSE_ACTION_TEXT);
 };
 

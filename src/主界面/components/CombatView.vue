@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div
     ref="combatRootEl"
     class="combat-root w-full h-full bg-[#1a1a22] text-dungeon-paper font-ui relative overflow-hidden select-none"
@@ -1285,7 +1285,7 @@ watch(
   { deep: true },
 );
 
-// 用于“吞食”判定：记录当前用于出牌限制判定的裸骰点数（重掷后同步更新）
+// 用于“被吞食”判定：记录当前用于出牌限制判定的裸骰点数（重掷后同步更新）
 const playerTurnRawDice = ref(1);
 const enemyTurnRawDice = ref(1);
 
@@ -1393,6 +1393,7 @@ const STATUS_LUST_MARK = '[淫纹]';
 const STATUS_LUST_KNOWLEDGE = '[淫乱知识]';
 const STATUS_MARKED = '[被标记]';
 const STATUS_PARASITIZED = '[被寄生]';
+const STATUS_BLOODLINE_MARK = '[血族印记]';
 const PHEROMONE_CURSE_CARD_NAME = '信息素';
 const ARCHIVE_TAINT_CURSE_CARD_NAME = '档案污页';
 const normalizeNegativeStatusList = (value: unknown): string[] => {
@@ -1550,6 +1551,7 @@ const playerHandMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
 const playerPlayedCardVisual = ref<PlayerPlayedCardVisual | null>(null);
 const resolvedPlayerCardVisual = ref<ResolvedCardVisual | null>(null);
 const resolvedEnemyCardVisual = ref<ResolvedCardVisual | null>(null);
+const executionerPuppetPointModifier = ref<number | null>(null);
 const hideIdleDiceUntilNextTurn = ref(false);
 const resolvedCardVisualEntries = computed(() => (
   [resolvedPlayerCardVisual.value, resolvedEnemyCardVisual.value]
@@ -2375,6 +2377,42 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
   }
 };
 
+const triggerShockProc = (targetSide: BattleSide, reason: string): number => {
+  const target = targetSide === 'player' ? playerStats.value : enemyStats.value;
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  const shockStacks = Math.max(0, getEffectStacks(target, ET.SHOCK));
+  if (shockStacks <= 0) {
+    log(`<span class="text-gray-400">[电击] ${reason}未触发：${targetLabel}当前无电击。</span>`);
+    return 0;
+  }
+
+  const { actualDamage, logs: shockDamageLogs } = applyDamageToSideWithRelics(targetSide, target, shockStacks, false, '电击');
+  if (actualDamage > 0) {
+    pushFloatingNumber(targetSide, actualDamage, 'magic', '-');
+  }
+
+  const nextStacks = Math.max(0, Math.floor(shockStacks / 2));
+  if (nextStacks <= 0) {
+    removeEffect(target, ET.SHOCK);
+  } else {
+    const shockEffect = target.effects.find((effect) => effect.type === ET.SHOCK);
+    if (shockEffect) {
+      shockEffect.stacks = nextStacks;
+    }
+  }
+
+  log(`<span class="text-violet-300">[电击] ${reason}触发：${targetLabel}损失 ${actualDamage} 点生命（电击 ${shockStacks}→${nextStacks}）。</span>`);
+  for (const shockLog of shockDamageLogs) {
+    const normalized = shockLog.startsWith('受到') ? `${targetLabel}${shockLog}` : shockLog;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+  if (targetSide === 'player' && actualDamage > 0 && target.hp <= 0) {
+    queuePlayerLethalNegativeStatus(PLAYER_SHOCK_LETHAL_NEGATIVE_STATUS, '电击');
+  }
+
+  return actualDamage;
+};
+
 const changeManaWithShock = (
   side: BattleSide,
   delta: number,
@@ -2911,7 +2949,7 @@ const applyFatigueDegreePenaltyOnTurnStart = () => {
 const queueCardNegativeEffectForPlayer = (source: BattleSide, card: CardData) => {
   if (source !== 'enemy') return;
   const negativeEffect = (card.negativeEffect ?? '').trim();
-  if (!negativeEffect) return;
+  if (!negativeEffect || pendingCardNegativeEffects.value.includes(negativeEffect)) return;
   pendingCardNegativeEffects.value.push(negativeEffect);
   log(`<span class="text-fuchsia-300">我方获得负面效果：${negativeEffect}</span>`);
 };
@@ -3061,10 +3099,24 @@ const getCardFinalPoint = (
   if (card.id === 'burn_inferno_judgement') {
     finalPoint += Math.floor(getEffectStacks(defender, ET.BURN) / 2);
   }
+  if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
+    if (executionerPuppetPointModifier.value !== null) {
+      finalPoint += executionerPuppetPointModifier.value;
+    } else if (!isPreview) {
+      const playerCardType = combatState.value.playerSelectedCard?.type;
+      executionerPuppetPointModifier.value = playerCardType === CardType.DODGE
+        ? Math.floor(Math.random() * 2) - 2
+        : Math.floor(Math.random() * 2) + 1;
+      finalPoint += executionerPuppetPointModifier.value;
+    }
+  }
   // 血债重击：自身每损失3点生命，点数+1
   if (card.id === 'bloodpool_blood_debt_strike') {
     const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
     finalPoint += Math.floor(lostHp / 3);
+  }
+  if (card.id === 'enemy_stitched_spider_pack_hunt') {
+    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
   }
 
   if (source === 'player') {
@@ -3135,12 +3187,32 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       lines.push(`炎狱判决 +${bonus} => ${finalPoint}`);
     }
   }
+  if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
+    if (executionerPuppetPointModifier.value !== null) {
+      finalPoint += executionerPuppetPointModifier.value;
+      lines.push(`行刑 ${executionerPuppetPointModifier.value >= 0 ? '+' : ''}${executionerPuppetPointModifier.value} => ${finalPoint}`);
+    } else {
+      const playerCardType = combatState.value.playerSelectedCard?.type;
+      if (playerCardType === CardType.DODGE) {
+        lines.push('行刑：若对手使用闪避，点数随机-2~-1');
+      } else {
+        lines.push('行刑：若对手未使用闪避，点数随机+1~+2');
+      }
+    }
+  }
   if (card.id === 'bloodpool_blood_debt_strike') {
     const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
     const bonus = Math.floor(lostHp / 3);
     if (bonus > 0) {
       finalPoint += bonus;
       lines.push(`血债重击（已损失${lostHp}） +${bonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'enemy_stitched_spider_pack_hunt') {
+    const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    if (swarmBonus > 0) {
+      finalPoint += swarmBonus;
+      lines.push(`群体围猎（群集${swarmBonus}） +${swarmBonus} => ${finalPoint}`);
     }
   }
 
@@ -3506,6 +3578,13 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
     const applied = applyEffect(playerStats.value, ET.ORGASM, 1, { source: 'negative-status:[被寄生]' });
     if (applied) {
       log('<span class="text-fuchsia-300">[负面状态][被寄生] 开局获得了1层性兴奋。</span>');
+    }
+  }
+
+  if (statuses.includes(STATUS_BLOODLINE_MARK) && String(gameStore.statData._对手名称 ?? '').trim() === '伊丽莎白') {
+    const applied = applyEffect(playerStats.value, ET.ORGASM, 10, { source: 'negative-status:[血族印记]' });
+    if (applied) {
+      log('<span class="text-fuchsia-300">[负面状态][血族印记] 面对伊丽莎白时，开局获得了10层性兴奋。</span>');
     }
   }
 };
@@ -3901,6 +3980,7 @@ const startTurn = () => {
   combatState.value.phase = CombatPhase.DRAW_PHASE;
   combatState.value.playerSelectedCard = null;
   combatState.value.enemyIntentCard = null;
+  executionerPuppetPointModifier.value = null;
   enemyIntentConsumedThisTurn.value = false;
   enemyIntentManaSpentThisTurn.value = false;
   enemyComboPreludeResolvedTurn.value = null;
@@ -4373,6 +4453,14 @@ const resolveCombat = async (
   rerollByTrait('player', resolvedPlayerCard);
   rerollByTrait('enemy', resolvedEnemyCard);
 
+  if (resolvedEnemyCard.id === 'enemy_executioner_puppet_execution') {
+    executionerPuppetPointModifier.value = resolvedPlayerCard.type === CardType.DODGE
+      ? Math.floor(Math.random() * 2) - 2
+      : Math.floor(Math.random() * 2) + 1;
+  } else {
+    executionerPuppetPointModifier.value = null;
+  }
+
   const pClashPoint = getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice);
   const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
 
@@ -4712,11 +4800,15 @@ const resolveCombat = async (
     const finalizeCardExecution = () => {
       if (source === 'enemy') {
         aiFlags.patrolBatLastEnemyCardId = card.id;
+        aiFlags.abyssJellyfishLastEnemyCardId = card.id;
         if (card.id === 'enemy_patrol_bat_mark') {
           aiFlags.patrolBatMarkHit = true;
         }
         if (card.id === 'enemy_shame_leech_parasitic_drill') {
           aiFlags.shameLeechParasiticDrillHit = true;
+        }
+        if (card.id === 'enemy_abyss_jellyfish_full_wrap') {
+          aiFlags.abyssJellyfishFullWrapHit = true;
         }
       }
       applyCardExtraAttributes();
@@ -4920,7 +5012,26 @@ const resolveCombat = async (
     if (card.id === 'enemy_muxinlan_cunning') {
       applyStatusEffectWithRelics(defenderSide, ET.PEEP_FORBIDDEN, 1, { source: card.id });
       applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
-      log(`<span class="text-violet-300">${label}【${card.name}】使对手陷入窥视禁忌与认知干涉</span>`);
+      log(`<span class="text-violet-300">${label}【${card.name}】使对手陷入虚实不明与敌意隐藏</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_executioner_puppet_faceless_intimidation') {
+      applyStatusEffectWithRelics(defenderSide, ET.PEEP_FORBIDDEN, 1, { source: card.id });
+      applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
+      log(`<span class="text-violet-300">${label}【${card.name}】使对手陷入虚实不明与敌意隐藏</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_executioner_puppet_tool_shift') {
+      attacker.minDice += 1;
+      attacker.maxDice += 1;
+      if (attacker.minDice > attacker.maxDice) {
+        attacker.maxDice = attacker.minDice;
+      }
+      log(`<span class="text-violet-300">${label}【${card.name}】最小/最大点数 +1（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
       finalizeAndTrack();
       return;
     }
@@ -5626,6 +5737,16 @@ const resolveCombat = async (
           log(`<span class="text-fuchsia-300">${label}【${card.name}】受群集影响额外结算 ${swarmStacks} 次：额外施加 ${extraExcitementApplied} 层性兴奋${extraFatigueApplied > 0 ? `与 ${extraFatigueApplied} 层疲劳` : ''}</span>`);
         }
       }
+      if (card.id === 'enemy_stitched_spider_pack_hunt') {
+        const bindStacks = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+        if (bindStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.BIND, bindStacks, {
+            source: card.id,
+            lockDecayThisTurn: true,
+          });
+          log(`<span class="text-yellow-300">${label}【${card.name}】按自身群集数施加了 ${bindStacks} 层束缚</span>`);
+        }
+      }
       if (card.id === 'burn_kindle') {
         const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
         if (burnStacks > 0) {
@@ -5684,6 +5805,19 @@ const resolveCombat = async (
           1,
           bleedDamage,
           bleedDamage,
+        );
+      }
+      if (card.id === 'enemy_judgment_spider_conduction_silk') {
+        const shockDamage = triggerShockProc(defenderSide, `${label}【${card.name}】`);
+        triggerPlayerRelicHitHooks(
+          source,
+          defenderSide,
+          card,
+          finalPoint,
+          1,
+          1,
+          shockDamage,
+          shockDamage,
         );
       }
 
@@ -5780,7 +5914,7 @@ const resolveCombat = async (
         const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
         if (targetHasBind) {
           applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
-          log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已束缚，施加 1 层认知干涉</span>`);
+          log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已束缚，施加 1 层敌意隐藏</span>`);
         }
       }
 
@@ -6039,6 +6173,19 @@ const runEndCombatSequence = async (outcome: CombatOutcome) => {
   const finalPlayerStats = cloneEntityStats(playerStats.value);
   if (getEffectStacks(finalPlayerStats, ET.TEMP_MAX_HP) > 0) {
     removeEffect(finalPlayerStats, ET.TEMP_MAX_HP);
+  }
+  const defeatNegativeStatuses = outcome === 'lose'
+    ? (Array.isArray(enemyDef?.defeatNegativeStatus)
+      ? enemyDef.defeatNegativeStatus
+      : [enemyDef?.defeatNegativeStatus ?? ''])
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+    : [];
+  for (const negativeStatus of defeatNegativeStatuses) {
+    if (pendingCardNegativeEffects.value.includes(negativeStatus)) continue;
+    pendingCardNegativeEffects.value.push(negativeStatus);
+    log(`<span class="text-fuchsia-300">我方战败于【${enemyDisplayName}】，获得负面状态：${negativeStatus}</span>`);
   }
   emit('endCombat', outcome, finalPlayerStats, [...combatState.value.logs], [...pendingCardNegativeEffects.value]);
 };

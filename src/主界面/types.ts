@@ -184,8 +184,8 @@ export enum EffectType {
   ARMOR = '护甲',
   /** 束缚 — 限制指定类型卡牌使用 */
   BIND = '束缚',
-  /** 吞食 — 基础点数 ≤3 时禁用物理/闪避 */
-  DEVOUR = '吞食',
+  /** 被吞食 — 基础点数 ≤3 时禁用物理/闪避 */
+  DEVOUR = '被吞食',
   /** 中毒 — 致死判定 */
   POISON = '中毒',
   /** 中毒量 — 与当前生命比较的判定值 */
@@ -252,14 +252,14 @@ export enum EffectType {
   BLOOD_COCOON = '血茧',
   /** 不屈 — 生命值归零时消耗1层并恢复至1点生命 */
   INDOMITABLE = '不屈',
-  /** 窥视禁忌 — 仅在出牌阶段干扰对方骰子UI显示（永久debuff） */
-  PEEP_FORBIDDEN = '窥视禁忌',
-  /** 盲目之蚀 — 仅在出牌阶段干扰自身骰子UI显示（永久debuff） */
-  BLIND_ASH = '盲目之蚀',
-  /** 认知干涉 — 仅在出牌阶段隐藏对方意图卡信息（永久debuff） */
-  COGNITIVE_INTERFERENCE = '认知干涉',
-  /** 失忆迷雾 — 仅在出牌阶段隐藏自身手牌名称/描述（永久debuff） */
-  MEMORY_FOG = '失忆迷雾',
+  /** 虚实不明 — 仅在出牌阶段干扰对方骰子UI显示（永久debuff） */
+  PEEP_FORBIDDEN = '虚实不明',
+  /** 思绪被扰乱 — 仅在出牌阶段干扰自身骰子UI显示（永久debuff） */
+  BLIND_ASH = '思绪被扰乱',
+  /** 敌意隐藏 — 仅在出牌阶段隐藏对方意图卡信息（永久debuff） */
+  COGNITIVE_INTERFERENCE = '敌意隐藏',
+  /** 视野模糊 — 仅在出牌阶段隐藏自身手牌名称/描述（永久debuff） */
+  MEMORY_FOG = '视野模糊',
   /** 禁言 — 无法使用魔法卡牌，每回合结束层数-1 */
   SILENCE = '禁言',
   /** 被操控 — 仅可使用与对手意图同类型卡牌，每回合结束层数-1 */
@@ -470,6 +470,8 @@ export interface EnemyDefinition {
   stats: EntityStats;
   /** 敌人的牌组 */
   deck: CardData[];
+  /** 战败负面状态：若玩家败于该敌人，则在战斗结束后写入对应 $负面状态 */
+  defeatNegativeStatus?: string | string[];
   /** 独立的出牌 AI 函数 */
   selectCard: EnemyAISelectCard;
 }

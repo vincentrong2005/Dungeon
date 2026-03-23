@@ -164,6 +164,18 @@ const SHAME_LEECH_CARD = {
   SHAME_AMPLIFY: 'enemy_shame_leech_shame_amplify',
 } as const;
 
+const PARASITIC_LEECH_CARD = {
+  PARASITIC_DRILL: 'enemy_shame_leech_parasitic_drill',
+  INTERNAL_BREEDING: 'enemy_shame_leech_internal_breeding',
+  CUMULATIVE_APHRO: 'enemy_parasitic_leech_cumulative_aphro',
+} as const;
+
+const WITNESS_WORM_CARD = {
+  PARASITIC_DRILL: 'enemy_shame_leech_parasitic_drill',
+  MENTAL_SHOCK: 'enemy_witness_worm_mental_shock',
+  RETREAT: 'enemy_witness_worm_retreat',
+} as const;
+
 const BLOOD_BAT_CARD = {
   PREDATORY_NIBBLE: 'enemy_blood_bat_predatory_nibble',
   ULTRASONIC_STIMULUS: 'enemy_blood_bat_ultrasonic_stimulus',
@@ -188,6 +200,13 @@ const PUNISHMENT_PUPPET_CARD = {
   BONE_WHIP: 'enemy_punishment_puppet_bone_whip',
   SUCTION_SUPPRESS: 'enemy_punishment_puppet_suction_suppress',
   OVERLOAD_EXECUTE: 'enemy_punishment_puppet_overload_execute',
+} as const;
+
+const EXECUTIONER_PUPPET_CARD = {
+  FACELESS_INTIMIDATION: 'enemy_executioner_puppet_faceless_intimidation',
+  TOOL_SHIFT: 'enemy_executioner_puppet_tool_shift',
+  EXECUTION: 'enemy_executioner_puppet_execution',
+  EVADE: 'enemy_executioner_puppet_evade',
 } as const;
 
 const SHADOW_JAILER_CARD = {
@@ -396,6 +415,28 @@ const BOOK_DEMON_CARD = {
   INK_TENTACLE: 'enemy_book_demon_ink_tentacle',
   WHISPER_INCITEMENT: 'enemy_book_demon_whisper_incitement',
   KNOWLEDGE_THIRST: 'enemy_book_demon_knowledge_thirst',
+} as const;
+
+const JUDGMENT_SPIDER_CARD = {
+  BINDING_SILK: 'enemy_judgment_spider_binding_silk',
+  CONDUCTION_SILK: 'enemy_judgment_spider_conduction_silk',
+  PARALYTIC_PINCER: 'enemy_judgment_spider_paralytic_pincer',
+  LURK: 'enemy_vinewalker_lurk',
+  SET_AMBUSH: 'enemy_judgment_spider_set_ambush',
+} as const;
+
+const STITCHED_SPIDER_CARD = {
+  SET_AMBUSH: 'enemy_judgment_spider_set_ambush',
+  PARALYTIC_TOXIN: 'enemy_vinewalker_paralytic_toxin',
+  PACK_HUNT: 'enemy_stitched_spider_pack_hunt',
+  PRECISE_INJECTION: 'enemy_stitched_spider_precise_injection',
+} as const;
+
+const ABYSS_JELLYFISH_CARD = {
+  NEURAL_EXCITE_FILAMENT: 'enemy_abyss_jellyfish_neural_excite_filament',
+  CIRCUITOUS: 'enemy_abyss_jellyfish_circuitous',
+  FULL_WRAP: 'enemy_abyss_jellyfish_full_wrap',
+  TOXIN_SECRETION: 'enemy_abyss_jellyfish_toxin_secretion',
 } as const;
 
 function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
@@ -917,6 +958,7 @@ const PATROL_BAT_ENEMY: EnemyDefinition = {
 
 const 羞耻蛭: EnemyDefinition = {
   name: '羞耻蛭',
+  defeatNegativeStatus: '[被寄生]',
   stats: {
     hp: 4,
     maxHp: 4,
@@ -947,6 +989,106 @@ const 羞耻蛭: EnemyDefinition = {
     }
 
     return pickCardById(ctx, SHAME_LEECH_CARD.INTERNAL_BREEDING);
+  },
+};
+
+const 寄生水蛭: EnemyDefinition = {
+  name: '寄生水蛭',
+  defeatNegativeStatus: '[被寄生]',
+  stats: {
+    hp: 6,
+    maxHp: 6,
+    mp: 0,
+    minDice: 2,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
+      { type: EffectType.POINT_GROWTH_BIG, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    PARASITIC_LEECH_CARD.PARASITIC_DRILL,
+    PARASITIC_LEECH_CARD.INTERNAL_BREEDING,
+    PARASITIC_LEECH_CARD.CUMULATIVE_APHRO,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.flags.shameLeechParasiticDrillHit) {
+      const chosen = weightedRandom<string>([
+        { value: PARASITIC_LEECH_CARD.CUMULATIVE_APHRO, weight: 40 },
+        { value: PARASITIC_LEECH_CARD.INTERNAL_BREEDING, weight: 60 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: PARASITIC_LEECH_CARD.PARASITIC_DRILL, weight: 70 },
+      { value: PARASITIC_LEECH_CARD.CUMULATIVE_APHRO, weight: 30 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 证词虫: EnemyDefinition = {
+  name: '证词虫',
+  defeatNegativeStatus: '[被寄生]',
+  stats: {
+    hp: 3,
+    maxHp: 3,
+    mp: 0,
+    minDice: 2,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.SWARM, stacks: 4, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    WITNESS_WORM_CARD.PARASITIC_DRILL,
+    WITNESS_WORM_CARD.MENTAL_SHOCK,
+    WITNESS_WORM_CARD.RETREAT,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.flags.shameLeechParasiticDrillHit) {
+      return pickCardById(ctx, WITNESS_WORM_CARD.RETREAT);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      return pickCardById(ctx, WITNESS_WORM_CARD.MENTAL_SHOCK);
+    }
+
+    return pickCardById(ctx, WITNESS_WORM_CARD.PARASITIC_DRILL);
+  },
+};
+
+const 缝合蜘蛛: EnemyDefinition = {
+  name: '缝合蜘蛛',
+  stats: {
+    hp: 18,
+    maxHp: 18,
+    mp: 0,
+    minDice: 3,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
+      { type: EffectType.SELF_REPAIR, stacks: 5, polarity: 'buff' },
+      { type: EffectType.NON_LIVING, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    STITCHED_SPIDER_CARD.SET_AMBUSH,
+    STITCHED_SPIDER_CARD.PARALYTIC_TOXIN,
+    STITCHED_SPIDER_CARD.PACK_HUNT,
+    STITCHED_SPIDER_CARD.PRECISE_INJECTION,
+  ]),
+  defeatNegativeStatus: '[神经肌肉失调]',
+  selectCard(ctx: EnemyAIContext) {
+    const chosen = weightedRandom<string>([
+      { value: STITCHED_SPIDER_CARD.SET_AMBUSH, weight: 20 },
+      { value: STITCHED_SPIDER_CARD.PARALYTIC_TOXIN, weight: 30 },
+      { value: STITCHED_SPIDER_CARD.PACK_HUNT, weight: 20 },
+      { value: STITCHED_SPIDER_CARD.PRECISE_INJECTION, weight: 30 },
+    ]);
+    return pickCardById(ctx, chosen);
   },
 };
 
@@ -1092,6 +1234,39 @@ const 惩戒傀儡: EnemyDefinition = {
     const chosen = weightedRandom<string>([
       { value: PUNISHMENT_PUPPET_CARD.BONE_WHIP, weight: 75 },
       { value: PUNISHMENT_PUPPET_CARD.SUCTION_SUPPRESS, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 刽子手偶: EnemyDefinition = {
+  name: '刽子手偶',
+  stats: {
+    hp: 90,
+    maxHp: 90,
+    mp: 0,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.NON_LIVING, stacks: 1, polarity: 'trait' },
+      { type: EffectType.SELF_REPAIR, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    EXECUTIONER_PUPPET_CARD.FACELESS_INTIMIDATION,
+    EXECUTIONER_PUPPET_CARD.TOOL_SHIFT,
+    EXECUTIONER_PUPPET_CARD.EXECUTION,
+    EXECUTIONER_PUPPET_CARD.EVADE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, EXECUTIONER_PUPPET_CARD.FACELESS_INTIMIDATION);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: EXECUTIONER_PUPPET_CARD.TOOL_SHIFT, weight: 15 },
+      { value: EXECUTIONER_PUPPET_CARD.EXECUTION, weight: 55 },
+      { value: EXECUTIONER_PUPPET_CARD.EVADE, weight: 30 },
     ]);
     return pickCardById(ctx, chosen);
   },
@@ -1490,6 +1665,7 @@ const 宁芙: EnemyDefinition = {
 
 const 温蒂尼: EnemyDefinition = {
   name: '温蒂尼',
+  defeatNegativeStatus: '[被侵蚀]',
   stats: {
     hp: 40,
     maxHp: 40,
@@ -1717,6 +1893,7 @@ const 希尔薇: EnemyDefinition = {
 
 const 伊丽莎白: EnemyDefinition = {
   name: '伊丽莎白',
+  defeatNegativeStatus: ['[催淫]', '[血族印记]'],
   stats: {
     hp: 250,
     maxHp: 250,
@@ -1774,6 +1951,7 @@ const 伊丽莎白: EnemyDefinition = {
 
 const 因克: EnemyDefinition = {
   name: '因克',
+  defeatNegativeStatus: '[被侵蚀]',
   stats: {
     hp: 100,
     maxHp: 100,
@@ -2276,6 +2454,69 @@ const 桌面触手: EnemyDefinition = {
   },
 };
 
+const 审判蛛: EnemyDefinition = {
+  name: '审判蛛',
+  stats: {
+    hp: 70,
+    maxHp: 70,
+    mp: 0,
+    minDice: 3,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.MIND_READ, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    JUDGMENT_SPIDER_CARD.BINDING_SILK,
+    JUDGMENT_SPIDER_CARD.CONDUCTION_SILK,
+    JUDGMENT_SPIDER_CARD.PARALYTIC_PINCER,
+    JUDGMENT_SPIDER_CARD.LURK,
+    JUDGMENT_SPIDER_CARD.SET_AMBUSH,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    return selectCardByMindRead(ctx);
+  },
+};
+
+const 深渊水母: EnemyDefinition = {
+  name: '深渊水母',
+  stats: {
+    hp: 85,
+    maxHp: 85,
+    mp: 0,
+    minDice: 2,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.TOXIN_SPREAD, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    ABYSS_JELLYFISH_CARD.NEURAL_EXCITE_FILAMENT,
+    ABYSS_JELLYFISH_CARD.CIRCUITOUS,
+    ABYSS_JELLYFISH_CARD.FULL_WRAP,
+    ABYSS_JELLYFISH_CARD.TOXIN_SECRETION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.flags.abyssJellyfishFullWrapHit) {
+      return pickCardById(ctx, ABYSS_JELLYFISH_CARD.TOXIN_SECRETION);
+    }
+
+    if (ctx.flags.abyssJellyfishLastEnemyCardId === ABYSS_JELLYFISH_CARD.CIRCUITOUS) {
+      const chosen = weightedRandom<string>([
+        { value: ABYSS_JELLYFISH_CARD.NEURAL_EXCITE_FILAMENT, weight: 35 },
+        { value: ABYSS_JELLYFISH_CARD.FULL_WRAP, weight: 65 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: ABYSS_JELLYFISH_CARD.NEURAL_EXCITE_FILAMENT, weight: 60 },
+      { value: ABYSS_JELLYFISH_CARD.CIRCUITOUS, weight: 40 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -2291,9 +2532,13 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [POLLEN_SPRAYER_ENEMY.name, POLLEN_SPRAYER_ENEMY],
   [PATROL_BAT_ENEMY.name, PATROL_BAT_ENEMY],
   [羞耻蛭.name, 羞耻蛭],
+  [寄生水蛭.name, 寄生水蛭],
+  [证词虫.name, 证词虫],
+  [缝合蜘蛛.name, 缝合蜘蛛],
   [血蝙蝠.name, 血蝙蝠],
   [血仆.name, 血仆],
   [梦魇驹.name, 梦魇驹],
+  [刽子手偶.name, 刽子手偶],
   [惩戒傀儡.name, 惩戒傀儡],
   [影牢使魔.name, 影牢使魔],
   [荆棘匍匐者.name, 荆棘匍匐者],
@@ -2304,6 +2549,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [宿舍幽灵.name, 宿舍幽灵],
   [CHAIR_MIMIC_ENEMY.name, CHAIR_MIMIC_ENEMY],
   [桌面触手.name, 桌面触手],
+  [审判蛛.name, 审判蛛],
+  [深渊水母.name, 深渊水母],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],
