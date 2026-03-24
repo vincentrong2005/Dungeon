@@ -4085,7 +4085,7 @@ const normalizeNegativeStatusList = (value: unknown): string[] => {
   return [];
 };
 const REBIRTH_PERSISTENT_NEGATIVE_STATUSES = new Set<string>(['[淫乱知识]', '[血族印记]']);
-const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>(['[血族印记]']);
+const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>();
 
 const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
@@ -4097,7 +4097,7 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[催淫]': '因中毒量hp归零，后续剧情会体现身体被药性支配。',
   '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
   '[被侵蚀]': '曾因侵蚀hp归零，后续剧情会体现身体被操控。',
-  '[血族印记]': '被血族支配后留下的烙印，后续剧情会体现其持续影响。',
+  '[血族印记]': '被伊丽莎白支配后留下的烙印，后续剧情会体现其持续影响。',
 };
 const negativeStatusEntries = computed(() => (
   normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name) => ({

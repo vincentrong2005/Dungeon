@@ -163,6 +163,17 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
     logs.push('[虚幻之躯] 物理伤害 x0.5');
   }
 
+  const defenderHasIrisAmber = ctx.defenderEffects.some((e) => e.type === EffectType.IRIS_AMBER && e.stacks > 0);
+  const defenderHasIrisScarlet = ctx.defenderEffects.some((e) => e.type === EffectType.IRIS_SCARLET && e.stacks > 0);
+  if (defenderHasIrisAmber) {
+    damage *= 0.5;
+    logs.push('[虹膜：琥珀] 受到伤害 x0.5');
+  }
+  if (defenderHasIrisScarlet) {
+    damage *= 1.25;
+    logs.push('[虹膜：猩红] 受到伤害 x1.25');
+  }
+
   if (isTrueDamage) {
     logs.push(`真实伤害，无视防御。`);
     return { damage: Math.max(0, Math.floor(damage)), isTrueDamage: true, logs };

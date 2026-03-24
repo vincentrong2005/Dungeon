@@ -432,6 +432,21 @@ const STITCHED_SPIDER_CARD = {
   PRECISE_INJECTION: 'enemy_stitched_spider_precise_injection',
 } as const;
 
+const SILK_PUPPET_CARD = {
+  RALLY: 'enemy_silk_puppet_rally',
+  POUNCE: 'enemy_silk_puppet_pounce',
+  COOPERATIVE_SUBDUE: 'enemy_silk_puppet_cooperative_subdue',
+} as const;
+
+const TESTER_CARD = {
+  WEAKNESS_SCOUT: 'enemy_tester_weakness_scout',
+  LOGIC_ANALYSIS: 'enemy_tester_logic_analysis',
+  BACKSTEP_DODGE: 'enemy_tester_backstep_dodge',
+  COMPLETE_ANALYSIS_IRIS_SHIFT: 'enemy_tester_complete_analysis_iris_shift',
+  HYPERJOINT_STRANGLE: 'enemy_tester_hyperjoint_strangle',
+  MULTI_WHIP_KICK: 'enemy_tester_multi_whip_kick',
+} as const;
+
 const ABYSS_JELLYFISH_CARD = {
   NEURAL_EXCITE_FILAMENT: 'enemy_abyss_jellyfish_neural_excite_filament',
   CIRCUITOUS: 'enemy_abyss_jellyfish_circuitous',
@@ -2478,6 +2493,83 @@ const 审判蛛: EnemyDefinition = {
   },
 };
 
+const 丝线傀儡: EnemyDefinition = {
+  name: '丝线傀儡',
+  stats: {
+    hp: 12,
+    maxHp: 12,
+    mp: 0,
+    minDice: 1,
+    maxDice: 3,
+    effects: [
+      { type: EffectType.SWARM, stacks: 7, polarity: 'buff' },
+      { type: EffectType.SELF_REPAIR, stacks: 3, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    SILK_PUPPET_CARD.RALLY,
+    SILK_PUPPET_CARD.POUNCE,
+    SILK_PUPPET_CARD.COOPERATIVE_SUBDUE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    if (playerHasBind) {
+      return pickCardById(ctx, SILK_PUPPET_CARD.COOPERATIVE_SUBDUE);
+    }
+
+    if (ctx.turn % 5 === 0) {
+      return pickCardById(ctx, SILK_PUPPET_CARD.RALLY);
+    }
+
+    return pickCardById(ctx, SILK_PUPPET_CARD.POUNCE);
+  },
+};
+
+const 测试者: EnemyDefinition = {
+  name: '测试者',
+  stats: {
+    hp: 120,
+    maxHp: 120,
+    mp: 0,
+    minDice: 2,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.SELF_REPAIR, stacks: 1, polarity: 'buff' },
+      { type: EffectType.IRIS_AMBER, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    TESTER_CARD.WEAKNESS_SCOUT,
+    TESTER_CARD.LOGIC_ANALYSIS,
+    TESTER_CARD.BACKSTEP_DODGE,
+    TESTER_CARD.COMPLETE_ANALYSIS_IRIS_SHIFT,
+    TESTER_CARD.HYPERJOINT_STRANGLE,
+    TESTER_CARD.MULTI_WHIP_KICK,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const hasAmber = ctx.enemyStats.effects.some((e) => e.type === EffectType.IRIS_AMBER && e.stacks > 0);
+    if (hasAmber && (ctx.enemyStats.hp <= ctx.enemyStats.maxHp * 0.7 || ctx.turn >= 5)) {
+      return pickCardById(ctx, TESTER_CARD.COMPLETE_ANALYSIS_IRIS_SHIFT);
+    }
+
+    if (hasAmber) {
+      const chosen = weightedRandom<string>([
+        { value: TESTER_CARD.WEAKNESS_SCOUT, weight: 45 },
+        { value: TESTER_CARD.LOGIC_ANALYSIS, weight: 20 },
+        { value: TESTER_CARD.BACKSTEP_DODGE, weight: 35 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: TESTER_CARD.BACKSTEP_DODGE, weight: 40 },
+      { value: TESTER_CARD.HYPERJOINT_STRANGLE, weight: 30 },
+      { value: TESTER_CARD.MULTI_WHIP_KICK, weight: 30 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 深渊水母: EnemyDefinition = {
   name: '深渊水母',
   stats: {
@@ -2550,6 +2642,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [CHAIR_MIMIC_ENEMY.name, CHAIR_MIMIC_ENEMY],
   [桌面触手.name, 桌面触手],
   [审判蛛.name, 审判蛛],
+  [丝线傀儡.name, 丝线傀儡],
+  [测试者.name, 测试者],
   [深渊水母.name, 深渊水母],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],

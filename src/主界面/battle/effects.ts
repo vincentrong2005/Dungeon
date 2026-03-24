@@ -206,6 +206,24 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '回合开始时若生命低于50%，按层数回复生命并随机移除等量元素debuff；每触发3次，自身增加1层生命上限削减',
   },
+  [EffectType.IRIS_AMBER]: {
+    type: EffectType.IRIS_AMBER,
+    name: '虹膜：琥珀',
+    polarity: 'buff',
+    timings: ['onBeforeDamage'],
+    stackable: false,
+    maxStacks: 1,
+    description: '受到的伤害减少50%',
+  },
+  [EffectType.IRIS_SCARLET]: {
+    type: EffectType.IRIS_SCARLET,
+    name: '虹膜：猩红',
+    polarity: 'buff',
+    timings: ['onBeforeDamage'],
+    stackable: false,
+    maxStacks: 1,
+    description: '受到的伤害增加25%',
+  },
   [EffectType.WHITE_TURBID]: {
     type: EffectType.WHITE_TURBID,
     name: '白浊',
@@ -621,6 +639,8 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.MANA_SPRING,
   EffectType.REGEN,
   EffectType.SELF_REPAIR,
+  EffectType.IRIS_AMBER,
+  EffectType.IRIS_SCARLET,
   EffectType.FLAME_ATTACH,
   EffectType.FROST_ATTACH,
   EffectType.POISON_ATTACH,
@@ -777,6 +797,13 @@ export function applyEffect(
     if (temperatureDiffStacks > 0) {
       nextStacks += temperatureDiffStacks;
     }
+  }
+
+  if (type === EffectType.IRIS_AMBER) {
+    removeEffect(entity, EffectType.IRIS_SCARLET);
+  }
+  if (type === EffectType.IRIS_SCARLET) {
+    removeEffect(entity, EffectType.IRIS_AMBER);
   }
 
   // 生命上限削减：施加时立即降低最大生命值（最低为0）

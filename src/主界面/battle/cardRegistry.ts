@@ -4316,6 +4316,159 @@ const STITCHED_SPIDER_PRECISE_INJECTION: CardData = {
   description: '造成1倍点数电击，法力汲取1',
 };
 
+/** 召集：为自身增加等同自身群集层数的蓄力（结算逻辑在 CombatView） */
+const 丝线召集: CardData = {
+  id: 'enemy_silk_puppet_rally',
+  name: '召集',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '为自身增加等同自身群集层数的蓄力',
+};
+
+/** 扑倒：造成1倍点数伤害，施加99层束缚；若拼点失败，自身最大骰子点数+1 */
+const 丝线扑倒: CardData = {
+  id: 'enemy_silk_puppet_pounce',
+  name: '扑倒',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 99 },
+  ],
+  description: '造成1倍点数伤害，施加99层束缚；若拼点失败，自身最大骰子点数+1',
+};
+
+/** 合力制服：点数+自身群集数，造成1倍点数伤害 */
+const 合力制服: CardData = {
+  id: 'enemy_silk_puppet_cooperative_subdue',
+  name: '合力制服',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+自身群集数，造成1倍点数伤害',
+};
+
+/** 弱点侦察：施加1层易伤 */
+const 弱点侦察: CardData = {
+  id: 'enemy_tester_weakness_scout',
+  name: '弱点侦察',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1层易伤',
+};
+
+/** 逻辑分析：增加自身1点最大点数和最小点数 */
+const 逻辑分析: CardData = {
+  id: 'enemy_tester_logic_analysis',
+  name: '逻辑分析',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '增加自身1点最大点数和最小点数',
+};
+
+/** 后撤闪避：闪避，闪避成功后为自身施加1层增伤 */
+const 后撤闪避: CardData = {
+  id: 'enemy_tester_backstep_dodge',
+  name: '后撤闪避',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.DAMAGE_BOOST,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '闪避，闪避成功后为自身施加1层增伤',
+};
+
+/** 完成分析，虹膜切替：移除自身虹膜：琥珀，为自身施加1层虹膜：猩红并增加自身3点最大与最小骰子点数 */
+const 完成分析虹膜切替: CardData = {
+  id: 'enemy_tester_complete_analysis_iris_shift',
+  name: '完成分析，虹膜切替',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '移除自身虹膜：琥珀，为自身施加1层虹膜：猩红并增加自身3点最大与最小骰子点数',
+};
+
+/** 超关节绞杀：点数*1.2，造成1倍物理伤害，无视闪避 */
+const 超关节绞杀: CardData = {
+  id: 'enemy_tester_hyperjoint_strangle',
+  name: '超关节绞杀',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.2, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  ignoreDodge: true,
+  description: '点数*1.2，造成1倍物理伤害，无视闪避',
+};
+
+/** 多重鞭腿：造成0.5倍点数伤害，3连击 */
+const 多重鞭腿: CardData = {
+  id: 'enemy_tester_multi_whip_kick',
+  name: '多重鞭腿',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.5倍点数伤害，3连击',
+};
+
 /** 潜伏：给自己添加1层伏击 */
 const 潜伏: CardData = {
   id: 'enemy_vinewalker_lurk',
@@ -5377,6 +5530,15 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [设伏.name, 设伏],
   [STITCHED_SPIDER_PACK_HUNT.name, STITCHED_SPIDER_PACK_HUNT],
   [STITCHED_SPIDER_PRECISE_INJECTION.name, STITCHED_SPIDER_PRECISE_INJECTION],
+  [丝线召集.name, 丝线召集],
+  [丝线扑倒.name, 丝线扑倒],
+  [合力制服.name, 合力制服],
+  [弱点侦察.name, 弱点侦察],
+  [逻辑分析.name, 逻辑分析],
+  [后撤闪避.name, 后撤闪避],
+  [完成分析虹膜切替.name, 完成分析虹膜切替],
+  [超关节绞杀.name, 超关节绞杀],
+  [多重鞭腿.name, 多重鞭腿],
   [潜伏.name, 潜伏],
   [闪电伏击.name, 闪电伏击],
   [麻痹毒素.name, 麻痹毒素],

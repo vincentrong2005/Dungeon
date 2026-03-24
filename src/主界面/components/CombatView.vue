@@ -1114,6 +1114,8 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.DAMAGE_BOOST]: Sword,
   [ET.WEAKEN]: TriangleAlert,
   [ET.REGEN]: Heart,
+  [ET.IRIS_AMBER]: Eye,
+  [ET.IRIS_SCARLET]: Eye,
   [ET.WHITE_TURBID]: Droplet,
   [ET.IGNITE_AURA]: Sparkles,
   [ET.STUN]: Ban,
@@ -3118,6 +3120,9 @@ const getCardFinalPoint = (
   if (card.id === 'enemy_stitched_spider_pack_hunt') {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
   }
+  if (card.id === 'enemy_silk_puppet_cooperative_subdue') {
+    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
+  }
 
   if (source === 'player') {
     forEachPlayerRelic((entry, relic, state) => {
@@ -3208,11 +3213,13 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       lines.push(`血债重击（已损失${lostHp}） +${bonus} => ${finalPoint}`);
     }
   }
-  if (card.id === 'enemy_stitched_spider_pack_hunt') {
+  
+
+  if (card.id === 'enemy_silk_puppet_cooperative_subdue') {
     const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
     if (swarmBonus > 0) {
       finalPoint += swarmBonus;
-      lines.push(`群体围猎（群集${swarmBonus}） +${swarmBonus} => ${finalPoint}`);
+      lines.push(`合力制服（群集${swarmBonus}）+${swarmBonus} => ${finalPoint}`);
     }
   }
 
@@ -4555,6 +4562,14 @@ const resolveCombat = async (
     if (resultMsg) {
       log(`<span class="text-gray-300">${resultMsg}</span>`);
     }
+    if (!pSuccess && resolvedPlayerCard.id === 'enemy_silk_puppet_pounce') {
+      playerStats.value.maxDice += 1;
+      log('<span class="text-cyan-300">我方【扑倒】拼点失败：最大骰子点数 +1</span>');
+    }
+    if (!eSuccess && resolvedEnemyCard.id === 'enemy_silk_puppet_pounce') {
+      enemyStats.value.maxDice += 1;
+      log('<span class="text-cyan-300">敌方【扑倒】拼点失败：最大骰子点数 +1</span>');
+    }
     // 流血：只要发生拼点，双方都按各自当前流血层数受到真实伤害
     const playerBleedStacksOnClash = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
     if (playerBleedStacksOnClash > 0) {
@@ -5032,6 +5047,45 @@ const resolveCombat = async (
         attacker.maxDice = attacker.minDice;
       }
       log(`<span class="text-violet-300">${label}【${card.name}】最小/最大点数 +1（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_silk_puppet_rally') {
+      const swarmStacks = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+      if (swarmStacks > 0) {
+        applyStatusEffectWithRelics(source, ET.CHARGE, swarmStacks, { source: card.id });
+        log(`<span class="text-violet-300">${label}【${card.name}】获得了 ${swarmStacks} 层蓄力</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未获得蓄力：当前没有群集层数</span>`);
+      }
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_tester_logic_analysis') {
+      attacker.minDice += 1;
+      attacker.maxDice += 1;
+      if (attacker.minDice > attacker.maxDice) {
+        attacker.maxDice = attacker.minDice;
+      }
+      log(`<span class="text-violet-300">${label}【${card.name}】最小/最大点数 +1（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_tester_complete_analysis_iris_shift') {
+      const hadAmber = getEffectStacks(attacker, ET.IRIS_AMBER) > 0;
+      if (hadAmber) {
+        removeEffect(attacker, ET.IRIS_AMBER);
+      }
+      applyStatusEffectWithRelics(source, ET.IRIS_SCARLET, 1, { source: card.id });
+      attacker.minDice += 3;
+      attacker.maxDice += 3;
+      if (attacker.minDice > attacker.maxDice) {
+        attacker.maxDice = attacker.minDice;
+      }
+      log(`<span class="text-rose-300">${label}【${card.name}】${hadAmber ? '移除了虹膜：琥珀，' : ''}获得1层虹膜：猩红，最小/最大点数 +3（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
       finalizeAndTrack();
       return;
     }
