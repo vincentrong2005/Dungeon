@@ -1121,6 +1121,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.STUN]: Ban,
   [ET.CHARGE]: Zap,
   [ET.FATIGUE]: TriangleAlert,
+  [ET.SCALE_POWDER]: Sparkles,
   [ET.COLD]: Snowflake,
   [ET.TEMPERATURE_DIFF]: Waves,
   [ET.NON_LIVING]: Bone,
@@ -3123,6 +3124,12 @@ const getCardFinalPoint = (
   if (card.id === 'enemy_silk_puppet_cooperative_subdue') {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
   }
+  if (card.id === 'enemy_yustia_trueword_scale_powder') {
+    finalPoint += Math.max(0, Math.floor(defender.mp));
+  }
+  if (card.type === CardType.DODGE) {
+    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
+  }
 
   if (source === 'player') {
     forEachPlayerRelic((entry, relic, state) => {
@@ -3213,13 +3220,27 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       lines.push(`血债重击（已损失${lostHp}） +${bonus} => ${finalPoint}`);
     }
   }
-  
-
   if (card.id === 'enemy_silk_puppet_cooperative_subdue') {
     const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
     if (swarmBonus > 0) {
       finalPoint += swarmBonus;
       lines.push(`合力制服（群集${swarmBonus}）+${swarmBonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'enemy_yustia_trueword_scale_powder') {
+    const manaBonus = Math.max(0, Math.floor(defender.mp));
+    if (manaBonus > 0) {
+      finalPoint += manaBonus;
+      lines.push(`真言鳞粉（目标魔力${manaBonus}）+${manaBonus} => ${finalPoint}`);
+    }
+  }
+
+
+  if (card.type === CardType.DODGE) {
+    const scalePowderStacks = Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
+    if (scalePowderStacks > 0) {
+      finalPoint += scalePowderStacks;
+      lines.push(`鳞粉 +${scalePowderStacks} => ${finalPoint}`);
     }
   }
 
@@ -5395,6 +5416,30 @@ const resolveCombat = async (
       const targetHasBindBeforeOnUse = getEffectStacks(defender, ET.BIND) > 0;
       const targetHasSilenceBeforeOnUse = getEffectStacks(defender, ET.SILENCE) > 0;
       const targetHasControlledBeforeOnUse = getEffectStacks(defender, ET.CONTROLLED) > 0;
+      let yustiaConsumedCold = 0;
+      if (card.id === 'enemy_yustia_guilt_manifest') {
+        yustiaConsumedCold = Math.max(0, getEffectStacks(defender, ET.COLD));
+        if (yustiaConsumedCold > 0) {
+          reduceEffectStacks(defender, ET.COLD, yustiaConsumedCold);
+          log(`<span class="text-sky-300">${label}【${card.name}】清空了目标 ${yustiaConsumedCold} 层寒冷，本次伤害 +${yustiaConsumedCold}</span>`);
+        }
+      }
+      if (card.id === 'enemy_yustia_trueword_scale_powder') {
+        const currentMana = Math.max(0, Math.floor(defender.mp));
+        if (currentMana > 0) {
+          const manaResult = changeManaWithShock(
+            defenderSide,
+            -currentMana,
+            `法力变化（${label}【${card.name}】）`,
+          );
+          const removedMana = Math.max(0, -manaResult.actualDelta);
+          const coldStacks = removedMana * 2;
+          if (coldStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.COLD, coldStacks, { source: card.id });
+          }
+          log(`<span class="text-sky-300">${label}【${card.name}】清空了目标 ${removedMana} 点魔力，并施加 ${coldStacks} 层寒冷</span>`);
+        }
+      }
       if (card.id === 'burn_critical_boil') {
         const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
         const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
@@ -5525,6 +5570,8 @@ const resolveCombat = async (
                     ? Math.floor(finalPoint * 2)
                   : card.id === 'bloodpool_pain_feedback'
                     ? Math.max(0, Math.floor(finalPoint) + painFeedbackBonus)
+                    : card.id === 'enemy_yustia_guilt_manifest'
+                      ? Math.max(0, Math.floor(finalPoint) + yustiaConsumedCold)
               : card.id === 'enemy_rose_wangzhi_whip' && getEffectStacks(defender, ET.BIND) > 0
                 ? Math.floor(finalPoint) + 2
               : null;

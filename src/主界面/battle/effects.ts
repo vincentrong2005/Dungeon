@@ -269,6 +269,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '下一次投掷骰子时减少等量层数的点数并清空全部层数',
   },
+  [EffectType.SCALE_POWDER]: {
+    type: EffectType.SCALE_POWDER,
+    name: '鳞粉',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '使用闪避卡牌时，点数增加等同层数的数值',
+  },
   [EffectType.COLD]: {
     type: EffectType.COLD,
     name: '寒冷',
@@ -632,6 +641,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.WEAKEN,
   EffectType.CHARGE,
   EffectType.FATIGUE,
+  EffectType.SCALE_POWDER,
   EffectType.BARRIER,
   EffectType.STURDY,
   EffectType.SHIELD_BARRIER,

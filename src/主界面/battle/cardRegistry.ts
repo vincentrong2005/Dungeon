@@ -3342,10 +3342,97 @@ const 淫墨誓约: CardData = {
   description: '无法打出',
 };
 
-/** 墨痕烙令：消耗1MP，点数+1，造成0.5倍点数伤害并施加1层被操控 */
-const 墨痕烙令: CardData = {
+/** 肃静宣言：造成1倍点数伤害，施加1层禁言 */
+const 尤斯蒂娅肃静宣言: CardData = {
+  id: 'enemy_yustia_silent_proclamation',
+  name: '肃静宣言',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，施加1层禁言',
+};
+
+/** 罪责具现：造成1倍点数伤害并清空对方寒冷，每清空1层则增加1点造成的伤害（结算逻辑在 CombatView） */
+const 罪责具现: CardData = {
+  id: 'enemy_yustia_guilt_manifest',
+  name: '罪责具现',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害并清空对方寒冷，每清空1层则增加1点造成的伤害',
+};
+
+/** 真言鳞粉：消耗6，点数额外增加对方当前魔力值，造成1倍点数伤害，施加1层鳞粉。清空对方魔力，每清除1点则施加2层寒冷（结算逻辑在 CombatView） */
+const 真言鳞粉: CardData = {
+  id: 'enemy_yustia_trueword_scale_powder',
+  name: '真言鳞粉',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SCALE_POWDER, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '消耗6，点数额外增加对方当前魔力值，造成1倍点数伤害，施加1层鳞粉。清空对方魔力，每清除1点则施加2层寒冷',
+};
+
+/** 精神施压：施加1倍点数寒冷与1层鳞粉 */
+const 精神施压: CardData = {
+  id: 'enemy_yustia_mental_pressure',
+  name: '精神施压',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.SCALE_POWDER, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1倍点数寒冷与1层鳞粉',
+};
+
+/** 鳞粉结界：为自身施加2层结界 */
+const 鳞粉结界: CardData = {
+  id: 'enemy_yustia_scale_powder_barrier',
+  name: '鳞粉结界',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BARRIER, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '为自身施加2层结界',
+};
+
+/** 墨痕敕令：消耗1MP，点数+1，造成0.5倍点数伤害并施加1层被操控 */
+const 墨痕敕令: CardData = {
   id: 'enemy_ink_lord_ink_brand_decree',
-  name: '墨痕烙令',
+  name: '墨痕敕令',
   type: CardType.MAGIC,
   category: '敌人',
   rarity: '普通',
@@ -3359,7 +3446,6 @@ const 墨痕烙令: CardData = {
   ],
   description: '点数+1，造成0.5倍点数伤害并施加1层被操控',
 };
-
 /** 触手缠绕：点数*1.2，造成1倍点数伤害并施加1层束缚 */
 const 触手缠绕: CardData = {
   id: 'enemy_ink_lord_tentacle_entangle',
@@ -5481,7 +5567,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [静夜规避.name, 静夜规避],
   [沉默终章.name, 沉默终章],
   [淫墨誓约.name, 淫墨誓约],
-  [墨痕烙令.name, 墨痕烙令],
+  [墨痕敕令.name, 墨痕敕令],
   [触手缠绕.name, 触手缠绕],
   [强制书写.name, 强制书写],
   [墨池规避.name, 墨池规避],
@@ -5539,6 +5625,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [完成分析虹膜切替.name, 完成分析虹膜切替],
   [超关节绞杀.name, 超关节绞杀],
   [多重鞭腿.name, 多重鞭腿],
+  [尤斯蒂娅肃静宣言.name, 尤斯蒂娅肃静宣言],
+  [罪责具现.name, 罪责具现],
+  [真言鳞粉.name, 真言鳞粉],
+  [精神施压.name, 精神施压],
+  [鳞粉结界.name, 鳞粉结界],
   [潜伏.name, 潜伏],
   [闪电伏击.name, 闪电伏击],
   [麻痹毒素.name, 麻痹毒素],

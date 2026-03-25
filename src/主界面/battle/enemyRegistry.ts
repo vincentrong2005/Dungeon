@@ -328,6 +328,14 @@ const HILVY_CARD = {
   SILENT_FINALE: 'enemy_hilvy_silent_finale',
 } as const;
 
+const YUSTIA_CARD = {
+  SILENT_PROCLAMATION: 'enemy_yustia_silent_proclamation',
+  GUILT_MANIFEST: 'enemy_yustia_guilt_manifest',
+  TRUEWORD_SCALE_POWDER: 'enemy_yustia_trueword_scale_powder',
+  MENTAL_PRESSURE: 'enemy_yustia_mental_pressure',
+  SCALE_POWDER_BARRIER: 'enemy_yustia_scale_powder_barrier',
+} as const;
+
 const ELIZABETH_CARD = {
   BLOOD_THORNS: 'enemy_elizabeth_blood_thorns',
   COAGULATE_SOLDIER: 'enemy_elizabeth_coagulate_soldier',
@@ -1906,6 +1914,56 @@ const 希尔薇: EnemyDefinition = {
   },
 };
 
+const 尤斯蒂娅: EnemyDefinition = {
+  name: '尤斯蒂娅',
+  stats: {
+    hp: 200,
+    maxHp: 200,
+    mp: 0,
+    minDice: 5,
+    maxDice: 10,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    YUSTIA_CARD.SILENT_PROCLAMATION,
+    YUSTIA_CARD.GUILT_MANIFEST,
+    YUSTIA_CARD.TRUEWORD_SCALE_POWDER,
+    YUSTIA_CARD.MENTAL_PRESSURE,
+    YUSTIA_CARD.SCALE_POWDER_BARRIER,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerCold = ctx.playerStats.effects.find((e) => e.type === EffectType.COLD)?.stacks ?? 0;
+    if (playerCold >= 12) {
+      const chosen = weightedRandom<string>([
+        { value: YUSTIA_CARD.SILENT_PROCLAMATION, weight: 20 },
+        { value: YUSTIA_CARD.GUILT_MANIFEST, weight: 60 },
+        { value: YUSTIA_CARD.MENTAL_PRESSURE, weight: 10 },
+        { value: YUSTIA_CARD.SCALE_POWDER_BARRIER, weight: 10 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    if (ctx.enemyStats.mp >= 6) {
+      const chosen = weightedRandom<string>([
+        { value: YUSTIA_CARD.SILENT_PROCLAMATION, weight: 30 },
+        { value: YUSTIA_CARD.GUILT_MANIFEST, weight: 10 },
+        { value: YUSTIA_CARD.TRUEWORD_SCALE_POWDER, weight: 50 },
+        { value: YUSTIA_CARD.MENTAL_PRESSURE, weight: 10 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandom<string>([
+      { value: YUSTIA_CARD.SILENT_PROCLAMATION, weight: 50 },
+      { value: YUSTIA_CARD.MENTAL_PRESSURE, weight: 30 },
+      { value: YUSTIA_CARD.SCALE_POWDER_BARRIER, weight: 20 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 伊丽莎白: EnemyDefinition = {
   name: '伊丽莎白',
   defeatNegativeStatus: ['[催淫]', '[血族印记]'],
@@ -2652,6 +2710,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [罗丝.name, 罗丝],
   [厄休拉.name, 厄休拉],
   [希尔薇.name, 希尔薇],
+  [尤斯蒂娅.name, 尤斯蒂娅],
   [伊丽莎白.name, 伊丽莎白],
   [因克.name, 因克],
   [阿卡夏.name, 阿卡夏],
