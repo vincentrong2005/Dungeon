@@ -204,7 +204,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '回合开始时若生命低于50%，按层数回复生命并随机移除等量元素debuff；每触发3次，自身增加1层生命上限削减',
+    description: '回合开始时若生命低于50%，按层数回复生命并随机移除等量元素debuff；每累计3层回复计数，自身增加2层生命上限削减',
   },
   [EffectType.IRIS_AMBER]: {
     type: EffectType.IRIS_AMBER,
@@ -994,7 +994,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     result.logs.push(`[生命回复] 回复 ${regenStacks} 点生命。`);
   }
 
-  // 自修复：生命低于50%时，按层数回复生命并随机移除等量元素debuff；每触发3次增加1层生命上限削减
+  // 自修复：生命低于50%时，按层数回复生命并随机移除等量元素debuff；每累计3层回复计数增加2层生命上限削减
   const selfRepair = findEffect(entity, EffectType.SELF_REPAIR);
   if (selfRepair && selfRepair.stacks > 0 && entity.hp < entity.maxHp * 0.5) {
     const selfRepairStacks = Math.max(0, Math.floor(selfRepair.stacks));
@@ -1020,12 +1020,15 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
       result.logs.push('[自修复] 未检测到可移除的元素debuff。');
     }
 
-    const nextCount = Math.max(0, Math.floor(selfRepair.runtimeCounter ?? 0)) + 1;
+    const previousCount = Math.max(0, Math.floor(selfRepair.runtimeCounter ?? 0));
+    const nextCount = previousCount + selfRepairStacks;
     selfRepair.runtimeCounter = nextCount;
-    if (nextCount % 3 === 0) {
-      const applied = applyEffect(entity, EffectType.MAX_HP_REDUCTION, 1, { source: 'effect:self_repair' });
+    const triggerCount = Math.floor(nextCount / 3) - Math.floor(previousCount / 3);
+    if (triggerCount > 0) {
+      const maxHpReductionStacks = triggerCount * 2;
+      const applied = applyEffect(entity, EffectType.MAX_HP_REDUCTION, maxHpReductionStacks, { source: 'effect:self_repair' });
       if (applied) {
-        result.logs.push('[自修复] 累计触发 3 次：自身获得 1 层生命上限削减。');
+        result.logs.push(`[自修复] 累计回复计数触发 ${triggerCount} 次：自身获得 ${maxHpReductionStacks} 层生命上限削减。`);
       }
     }
   }

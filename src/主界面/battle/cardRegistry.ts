@@ -1414,7 +1414,7 @@ const 血盆大口: CardData = {
   description: '造成1倍最终点数的伤害与1层被吞食，对双方附加2层易伤',
 };
 
-/** 挤压：点数*3，造成0.5倍最终点数伤害 */
+/** 挤压：点数*3，造成0.4倍最终点数伤害 */
 const 挤压: CardData = {
   id: 'enemy_mimic_crush',
   name: '挤压',
@@ -1423,11 +1423,11 @@ const 挤压: CardData = {
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 3.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*3，造成0.5倍最终点数伤害',
+  description: '点数*3，造成0.4倍最终点数伤害',
 };
 
 /** 消化：点数+2，施加0.5倍点数中毒 */

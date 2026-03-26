@@ -1111,7 +1111,7 @@ const 缝合蜘蛛: EnemyDefinition = {
     maxDice: 5,
     effects: [
       { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
-      { type: EffectType.SELF_REPAIR, stacks: 5, polarity: 'buff' },
+      { type: EffectType.SELF_REPAIR, stacks: 3, polarity: 'buff' },
       { type: EffectType.NON_LIVING, stacks: 1, polarity: 'trait' },
     ],
   },
