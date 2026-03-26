@@ -196,11 +196,11 @@ const displayDescription = computed(() => (props.maskLevel === 'none' ? props.ca
 const displayTypeText = computed(() => (props.maskLevel === 'full' ? '?' : props.card.type));
 const displayInitial = computed(() => (displayName.value[0] ?? '?'));
 const showManaBadge = computed(() => (
-  props.maskLevel !== 'full'
+  props.maskLevel === 'none'
   && (props.card.type === CardType.MAGIC || props.card.type === CardType.ACTIVE)
   && props.card.manaCost > 0
 ));
-const isRareCard = computed(() => props.card.rarity === '稀有');
+const isRareCard = computed(() => props.maskLevel === 'none' && props.card.rarity === '稀有');
 </script>
 
 <style scoped>

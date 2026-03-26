@@ -1122,7 +1122,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.CHARGE]: Zap,
   [ET.FATIGUE]: TriangleAlert,
   [ET.SCALE_POWDER]: Sparkles,
-  [ET.COLD]: Snowflake,
+  [ET.CO_DAMAGE]: Link2,
   [ET.TEMPERATURE_DIFF]: Waves,
   [ET.NON_LIVING]: Bone,
   [ET.NON_ENTITY]: Sparkles,
@@ -1524,7 +1524,7 @@ const dicePreviewPanels = computed<DicePreviewPanel[]>(() => {
   if (previewPlayerDice.value !== null && !isPlayerDiceObscured.value && playerDicePreviewLines.value.length > 0) {
     panels.push({
       key: 'player',
-      title: `我方 · ${playerDicePreviewCardName.value || '点数预览'}`,
+      title: `我方 · ${shouldHidePlayerPreviewCardName.value ? '点数预览' : (playerDicePreviewCardName.value || '点数预览')}`, 
       finalPoint: previewPlayerDice.value,
       lines: playerDicePreviewLines.value,
     });
@@ -1551,6 +1551,7 @@ const playerHandMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
     ? 'partial'
     : 'none'
 ));
+const shouldHidePlayerPreviewCardName = computed(() => playerHandMaskLevel.value !== 'none');
 const playerPlayedCardVisual = ref<PlayerPlayedCardVisual | null>(null);
 const resolvedPlayerCardVisual = ref<ResolvedCardVisual | null>(null);
 const resolvedEnemyCardVisual = ref<ResolvedCardVisual | null>(null);
@@ -1803,7 +1804,7 @@ const applyDamageToSideWithRelics = (
   damage: number,
   isTrueDamage: boolean,
   reason: string,
-  options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean },
+  options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean; skipCoDamage?: boolean },
 ) => {
   const incoming = Math.max(0, Math.floor(damage));
   const adjusted = side === 'player'
@@ -1816,6 +1817,37 @@ const applyDamageToSideWithRelics = (
   triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, options);
   if (options?.isDirectDamage) {
     triggerBloodlineLifesteal(options.sourceSide, result.actualDamage, reason);
+  }
+  if (!isTrueDamage && result.actualDamage > 0 && !options?.skipCoDamage) {
+    const coDamageStacks = getEffectStacks(target, ET.CO_DAMAGE);
+    if (coDamageStacks > 0) {
+      const reflectedSide = oppositeSide(side);
+      const reflectedTarget = getEntityBySide(reflectedSide);
+      let reflectedDamage = result.actualDamage;
+      if (reflectedSide === 'player') {
+        reflectedDamage = applyPlayerSkinMarkDamageReduction(reflectedDamage, '共损返还');
+      }
+      if (reflectedDamage > 0) {
+        const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(
+          reflectedSide,
+          reflectedTarget,
+          reflectedDamage,
+          false,
+          '共损返还',
+          { skipCoDamage: true },
+        );
+        if (actualReflectedDamage > 0) {
+          pushFloatingNumber(reflectedSide, actualReflectedDamage, 'physical', '-');
+        }
+        const sourceLabel = side === 'player' ? '我方' : '敌方';
+        const targetLabel = reflectedSide === 'player' ? '我方' : '敌方';
+        log(`<span class="text-cyan-300">${sourceLabel}[共损] 返还了 ${actualReflectedDamage} 点伤害给${targetLabel}</span>`);
+        for (const reflectedLog of reflectedLogs) {
+          const normalized = reflectedLog.startsWith('受到') ? `${targetLabel}${reflectedLog}` : reflectedLog;
+          log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+        }
+      }
+    }
   }
   return result;
 };
@@ -2597,10 +2629,8 @@ const applyCardEffectsByTrigger = (
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
   const label = source === 'player' ? '我方' : '敌方';
   let hasEffect = false;
-
   for (const ce of card.cardEffects) {
     if (!cardEffectMatchesTrigger(ce.triggers, trigger)) continue;
-
     const targetKey = ce.target ?? 'self';
     const targetEntity = targetKey === 'self' ? attacker : defender;
     const targetSide = resolveTargetSide(source, targetKey);
@@ -2632,7 +2662,8 @@ const applyCardEffectsByTrigger = (
           || ce.effectType === ET.SILENCE
           || ce.effectType === ET.STUN
           || ce.effectType === ET.CONTROLLED
-          || ce.effectType === ET.BLEED,
+          || ce.effectType === ET.BLEED
+          || ce.effectType === ET.CO_DAMAGE,
       });
       if (!applied) {
         continue;
@@ -4591,6 +4622,14 @@ const resolveCombat = async (
       enemyStats.value.maxDice += 1;
       log('<span class="text-cyan-300">敌方【扑倒】拼点失败：最大骰子点数 +1</span>');
     }
+    if (!pSuccess && resolvedPlayerCard.id === 'enemy_doll_silk_corrosion') {
+      applyStatusEffectWithRelics('enemy', ET.CORROSION, 3, { source: resolvedPlayerCard.id });
+      log('<span class="text-emerald-300">我方【丝线侵蚀】拼点失败：对敌方施加 3 层侵蚀</span>');
+    }
+    if (!eSuccess && resolvedEnemyCard.id === 'enemy_doll_silk_corrosion') {
+      applyStatusEffectWithRelics('player', ET.CORROSION, 3, { source: resolvedEnemyCard.id });
+      log('<span class="text-emerald-300">敌方【丝线侵蚀】拼点失败：对我方施加 3 层侵蚀</span>');
+    }
     // 流血：只要发生拼点，双方都按各自当前流血层数受到真实伤害
     const playerBleedStacksOnClash = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
     if (playerBleedStacksOnClash > 0) {
@@ -5416,6 +5455,7 @@ const resolveCombat = async (
       const targetHasBindBeforeOnUse = getEffectStacks(defender, ET.BIND) > 0;
       const targetHasSilenceBeforeOnUse = getEffectStacks(defender, ET.SILENCE) > 0;
       const targetHasControlledBeforeOnUse = getEffectStacks(defender, ET.CONTROLLED) > 0;
+      const targetHasIndomitableBeforeOnUse = getEffectStacks(defender, ET.INDOMITABLE) > 0;
       let yustiaConsumedCold = 0;
       if (card.id === 'enemy_yustia_guilt_manifest') {
         yustiaConsumedCold = Math.max(0, getEffectStacks(defender, ET.COLD));
@@ -5439,6 +5479,10 @@ const resolveCombat = async (
           }
           log(`<span class="text-sky-300">${label}【${card.name}】清空了目标 ${removedMana} 点魔力，并施加 ${coldStacks} 层寒冷</span>`);
         }
+      }
+      if (card.id === 'enemy_kraken_exclusive' && targetHasIndomitableBeforeOnUse) {
+        reduceEffectStacks(defender, ET.INDOMITABLE, 1);
+        log(`<span class="text-rose-300">${label}【${card.name}】移除了目标 1 层不屈</span>`);
       }
       if (card.id === 'burn_critical_boil') {
         const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
@@ -5809,6 +5853,21 @@ const resolveCombat = async (
         if (fatigueStacks > 0) {
           applyStatusEffectWithRelics(defenderSide, ET.FATIGUE, fatigueStacks, { source: card.id });
           log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已有束缚，额外施加 ${fatigueStacks} 层疲劳</span>`);
+        }
+      }
+      if (card.id === 'enemy_doll_silk_takeover') {
+        const targetCorrosion = Math.max(0, getEffectStacks(defender, ET.CORROSION));
+        const controlledStacks = Math.floor(targetCorrosion / 8);
+        if (controlledStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.CONTROLLED, controlledStacks, { source: card.id, lockDecayThisTurn: true });
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标拥有 ${targetCorrosion} 层侵蚀，额外施加 ${controlledStacks} 层被操控</span>`);
+        }
+      }
+
+      if (card.id === 'enemy_kraken_deep_sea_slime' && targetHasBindBeforeOnUse) {
+        const applied = applyStatusEffectWithRelics(defenderSide, ET.WEAKEN, 1, { source: card.id });
+        if (applied) {
+          log(`<span class="text-violet-300">${label}【${card.name}】触发：目标处于束缚状态，额外施加 1 层虚弱</span>`);
         }
       }
       if (card.id === 'enemy_thorncrawler_toxin_pulse' && targetHasBindBeforeOnUse) {
@@ -6228,6 +6287,12 @@ const resolveCombat = async (
   combatState.value.playerHand = [];
   combatState.value.turn += 1;
   combatState.value.phase = CombatPhase.TURN_START;
+  } catch (error) {
+    console.error('[resolveCombat] error', error);
+    stopAllCardAnimations();
+    clearDicePreview();
+    combatState.value.phase = CombatPhase.PLAYER_INPUT;
+    log(`<span class="text-red-400">???????${error instanceof Error ? error.message : String(error)}</span>`);
   } finally {
     comboUiMaskBridge.value = false;
   }

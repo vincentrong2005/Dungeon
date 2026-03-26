@@ -3074,7 +3074,7 @@ const 巨大化投影: CardData = {
   name: '巨大化投影',
   type: CardType.FUNCTION,
   category: '敌人',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
@@ -3180,7 +3180,7 @@ const 血雾化身: CardData = {
   name: '血雾化身',
   type: CardType.FUNCTION,
   category: '敌人',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
@@ -3312,7 +3312,7 @@ const 沉默终章: CardData = {
   name: '沉默终章',
   type: CardType.MAGIC,
   category: '敌人',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 6,
   calculation: { multiplier: 2.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
@@ -3382,7 +3382,7 @@ const 真言鳞粉: CardData = {
   name: '真言鳞粉',
   type: CardType.MAGIC,
   category: '敌人',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 6,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
@@ -3518,7 +3518,7 @@ const 黑潮灌注: CardData = {
   name: '黑潮灌注',
   type: CardType.MAGIC,
   category: '敌人',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 6,
   calculation: { multiplier: 2.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
@@ -3644,7 +3644,7 @@ const 终页定论: CardData = {
   name: '终页定论',
   type: CardType.MAGIC,
   category: '敌人',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 8,
   calculation: { multiplier: 3.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
@@ -4555,6 +4555,234 @@ const 多重鞭腿: CardData = {
   description: '造成0.5倍点数伤害，3连击',
 };
 
+/** 柔和缠绕：法力汲取5，施加2层束缚 */
+const 柔和缠绕: CardData = {
+  id: 'enemy_kraken_gentle_entangle',
+  name: '柔和缠绕',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  manaDrain: 5,
+  description: '法力汲取5，施加2层束缚',
+};
+
+/** 三重鞭打：造成0.5倍点数伤害，3连击 */
+const 三重鞭打: CardData = {
+  id: 'enemy_kraken_triple_whiplash',
+  name: '三重鞭打',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.5倍点数伤害，3连击',
+};
+
+/** 独占：点数*2，造成1倍点数伤害；若目标拥有不屈，则移除目标1层不屈（额外效果在 CombatView） */
+const 独占: CardData = {
+  id: 'enemy_kraken_exclusive',
+  name: '独占',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*2，造成1倍点数伤害；若目标拥有不屈，则移除目标1层不屈',
+};
+
+/** 深海粘液：消耗4，造成0.8倍点数伤害，施加0.5倍点数中毒；若对手处于束缚状态，额外施加1层虚弱（额外效果在 CombatView） */
+const 深海粘液: CardData = {
+  id: 'enemy_kraken_deep_sea_slime',
+  name: '深海粘液',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.8, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '造成0.8倍点数伤害，施加0.5倍点数中毒；若对手处于束缚状态，额外施加1层虚弱',
+};
+
+/** 墨汁幻境：消耗2，施加3层中毒与1层视野模糊 */
+const 墨汁幻境: CardData = {
+  id: 'enemy_kraken_ink_illusion',
+  name: '墨汁幻境',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+    { kind: 'apply_buff', effectType: EffectType.MEMORY_FOG, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加3层中毒与1层视野模糊',
+};
+
+/** 水牢禁锢：消耗8，点数*3，造成0.4倍点数伤害，施加1倍点数寒冷与1层禁言 */
+const 水牢禁锢: CardData = {
+  id: 'enemy_kraken_water_prison',
+  name: '水牢禁锢',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 8,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数*3，造成0.4倍点数伤害，施加1倍点数寒冷与1层禁言',
+};
+
+/** 丝线侵蚀：法力汲取3，拼点失败后施加3层侵蚀（额外效果在 CombatView） */
+const 丝线侵蚀: CardData = {
+  id: 'enemy_doll_silk_corrosion',
+  name: '丝线侵蚀',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  manaDrain: 3,
+  description: '法力汲取3，拼点失败后施加3层侵蚀',
+};
+
+/** 丝线接管：消耗4，点数*1.5，施加5层侵蚀与2层虚弱；目标每有8层侵蚀则额外施加1层被操控（额外效果在 CombatView） */
+const 丝线接管: CardData = {
+  id: 'enemy_doll_silk_takeover',
+  name: '丝线接管',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
+    { kind: 'apply_buff', effectType: EffectType.WEAKEN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '消耗4，点数*1.5，施加5层侵蚀与2层虚弱；目标每有8层侵蚀则额外施加1层被操控',
+};
+
+/** 定格·清醒人偶：消耗8，点数*2，施加1倍点数侵蚀与1层眩晕 */
+const 定格清醒人偶: CardData = {
+  id: 'enemy_doll_frozen_awake_puppet',
+  name: '定格·清醒人偶',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 8,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.STUN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '消耗8，点数*2，施加1倍点数侵蚀与1层眩晕',
+};
+
+/** 感官同步：获得1层共损、自修复与不屈 */
+const 感官同步: CardData = {
+  id: 'enemy_doll_sensory_sync',
+  name: '感官同步',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CO_DAMAGE, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.SELF_REPAIR, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.INDOMITABLE, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '获得1层共损、自修复与不屈',
+};
+
+/** 木偶舞步：闪避，闪避成功后清除自身所有元素debuff */
+const 木偶舞步: CardData = {
+  id: 'enemy_doll_mannequin_step',
+  name: '木偶舞步',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'cleanse',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      cleanseTypes: [EffectType.COLD, EffectType.BURN, EffectType.POISON, EffectType.BLEED, EffectType.SHOCK],
+    },
+  ],
+  description: '闪避，闪避成功后清除自身所有元素debuff',
+};
+
+/** 提线舞步：闪避，闪避成功后反击造成1倍点数的侵蚀 */
+const 提线舞步: CardData = {
+  id: 'enemy_doll_string_step',
+  name: '提线舞步',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '闪避，闪避成功后反击造成1倍点数的侵蚀',
+};
+
 /** 潜伏：给自己添加1层伏击 */
 const 潜伏: CardData = {
   id: 'enemy_vinewalker_lurk',
@@ -5305,7 +5533,7 @@ const 清算: CardData = {
   name: '清算',
   type: CardType.PHYSICAL,
   category: '敌人',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 2.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
@@ -5524,8 +5752,20 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [敏感点开发.name, 敏感点开发],
   [固定实验体.name, 固定实验体],
   [学术洗脑.name, 学术洗脑],
+  [柔和缠绕.name, 柔和缠绕],
+  [三重鞭打.name, 三重鞭打],
+  [独占.name, 独占],
+  [深海粘液.name, 深海粘液],
+  [墨汁幻境.name, 墨汁幻境],
+  [水牢禁锢.name, 水牢禁锢],
   [协同实验.name, 协同实验],
   [冷静评估.name, 冷静评估],
+  [丝线侵蚀.name, 丝线侵蚀],
+  [丝线接管.name, 丝线接管],
+  [定格清醒人偶.name, 定格清醒人偶],
+  [感官同步.name, 感官同步],
+  [木偶舞步.name, 木偶舞步],
+  [提线舞步.name, 提线舞步],
   [穿体冲击.name, 穿体冲击],
   [命令低语.name, 命令低语],
   [多体共鸣.name, 多体共鸣],

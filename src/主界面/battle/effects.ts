@@ -557,6 +557,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '反弹50%物理直接伤害',
   },
+  [EffectType.CO_DAMAGE]: {
+    type: EffectType.CO_DAMAGE,
+    name: '共损',
+    polarity: 'buff',
+    timings: ['passive', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '将自身当前回合受到的所有非真实伤害返还给敌方，回合结束时层数-1',
+  },
   [EffectType.BLOODLINE]: {
     type: EffectType.BLOODLINE,
     name: '血族',
@@ -665,6 +674,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.SILENCE,
   EffectType.CONTROLLED,
   EffectType.MANA_DRAIN,
+  EffectType.CO_DAMAGE,
   EffectType.PEEP_FORBIDDEN,
   EffectType.BLIND_ASH,
   EffectType.COGNITIVE_INTERFERENCE,
@@ -749,6 +759,7 @@ const DECAY_GRACE_EFFECT_TYPES = new Set<EffectType>([
   EffectType.STUN,
   EffectType.CONTROLLED,
   EffectType.BLEED,
+  EffectType.CO_DAMAGE,
 ]);
 
 // ═══════════════════════════════════════════════════════════════
@@ -1163,6 +1174,18 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     } else {
       reduceEffectStacks(entity, EffectType.BIND);
       logs.push(`[束缚] 层数衰减。`);
+    }
+  }
+
+  // 共损
+  const coDamageEffect = findEffect(entity, EffectType.CO_DAMAGE);
+  if (coDamageEffect && coDamageEffect.stacks > 0) {
+    if (coDamageEffect.lockDecayThisTurn) {
+      coDamageEffect.lockDecayThisTurn = false;
+      logs.push('[共损] 新施加，本回合不衰减。');
+    } else {
+      reduceEffectStacks(entity, EffectType.CO_DAMAGE);
+      logs.push('[共损] 层数衰减。');
     }
   }
 

@@ -455,6 +455,24 @@ const TESTER_CARD = {
   MULTI_WHIP_KICK: 'enemy_tester_multi_whip_kick',
 } as const;
 
+const KRAKEN_CARD = {
+  GENTLE_ENTANGLE: 'enemy_kraken_gentle_entangle',
+  TRIPLE_WHIPLASH: 'enemy_kraken_triple_whiplash',
+  EXCLUSIVE: 'enemy_kraken_exclusive',
+  DEEP_SEA_SLIME: 'enemy_kraken_deep_sea_slime',
+  INK_ILLUSION: 'enemy_kraken_ink_illusion',
+  WATER_PRISON: 'enemy_kraken_water_prison',
+} as const;
+
+const DOLL_CARD = {
+  SILK_CORROSION: 'enemy_doll_silk_corrosion',
+  SILK_TAKEOVER: 'enemy_doll_silk_takeover',
+  FROZEN_AWAKE_PUPPET: 'enemy_doll_frozen_awake_puppet',
+  SENSORY_SYNC: 'enemy_doll_sensory_sync',
+  MANNEQUIN_STEP: 'enemy_doll_mannequin_step',
+  STRING_STEP: 'enemy_doll_string_step',
+} as const;
+
 const ABYSS_JELLYFISH_CARD = {
   NEURAL_EXCITE_FILAMENT: 'enemy_abyss_jellyfish_neural_excite_filament',
   CIRCUITOUS: 'enemy_abyss_jellyfish_circuitous',
@@ -556,8 +574,8 @@ function create宝箱怪Definition(currentFloor: number): EnemyDefinition {
 const 游荡粘液球: EnemyDefinition = {
   name: '游荡粘液球',
   stats: {
-    hp: 12,
-    maxHp: 12,
+    hp: 15,
+    maxHp: 15,
     mp: 0,
     minDice: 2,
     maxDice: 5,
@@ -2554,8 +2572,8 @@ const 审判蛛: EnemyDefinition = {
 const 丝线傀儡: EnemyDefinition = {
   name: '丝线傀儡',
   stats: {
-    hp: 12,
-    maxHp: 12,
+    hp: 15,
+    maxHp: 15,
     mp: 0,
     minDice: 1,
     maxDice: 3,
@@ -2619,12 +2637,118 @@ const 测试者: EnemyDefinition = {
       return pickCardById(ctx, chosen);
     }
 
+
     const chosen = weightedRandom<string>([
       { value: TESTER_CARD.BACKSTEP_DODGE, weight: 40 },
       { value: TESTER_CARD.HYPERJOINT_STRANGLE, weight: 30 },
       { value: TESTER_CARD.MULTI_WHIP_KICK, weight: 30 },
     ]);
     return pickCardById(ctx, chosen);
+  },
+};
+const 克拉肯: EnemyDefinition = {
+  name: '克拉肯',
+  stats: {
+    hp: 200,
+    maxHp: 200,
+    mp: 0,
+    minDice: 5,
+    maxDice: 10,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    KRAKEN_CARD.GENTLE_ENTANGLE,
+    KRAKEN_CARD.TRIPLE_WHIPLASH,
+    KRAKEN_CARD.EXCLUSIVE,
+    KRAKEN_CARD.DEEP_SEA_SLIME,
+    KRAKEN_CARD.INK_ILLUSION,
+    KRAKEN_CARD.WATER_PRISON,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const targetHpLow = ctx.playerStats.hp <= ctx.playerStats.maxHp * 0.3;
+    const targetHasMemoryFog = ctx.playerStats.effects.some((e) => e.type === EffectType.MEMORY_FOG && e.stacks > 0);
+    let pool: Array<{ value: string; weight: number }> = [];
+
+    if (ctx.enemyStats.mp >= 8) {
+      pool = [
+        { value: KRAKEN_CARD.DEEP_SEA_SLIME, weight: 30 },
+        { value: KRAKEN_CARD.GENTLE_ENTANGLE, weight: 10 },
+        { value: KRAKEN_CARD.WATER_PRISON, weight: 60 },
+      ];
+    } else if (ctx.enemyStats.mp >= 4) {
+      pool = [
+        { value: KRAKEN_CARD.GENTLE_ENTANGLE, weight: 25 },
+        { value: KRAKEN_CARD.TRIPLE_WHIPLASH, weight: 25 },
+        { value: KRAKEN_CARD.DEEP_SEA_SLIME, weight: 50 },
+      ];
+    } else {
+      pool = [
+        { value: KRAKEN_CARD.GENTLE_ENTANGLE, weight: 60 },
+        { value: KRAKEN_CARD.TRIPLE_WHIPLASH, weight: 40 },
+      ];
+    }
+
+    if (targetHpLow) {
+      pool.push({ value: KRAKEN_CARD.EXCLUSIVE, weight: 20 });
+    }
+    if (!targetHasMemoryFog && ctx.enemyStats.mp >= 2) {
+      pool.push({ value: KRAKEN_CARD.INK_ILLUSION, weight: 30 });
+    }
+
+    return pickCardById(ctx, weightedRandom<string>(pool));
+  },
+};
+
+const 布偶: EnemyDefinition = {
+  name: '布偶',
+  stats: {
+    hp: 175,
+    maxHp: 175,
+    mp: 0,
+    minDice: 2,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    DOLL_CARD.SILK_CORROSION,
+    DOLL_CARD.SILK_TAKEOVER,
+    DOLL_CARD.FROZEN_AWAKE_PUPPET,
+    DOLL_CARD.SENSORY_SYNC,
+    DOLL_CARD.MANNEQUIN_STEP,
+    DOLL_CARD.STRING_STEP,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn % 5 === 0) {
+      return pickCardById(ctx, DOLL_CARD.SENSORY_SYNC);
+    }
+
+    const playerCorrosion = ctx.playerStats.effects.find((e) => e.type === EffectType.CORROSION)?.stacks ?? 0;
+    let pool: Array<{ value: string; weight: number }> = [];
+
+    if (ctx.enemyStats.mp >= 8) {
+      pool = [
+        { value: DOLL_CARD.SILK_CORROSION, weight: 30 },
+        { value: DOLL_CARD.FROZEN_AWAKE_PUPPET, weight: 50 },
+        { value: DOLL_CARD.MANNEQUIN_STEP, weight: 10 },
+        { value: DOLL_CARD.STRING_STEP, weight: 10 },
+      ];
+    } else {
+      pool = [
+        { value: DOLL_CARD.SILK_CORROSION, weight: 50 },
+        { value: DOLL_CARD.MANNEQUIN_STEP, weight: 25 },
+        { value: DOLL_CARD.STRING_STEP, weight: 25 },
+      ];
+    }
+
+    if (playerCorrosion >= 8 && ctx.enemyStats.mp >= 4) {
+      pool.push({ value: DOLL_CARD.SILK_TAKEOVER, weight: 30 });
+    }
+
+    return pickCardById(ctx, weightedRandom<string>(pool));
   },
 };
 
@@ -2702,6 +2826,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [审判蛛.name, 审判蛛],
   [丝线傀儡.name, 丝线傀儡],
   [测试者.name, 测试者],
+  [克拉肯.name, 克拉肯],
+  [布偶.name, 布偶],
   [深渊水母.name, 深渊水母],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
