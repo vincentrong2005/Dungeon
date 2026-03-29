@@ -134,7 +134,13 @@ export function filterStreamingTextAfterThinkEnd(text: string): string {
  * 移除正文中的 HTML 注释块（用于隐藏正文内思维链）
  */
 function removeHtmlComments(text: string): string {
-  return text.replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim();
+  const withoutComments = text.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  return withoutComments
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    // Keep a single paragraph gap, but collapse large holes left by removed comment blocks.
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function normalizeTucaoMarkers(text: string): string {
