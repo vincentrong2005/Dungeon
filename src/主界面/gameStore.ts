@@ -1,5 +1,5 @@
 // Schema import removed - using raw MVU data directly
-import { detectLeave, detectOptionE, detectRebirth, extractMainText, extractOptions, extractSummary, extractVariableUpdate, filterStreamingTextAfterThinkEnd, parseResponse, type ParsedResponse } from './responseParser';
+import { detectLeave, detectOptionE, detectRebirth, extractMainText, extractOptions, extractSummary, extractVariableUpdate, filterStreamingTextAfterThinkEnd, parseResponse, type ParsedResponse, type ResponseParserOptions } from './responseParser';
 import { getFloorNumberForArea } from './floor';
 
 /**
@@ -23,6 +23,7 @@ export interface SaveEntry {
  */
 export const useGameStore = defineStore('game', () => {
   const STREAMING_ENABLED_KEY = 'dungeon.streaming_enabled';
+  const FORBID_MATCHING_XML_INSIDE_THINK_KEY = 'dungeon.forbid_matching_xml_inside_think';
   const AUTO_SUMMARY_ENABLED_KEY = 'dungeon.auto_summary_enabled';
   const SUMMARY_VISIBLE_WINDOW_KEY = 'dungeon.summary_visible_window';
   const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
@@ -48,6 +49,24 @@ export const useGameStore = defineStore('game', () => {
   function persistStreamingEnabledSetting(enabled: boolean) {
     try {
       localStorage.setItem(STREAMING_ENABLED_KEY, String(enabled));
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
+  function readForbidMatchingXmlInsideThinkSetting(): boolean {
+    try {
+      const raw = localStorage.getItem(FORBID_MATCHING_XML_INSIDE_THINK_KEY);
+      if (raw === null) return true;
+      return raw === 'true';
+    } catch {
+      return true;
+    }
+  }
+
+  function persistForbidMatchingXmlInsideThinkSetting(enabled: boolean) {
+    try {
+      localStorage.setItem(FORBID_MATCHING_XML_INSIDE_THINK_KEY, String(enabled));
     } catch {
       // Ignore persistence errors in restricted environments
     }
@@ -96,6 +115,7 @@ export const useGameStore = defineStore('game', () => {
   const isGenerating = ref(false);
   const streamingText = ref('');
   const useStreaming = ref(readStreamingEnabledSetting());
+  const forbidMatchingXmlInsideThink = ref(readForbidMatchingXmlInsideThinkSetting());
   const autoSummaryEnabled = ref(readAutoSummaryEnabledSetting());
   const summaryVisibleWindow = ref(readSummaryVisibleWindowSetting());
   const error = ref<string | null>(null);
@@ -140,6 +160,10 @@ export const useGameStore = defineStore('game', () => {
   const pendingPortalChanges = ref<PendingPortalChanges | null>(null);
   const pendingCombatMvuChanges = ref<PendingCombatMvuChanges | null>(null);
   const pendingStatDataChanges = ref<PendingStatDataChanges | null>(null);
+
+  const getResponseParserOptions = (): ResponseParserOptions => ({
+    forbidMatchingXmlInsideThink: forbidMatchingXmlInsideThink.value,
+  });
 
   function setPendingPortalChanges(changes: PendingPortalChanges) {
     pendingPortalChanges.value = changes;
@@ -341,7 +365,7 @@ export const useGameStore = defineStore('game', () => {
 
     const map = new Map<number, string>();
     for (const msg of messages) {
-      const summary = normalizeSummaryText(extractSummary(msg.message ?? ''));
+      const summary = normalizeSummaryText(extractSummary(msg.message ?? '', getResponseParserOptions()));
       if (!summary) continue;
       const chronicleIndex = Math.floor(msg.message_id / 2);
       if (!Number.isFinite(chronicleIndex) || chronicleIndex < 0) continue;
@@ -405,6 +429,13 @@ export const useGameStore = defineStore('game', () => {
       streamingText.value = '';
     }
     persistStreamingEnabledSetting(nextEnabled);
+  }
+
+  function setForbidMatchingXmlInsideThink(enabled: boolean) {
+    const nextEnabled = Boolean(enabled);
+    forbidMatchingXmlInsideThink.value = nextEnabled;
+    persistForbidMatchingXmlInsideThinkSetting(nextEnabled);
+    loadLatestAssistantState();
   }
 
   async function setAutoSummaryEnabled(enabled: boolean) {
@@ -592,13 +623,14 @@ export const useGameStore = defineStore('game', () => {
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
       const text = lastMsg.message;
-      mainText.value = extractMainText(text);
-      options.value = extractOptions(text);
-      currentSummary.value = extractSummary(text);
-      hasOptionE.value = detectOptionE(text);
-      hasLeave.value = detectLeave(text);
-      hasRebirth.value = detectRebirth(text);
-      variableUpdateText.value = extractVariableUpdate(text);
+      const parserOptions = getResponseParserOptions();
+      mainText.value = extractMainText(text, parserOptions);
+      options.value = extractOptions(text, parserOptions);
+      currentSummary.value = extractSummary(text, parserOptions);
+      hasOptionE.value = detectOptionE(text, parserOptions);
+      hasLeave.value = detectLeave(text, parserOptions);
+      hasRebirth.value = detectRebirth(text, parserOptions);
+      variableUpdateText.value = extractVariableUpdate(text, parserOptions);
     }
   }
 
@@ -732,7 +764,7 @@ export const useGameStore = defineStore('game', () => {
       streamingText.value = '';
 
       // 6. 解析回复标签
-      const parsed = parseResponse(result);
+      const parsed = parseResponse(result, getResponseParserOptions());
       applyParsedResponse(parsed);
 
       // 7. 解析 MVU 变量命令（基于 user 楼层变量继承）
@@ -818,7 +850,7 @@ export const useGameStore = defineStore('game', () => {
     for (const msg of messages) {
       if (msg.message_id >= lastId) continue;
 
-      const summary = extractSummary(msg.message);
+      const summary = extractSummary(msg.message, getResponseParserOptions());
       if (summary) {
         entries.push({
           messageId: msg.message_id,
@@ -938,7 +970,7 @@ export const useGameStore = defineStore('game', () => {
       streamingText.value = '';
 
       // 解析回复标签
-      const parsed = parseResponse(result);
+      const parsed = parseResponse(result, getResponseParserOptions());
       applyParsedResponse(parsed);
 
       // 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
@@ -1027,7 +1059,7 @@ export const useGameStore = defineStore('game', () => {
       }
 
       // 从编辑后的文本重新解析显示状态
-      const parsed = parseResponse(editingText.value);
+      const parsed = parseResponse(editingText.value, getResponseParserOptions());
       applyParsedResponse(parsed);
 
       // 刷新本地 stat_data
@@ -1089,6 +1121,7 @@ export const useGameStore = defineStore('game', () => {
     currentSummary,
     isGenerating,
     useStreaming,
+    forbidMatchingXmlInsideThink,
     autoSummaryEnabled,
     summaryVisibleWindow,
     streamingText,
@@ -1108,6 +1141,7 @@ export const useGameStore = defineStore('game', () => {
     initialize,
     sendAction,
     setUseStreaming,
+    setForbidMatchingXmlInsideThink,
     setAutoSummaryEnabled,
     setSummaryVisibleWindow,
     setPendingPortalChanges,

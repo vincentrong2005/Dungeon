@@ -20,7 +20,7 @@ export interface ParsedResponse {
   variableUpdate: string;
   /** <UpdateVariable> 内 <JSONPatch>...</JSONPatch> 的变量更新指令 */
   jsonPatch: string;
-  /** 原始文本（去除思维链块） */
+  /** 解析基准文本（根据配置可能会去除思维链块） */
   rawText: string;
   /** 是否存在 E 选项 */
   hasOptionE: boolean;
@@ -28,6 +28,11 @@ export interface ParsedResponse {
   hasLeave: boolean;
   /** 是否存在 [Rebirth] 选项 */
   hasRebirth: boolean;
+}
+
+export interface ResponseParserOptions {
+  /** 默认 true：禁止匹配思维链（think/thinking）内的 XML 标签 */
+  forbidMatchingXmlInsideThink?: boolean;
 }
 
 function isLeaveOptionLine(line: string): boolean {
@@ -68,6 +73,55 @@ function extractTag(text: string, tagName: string): string {
 function extractTagByPriority(text: string, tagNames: string[]): string {
   for (const tagName of tagNames) {
     const content = extractTag(text, tagName);
+    if (content) return content;
+  }
+  return '';
+}
+
+function isBlockLevelTagStart(text: string, index: number): boolean {
+  if (index <= 0) return true;
+  const prevChar = text[index - 1];
+  return prevChar === '\n' || prevChar === '\r' || prevChar === '>';
+}
+
+/**
+ * 正文专用提取：匹配“第一个开标签 + 最后一个闭标签”
+ * 并移除中间重复的同名标签，避免正文出现额外 <content>/<maintext> 标签字样
+ */
+function extractTagFromFirstOpenToLastClose(text: string, tagName: string): string {
+  const escapedTagName = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const openRegex = new RegExp(`<\\s*${escapedTagName}(?:\\s[^>]*)?>`, 'ig');
+  const closeRegex = new RegExp(`<\\s*\\/\\s*${escapedTagName}\\s*>`, 'ig');
+
+  let firstOpenEnd = -1;
+  let openMatch: RegExpExecArray | null;
+  while ((openMatch = openRegex.exec(text)) !== null) {
+    if (!isBlockLevelTagStart(text, openMatch.index)) continue;
+    const afterOpen = text.slice(openRegex.lastIndex).trimStart();
+    const firstChar = afterOpen[0];
+    // 过滤“标签示例”写法，如 "<maintext>, <option>"
+    if (firstChar === ',' || firstChar === '，') continue;
+    firstOpenEnd = openRegex.lastIndex;
+    break;
+  }
+  if (firstOpenEnd < 0) return '';
+
+  let lastCloseStart = -1;
+  let closeMatch: RegExpExecArray | null;
+  while ((closeMatch = closeRegex.exec(text)) !== null) {
+    if (closeMatch.index < firstOpenEnd) continue;
+    lastCloseStart = closeMatch.index;
+  }
+  if (lastCloseStart < 0) return '';
+
+  const innerContent = text.slice(firstOpenEnd, lastCloseStart);
+  const redundantTagRegex = new RegExp(`<\\s*${escapedTagName}(?:\\s[^>]*)?>|<\\s*\\/\\s*${escapedTagName}\\s*>`, 'ig');
+  return innerContent.replace(redundantTagRegex, '').trim();
+}
+
+function extractMainTagByPriority(text: string, tagNames: string[]): string {
+  for (const tagName of tagNames) {
+    const content = extractTagFromFirstOpenToLastClose(text, tagName);
     if (content) return content;
   }
   return '';
@@ -114,6 +168,14 @@ function removeThinkBlock(text: string): string {
   }
 
   return result.trim();
+}
+
+function shouldForbidMatchingXmlInsideThink(options?: ResponseParserOptions): boolean {
+  return options?.forbidMatchingXmlInsideThink !== false;
+}
+
+function getParserSourceText(text: string, options?: ResponseParserOptions): string {
+  return shouldForbidMatchingXmlInsideThink(options) ? removeThinkBlock(text) : text.trim();
 }
 
 /**
@@ -181,6 +243,38 @@ function extractTucaoBlocks(text: string): string[] {
 }
 
 /**
+ * 提取 <image> / <img> 标签的内容（始终显示，无论是否在正文标签内外）
+ */
+function extractImageBlocks(text: string): string[] {
+  const result: string[] = [];
+  const regex = /<\s*(?:image|img)(?:\s[^>]*)?>([\s\S]*?)<\/\s*(?:image|img)\s*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const content = match[1].trim();
+    if (content.length > 0) {
+      result.push(content);
+    }
+  }
+  return result;
+}
+
+/**
+ * 将正文外的 <image>/<img> 块追加到 mainText
+ * 正文内已有的 image 块会保留（由 GameView 的 hideImageTagsForDisplay 去除包装标签）
+ */
+function appendExternalImageBlocks(mainText: string, fullText: string): string {
+  const imageBlocks = extractImageBlocks(fullText);
+  if (imageBlocks.length === 0) return mainText;
+
+  // 过滤掉 mainText 中已包含的 image 块（避免重复）
+  const externalBlocks = imageBlocks.filter(block => !mainText.includes(block));
+  if (externalBlocks.length === 0) return mainText;
+
+  const merged = externalBlocks.map(block => `<image>${block}</image>`).join('\n\n');
+  return [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
+}
+
+/**
  * 解析选项文本为选项数组
  * 每行一个选项，格式如 "A. xxx", "B. xxx" 等
  */
@@ -195,12 +289,12 @@ function parseOptions(optionText: string): string[] {
 /**
  * 解析 LLM 回复文本，提取各标签内容
  */
-export function parseResponse(text: string): ParsedResponse {
-  // 移除思维链
-  const cleanText = removeThinkBlock(text);
+export function parseResponse(text: string, options?: ResponseParserOptions): ParsedResponse {
+  // 可配置：是否移除思维链后再匹配 XML 标签
+  const cleanText = getParserSourceText(text, options);
 
   // 提取各标签
-  const mainTextRaw = extractTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
+  const mainTextRaw = extractMainTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
   let mainText = removeHtmlComments(mainTextRaw);
   const mainHasTucao = /<\s*\/?\s*(?:tucao|吐槽)\b|\[\s*\/?\s*tucao\s*]|&lt;\s*\/?\s*tucao\b/i.test(mainTextRaw);
   if (!mainHasTucao) {
@@ -210,6 +304,8 @@ export function parseResponse(text: string): ParsedResponse {
       mainText = [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
     }
   }
+  // <image>/<img> 标签内容始终显示，追加正文外的 image 块
+  mainText = appendExternalImageBlocks(mainText, cleanText);
   const optionRaw = extractTag(cleanText, 'option');
   const summary = extractTag(cleanText, 'sum');
 
@@ -251,17 +347,17 @@ export function parseResponse(text: string): ParsedResponse {
  * 从已有消息文本中快速提取 <sum> 小总结
  * 用于读档面板列表显示
  */
-export function extractSummary(messageText: string): string {
-  const clean = removeThinkBlock(messageText);
+export function extractSummary(messageText: string, options?: ResponseParserOptions): string {
+  const clean = getParserSourceText(messageText, options);
   return extractTag(clean, 'sum');
 }
 
 /**
  * 从已有消息文本中快速提取 <maintext> 正文
  */
-export function extractMainText(messageText: string): string {
-  const clean = removeThinkBlock(messageText);
-  const mainTextRaw = extractTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
+export function extractMainText(messageText: string, options?: ResponseParserOptions): string {
+  const clean = getParserSourceText(messageText, options);
+  const mainTextRaw = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
   let mainText = removeHtmlComments(mainTextRaw);
   const mainHasTucao = /<\s*\/?\s*(?:tucao|吐槽)\b|\[\s*\/?\s*tucao\s*]|&lt;\s*\/?\s*tucao\b/i.test(mainTextRaw);
   if (!mainHasTucao) {
@@ -271,22 +367,24 @@ export function extractMainText(messageText: string): string {
       mainText = [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
     }
   }
+  // <image>/<img> 标签内容始终显示，追加正文外的 image 块
+  mainText = appendExternalImageBlocks(mainText, clean);
   return mainText;
 }
 
 /**
  * 从已有消息文本中快速提取变量更新块（<UpdateVariable> / <update>）
  */
-export function extractVariableUpdate(messageText: string): string {
-  const clean = removeThinkBlock(messageText);
+export function extractVariableUpdate(messageText: string, options?: ResponseParserOptions): string {
+  const clean = getParserSourceText(messageText, options);
   return extractTagByPriority(clean, ['UpdateVariable', 'update']);
 }
 
 /**
  * 从已有消息文本中快速提取 <option> 选项（仅普通 A-D 选项）
  */
-export function extractOptions(messageText: string): string[] {
-  const clean = removeThinkBlock(messageText);
+export function extractOptions(messageText: string, options?: ResponseParserOptions): string[] {
+  const clean = getParserSourceText(messageText, options);
   const allOptions = parseOptions(extractTag(clean, 'option'));
   return allOptions.filter(line => {
     if (/^E\.\s/i.test(line)) return false;
@@ -299,8 +397,8 @@ export function extractOptions(messageText: string): string[] {
 /**
  * 从已有消息文本中检测是否含有 E 选项
  */
-export function detectOptionE(messageText: string): boolean {
-  const clean = removeThinkBlock(messageText);
+export function detectOptionE(messageText: string, options?: ResponseParserOptions): boolean {
+  const clean = getParserSourceText(messageText, options);
   const allOptions = parseOptions(extractTag(clean, 'option'));
   return allOptions.some(line => /^E\.\s/i.test(line));
 }
@@ -308,8 +406,8 @@ export function detectOptionE(messageText: string): boolean {
 /**
  * 从已有消息文本中检测是否含有 [Leave]
  */
-export function detectLeave(messageText: string): boolean {
-  const clean = removeThinkBlock(messageText);
+export function detectLeave(messageText: string, options?: ResponseParserOptions): boolean {
+  const clean = getParserSourceText(messageText, options);
   const allOptions = parseOptions(extractTag(clean, 'option'));
   return allOptions.some(isLeaveOptionLine);
 }
@@ -317,8 +415,8 @@ export function detectLeave(messageText: string): boolean {
 /**
  * 从已有消息文本中检测是否含有 [Rebirth]
  */
-export function detectRebirth(messageText: string): boolean {
-  const clean = removeThinkBlock(messageText);
+export function detectRebirth(messageText: string, options?: ResponseParserOptions): boolean {
+  const clean = getParserSourceText(messageText, options);
   const allOptions = parseOptions(extractTag(clean, 'option'));
   return allOptions.some(isRebirthOptionLine);
 }

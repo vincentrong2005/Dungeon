@@ -2703,12 +2703,13 @@ const 克拉肯: EnemyDefinition = {
 
 const 布偶: EnemyDefinition = {
   name: '布偶',
+  defeatNegativeStatus: '[人格排泄]',
   stats: {
-    hp: 225,
-    maxHp: 225,
+    hp: 175,
+    maxHp: 175,
     mp: 0,
-    minDice: 4,
-    maxDice: 6,
+    minDice: 5,
+    maxDice: 7,
     effects: [
       { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
     ],

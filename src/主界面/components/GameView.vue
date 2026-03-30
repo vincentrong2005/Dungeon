@@ -1048,22 +1048,42 @@
 
         <section class="settings-section settings-section--ai">
           <h3 class="settings-section-title">AI回复</h3>
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
-            <button
-              type="button"
-              class="settings-switch sm:shrink-0"
-              :class="{ 'is-on': isStreamingEnabled }"
-              :aria-checked="isStreamingEnabled"
-              role="switch"
-              @click="isStreamingEnabled = !isStreamingEnabled"
-            >
-              <span class="settings-switch-track">
-                <span class="settings-switch-label settings-switch-label--off">关</span>
-                <span class="settings-switch-label settings-switch-label--on">开</span>
-                <span class="settings-switch-thumb"></span>
-              </span>
-            </button>
+          <div class="space-y-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
+              <button
+                type="button"
+                class="settings-switch sm:shrink-0"
+                :class="{ 'is-on': isStreamingEnabled }"
+                :aria-checked="isStreamingEnabled"
+                role="switch"
+                @click="isStreamingEnabled = !isStreamingEnabled"
+              >
+                <span class="settings-switch-track">
+                  <span class="settings-switch-label settings-switch-label--off">关</span>
+                  <span class="settings-switch-label settings-switch-label--on">开</span>
+                  <span class="settings-switch-thumb"></span>
+                </span>
+              </button>
+            </div>
+
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">禁止匹配思维链内XML标签</label>
+              <button
+                type="button"
+                class="settings-switch sm:shrink-0"
+                :class="{ 'is-on': isForbidMatchingXmlInsideThinkEnabled }"
+                :aria-checked="isForbidMatchingXmlInsideThinkEnabled"
+                role="switch"
+                @click="isForbidMatchingXmlInsideThinkEnabled = !isForbidMatchingXmlInsideThinkEnabled"
+              >
+                <span class="settings-switch-track">
+                  <span class="settings-switch-label settings-switch-label--off">关</span>
+                  <span class="settings-switch-label settings-switch-label--on">开</span>
+                  <span class="settings-switch-thumb"></span>
+                </span>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -3495,6 +3515,11 @@ const isStreamingEnabled = computed<boolean>({
   set: (value) => gameStore.setUseStreaming(value),
 });
 
+const isForbidMatchingXmlInsideThinkEnabled = computed<boolean>({
+  get: () => gameStore.forbidMatchingXmlInsideThink,
+  set: (value) => gameStore.setForbidMatchingXmlInsideThink(value),
+});
+
 const isAutoSummaryEnabled = computed<boolean>({
   get: () => gameStore.autoSummaryEnabled,
   set: (value) => {
@@ -3597,7 +3622,7 @@ const bgmVolumePercent = computed<number>({
   set: (value) => setBgmVolume(value / 100),
 });
 
-const hideImageTagsForDisplay = (text: string) => text.replace(/<\/?image>/gi, '');
+const hideImageTagsForDisplay = (text: string) => text.replace(/<\/?(?:image|img)>/gi, '');
 
 // ── Computed display values from MVU stat_data ──
 const streamingDisplayText = computed(() => hideImageTagsForDisplay(gameStore.streamingText || ''));
@@ -4085,7 +4110,7 @@ const normalizeNegativeStatusList = (value: unknown): string[] => {
   return [];
 };
 const REBIRTH_PERSISTENT_NEGATIVE_STATUSES = new Set<string>(['[淫乱知识]', '[血族印记]']);
-const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>();
+const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>(['[人格排泄]']);
 
 const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
@@ -4098,6 +4123,7 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
   '[被侵蚀]': '曾因侵蚀hp归零，后续剧情会体现身体被操控。',
   '[血族印记]': '被伊丽莎白支配后留下的烙印，后续剧情会体现其持续影响。',
+  '[人格排泄]': '被灌入人格排泄剂，理性与意识融化凝结为人格果冻，灵魂被禁锢于排泄出的果冻中，肉体沦为空壳。',
 };
 const negativeStatusEntries = computed(() => (
   normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name) => ({
