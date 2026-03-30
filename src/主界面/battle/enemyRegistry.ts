@@ -2704,10 +2704,10 @@ const 克拉肯: EnemyDefinition = {
 const 布偶: EnemyDefinition = {
   name: '布偶',
   stats: {
-    hp: 175,
-    maxHp: 175,
+    hp: 225,
+    maxHp: 225,
     mp: 0,
-    minDice: 2,
+    minDice: 4,
     maxDice: 6,
     effects: [
       { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },

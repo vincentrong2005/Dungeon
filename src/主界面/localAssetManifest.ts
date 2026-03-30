@@ -22,7 +22,7 @@ const LOCAL_FOLDER_IMAGE_RULES: Record<string, LocalFolderImageRule> = {
   '地牢/魔物/伊丽莎白': { baseName: '伊丽莎白', end: 11 },
   '地牢/魔物/尤斯蒂娅': { baseName: '尤斯蒂娅', end: 13 },
   '地牢/魔物/克拉肯': { baseName: '克拉肯', end: 12 },
-  '地牢/魔物/布偶': { baseName: '布偶', end: 6 },
+  '地牢/魔物/布偶': { baseName: '布偶', end: 4 },
   '地牢/魔物/赛琳娜': { baseName: '赛琳娜', end: 11 },
   '地牢/魔物/米拉': { baseName: '米拉', end: 11 },
   '地牢/魔物/梦魔双子': { baseName: '梦魔双子', end: 21 },
