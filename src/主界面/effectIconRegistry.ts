@@ -24,6 +24,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.STUN]: 'fa-solid fa-spiral',
   [ET.CHARGE]: 'fa-solid fa-exclamation',
   [ET.FATIGUE]: 'fa-solid fa-bed',
+  [ET.CO_DAMAGE]: 'fa-solid fa-hurricane',
   [ET.COLD]: 'fa-regular fa-snowflake',
   [ET.TEMPERATURE_DIFF]: 'fa-brands fa-empire',
   [ET.NON_LIVING]: 'fa-solid fa-skull',

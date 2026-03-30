@@ -4697,7 +4697,7 @@ const 丝线接管: CardData = {
   description: '消耗4，点数*1.5，施加5层侵蚀与2层虚弱；目标每有8层侵蚀则额外施加1层被操控',
 };
 
-/** 定格·清醒人偶：消耗8，点数*2，施加1倍点数侵蚀与1层眩晕 */
+/** 定格·清醒人偶：消耗8，点数*2，施加0.7倍点数侵蚀与1层眩晕 */
 const 定格清醒人偶: CardData = {
   id: 'enemy_doll_frozen_awake_puppet',
   name: '定格·清醒人偶',
@@ -4710,10 +4710,10 @@ const 定格清醒人偶: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 0.7 },
     { kind: 'apply_buff', effectType: EffectType.STUN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '消耗8，点数*2，施加1倍点数侵蚀与1层眩晕',
+  description: '消耗8，点数*2，施加0.7倍点数侵蚀与1层眩晕',
 };
 
 /** 感官同步：获得1层共损、自修复与不屈 */
@@ -4735,7 +4735,7 @@ const 感官同步: CardData = {
   description: '获得1层共损、自修复与不屈',
 };
 
-/** 木偶舞步：闪避，闪避成功后清除自身所有元素debuff */
+/** 木偶舞步：闪避，若闪避成功或对方跳过回合则清除自身所有元素debuff */
 const 木偶舞步: CardData = {
   id: 'enemy_doll_mannequin_step',
   name: '木偶舞步',
@@ -4748,7 +4748,7 @@ const 木偶舞步: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     {
-      triggers: ['on_dodge_success'],
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
       kind: 'cleanse',
       target: 'self',
       valueMode: 'fixed',
@@ -4756,10 +4756,10 @@ const 木偶舞步: CardData = {
       cleanseTypes: [EffectType.COLD, EffectType.BURN, EffectType.POISON, EffectType.BLEED, EffectType.SHOCK],
     },
   ],
-  description: '闪避，闪避成功后清除自身所有元素debuff',
+  description: '闪避，若闪避成功或对方跳过回合则清除自身所有元素debuff',
 };
 
-/** 提线舞步：闪避，闪避成功后反击造成1倍点数的侵蚀 */
+/** 提线舞步：闪避，若闪避成功或对方跳过回合则反击造成1倍点数的侵蚀 */
 const 提线舞步: CardData = {
   id: 'enemy_doll_string_step',
   name: '提线舞步',
@@ -4772,7 +4772,7 @@ const 提线舞步: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     {
-      triggers: ['on_dodge_success'],
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
       kind: 'apply_buff',
       effectType: EffectType.CORROSION,
       target: 'enemy',
@@ -4780,7 +4780,7 @@ const 提线舞步: CardData = {
       scale: 1.0,
     },
   ],
-  description: '闪避，闪避成功后反击造成1倍点数的侵蚀',
+  description: '闪避，若闪避成功或对方跳过回合则反击造成1倍点数的侵蚀',
 };
 
 /** 潜伏：给自己添加1层伏击 */
