@@ -194,9 +194,14 @@ export function filterStreamingTextAfterThinkEnd(text: string): string {
 
 /**
  * 移除正文中的 HTML 注释块（用于隐藏正文内思维链）
+ * 但保留注释中的 <image>/<img> 块，避免图片提示词被挪到底部。
  */
 function removeHtmlComments(text: string): string {
-  const withoutComments = text.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  const withoutComments = text.replace(/<!--[\s\S]*?(?:-->|$)/g, commentBlock => {
+    const preservedImages = extractImageBlocks(commentBlock);
+    if (preservedImages.length === 0) return '';
+    return `\n${preservedImages.map(block => `<image>${block}</image>`).join('\n\n')}\n`;
+  });
   return withoutComments
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]+\n/g, '\n')

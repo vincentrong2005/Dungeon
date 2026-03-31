@@ -158,21 +158,29 @@
               </p>
               <!-- Final main text -->
               <div v-else class="story-rich-text">
-                <p v-for="line in storyMainLines" :key="line.key" :class="['story-line', `story-line-level-${line.level}`]">
-                  <template v-if="line.segments.length > 0">
-                    <span
-                      v-for="segment in line.segments"
-                      :key="segment.key"
-                      :class="{
-                        'story-segment-muted': segment.type === 'muted',
-                        'story-segment-quote': segment.type === 'quote',
-                      }"
-                    >
-                      {{ segment.text }}
-                    </span>
-                  </template>
-                  <span v-else class="story-line-empty">&nbsp;</span>
-                </p>
+                <template v-for="line in storyMainLines" :key="line.key">
+                  <!-- Image block (inline at original position) -->
+                  <div
+                    v-if="getImageBlockForLine(line)"
+                    class="image-block-inline"
+                  ><span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.openTag }}</span>{{ getImageBlockForLine(line)!.innerContent }}<span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.closeTag }}</span></div>
+                  <!-- Normal text line -->
+                  <p v-else :class="['story-line', `story-line-level-${line.level}`]">
+                    <template v-if="line.segments.length > 0">
+                      <span
+                        v-for="segment in line.segments"
+                        :key="segment.key"
+                        :class="{
+                          'story-segment-muted': segment.type === 'muted',
+                          'story-segment-quote': segment.type === 'quote',
+                        }"
+                      >
+                        {{ segment.text }}
+                      </span>
+                    </template>
+                    <span v-else class="story-line-empty">&nbsp;</span>
+                  </p>
+                </template>
 
                 <div v-if="storyTucaoSections.length > 0" class="story-tucao-section-list">
                   <div v-for="(section, sectionIndex) in storyTucaoSections" :key="section.key" class="story-tucao-wrap">
@@ -205,7 +213,7 @@
                           <span v-else class="story-line-empty">&nbsp;</span>
                         </p>
                       </div>
-                      </Transition>
+                    </Transition>
                   </div>
                 </div>
               </div>
@@ -3622,13 +3630,54 @@ const bgmVolumePercent = computed<number>({
   set: (value) => setBgmVolume(value / 100),
 });
 
-const hideImageTagsForDisplay = (text: string) => text.replace(/<\/?(?:image|img)>/gi, '');
+/** Strip entire <image>…</image> blocks – used only for streaming preview */
+const stripImageBlocks = (text: string) =>
+  text
+    .replace(/<\s*(?:image|img)(?:\s[^>]*)?>[\s\S]*?<\/\s*(?:image|img)\s*>/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+// ── Image-block placeholder system ──
+const IMAGE_PLACEHOLDER = '__IMG_BLOCK_';
+
+interface InlineImageBlock {
+  openTag: string;
+  innerContent: string;
+  closeTag: string;
+}
+
+/** Replace <image>…</image> blocks with placeholder markers, preserving positions */
+const processedMainText = computed<{ text: string; imageBlocks: InlineImageBlock[] }>(() => {
+  const raw = gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出';
+  const blocks: InlineImageBlock[] = [];
+  const imageRe = /<\s*(?:image|img)(?:\s[^>]*)?>[\s\S]*?<\/\s*(?:image|img)\s*>/gi;
+  const replaced = raw.replace(imageRe, (fullMatch) => {
+    const idx = blocks.length;
+    const openEnd = fullMatch.indexOf('>') + 1;
+    const closeStart = fullMatch.lastIndexOf('<');
+    blocks.push({
+      openTag: fullMatch.slice(0, openEnd),
+      innerContent: fullMatch.slice(openEnd, closeStart),
+      closeTag: fullMatch.slice(closeStart),
+    });
+    return `\n${IMAGE_PLACEHOLDER}${idx}\n`;
+  });
+  return { text: replaced.replace(/\n{3,}/g, '\n\n').trim(), imageBlocks: blocks };
+});
 
 // ── Computed display values from MVU stat_data ──
-const streamingDisplayText = computed(() => hideImageTagsForDisplay(gameStore.streamingText || ''));
-const displayText = computed(() =>
-  hideImageTagsForDisplay(gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出'),
-);
+const streamingDisplayText = computed(() => stripImageBlocks(gameStore.streamingText || ''));
+const displayText = computed(() => processedMainText.value.text);
+
+/** Check if a story line is an image-block placeholder; return the block data if so */
+function getImageBlockForLine(line: StoryLineBlock): InlineImageBlock | null {
+  if (line.segments.length !== 1) return null;
+  const txt = line.segments[0].text.trim();
+  if (!txt.startsWith(IMAGE_PLACEHOLDER)) return null;
+  const idx = parseInt(txt.slice(IMAGE_PLACEHOLDER.length), 10);
+  if (Number.isNaN(idx)) return null;
+  return processedMainText.value.imageBlocks[idx] ?? null;
+}
 
 type MapRoomVisual = {
   icon: string;
@@ -6447,6 +6496,25 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 0.34em;
+}
+
+/* Inline image block – the external image script will replace its content with a button */
+.image-block-inline {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Visually hide <image>/<img> tag text while keeping it in the DOM for external script */
+.image-tag-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .story-line {
