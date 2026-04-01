@@ -948,7 +948,41 @@
     <!-- Settings Modal -->
     <DungeonModal title="系统设置" :is-open="activeModal === 'settings'" @close="activeModal = null; closeSettingsHelp()">
       <div class="settings-panel flex flex-col space-y-5 w-full max-w-2xl mx-auto">
-        <section class="settings-section settings-section--text">
+        <div class="settings-nav">
+          <button
+            type="button"
+            class="settings-nav-btn"
+            :class="{ 'is-active': settingsNavTab === 'text' }"
+            @click="settingsNavTab = 'text'"
+          >
+            正文框设置
+          </button>
+          <button
+            type="button"
+            class="settings-nav-btn"
+            :class="{ 'is-active': settingsNavTab === 'music' }"
+            @click="settingsNavTab = 'music'"
+          >
+            背景音乐
+          </button>
+          <button
+            type="button"
+            class="settings-nav-btn"
+            :class="{ 'is-active': settingsNavTab === 'ai' }"
+            @click="settingsNavTab = 'ai'"
+          >
+            AI回复
+          </button>
+          <button
+            type="button"
+            class="settings-nav-btn"
+            :class="{ 'is-active': settingsNavTab === 'summary' }"
+            @click="settingsNavTab = 'summary'"
+          >
+            总结
+          </button>
+        </div>
+        <section v-if="settingsNavTab === 'text'" class="settings-section settings-section--text">
           <h3 class="settings-section-title">正文框设置</h3>
           <div class="space-y-4">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1020,7 +1054,7 @@
           </div>
         </section>
 
-        <section class="settings-section settings-section--music">
+        <section v-else-if="settingsNavTab === 'music'" class="settings-section settings-section--music">
           <h3 class="settings-section-title">背景音乐</h3>
           <div class="space-y-4">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1054,7 +1088,7 @@
           </div>
         </section>
 
-        <section class="settings-section settings-section--ai">
+        <section v-else-if="settingsNavTab === 'ai'" class="settings-section settings-section--ai">
           <h3 class="settings-section-title">AI回复</h3>
           <div class="space-y-4">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1095,7 +1129,7 @@
           </div>
         </section>
 
-        <section class="settings-section settings-section--summary">
+        <section v-else class="settings-section settings-section--summary">
           <h3 class="settings-section-title">总结</h3>
           <div class="space-y-4">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1199,6 +1233,86 @@
                 {{ isManualSummaryRunning ? '补全中...' : '补全当前总结' }}
               </button>
             </div>
+
+            <div class="settings-summary-divider"></div>
+
+            <h4 class="settings-subsection-title">大总结设定</h4>
+
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">总结范围设置</label>
+              <div class="flex items-center gap-2 sm:shrink-0">
+                <input
+                  v-model.lazy.number="bigSummaryRangeStart"
+                  type="number"
+                  inputmode="numeric"
+                  class="settings-summary-range-input"
+                />
+                <span class="text-dungeon-paper/70 text-sm">-</span>
+                <input
+                  v-model.lazy.number="bigSummaryRangeEnd"
+                  type="number"
+                  inputmode="numeric"
+                  class="settings-summary-range-input"
+                />
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <label class="text-dungeon-paper/70 text-sm font-ui">大总结字数</label>
+              <div class="flex items-center gap-2 sm:shrink-0">
+                <input
+                  v-model.lazy.number="bigSummaryMinWords"
+                  type="number"
+                  min="50"
+                  max="10000"
+                  inputmode="numeric"
+                  class="settings-summary-range-input"
+                />
+                <span class="text-dungeon-paper/70 text-sm">-</span>
+                <input
+                  v-model.lazy.number="bigSummaryMaxWords"
+                  type="number"
+                  min="50"
+                  max="10000"
+                  inputmode="numeric"
+                  class="settings-summary-range-input"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-dungeon-paper/70 text-sm font-ui">当前可总结条目</span>
+                <span class="text-dungeon-paper/55 text-xs font-ui">当前选中 {{ selectedBigSummaryEntryCount }} 条</span>
+              </div>
+              <div class="settings-summary-list">
+                <div v-if="isBigSummaryEntriesLoading" class="settings-summary-list-empty">加载中...</div>
+                <div v-else-if="bigSummaryChronicleEntries.length === 0" class="settings-summary-list-empty">
+                  暂无可总结条目
+                </div>
+                <div v-else class="space-y-1 pr-1">
+                  <div
+                    v-for="entry in bigSummaryChronicleEntries"
+                    :key="`big-summary-entry-${entry.index}`"
+                    class="settings-summary-item"
+                    :class="{ 'is-selected': isEntryWithinBigSummaryRange(entry.index) }"
+                  >
+                    <span class="settings-summary-item-index">{{ entry.index }}.</span>
+                    <span class="settings-summary-item-text">{{ entry.summary }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end">
+              <button
+                class="settings-primary-btn"
+                :disabled="!canGenerateBigSummary"
+                @click="handleGenerateBigSummary"
+              >
+                {{ isBigSummaryGenerating ? '总结中...' : '生成大总结' }}
+              </button>
+            </div>
           </div>
         </section>
 
@@ -1222,6 +1336,45 @@
               @click="openCombatTestBuilder"
             >
               ⚔ 进入战斗测试
+            </button>
+          </div>
+        </div>
+      </div>
+    </DungeonModal>
+
+    <DungeonModal title="大总结结果确认" :is-open="!!bigSummaryDraft" @close="closeBigSummaryDraft">
+      <div v-if="bigSummaryDraft" class="flex flex-col gap-4 w-full">
+        <div class="text-sm text-dungeon-paper/75 font-ui">
+          已生成范围 {{ bigSummaryDraft.rangeStart }}-{{ bigSummaryDraft.rangeEnd }} 的大总结（共 {{ bigSummaryDraft.entryCount }} 条来源）。
+        </div>
+        <textarea
+          v-model="bigSummaryDraft.editedSummary"
+          class="settings-big-summary-result settings-big-summary-editor"
+          rows="12"
+        ></textarea>
+        <div class="flex items-center justify-between gap-3">
+          <button
+            v-if="isBigSummaryDraftEdited"
+            class="settings-action-btn settings-action-btn--gold"
+            :disabled="isBigSummaryApplying"
+            @click="restoreBigSummaryDraft"
+          >
+            还原原文
+          </button>
+          <div class="flex items-center gap-3 ml-auto">
+            <button
+              class="settings-action-btn settings-action-btn--danger"
+              :disabled="isBigSummaryApplying"
+              @click="closeBigSummaryDraft"
+            >
+              否，关闭
+            </button>
+            <button
+              class="settings-primary-btn"
+              :disabled="isBigSummaryApplying"
+              @click="confirmApplyBigSummary"
+            >
+              {{ isBigSummaryApplying ? '覆盖中...' : '是，覆盖条目' }}
             </button>
           </div>
         </div>
@@ -3392,6 +3545,9 @@ watch(activeModal, (modal) => {
   if (modal === 'magicBooks' || modal === 'magicHat') {
     gameStore.loadStatData();
   }
+  if (modal === 'settings') {
+    void refreshBigSummaryChronicleEntries();
+  }
   if (modal === 'map') {
     nextTick(() => centerMapOnLatestNode(true));
   }
@@ -3400,6 +3556,10 @@ watch(activeModal, (modal) => {
   }
   if (modal !== 'relics') {
     hideRelicTooltip();
+  }
+  if (modal !== 'settings') {
+    closeSettingsHelp();
+    closeBigSummaryDraft();
   }
 });
 watch(canEditMagicBooks, (editable) => {
@@ -3420,6 +3580,7 @@ type TextSettingsState = {
   containerWidth: number;
 };
 
+type SettingsNavTab = 'text' | 'music' | 'ai' | 'summary';
 type SettingsHelpKey = 'autoSummaryEnabled' | 'summaryVisibleWindow' | 'manualSummary';
 
 const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
@@ -3542,13 +3703,83 @@ const summaryVisibleWindowValue = computed<number>({
   },
 });
 
+type BigSummaryDraft = {
+  originalSummary: string;
+  editedSummary: string;
+  rangeStart: number;
+  rangeEnd: number;
+  entryCount: number;
+};
+
+const settingsNavTab = ref<SettingsNavTab>('text');
 const isManualSummaryRunning = ref(false);
+const normalizeIntegerInput = (value: number, fallback: number, min: number, max: number): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+};
+
+const BIG_SUMMARY_SETTINGS_KEY = 'dungeon.big_summary_settings.v1';
+const DEFAULT_BIG_SUMMARY_SETTINGS = {
+  rangeStart: 1,
+  rangeEnd: 50,
+  minWords: 400,
+  maxWords: 700,
+};
+
+const normalizeBigSummarySettings = (value: unknown) => {
+  const candidate = value && typeof value === 'object'
+    ? value as Partial<{ rangeStart: number; rangeEnd: number; minWords: number; maxWords: number }>
+    : {};
+  return {
+    rangeStart: normalizeIntegerInput(candidate.rangeStart ?? DEFAULT_BIG_SUMMARY_SETTINGS.rangeStart, DEFAULT_BIG_SUMMARY_SETTINGS.rangeStart, 0, 999999),
+    rangeEnd: normalizeIntegerInput(candidate.rangeEnd ?? DEFAULT_BIG_SUMMARY_SETTINGS.rangeEnd, DEFAULT_BIG_SUMMARY_SETTINGS.rangeEnd, 0, 999999),
+    minWords: normalizeIntegerInput(candidate.minWords ?? DEFAULT_BIG_SUMMARY_SETTINGS.minWords, DEFAULT_BIG_SUMMARY_SETTINGS.minWords, 50, 10000),
+    maxWords: normalizeIntegerInput(candidate.maxWords ?? DEFAULT_BIG_SUMMARY_SETTINGS.maxWords, DEFAULT_BIG_SUMMARY_SETTINGS.maxWords, 50, 10000),
+  };
+};
+
+const readBigSummarySettings = () => {
+  try {
+    const raw = localStorage.getItem(BIG_SUMMARY_SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_BIG_SUMMARY_SETTINGS };
+    return normalizeBigSummarySettings(JSON.parse(raw) as unknown);
+  } catch {
+    return { ...DEFAULT_BIG_SUMMARY_SETTINGS };
+  }
+};
+
+const persistBigSummarySettings = (value: { rangeStart: number; rangeEnd: number; minWords: number; maxWords: number }) => {
+  try {
+    localStorage.setItem(BIG_SUMMARY_SETTINGS_KEY, JSON.stringify(normalizeBigSummarySettings(value)));
+  } catch {
+    // Ignore persistence errors in restricted environments
+  }
+};
+
+const initialBigSummarySettings = readBigSummarySettings();
+const bigSummaryRangeStart = ref(initialBigSummarySettings.rangeStart);
+const bigSummaryRangeEnd = ref(initialBigSummarySettings.rangeEnd);
+const bigSummaryMinWords = ref(initialBigSummarySettings.minWords);
+const bigSummaryMaxWords = ref(initialBigSummarySettings.maxWords);
+const bigSummaryChronicleEntries = ref<Array<{ index: number; summary: string }>>([]);
+const isBigSummaryEntriesLoading = ref(false);
+const isBigSummaryGenerating = ref(false);
+const isBigSummaryApplying = ref(false);
+const bigSummaryDraft = ref<BigSummaryDraft | null>(null);
+
+watch(settingsNavTab, (tab) => {
+  if (tab === 'summary' && activeModal.value === 'settings') {
+    void refreshBigSummaryChronicleEntries();
+  }
+});
+
 const activeSettingsHelp = ref<SettingsHelpKey | null>(null);
 let settingsHelpTouchTimer: number | null = null;
 const settingsHelpText: Record<SettingsHelpKey, string> = {
   autoSummaryEnabled: '关闭后不会再把每层楼的 <sum> 自动写入总结条目，并且会清空该条目内容，从而停止这部分提示词注入；重新打开后会按历史楼层重新生成。',
   summaryVisibleWindow: '该项参数为会将正文完整发送给AI的楼层层数：设置越高，AI对于过往记忆细节越清晰，token数也会增加；设置越低，会降低AI对于过往记忆细节回想，但token数会显著下降。',
-  manualSummary: '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用。',
+  manualSummary: '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用（注意！会覆盖大总结内容且不可逆！没事别点。）。',
 };
 
 const openSettingsHelp = (key: SettingsHelpKey) => {
@@ -3560,6 +3791,132 @@ const closeSettingsHelp = (key?: SettingsHelpKey) => {
     activeSettingsHelp.value = null;
   }
 };
+
+const normalizedBigSummaryRange = computed<{ start: number; end: number } | null>(() => {
+  if (bigSummaryChronicleEntries.value.length === 0) return null;
+  const minIndex = bigSummaryChronicleEntries.value[0].index;
+  const maxIndex = bigSummaryChronicleEntries.value[bigSummaryChronicleEntries.value.length - 1].index;
+  const start = normalizeIntegerInput(bigSummaryRangeStart.value, minIndex, minIndex, maxIndex);
+  const end = normalizeIntegerInput(bigSummaryRangeEnd.value, maxIndex, minIndex, maxIndex);
+  if (start <= end) return { start, end };
+  return { start: end, end: start };
+});
+
+const selectedBigSummaryEntryCount = computed<number>(() => {
+  const range = normalizedBigSummaryRange.value;
+  if (!range) return 0;
+  return bigSummaryChronicleEntries.value.filter((entry) => (
+    entry.index >= range.start && entry.index <= range.end
+  )).length;
+});
+
+const canGenerateBigSummary = computed<boolean>(() => (
+  bigSummaryChronicleEntries.value.length > 0
+  && selectedBigSummaryEntryCount.value > 0
+  && !gameStore.isGenerating
+  && !isBigSummaryGenerating.value
+  && !isBigSummaryApplying.value
+));
+
+const isBigSummaryDraftEdited = computed<boolean>(() => {
+  const draft = bigSummaryDraft.value;
+  if (!draft) return false;
+  return draft.editedSummary !== draft.originalSummary;
+});
+
+const isEntryWithinBigSummaryRange = (index: number): boolean => {
+  const range = normalizedBigSummaryRange.value;
+  if (!range) return false;
+  return index >= range.start && index <= range.end;
+};
+
+const refreshBigSummaryChronicleEntries = async () => {
+  isBigSummaryEntriesLoading.value = true;
+  try {
+    const entries = await gameStore.loadAutoSummaryChronicleEntries();
+    bigSummaryChronicleEntries.value = entries;
+    if (entries.length === 0) return;
+
+    const minIndex = entries[0].index;
+    const maxIndex = entries[entries.length - 1].index;
+    bigSummaryRangeStart.value = normalizeIntegerInput(bigSummaryRangeStart.value, minIndex, minIndex, maxIndex);
+    bigSummaryRangeEnd.value = normalizeIntegerInput(bigSummaryRangeEnd.value, maxIndex, minIndex, maxIndex);
+  } finally {
+    isBigSummaryEntriesLoading.value = false;
+  }
+};
+
+const handleGenerateBigSummary = async () => {
+  if (!canGenerateBigSummary.value) return;
+  isBigSummaryGenerating.value = true;
+  try {
+    const result = await gameStore.generateBigSummary({
+      rangeStart: bigSummaryRangeStart.value,
+      rangeEnd: bigSummaryRangeEnd.value,
+      minWords: bigSummaryMinWords.value,
+      maxWords: bigSummaryMaxWords.value,
+    });
+    bigSummaryDraft.value = {
+      originalSummary: result.summary,
+      editedSummary: result.summary,
+      rangeStart: result.rangeStart,
+      rangeEnd: result.rangeEnd,
+      entryCount: result.entryCount,
+    };
+    toastr.success('大总结生成完成，请确认是否覆盖。');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    toastr.error(`大总结失败：${message}`);
+  } finally {
+    isBigSummaryGenerating.value = false;
+  }
+};
+
+const closeBigSummaryDraft = () => {
+  if (isBigSummaryApplying.value) return;
+  bigSummaryDraft.value = null;
+};
+
+const restoreBigSummaryDraft = () => {
+  const draft = bigSummaryDraft.value;
+  if (!draft) return;
+  draft.editedSummary = draft.originalSummary;
+};
+
+const confirmApplyBigSummary = async () => {
+  const draft = bigSummaryDraft.value;
+  if (!draft || isBigSummaryApplying.value) return;
+
+  isBigSummaryApplying.value = true;
+  try {
+    const result = await gameStore.applyBigSummary({
+      rangeStart: draft.rangeStart,
+      rangeEnd: draft.rangeEnd,
+      summaryText: draft.editedSummary,
+    });
+    toastr.success(`大总结已覆盖到第 ${result.mergedIndex} 条，并完成范围合并。`);
+    bigSummaryDraft.value = null;
+    await refreshBigSummaryChronicleEntries();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    toastr.error(`覆盖失败：${message}`);
+  } finally {
+    isBigSummaryApplying.value = false;
+  }
+};
+
+watch(
+  [bigSummaryRangeStart, bigSummaryRangeEnd, bigSummaryMinWords, bigSummaryMaxWords],
+  () => {
+    persistBigSummarySettings({
+      rangeStart: bigSummaryRangeStart.value,
+      rangeEnd: bigSummaryRangeEnd.value,
+      minWords: bigSummaryMinWords.value,
+      maxWords: bigSummaryMaxWords.value,
+    });
+  },
+  { deep: false },
+);
 
 const normalizeVictoryRewardStage = (stage: string | undefined): VictoryRewardStage => {
   switch (stage) {
@@ -3612,9 +3969,11 @@ const handleManualSummary = async () => {
     }
     if (writtenCount === 0) {
       toastr.warning('未找到可重建的总结条目或自动总结条目。');
+      await refreshBigSummaryChronicleEntries();
       return;
     }
     toastr.success(`手动总结完成，已覆盖写入 ${writtenCount} 条。`);
+    await refreshBigSummaryChronicleEntries();
   } finally {
     isManualSummaryRunning.value = false;
   }
@@ -7573,6 +7932,42 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+.settings-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.settings-nav-btn {
+  border-radius: 0.56rem;
+  border: 1px solid rgba(120, 85, 56, 0.75);
+  padding: 0.42rem 0.78rem;
+  background: rgba(20, 12, 8, 0.82);
+  color: rgba(214, 211, 209, 0.78);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.settings-nav-btn:hover,
+.settings-nav-btn:focus-visible {
+  outline: none;
+  border-color: rgba(212, 175, 55, 0.62);
+  color: rgba(250, 237, 205, 0.94);
+  background: rgba(40, 22, 11, 0.82);
+  transform: translateY(-1px);
+}
+
+.settings-nav-btn.is-active {
+  border-color: rgba(245, 158, 11, 0.86);
+  color: rgba(255, 231, 170, 0.98);
+  background:
+    radial-gradient(circle at 15% 10%, rgba(245, 158, 11, 0.14), transparent 58%),
+    rgba(72, 31, 13, 0.85);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.14);
+}
+
 .settings-section {
   border-radius: 1rem;
   border: 1px solid rgba(92, 62, 38, 0.78);
@@ -7919,6 +8314,111 @@ onBeforeUnmount(() => {
 .settings-help-fade-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+
+.settings-summary-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(251, 146, 60, 0.6), transparent);
+  margin: 0.25rem 0;
+}
+
+.settings-subsection-title {
+  color: rgba(251, 191, 114, 0.94);
+  font-family: 'Cinzel', serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-summary-range-input {
+  width: 5.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(120, 85, 56, 0.85);
+  background: rgba(26, 15, 8, 0.94);
+  color: rgba(237, 226, 205, 0.96);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  padding: 0.36rem 0.56rem;
+}
+
+.settings-summary-range-input:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.76);
+}
+
+.settings-summary-list {
+  max-height: 13.5rem;
+  overflow-y: auto;
+  border-radius: 0.68rem;
+  border: 1px solid rgba(120, 85, 56, 0.6);
+  background: rgba(10, 7, 6, 0.72);
+  padding: 0.5rem;
+}
+
+.settings-summary-list-empty {
+  border-radius: 0.5rem;
+  border: 1px dashed rgba(120, 85, 56, 0.52);
+  color: rgba(214, 211, 209, 0.62);
+  text-align: center;
+  font-size: 0.78rem;
+  padding: 0.8rem 0.6rem;
+}
+
+.settings-summary-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-radius: 0.48rem;
+  border: 1px solid rgba(120, 85, 56, 0.36);
+  background: rgba(26, 15, 8, 0.52);
+  color: rgba(222, 211, 190, 0.9);
+  padding: 0.36rem 0.5rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.settings-summary-item.is-selected {
+  border-color: rgba(245, 158, 11, 0.72);
+  background: rgba(120, 53, 15, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+
+.settings-summary-item-index {
+  min-width: 2.1rem;
+  color: rgba(245, 158, 11, 0.88);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+}
+
+.settings-summary-item-text {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.settings-big-summary-result {
+  max-height: 22rem;
+  overflow-y: auto;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(120, 85, 56, 0.72);
+  background: rgba(9, 6, 5, 0.9);
+  color: rgba(237, 226, 205, 0.95);
+  white-space: pre-wrap;
+  line-height: 1.6;
+  font-size: 0.85rem;
+  padding: 0.9rem 1rem;
+}
+
+.settings-big-summary-editor {
+  width: 100%;
+  resize: vertical;
+  min-height: 15rem;
+  max-height: none;
+}
+
+.settings-big-summary-editor:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.76);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.26);
 }
 
 @media (max-width: 768px) {

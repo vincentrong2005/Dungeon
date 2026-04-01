@@ -197,6 +197,31 @@ export const useGameStore = defineStore('game', () => {
     summary: string;
   }
 
+  interface BigSummaryGenerateInput {
+    rangeStart: number;
+    rangeEnd: number;
+    minWords: number;
+    maxWords: number;
+  }
+
+  interface BigSummaryGenerateResult {
+    summary: string;
+    rangeStart: number;
+    rangeEnd: number;
+    entryCount: number;
+  }
+
+  interface BigSummaryApplyInput {
+    rangeStart: number;
+    rangeEnd: number;
+    summaryText: string;
+  }
+
+  interface BigSummaryApplyResult {
+    mergedIndex: number;
+    removedCount: number;
+  }
+
   const normalizeSummaryText = (text: string): string => (
     text
       .replace(/\r?\n+/g, ' ')
@@ -295,6 +320,153 @@ export const useGameStore = defineStore('game', () => {
       }
     }
     return null;
+  };
+
+  const loadAutoSummaryChronicleEntries = async (): Promise<ChronicleEntry[]> => {
+    const target = await resolveAutoSummaryEntryTarget();
+    if (!target) return [];
+
+    try {
+      const worldbook = await getWorldbook(target.worldbookName);
+      const matchedEntry = worldbook.find((entry) => entry.uid === target.uid);
+      if (!matchedEntry) return [];
+      return parseChronicleContent(matchedEntry.content ?? '');
+    } catch (err) {
+      console.warn('[GameStore] loadAutoSummaryChronicleEntries failed:', err);
+      return [];
+    }
+  };
+
+  const normalizeWordRange = (minWords: number, maxWords: number): { min: number; max: number } => {
+    const rawMin = Number.isFinite(minWords) ? Math.floor(minWords) : 200;
+    const rawMax = Number.isFinite(maxWords) ? Math.floor(maxWords) : 600;
+    const clampedMin = Math.max(50, Math.min(10000, rawMin));
+    const clampedMax = Math.max(50, Math.min(10000, rawMax));
+    if (clampedMin <= clampedMax) {
+      return { min: clampedMin, max: clampedMax };
+    }
+    return { min: clampedMax, max: clampedMin };
+  };
+
+  const normalizeRange = (rangeStart: number, rangeEnd: number): { start: number; end: number } => {
+    const start = Number.isFinite(rangeStart) ? Math.floor(rangeStart) : 0;
+    const end = Number.isFinite(rangeEnd) ? Math.floor(rangeEnd) : 0;
+    if (start <= end) return { start, end };
+    return { start: end, end: start };
+  };
+
+  const formatBigSummaryPrompt = (entries: ChronicleEntry[], minWords: number, maxWords: number): string => {
+    const lines = entries
+      .map((entry) => `${entry.index}. ${entry.summary}`)
+      .join('\n');
+
+    return [
+      `我将为你提供一段故事的不同阶段小结。请你将这些片段深度整合，重构为一篇 ${minWords}到${maxWords} 字左右的完整剧情总结。`,
+      '要求：',
+      '消除冗余：合并各小结中重复的人物介绍和背景说明。',
+      '宏观视角：不要只是拼接，要从全局高度概括故事的起因、高潮和最终走向。',
+      '纯净输出：不输出任何开场白，干净、精确、无废话、不丢失关键信息地直接输出总结文本，不要有其他结果。',
+      '',
+      lines,
+    ].join('\n');
+  };
+
+  const generateBigSummary = async (input: BigSummaryGenerateInput): Promise<BigSummaryGenerateResult> => {
+    const allEntries = await loadAutoSummaryChronicleEntries();
+    if (allEntries.length === 0) {
+      throw new Error('当前没有可用于大总结的小总结条目。');
+    }
+
+    const normalizedRange = normalizeRange(input.rangeStart, input.rangeEnd);
+    const selectedEntries = allEntries.filter((entry) => (
+      entry.index >= normalizedRange.start && entry.index <= normalizedRange.end
+    ));
+    if (selectedEntries.length === 0) {
+      throw new Error('选定范围内没有可总结条目。');
+    }
+
+    const words = normalizeWordRange(input.minWords, input.maxWords);
+    const prompt = formatBigSummaryPrompt(selectedEntries, words.min, words.max);
+
+    const result = await generateRaw({
+      should_silence: true,
+      should_stream: false,
+      max_chat_history: 0,
+      ordered_prompts: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    const summary = (result ?? '').trim();
+    if (!summary) {
+      throw new Error('AI 未返回有效大总结内容。');
+    }
+
+    return {
+      summary,
+      rangeStart: normalizedRange.start,
+      rangeEnd: normalizedRange.end,
+      entryCount: selectedEntries.length,
+    };
+  };
+
+  const applyBigSummary = async (input: BigSummaryApplyInput): Promise<BigSummaryApplyResult> => {
+    const target = await resolveAutoSummaryEntryTarget();
+    if (!target) {
+      throw new Error('未找到自动总结条目。');
+    }
+
+    const summary = normalizeSummaryText(input.summaryText ?? '');
+    if (!summary) {
+      throw new Error('大总结内容为空，无法覆盖。');
+    }
+
+    const normalizedRange = normalizeRange(input.rangeStart, input.rangeEnd);
+    const baseEntries = await loadAutoSummaryChronicleEntries();
+    if (baseEntries.length === 0) {
+      throw new Error('当前没有可覆盖的小总结条目。');
+    }
+
+    const hasTarget = baseEntries.some((entry) => (
+      entry.index >= normalizedRange.start && entry.index <= normalizedRange.end
+    ));
+    if (!hasTarget) {
+      throw new Error('选定范围内没有可覆盖条目。');
+    }
+
+    const nextEntries = baseEntries
+      .filter((entry) => entry.index < normalizedRange.start || entry.index > normalizedRange.end);
+    nextEntries.push({
+      index: normalizedRange.start,
+      summary,
+    });
+    nextEntries.sort((a, b) => a.index - b.index);
+
+    try {
+      await updateWorldbookWith(
+        target.worldbookName,
+        (worldbook) => worldbook.map((entry) => (
+          entry.uid !== target.uid
+            ? entry
+            : {
+                ...entry,
+                content: formatChronicleContent(nextEntries),
+              }
+        )),
+        { render: 'debounced' },
+      );
+    } catch (err) {
+      console.warn('[GameStore] applyBigSummary failed:', err);
+      throw new Error('覆盖自动总结条目失败。');
+    }
+
+    return {
+      mergedIndex: normalizedRange.start,
+      removedCount: Math.max(0, normalizedRange.end - normalizedRange.start),
+    };
   };
 
   const overwriteAutoSummaryEntryContent = async (content: string) => {
@@ -1151,6 +1323,9 @@ export const useGameStore = defineStore('game', () => {
     loadStatData,
     loadSaveEntries,
     rebuildAutoSummaryChronicleFromMessages,
+    loadAutoSummaryChronicleEntries,
+    generateBigSummary,
+    applyBigSummary,
     rollbackTo,
     rerollCurrent,
     startEdit,
