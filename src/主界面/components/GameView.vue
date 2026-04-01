@@ -187,8 +187,8 @@
                     <button class="story-tucao-toggle" type="button" @click="toggleTucao(section.key)">
                       {{
                         isTucaoExpanded(section.key)
-                          ? `收起脑内剧场 ${sectionIndex + 1}`
-                          : `🎮 此方的脑内剧场 ${sectionIndex + 1}`
+                          ? `收起脑内剧场 ${Number(sectionIndex) + 1}`
+                          : `🎮 此方的脑内剧场 ${Number(sectionIndex) + 1}`
                       }}
                     </button>
                     <Transition name="tucao-expand">

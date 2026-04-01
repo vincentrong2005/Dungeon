@@ -19,7 +19,7 @@ importers:
         version: 13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807))
       '@vueuse/integrations':
         specifier: ^13.9.0
-        version: 13.9.0(axios@1.14.1)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))
+        version: 13.9.0(axios@1.13.2)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))
       '@vueuse/shared':
         specifier: ^13.9.0
         version: 13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807))
@@ -76,7 +76,7 @@ importers:
         version: 3.5.31(typescript@6.0.0-dev.20250807)
       vue-final-modal:
         specifier: ^4.5.5
-        version: 4.5.5(@vueuse/core@13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807)))(@vueuse/integrations@13.9.0(axios@1.14.1)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807)))(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))
+        version: 4.5.5(@vueuse/core@13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807)))(@vueuse/integrations@13.9.0(axios@1.13.2)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807)))(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))
       vue-router:
         specifier: ^4.6.4
         version: 4.6.4(vue@3.5.31(typescript@6.0.0-dev.20250807))
@@ -472,42 +472,36 @@ packages:
     engines: {node: '>= 10.0.0'}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm-musl@2.5.6':
     resolution: {integrity: sha512-Ve3gUCG57nuUUSyjBq/MAM0CzArtuIOxsBdQ+ftz6ho8n7s1i9E1Nmk/xmP323r2YL0SONs1EuwqBp2u1k5fxg==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-linux-arm64-glibc@2.5.6':
     resolution: {integrity: sha512-f2g/DT3NhGPdBmMWYoxixqYr3v/UXcmLOYy16Bx0TM20Tchduwr4EaCbmxh1321TABqPGDpS8D/ggOTaljijOA==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm64-musl@2.5.6':
     resolution: {integrity: sha512-qb6naMDGlbCwdhLj6hgoVKJl2odL34z2sqkC7Z6kzir8b5W65WYDpLB6R06KabvZdgoHI/zxke4b3zR0wAbDTA==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-linux-x64-glibc@2.5.6':
     resolution: {integrity: sha512-kbT5wvNQlx7NaGjzPFu8nVIW1rWqV780O7ZtkjuWaPUgpv2NMFpjYERVi0UYj1msZNyCzGlaCWEtzc+exjMGbQ==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-x64-musl@2.5.6':
     resolution: {integrity: sha512-1JRFeC+h7RdXwldHzTsmdtYR/Ku8SylLgTU/reMuqdVD7CtLwf0VR1FqeprZ0eHQkO0vqsbvFLXUmYm/uNKJBg==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-win32-arm64@2.5.6':
     resolution: {integrity: sha512-3ukyebjc6eGlw9yRt678DxVF7rjXatWiHvTXqphZLvo7aC5NdEgFufVwjFfY51ijYEWpXbqF5jtrK275z52D4Q==}
@@ -588,28 +582,24 @@ packages:
     engines: {node: '>= 20'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@tailwindcss/oxide-linux-arm64-musl@4.2.2':
     resolution: {integrity: sha512-oCfG/mS+/+XRlwNjnsNLVwnMWYH7tn/kYPsNPh+JSOMlnt93mYNCKHYzylRhI51X+TbR+ufNhhKKzm6QkqX8ag==}
     engines: {node: '>= 20'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@tailwindcss/oxide-linux-x64-gnu@4.2.2':
     resolution: {integrity: sha512-rTAGAkDgqbXHNp/xW0iugLVmX62wOp2PoE39BTCGKjv3Iocf6AFbRP/wZT/kuCxC9QBh9Pu8XPkv/zCZB2mcMg==}
     engines: {node: '>= 20'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@tailwindcss/oxide-linux-x64-musl@4.2.2':
     resolution: {integrity: sha512-XW3t3qwbIwiSyRCggeO2zxe3KWaEbM0/kW9e8+0XpBgyKU4ATYzcVSMKteZJ1iukJ3HgHBjbg9P5YPRCVUxlnQ==}
     engines: {node: '>= 20'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@tailwindcss/oxide-wasm32-wasi@4.2.2':
     resolution: {integrity: sha512-eKSztKsmEsn1O5lJ4ZAfyn41NfG7vzCg496YiGtMDV86jz1q/irhms5O0VrY6ZwTUkFy/EKG3RfWgxSI3VbZ8Q==}
@@ -870,49 +860,41 @@ packages:
     resolution: {integrity: sha512-34gw7PjDGB9JgePJEmhEqBhWvCiiWCuXsL9hYphDF7crW7UgI05gyBAi6MF58uGcMOiOqSJ2ybEeCvHcq0BCmQ==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-arm64-musl@1.11.1':
     resolution: {integrity: sha512-RyMIx6Uf53hhOtJDIamSbTskA99sPHS96wxVE/bJtePJJtpdKGXO1wY90oRdXuYOGOTuqjT8ACccMc4K6QmT3w==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@unrs/resolver-binding-linux-ppc64-gnu@1.11.1':
     resolution: {integrity: sha512-D8Vae74A4/a+mZH0FbOkFJL9DSK2R6TFPC9M+jCWYia/q2einCubX10pecpDiTmkJVUH+y8K3BZClycD8nCShA==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-gnu@1.11.1':
     resolution: {integrity: sha512-frxL4OrzOWVVsOc96+V3aqTIQl1O2TjgExV4EKgRY09AJ9leZpEg8Ak9phadbuX0BA4k8U5qtvMSQQGGmaJqcQ==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-riscv64-musl@1.11.1':
     resolution: {integrity: sha512-mJ5vuDaIZ+l/acv01sHoXfpnyrNKOk/3aDoEdLO/Xtn9HuZlDD6jKxHlkN8ZhWyLJsRBxfv9GYM2utQ1SChKew==}
     cpu: [riscv64]
     os: [linux]
-    libc: [musl]
 
   '@unrs/resolver-binding-linux-s390x-gnu@1.11.1':
     resolution: {integrity: sha512-kELo8ebBVtb9sA7rMe1Cph4QHreByhaZ2QEADd9NzIQsYNQpt9UkM9iqr2lhGr5afh885d/cB5QeTXSbZHTYPg==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-gnu@1.11.1':
     resolution: {integrity: sha512-C3ZAHugKgovV5YvAMsxhq0gtXuwESUKc5MhEtjBpLoHPLYM+iuwSj3lflFwK3DPm68660rZ7G8BMcwSro7hD5w==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@unrs/resolver-binding-linux-x64-musl@1.11.1':
     resolution: {integrity: sha512-rV0YSoyhK2nZ4vEswT/QwqzqQXw5I6CjoaYMOX0TqBlWhojUf8P94mvI7nuJTeaCkkds3QE4+zS8Ko+GdXuZtA==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@unrs/resolver-binding-wasm32-wasi@1.11.1':
     resolution: {integrity: sha512-5u4RkfxJm+Ng7IWgkzi3qrFOvLvQYnPBmjmZQ8+szTK/b31fQCnleNl1GgEt7nIsZRIf5PLhPwT0WM+q45x/UQ==}
@@ -1286,8 +1268,8 @@ packages:
     resolution: {integrity: sha512-fjgm5MvRHLhx+osE2xoekY70AhARk3a6hkN+3Io1jc00jtquGvxYlKlsFUhmUET0V5te6CcZI7lcv2Ym61mjHA==}
     deprecated: Critical security vulnerability fixed in v0.21.1. For more information, see https://github.com/axios/axios/pull/3410
 
-  axios@1.14.1:
-    resolution: {integrity: sha512-vF/aB4vrIzLyOb2TB9gpuE8gusNHpZqk2ZZcAqSnRjW5IcY7tFSBEurD2tbakohj0Rw5xMHYwjSqOGSfr0iewA==}
+  axios@1.13.2:
+    resolution: {integrity: sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==}
 
   bail@2.0.2:
     resolution: {integrity: sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw==}
@@ -2632,28 +2614,24 @@ packages:
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   lightningcss-linux-arm64-musl@1.32.0:
     resolution: {integrity: sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg==}
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   lightningcss-linux-x64-gnu@1.32.0:
     resolution: {integrity: sha512-V7Qr52IhZmdKPVr+Vtw8o+WLsQJYCTd8loIfpDaMRWGUZfBOYEJeyJIkqGIDMZPwPx24pUMfwSxxI8phr/MbOA==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   lightningcss-linux-x64-musl@1.32.0:
     resolution: {integrity: sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg==}
     engines: {node: '>= 12.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   lightningcss-win32-arm64-msvc@1.32.0:
     resolution: {integrity: sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw==}
@@ -3113,9 +3091,6 @@ packages:
   pkg-types@2.3.0:
     resolution: {integrity: sha512-SIqCzDRg0s9npO5XQ3tNZioRY1uK06lA41ynBC1YmFTmnY6FjUjVt6s4LoADmwoig1qqD0oK8h1p/8mlMx8Oig==}
 
-  plain-crypto-js@4.2.1:
-    resolution: {integrity: sha512-Wv41p4/aEMq03JjDqi0JxPYT4aoMbbQMSM8ur4QkjvjGEeuYvI7rGkqLcOZ7K1iThQGvpNvJnxRWcNodCNuEEQ==}
-
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
@@ -3254,10 +3229,6 @@ packages:
 
   proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
-
-  proxy-from-env@2.1.0:
-    resolution: {integrity: sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==}
-    engines: {node: '>=10'}
 
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -4834,13 +4805,13 @@ snapshots:
       '@vueuse/shared': 14.2.1(vue@3.5.31(typescript@6.0.0-dev.20250807))
       vue: 3.5.31(typescript@6.0.0-dev.20250807)
 
-  '@vueuse/integrations@13.9.0(axios@1.14.1)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))':
+  '@vueuse/integrations@13.9.0(axios@1.13.2)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))':
     dependencies:
       '@vueuse/core': 13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807))
       '@vueuse/shared': 13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807))
       vue: 3.5.31(typescript@6.0.0-dev.20250807)
     optionalDependencies:
-      axios: 1.14.1
+      axios: 1.13.2
       focus-trap: 7.6.5
 
   '@vueuse/metadata@10.11.1': {}
@@ -5110,12 +5081,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  axios@1.14.1:
+  axios@1.13.2:
     dependencies:
       follow-redirects: 1.15.11
       form-data: 4.0.5
-      plain-crypto-js: 4.2.1
-      proxy-from-env: 2.1.0
+      proxy-from-env: 1.1.0
     transitivePeerDependencies:
       - debug
 
@@ -7189,8 +7159,6 @@ snapshots:
       exsolve: 1.0.8
       pathe: 2.0.3
 
-  plain-crypto-js@4.2.1: {}
-
   possible-typed-array-names@1.1.0: {}
 
   postcss-cli@11.0.1(jiti@2.6.1)(postcss@8.5.8):
@@ -7310,8 +7278,6 @@ snapshots:
 
   proxy-from-env@1.1.0: {}
 
-  proxy-from-env@2.1.0: {}
-
   punycode@2.3.1: {}
 
   q@1.5.1: {}
@@ -7414,7 +7380,7 @@ snapshots:
 
   remote-content@4.0.1:
     dependencies:
-      axios: 1.14.1
+      axios: 1.13.2
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
       - debug
@@ -8092,10 +8058,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  vue-final-modal@4.5.5(@vueuse/core@13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807)))(@vueuse/integrations@13.9.0(axios@1.14.1)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807)))(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807)):
+  vue-final-modal@4.5.5(@vueuse/core@13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807)))(@vueuse/integrations@13.9.0(axios@1.13.2)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807)))(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807)):
     dependencies:
       '@vueuse/core': 13.9.0(vue@3.5.31(typescript@6.0.0-dev.20250807))
-      '@vueuse/integrations': 13.9.0(axios@1.14.1)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))
+      '@vueuse/integrations': 13.9.0(axios@1.13.2)(focus-trap@7.6.5)(vue@3.5.31(typescript@6.0.0-dev.20250807))
       focus-trap: 7.6.5
       vue: 3.5.31(typescript@6.0.0-dev.20250807)
 
