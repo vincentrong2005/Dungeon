@@ -281,6 +281,13 @@ export const useGameStore = defineStore('game', () => {
       .sort((a, b) => a.index - b.index);
   };
 
+  const removeChronicleEntriesFrom = (entries: ChronicleEntry[], index: number): ChronicleEntry[] => {
+    if (!Number.isFinite(index) || index < 0) return entries;
+    return entries
+      .filter((entry) => entry.index < index)
+      .sort((a, b) => a.index - b.index);
+  };
+
   const getBoundWorldbookNames = (): string[] => {
     const names = new Set<string>();
     try {
@@ -522,6 +529,33 @@ export const useGameStore = defineStore('game', () => {
       );
     } catch (err) {
       console.warn('[GameStore] updateAutoSummaryChronicle failed:', err);
+    }
+  };
+
+  const removeAutoSummaryChronicleByAssistantMessageId = async (assistantMessageId: number) => {
+    const target = await resolveAutoSummaryEntryTarget();
+    if (!target) return;
+
+    const chronicleIndex = Math.floor(assistantMessageId / 2);
+    if (!Number.isFinite(chronicleIndex) || chronicleIndex < 0) return;
+
+    try {
+      await updateWorldbookWith(
+        target.worldbookName,
+        (worldbook) => worldbook.map((entry) => {
+          if (entry.uid !== target.uid) return entry;
+          const parsedEntries = parseChronicleContent(entry.content ?? '');
+          const nextEntries = removeChronicleEntriesFrom(parsedEntries, chronicleIndex);
+          if (nextEntries.length === parsedEntries.length) return entry;
+          return {
+            ...entry,
+            content: formatChronicleContent(nextEntries),
+          };
+        }),
+        { render: 'debounced' },
+      );
+    } catch (err) {
+      console.warn('[GameStore] removeAutoSummaryChronicleByAssistantMessageId failed:', err);
     }
   };
 
@@ -1116,6 +1150,7 @@ export const useGameStore = defineStore('game', () => {
       if (latestMsg?.role === 'assistant') {
         console.info('[GameStore] Reroll: deleting assistant message', lastId);
         await deleteChatMessages([lastId], { refresh: 'none' });
+        await removeAutoSummaryChronicleByAssistantMessageId(lastId);
       } else if (latestMsg?.role === 'user') {
         console.info('[GameStore] Reroll: latest message is user, keep it and regenerate assistant');
       } else {

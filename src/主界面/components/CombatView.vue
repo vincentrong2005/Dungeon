@@ -5042,6 +5042,11 @@ const resolveCombat = async (
     }
 
     if (card.id === 'enemy_muxinlan_liquid_fire') {
+      const appliedCold = Math.max(0, Math.floor(finalPoint));
+      if (appliedCold > 0) {
+        applyStatusEffectWithRelics(defenderSide, ET.COLD, appliedCold, { source: card.id });
+        log(`<span class="text-sky-300">${label}【${card.name}】施加了 ${appliedCold} 层寒冷</span>`);
+      }
       const coldStacks = getEffectStacks(defender, ET.COLD);
       if (coldStacks > 0) {
         removeEffect(defender, ET.COLD);
@@ -5072,14 +5077,16 @@ const resolveCombat = async (
     }
 
     if (card.id === 'enemy_muxinlan_premium_shield') {
+      applyStatusEffectWithRelics(source, ET.CO_DAMAGE, 1, { source: card.id, lockDecayThisTurn: true });
       const x = Math.max(0, Math.floor(defender.mp));
+      let actualManaGain = 0;
       if (x > 0) {
-        applyStatusEffectWithRelics(source, ET.STURDY, x, { source: card.id });
-        attacker.mp += x;
-        pushFloatingNumber(source, x, 'shield', '+');
-        pushFloatingNumber(source, x, 'mana', '+');
+        const manaResult = changeManaWithShock(source, x, `法力变化（${label}【${card.name}】）`, {
+          showPositiveFloating: true,
+        });
+        actualManaGain = Math.max(0, manaResult.actualDelta);
       }
-      log(`<span class="text-cyan-300">${label}【${card.name}】获得 ${x} 层坚固与 ${x} 点魔力</span>`);
+      log(`<span class="text-cyan-300">${label}【${card.name}】获得 1 层共损与 ${actualManaGain} 点魔力</span>`);
       finalizeAndTrack();
       return;
     }
@@ -5739,6 +5746,13 @@ const resolveCombat = async (
         );
         triggerObedienceBrandOnDirectHit(source, defenderSide);
         applyHitAttachEffects(source, card, attacker, defenderSide);
+        if (card.id === 'enemy_muxinlan_unstable_reagent') {
+          const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
+          const stacks = 1;
+          applyStatusEffectWithRelics(defenderSide, picked, stacks, { source: card.id });
+          const hitPrefixText = totalHitCount > 1 ? `第${hit + 1}段` : '';
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】${hitPrefixText}附加了 ${stacks} 层${EFFECT_REGISTRY[picked]?.name ?? picked}</span>`);
+        }
         if (card.id === 'enemy_elizabeth_blood_thorns') {
           const shouldApplyBleed = Math.random() < 0.5;
           if (shouldApplyBleed) {
@@ -6075,15 +6089,6 @@ const resolveCombat = async (
         if (targetHasBind) {
           applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
           log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已束缚，施加 1 层敌意隐藏</span>`);
-        }
-      }
-
-      if (card.id === 'enemy_muxinlan_unstable_reagent') {
-        const stacks = Math.max(0, Math.floor(finalPoint * 0.5));
-        if (stacks > 0) {
-          const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
-          applyStatusEffectWithRelics(defenderSide, picked, stacks, { source: card.id });
-          log(`<span class="text-fuchsia-300">${label}【${card.name}】附加了 ${stacks} 层${EFFECT_REGISTRY[picked]?.name ?? picked}</span>`);
         }
       }
       finalizeAndTrack();

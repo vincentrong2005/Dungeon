@@ -485,10 +485,10 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
   return {
     name: 沐芯兰名称,
     stats: {
-      hp: 20 + 30 * floor,
-      maxHp: 20 + 30 * floor,
+      hp: 50 * Math.pow(2, floor - 1),
+      maxHp: 50 * Math.pow(2, floor - 1),
       mp: 2 * floor,
-      minDice: 1 + floor,
+      minDice: 2 + floor,
       maxDice: 6 + floor,
       effects: [
         { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
@@ -525,7 +525,13 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
       }
 
       if (ctx.enemyStats.mp > 4) {
-        const highMpPool = [MUXINLAN_CARD.REAGENT, MUXINLAN_CARD.LIQUID_FIRE, MUXINLAN_CARD.SLIME] as const;
+        const highMpPool = [
+          MUXINLAN_CARD.REAGENT,
+          MUXINLAN_CARD.LIQUID_FIRE,
+          MUXINLAN_CARD.SLIME,
+          MUXINLAN_CARD.FORCED,
+          MUXINLAN_CARD.AMBUSH,
+        ] as const;
         const chosen = highMpPool[Math.floor(Math.random() * highMpPool.length)]!;
         return pickCardById(ctx, chosen);
       }
@@ -542,11 +548,11 @@ function create宝箱怪Definition(currentFloor: number): EnemyDefinition {
   return {
     name: 宝箱怪名称,
     stats: {
-      hp: 20 * floor,
-      maxHp: 20 * floor,
+      hp: 20 * Math.pow(2, floor - 1),
+      maxHp: 20 * Math.pow(2, floor - 1),
       mp: 0,
       minDice: floor,
-      maxDice: 5 + 2 * floor,
+      maxDice: 3 + 2 * floor,
       effects: [],
     },
     deck: buildDeckById([

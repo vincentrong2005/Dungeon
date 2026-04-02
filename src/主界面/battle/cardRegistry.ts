@@ -5543,7 +5543,7 @@ const 清算: CardData = {
   description: '点数*2，移除对方所有元素debuff，每移除1层造成2点真实伤害',
 };
 
-/** 不稳定试剂：点数*1.5，造成0.5倍最终点数伤害并随机附加元素debuff（结算逻辑在 CombatView） */
+/** 不稳定试剂：点数*1.5，造成0.4倍最终点数伤害，3连击；每次命中随机附加一种元素debuff 1层（结算逻辑在 CombatView） */
 const 不稳定试剂: CardData = {
   id: 'enemy_muxinlan_unstable_reagent',
   name: '不稳定试剂',
@@ -5552,14 +5552,14 @@ const 不稳定试剂: CardData = {
   rarity: '普通',
   manaCost: 4,
   calculation: { multiplier: 1.5, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
-  hitCount: 1,
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 3,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.5，造成0.5倍最终点数伤害，并随机附加一种元素debuff',
+  description: '点数*1.5，造成0.4倍最终点数伤害，3连击；每次命中随机附加1层元素debuff',
 };
 
-/** 液态火：点数*1.5，将对方寒冷按1:1转化为燃烧（结算逻辑在 CombatView） */
+/** 液态火：施加1倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧（结算逻辑在 CombatView） */
 const 液态火: CardData = {
   id: 'enemy_muxinlan_liquid_fire',
   name: '液态火',
@@ -5567,11 +5567,11 @@ const 液态火: CardData = {
   category: '敌人',
   rarity: '普通',
   manaCost: 4,
-  calculation: { multiplier: 1.5, addition: 0 },
+  calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.5，将对方所有寒冷按1:1转化为燃烧',
+  description: '施加1倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧',
 };
 
 /** 活化粘液：点数+3，随机将对方一种已有元素debuff层数翻倍（结算逻辑在 CombatView） */
@@ -5606,7 +5606,7 @@ const 等价交换: CardData = {
   description: '点数+1，插入两张炼金废料到对方牌库，同时回复2倍点数的生命',
 };
 
-/** 溢价护盾：增加自身x层坚固与x点魔力，x为对方魔力值（结算逻辑在 CombatView） */
+/** 溢价护盾：增加自身1层共损与x点魔力，x为对方魔力值（结算逻辑在 CombatView） */
 const 溢价护盾: CardData = {
   id: 'enemy_muxinlan_premium_shield',
   name: '溢价护盾',
@@ -5618,10 +5618,10 @@ const 溢价护盾: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '增加自身x层坚固与x点魔力，x为对方魔力值',
+  description: '增加自身1层共损与x点魔力，x为对方魔力值',
 };
 
-/** 设下埋伏：点数*0.5，闪避。若对方跳过回合，则为对方施加一层法力枯竭 */
+/** 设下埋伏：点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加一层法力枯竭 */
 const 设下埋伏: CardData = {
   id: 'enemy_muxinlan_set_ambush',
   name: '设下埋伏',
@@ -5634,7 +5634,7 @@ const 设下埋伏: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     {
-      triggers: ['on_opponent_skip'],
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
       kind: 'apply_buff',
       effectType: EffectType.MANA_DRAIN,
       target: 'enemy',
@@ -5642,7 +5642,7 @@ const 设下埋伏: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '点数*0.5，闪避。若对方跳过回合，则为对方施加1层法力枯竭',
+  description: '点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加1层法力枯竭',
 };
 
 // ── 卡牌注册表 ──────────────────────────────────────────────────

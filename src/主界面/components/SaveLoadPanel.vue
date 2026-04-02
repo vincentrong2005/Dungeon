@@ -30,7 +30,7 @@
         @click="handleReroll"
       >
         <RefreshCw class="size-4" />
-        <span class="font-ui text-sm tracking-wide">重掷</span>
+        <span class="font-ui text-sm tracking-wide">重Roll</span>
       </button>
       <button
         class="save-load-action-btn"
