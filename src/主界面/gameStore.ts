@@ -1,6 +1,19 @@
 // Schema import removed - using raw MVU data directly
-import { detectLeave, detectOptionE, detectRebirth, extractMainText, extractOptions, extractSummary, extractVariableUpdate, filterStreamingTextAfterThinkEnd, parseResponse, type ParsedResponse, type ResponseParserOptions } from './responseParser';
+import {
+  detectLeave,
+  detectOptionE,
+  detectRebirth,
+  extractMainText,
+  extractOptions,
+  extractSummary,
+  extractVariableUpdate,
+  filterStreamingTextAfterThinkEnd,
+  parseResponse,
+  type ParsedResponse,
+  type ResponseParserOptions,
+} from './responseParser';
 import { getFloorNumberForArea } from './floor';
+import { buildOpeningBackstoryDraftPrompt, type OpeningInfoSubmission } from './openingProfile';
 
 /**
  * Maintenance note:
@@ -222,12 +235,11 @@ export const useGameStore = defineStore('game', () => {
     removedCount: number;
   }
 
-  const normalizeSummaryText = (text: string): string => (
+  const normalizeSummaryText = (text: string): string =>
     text
       .replace(/\r?\n+/g, ' ')
       .replace(/\s+/g, ' ')
-      .trim()
-  );
+      .trim();
 
   const parseChronicleContent = (content: string): ChronicleEntry[] => {
     const map = new Map<number, string>();
@@ -253,9 +265,7 @@ export const useGameStore = defineStore('game', () => {
 
   const formatChronicleContent = (entries: ChronicleEntry[]): string => {
     if (entries.length === 0) return AUTO_SUMMARY_TITLE;
-    const lines = [...entries]
-      .sort((a, b) => a.index - b.index)
-      .map((entry) => `${entry.index}. ${entry.summary}`);
+    const lines = [...entries].sort((a, b) => a.index - b.index).map(entry => `${entry.index}. ${entry.summary}`);
     return `${AUTO_SUMMARY_TITLE}\n${lines.join('\n')}`;
   };
 
@@ -283,9 +293,7 @@ export const useGameStore = defineStore('game', () => {
 
   const removeChronicleEntriesFrom = (entries: ChronicleEntry[], index: number): ChronicleEntry[] => {
     if (!Number.isFinite(index) || index < 0) return entries;
-    return entries
-      .filter((entry) => entry.index < index)
-      .sort((a, b) => a.index - b.index);
+    return entries.filter(entry => entry.index < index).sort((a, b) => a.index - b.index);
   };
 
   const getBoundWorldbookNames = (): string[] => {
@@ -312,13 +320,132 @@ export const useGameStore = defineStore('game', () => {
     return Array.from(names);
   };
 
+  const OPENING_WATERMARK = '【【】】';
+
+  const normalizeFreshChatMessage = (message: unknown): string =>
+    typeof message === 'string' ? message.replaceAll(OPENING_WATERMARK, '').replace(/\s+/gu, '').trim() : '';
+
+  const isFreshChatSession = (): boolean => {
+    const lastId = getLastMessageId();
+    if (lastId < 0) return true;
+
+    try {
+      const messages = getChatMessages(`0-${lastId}`, { hide_state: 'all' });
+      if (!Array.isArray(messages) || messages.length === 0) return true;
+      return messages.every(message => normalizeFreshChatMessage(message?.message).length === 0);
+    } catch {
+      return false;
+    }
+  };
+
+  const overwriteUserWorldbookEntryContent = async (content: string): Promise<boolean> => {
+    const worldbookNames = getBoundWorldbookNames();
+    if (worldbookNames.length === 0) return false;
+
+    let updatedAny = false;
+
+    for (const worldbookName of worldbookNames) {
+      try {
+        const worldbook = await getWorldbook(worldbookName);
+        const hasUserEntry = worldbook.some(entry => entry.name?.trim() === 'user');
+        if (!hasUserEntry) continue;
+
+        await updateWorldbookWith(
+          worldbookName,
+          entries =>
+            entries.map(entry =>
+              entry.name?.trim() !== 'user'
+                ? entry
+                : {
+                    ...entry,
+                    content,
+                  },
+            ),
+          { render: 'debounced' },
+        );
+        updatedAny = true;
+      } catch (err) {
+        console.warn('[GameStore] overwriteUserWorldbookEntryContent failed:', err);
+      }
+    }
+
+    return updatedAny;
+  };
+
+  const getWorldbookEntryContentByName = async (entryName: string): Promise<string | null> => {
+    const normalizedName = entryName.trim();
+    if (!normalizedName) return null;
+
+    const worldbookNames = getBoundWorldbookNames();
+    for (const worldbookName of worldbookNames) {
+      try {
+        const worldbook = await getWorldbook(worldbookName);
+        const matchedEntry = worldbook.find(entry => entry.name?.trim() === normalizedName);
+        const content = typeof matchedEntry?.content === 'string' ? matchedEntry.content.trim() : '';
+        if (content) return content;
+      } catch (err) {
+        console.warn('[GameStore] getWorldbookEntryContentByName failed:', err);
+      }
+    }
+
+    return null;
+  };
+
+  const generateOpeningBackstoryDraft = async (profile: OpeningInfoSubmission): Promise<string> => {
+    const backgroundSetting = await getWorldbookEntryContentByName('背景设定');
+    if (!backgroundSetting) {
+      throw new Error('未找到世界书条目“背景设定”。');
+    }
+
+    const witchSetting = await getWorldbookEntryContentByName('魔女');
+    if (!witchSetting) {
+      throw new Error('未找到世界书条目“魔女”。');
+    }
+
+    const prompt = buildOpeningBackstoryDraftPrompt(
+      {
+        race: profile.race,
+        name: profile.name,
+        age: profile.age,
+        chastity: profile.chastity,
+        heightCm: profile.heightCm,
+        weightType: profile.weightType,
+        bust: profile.bust,
+        hips: profile.hips,
+        sensitivePoints: profile.sensitivePoints,
+        existingBackstory: profile.backstory,
+      },
+      backgroundSetting,
+      witchSetting,
+    );
+
+    const result = await generateRaw({
+      should_silence: true,
+      should_stream: false,
+      max_chat_history: 0,
+      ordered_prompts: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    const draft = (result ?? '').trim();
+    if (!draft) {
+      throw new Error('AI 未返回有效的背景故事内容。');
+    }
+    return draft;
+  };
+
   const resolveAutoSummaryEntryTarget = async (): Promise<{ worldbookName: string; uid: number } | null> => {
     const worldbookNames = getBoundWorldbookNames();
     for (const worldbookName of worldbookNames) {
       try {
         const worldbook = await getWorldbook(worldbookName);
-        const entry = worldbook.find((item) => item.name?.trim() === AUTO_SUMMARY_ENTRY_NAME)
-          ?? worldbook.find((item) => item.uid === AUTO_SUMMARY_ENTRY_UID);
+        const entry =
+          worldbook.find(item => item.name?.trim() === AUTO_SUMMARY_ENTRY_NAME) ??
+          worldbook.find(item => item.uid === AUTO_SUMMARY_ENTRY_UID);
         if (entry) {
           return { worldbookName, uid: entry.uid };
         }
@@ -335,7 +462,7 @@ export const useGameStore = defineStore('game', () => {
 
     try {
       const worldbook = await getWorldbook(target.worldbookName);
-      const matchedEntry = worldbook.find((entry) => entry.uid === target.uid);
+      const matchedEntry = worldbook.find(entry => entry.uid === target.uid);
       if (!matchedEntry) return [];
       return parseChronicleContent(matchedEntry.content ?? '');
     } catch (err) {
@@ -363,9 +490,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   const formatBigSummaryPrompt = (entries: ChronicleEntry[], minWords: number, maxWords: number): string => {
-    const lines = entries
-      .map((entry) => `${entry.index}. ${entry.summary}`)
-      .join('\n');
+    const lines = entries.map(entry => `${entry.index}. ${entry.summary}`).join('\n');
 
     return [
       `我将为你提供一段故事的不同阶段小结。请你将这些片段深度整合，重构为一篇 ${minWords}到${maxWords} 字左右的完整剧情总结。`,
@@ -385,9 +510,9 @@ export const useGameStore = defineStore('game', () => {
     }
 
     const normalizedRange = normalizeRange(input.rangeStart, input.rangeEnd);
-    const selectedEntries = allEntries.filter((entry) => (
-      entry.index >= normalizedRange.start && entry.index <= normalizedRange.end
-    ));
+    const selectedEntries = allEntries.filter(
+      entry => entry.index >= normalizedRange.start && entry.index <= normalizedRange.end,
+    );
     if (selectedEntries.length === 0) {
       throw new Error('选定范围内没有可总结条目。');
     }
@@ -437,15 +562,16 @@ export const useGameStore = defineStore('game', () => {
       throw new Error('当前没有可覆盖的小总结条目。');
     }
 
-    const hasTarget = baseEntries.some((entry) => (
-      entry.index >= normalizedRange.start && entry.index <= normalizedRange.end
-    ));
+    const hasTarget = baseEntries.some(
+      entry => entry.index >= normalizedRange.start && entry.index <= normalizedRange.end,
+    );
     if (!hasTarget) {
       throw new Error('选定范围内没有可覆盖条目。');
     }
 
-    const nextEntries = baseEntries
-      .filter((entry) => entry.index < normalizedRange.start || entry.index > normalizedRange.end);
+    const nextEntries = baseEntries.filter(
+      entry => entry.index < normalizedRange.start || entry.index > normalizedRange.end,
+    );
     nextEntries.push({
       index: normalizedRange.start,
       summary,
@@ -455,14 +581,15 @@ export const useGameStore = defineStore('game', () => {
     try {
       await updateWorldbookWith(
         target.worldbookName,
-        (worldbook) => worldbook.map((entry) => (
-          entry.uid !== target.uid
-            ? entry
-            : {
-                ...entry,
-                content: formatChronicleContent(nextEntries),
-              }
-        )),
+        worldbook =>
+          worldbook.map(entry =>
+            entry.uid !== target.uid
+              ? entry
+              : {
+                  ...entry,
+                  content: formatChronicleContent(nextEntries),
+                },
+          ),
         { render: 'debounced' },
       );
     } catch (err) {
@@ -483,14 +610,15 @@ export const useGameStore = defineStore('game', () => {
     try {
       await updateWorldbookWith(
         target.worldbookName,
-        (worldbook) => worldbook.map((entry) => (
-          entry.uid !== target.uid
-            ? entry
-            : {
-                ...entry,
-                content,
-              }
-        )),
+        worldbook =>
+          worldbook.map(entry =>
+            entry.uid !== target.uid
+              ? entry
+              : {
+                  ...entry,
+                  content,
+                },
+          ),
         { render: 'debounced' },
       );
       return true;
@@ -514,8 +642,8 @@ export const useGameStore = defineStore('game', () => {
     try {
       await updateWorldbookWith(
         target.worldbookName,
-        (worldbook) => {
-          return worldbook.map((entry) => {
+        worldbook => {
+          return worldbook.map(entry => {
             if (entry.uid !== target.uid) return entry;
             const parsedEntries = parseChronicleContent(entry.content ?? '');
             const nextEntries = upsertChronicleEntry(parsedEntries, chronicleIndex, normalizedSummary);
@@ -542,16 +670,17 @@ export const useGameStore = defineStore('game', () => {
     try {
       await updateWorldbookWith(
         target.worldbookName,
-        (worldbook) => worldbook.map((entry) => {
-          if (entry.uid !== target.uid) return entry;
-          const parsedEntries = parseChronicleContent(entry.content ?? '');
-          const nextEntries = removeChronicleEntriesFrom(parsedEntries, chronicleIndex);
-          if (nextEntries.length === parsedEntries.length) return entry;
-          return {
-            ...entry,
-            content: formatChronicleContent(nextEntries),
-          };
-        }),
+        worldbook =>
+          worldbook.map(entry => {
+            if (entry.uid !== target.uid) return entry;
+            const parsedEntries = parseChronicleContent(entry.content ?? '');
+            const nextEntries = removeChronicleEntriesFrom(parsedEntries, chronicleIndex);
+            if (nextEntries.length === parsedEntries.length) return entry;
+            return {
+              ...entry,
+              content: formatChronicleContent(nextEntries),
+            };
+          }),
         { render: 'debounced' },
       );
     } catch (err) {
@@ -565,9 +694,7 @@ export const useGameStore = defineStore('game', () => {
     if (!target) return 0;
 
     const lastId = getLastMessageId();
-    const messages = lastId >= 0
-      ? getChatMessages(`0-${lastId}`, { role: 'assistant', hide_state: 'all' })
-      : [];
+    const messages = lastId >= 0 ? getChatMessages(`0-${lastId}`, { role: 'assistant', hide_state: 'all' }) : [];
 
     const map = new Map<number, string>();
     for (const msg of messages) {
@@ -586,14 +713,15 @@ export const useGameStore = defineStore('game', () => {
     try {
       await updateWorldbookWith(
         target.worldbookName,
-        (worldbook) => worldbook.map((entry) => (
-          entry.uid !== target.uid
-            ? entry
-            : {
-                ...entry,
-                content: formatChronicleContent(entries),
-              }
-        )),
+        worldbook =>
+          worldbook.map(entry =>
+            entry.uid !== target.uid
+              ? entry
+              : {
+                  ...entry,
+                  content: formatChronicleContent(entries),
+                },
+          ),
         { render: 'debounced' },
       );
       return entries.length;
@@ -709,8 +837,8 @@ export const useGameStore = defineStore('game', () => {
     const currentPath = Array.isArray(sd.$路径)
       ? sd.$路径.filter((item): item is string => typeof item === 'string')
       : Array.isArray(stat.$路径)
-      ? stat.$路径.filter((item): item is string => typeof item === 'string')
-      : [];
+        ? stat.$路径.filter((item): item is string => typeof item === 'string')
+        : [];
     const nextPath = [...currentPath];
     if (changes.resetPath) {
       nextPath.length = 0;
@@ -744,9 +872,7 @@ export const useGameStore = defineStore('game', () => {
 
     if (changes.addDefeatMark) {
       const raw = sd.$负面状态;
-      const base = Array.isArray(raw)
-        ? raw.filter((item): item is string => typeof item === 'string')
-        : [];
+      const base = Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
       if (!base.includes('[败北]')) {
         base.push('[败北]');
       }
@@ -755,9 +881,7 @@ export const useGameStore = defineStore('game', () => {
 
     if (Array.isArray(changes.negativeStatusesAdd) && changes.negativeStatusesAdd.length > 0) {
       const raw = sd.$负面状态;
-      const base = Array.isArray(raw)
-        ? raw.filter((item): item is string => typeof item === 'string')
-        : [];
+      const base = Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
       for (const status of changes.negativeStatusesAdd) {
         if (typeof status !== 'string') continue;
         const normalized = status.trim();
@@ -894,6 +1018,7 @@ export const useGameStore = defineStore('game', () => {
     const latestMessages = getChatMessages(`${normalizedLastId}-${normalizedLastId}`);
     const latestMessage = latestMessages[0];
     if (!latestMessage || latestMessage.role !== 'user') return null;
+    if (normalizeFreshChatMessage(latestMessage.message).length === 0) return null;
     return latestMessage.message_id;
   };
 
@@ -916,19 +1041,18 @@ export const useGameStore = defineStore('game', () => {
     try {
       // 1. 在创建新消息前，获取最新楼层的 MVU 变量（用于继承）
       const overwriteUserMessageId = await normalizeTailUserMessage();
-      const baseMessageId = overwriteUserMessageId !== null
-        ? findLatestAssistantMessageId()
-        : getLastMessageId();
-      const oldMvuData = baseMessageId >= 0
-        ? Mvu.getMvuData({ type: 'message', message_id: baseMessageId })
-        : {};
+      const baseMessageId = overwriteUserMessageId !== null ? findLatestAssistantMessageId() : getLastMessageId();
+      const oldMvuData = baseMessageId >= 0 ? Mvu.getMvuData({ type: 'message', message_id: baseMessageId }) : {};
       const currentPendingPortalChanges = pendingPortalChanges.value;
       const currentPendingCombatChanges = pendingCombatMvuChanges.value;
       const currentPendingStatDataChanges = pendingStatDataChanges.value;
 
       // 2. 先将传送门变量写入 user 楼层对应的 MVU 数据
       const userMvuDataAfterPortal = applyPendingPortalChangesToMvu(oldMvuData, currentPendingPortalChanges);
-      const userMvuDataAfterCombat = applyPendingCombatChangesToMvu(userMvuDataAfterPortal, currentPendingCombatChanges);
+      const userMvuDataAfterCombat = applyPendingCombatChangesToMvu(
+        userMvuDataAfterPortal,
+        currentPendingCombatChanges,
+      );
       const userMvuData = applyPendingStatDataChangesToMvu(userMvuDataAfterCombat, currentPendingStatDataChanges);
       syncFloorNumberByArea(userMvuData);
 
@@ -941,10 +1065,7 @@ export const useGameStore = defineStore('game', () => {
           { refresh: 'none' },
         );
       } else {
-        await createChatMessages(
-          [{ role: 'user', message: userInput, data: userMvuData }],
-          { refresh: 'none' },
-        );
+        await createChatMessages([{ role: 'user', message: userInput, data: userMvuData }], { refresh: 'none' });
       }
 
       // user 层已写入成功后，清空待应用变更，避免后续重复叠加
@@ -953,9 +1074,12 @@ export const useGameStore = defineStore('game', () => {
       pendingStatDataChanges.value = null;
 
       // 4. 监听流式传输（可选）
-      const streamListener = eventOn(iframe_events.STREAM_TOKEN_RECEIVED_FULLY, (text: string, _generation_id: string) => {
-        streamingText.value = filterStreamingTextAfterThinkEnd(text);
-      });
+      const streamListener = eventOn(
+        iframe_events.STREAM_TOKEN_RECEIVED_FULLY,
+        (text: string, _generation_id: string) => {
+          streamingText.value = filterStreamingTextAfterThinkEnd(text);
+        },
+      );
 
       // 5. 调用 generate 生成回复
       console.info('[GameStore] Generating LLM response...');
@@ -990,10 +1114,7 @@ export const useGameStore = defineStore('game', () => {
 
       // 9. 创建 assistant 楼层，携带解析后的 MVU 数据
       console.info('[GameStore] Creating assistant message with MVU data');
-      await createChatMessages(
-        [{ role: 'assistant', message: result, data: newMvuData }],
-        { refresh: 'none' },
-      );
+      await createChatMessages([{ role: 'assistant', message: result, data: newMvuData }], { refresh: 'none' });
 
       // 10. 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
@@ -1185,10 +1306,7 @@ export const useGameStore = defineStore('game', () => {
       syncFloorNumberByArea(newMvuData);
 
       // 创建新的 assistant 楼层，携带 MVU 数据
-      await createChatMessages(
-        [{ role: 'assistant', message: result, data: newMvuData }],
-        { refresh: 'none' },
-      );
+      await createChatMessages([{ role: 'assistant', message: result, data: newMvuData }], { refresh: 'none' });
 
       // 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
@@ -1235,9 +1353,10 @@ export const useGameStore = defineStore('game', () => {
       const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
 
       // 获取上一条消息的 MVU 数据作为继承基础
-      const prevMvuData = lastId > 0
-        ? Mvu.getMvuData({ type: 'message', message_id: lastId - 1 })
-        : Mvu.getMvuData({ type: 'message', message_id: 0 });
+      const prevMvuData =
+        lastId > 0
+          ? Mvu.getMvuData({ type: 'message', message_id: lastId - 1 })
+          : Mvu.getMvuData({ type: 'message', message_id: 0 });
 
       // 用编辑后的文本重新解析 MVU 变量（深拷贝以避免污染上一楼层）
       let newMvuData = await Mvu.parseMessage(editingText.value, _.cloneDeep(prevMvuData));
@@ -1346,6 +1465,10 @@ export const useGameStore = defineStore('game', () => {
 
     // Actions
     initialize,
+    isFreshChatSession,
+    getWorldbookEntryContentByName,
+    generateOpeningBackstoryDraft,
+    overwriteUserWorldbookEntryContent,
     sendAction,
     setUseStreaming,
     setForbidMatchingXmlInsideThink,

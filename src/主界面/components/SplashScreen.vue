@@ -30,7 +30,10 @@
 
     <!-- Dynamic Background -->
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,_rgba(60,40,30,0.3),_#000000_90%)] z-0"></div>
-    <div class="absolute inset-0 opacity-30 z-0 mix-blend-overlay animate-pulse-slow bg-[length:200px] bg-repeat" style="background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png')"></div>
+    <div
+      class="absolute inset-0 opacity-30 z-0 mix-blend-overlay animate-pulse-slow bg-[length:200px] bg-repeat"
+      style="background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png')"
+    ></div>
 
     <!-- Ornamental Frame -->
     <div class="absolute top-8 left-8 w-64 h-64 border-t-2 border-l-2 border-dungeon-brown opacity-50"></div>
@@ -38,10 +41,7 @@
 
     <!-- Fullscreen Button (Top Right, Small) -->
     <button
-      class="absolute top-4 right-4 z-50 w-8 h-8 rounded flex items-center justify-center
-             bg-dungeon-dark/60 border border-dungeon-brown/50 text-dungeon-gold-dim
-             hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
-             transition-all duration-300"
+      class="absolute top-4 right-4 z-50 w-8 h-8 rounded flex items-center justify-center bg-dungeon-dark/60 border border-dungeon-brown/50 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300"
       @click="$emit('toggleFullscreen')"
     >
       <Maximize class="size-4" />
@@ -92,25 +92,26 @@
         </button>
       </div>
     </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
 import { Maximize, Play, Star } from 'lucide-vue-next';
 
-defineEmits<{
+const emit = defineEmits<{
   start: [];
   toggleFullscreen: [];
   openCollection: [];
+  backgroundChange: [url: string];
 }>();
 
 const isVisible = ref(false);
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
 const SPLASH_BACKGROUND_COUNT = 14;
-const splashBackgrounds: string[] = Array.from({ length: SPLASH_BACKGROUND_COUNT }, (_, i) => (
-  `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF${i + 1}.png`
-));
+const splashBackgrounds: string[] = Array.from(
+  { length: SPLASH_BACKGROUND_COUNT },
+  (_, i) => `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF/%E8%83%8C%E6%99%AF${i + 1}.png`,
+);
 const currentBackgroundUrl = ref<string>(splashBackgrounds[0]);
 const incomingBackgroundUrl = ref<string | null>(null);
 const outgoingBackgroundUrl = ref<string | null>(null);
@@ -122,25 +123,24 @@ let backgroundFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let backgroundTransitionToken = 0;
 
 const pickRandomBackground = (exclude?: string) => {
-  const candidates = exclude
-    ? splashBackgrounds.filter((url) => url !== exclude)
-    : splashBackgrounds;
+  const candidates = exclude ? splashBackgrounds.filter(url => url !== exclude) : splashBackgrounds;
   return candidates[Math.floor(Math.random() * candidates.length)] ?? splashBackgrounds[0];
 };
 
-const preloadImage = (url: string) => new Promise<void>((resolve) => {
-  let settled = false;
-  const finish = () => {
-    if (settled) return;
-    settled = true;
-    resolve();
-  };
-  const img = new Image();
-  img.onload = finish;
-  img.onerror = finish;
-  img.src = url;
-  setTimeout(finish, 1200);
-});
+const preloadImage = (url: string) =>
+  new Promise<void>(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const img = new Image();
+    img.onload = finish;
+    img.onerror = finish;
+    img.src = url;
+    setTimeout(finish, 1200);
+  });
 
 const switchBackground = async () => {
   if (isBackgroundTransitioning.value) return;
@@ -162,7 +162,7 @@ const switchBackground = async () => {
   isOutgoingVisible.value = true;
   isIncomingVisible.value = false;
   await nextTick();
-  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   if (token !== backgroundTransitionToken) return;
   isIncomingVisible.value = true;
   isOutgoingVisible.value = false;
@@ -170,6 +170,7 @@ const switchBackground = async () => {
   backgroundFadeTimer = setTimeout(() => {
     if (token !== backgroundTransitionToken) return;
     currentBackgroundUrl.value = nextUrl;
+    emit('backgroundChange', nextUrl);
     incomingBackgroundUrl.value = null;
     outgoingBackgroundUrl.value = null;
     isBackgroundTransitioning.value = false;
@@ -179,6 +180,7 @@ const switchBackground = async () => {
 
 onMounted(() => {
   currentBackgroundUrl.value = pickRandomBackground();
+  emit('backgroundChange', currentBackgroundUrl.value);
   isVisible.value = true;
 });
 

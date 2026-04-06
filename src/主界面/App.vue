@@ -8,19 +8,22 @@
         @start="startGame"
         @toggle-fullscreen="toggleFullScreen"
         @open-collection="isCollectionOpen = true"
+        @background-change="splashBackgroundUrl = $event"
       />
 
       <!-- Game -->
       <GameView
         v-else
         key="game"
-        @back-to-splash="appState = 'SPLASH'"
+        :show-opening-entry="isOpeningEntryOpen"
+        :opening-entry-background-url="splashBackgroundUrl"
+        :opening-entry-loading="isOpeningEntrySubmitting"
+        :opening-entry-error="openingEntryError"
+        @back-to-splash="handleBackToSplash"
+        @submit-opening-entry="handleOpeningEntrySubmit"
       />
     </Transition>
-    <WitchCollectionModal
-      :is-open="isCollectionOpen"
-      @close="isCollectionOpen = false"
-    />
+    <WitchCollectionModal :is-open="isCollectionOpen" @close="isCollectionOpen = false" />
   </div>
 </template>
 
@@ -31,9 +34,14 @@ import WitchCollectionModal from './components/WitchCollectionModal.vue';
 import { disposeBgm, initializeBgm } from './bgm';
 import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
+import { buildOpeningPrompt, buildUserInformationBlock, type OpeningInfoSubmission } from './openingProfile';
 
 const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
 const isCollectionOpen = ref(false);
+const isOpeningEntryOpen = ref(false);
+const isOpeningEntrySubmitting = ref(false);
+const openingEntryError = ref<string | null>(null);
+const splashBackgroundUrl = ref('');
 const gameStore = useGameStore();
 
 onMounted(() => {
@@ -49,18 +57,61 @@ onUnmounted(() => {
  */
 async function startGame() {
   appState.value = 'GAME';
+  isOpeningEntryOpen.value = false;
+  isOpeningEntrySubmitting.value = false;
+  openingEntryError.value = null;
   await nextTick();
   await gameStore.initialize();
+  isOpeningEntryOpen.value = gameStore.isFreshChatSession();
+}
+
+function handleBackToSplash() {
+  isOpeningEntryOpen.value = false;
+  isOpeningEntrySubmitting.value = false;
+  openingEntryError.value = null;
+  appState.value = 'SPLASH';
+}
+
+async function handleOpeningEntrySubmit(payload: OpeningInfoSubmission) {
+  if (isOpeningEntrySubmitting.value) return;
+
+  isOpeningEntrySubmitting.value = true;
+  openingEntryError.value = null;
+
+  try {
+    const userInformationBlock = buildUserInformationBlock(payload);
+    const updated = await gameStore.overwriteUserWorldbookEntryContent(userInformationBlock);
+    if (!updated) {
+      openingEntryError.value = '未找到已绑定世界书中名为 user 的条目，已停止开场注入。';
+      return;
+    }
+
+    await gameStore.sendAction(buildOpeningPrompt(payload));
+    if (gameStore.error) {
+      openingEntryError.value = gameStore.error;
+      return;
+    }
+
+    isOpeningEntryOpen.value = false;
+  } catch (err) {
+    openingEntryError.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    isOpeningEntrySubmitting.value = false;
+  }
 }
 </script>
 
 <style scoped>
 /* Scene transition: fade + subtle scale */
 .scene-fade-enter-active {
-  transition: opacity 0.8s ease, transform 0.8s ease;
+  transition:
+    opacity 0.8s ease,
+    transform 0.8s ease;
 }
 .scene-fade-leave-active {
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
 }
 .scene-fade-enter-from {
   opacity: 0;

@@ -1,2147 +1,2335 @@
 <template>
   <div ref="viewportRef" class="ui-viewport">
     <div class="ui-stage" :style="stageStyle">
-      <div
-        class="ui-stage-content w-full h-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative"
-      >
-    <!-- Dynamic Background -->
-    <div class="absolute inset-0 z-0">
-      <img
-        v-if="bgImageUrl"
-        :src="bgImageUrl"
-        class="absolute inset-0 w-full h-full object-cover"
-        alt=""
-        @error="onBgError"
-      />
-      <div class="absolute inset-0" :style="{ backgroundColor: `rgba(0,0,0,${bgOverlayOpacity})` }"></div>
-    </div>
-
-    <div v-if="showLandscapeHint" class="landscape-hint-overlay">
-      <div class="landscape-hint-card">
-        <div class="landscape-hint-title">建议横屏体验</div>
-        <div class="landscape-hint-desc">当前主界面使用固定舞台布局，横屏时按钮和正文会更完整。你也可以继续保持竖屏。</div>
-        <div class="landscape-hint-actions">
-          <button type="button" class="landscape-hint-btn" @click="dismissLandscapeHint">继续竖屏</button>
+      <div class="ui-stage-content w-full h-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative">
+        <!-- Dynamic Background -->
+        <div class="absolute inset-0 z-0">
+          <img
+            v-if="bgImageUrl"
+            :src="bgImageUrl"
+            class="absolute inset-0 w-full h-full object-cover"
+            alt=""
+            @error="onBgError"
+          />
+          <div class="absolute inset-0" :style="{ backgroundColor: `rgba(0,0,0,${bgOverlayOpacity})` }"></div>
         </div>
-      </div>
-    </div>
 
-    <!-- Sidebar: Individual Icons Top-Left (no back button, settings already has exit) -->
-    <div class="absolute top-8 left-8 z-50 flex flex-col space-y-4 ui-buttons-left">
-      <SidebarIcon
-        :icon="SettingsIcon"
-        label="设置"
-        tooltip-side="right"
-        :active="activeModal === 'settings'"
-        @click="activeModal = 'settings'"
-      />
-      <SidebarIcon :icon="Scroll" label="卡组" tooltip-side="right" :active="activeModal === 'deck'" @click="activeModal = 'deck'" />
-      <SidebarIcon :icon="Box" label="物品" tooltip-side="right" :active="activeModal === 'relics'" @click="activeModal = 'relics'" />
-      <SidebarIcon :icon="Users" label="羁绊" tooltip-side="right" :active="activeModal === 'bonds'" @click="activeModal = 'bonds'" />
-      <SidebarIcon :icon="MapIcon" label="地图" tooltip-side="right" :active="activeModal === 'map'" @click="activeModal = 'map'" />
-      <SidebarIcon
-        :icon="magicBookSidebarIcon"
-        :label="canEditMagicBooks ? '魔法书' : '魔法书（锁定）'"
-        tooltip-side="right"
-        :active="canEditMagicBooks && activeModal === 'magicBooks'"
-        :highlight="canEditMagicBooks"
-        :disabled="!canEditMagicBooks"
-        @click="openMagicBookModal"
-      />
-      <SidebarIcon
-        :icon="magicHatSidebarIcon"
-        :label="canEditMagicBooks ? '魔法帽' : '魔法帽（锁定）'"
-        tooltip-side="right"
-        :active="canEditMagicBooks && activeModal === 'magicHat'"
-        :highlight="canEditMagicBooks"
-        :disabled="!canEditMagicBooks"
-        @click="openMagicHatModal"
-      />
-    </div>
-
-    <!-- Right sidebar: save/load only (reroll & edit moved into panel) -->
-    <div class="absolute top-8 right-8 z-50 flex flex-col space-y-4 ui-buttons-right">
-      <SidebarIcon
-        :icon="Maximize"
-        label="全屏模式"
-        tooltip-side="left"
-        @click="toggleFullScreen"
-      />
-      <SidebarIcon
-        :icon="BookOpen"
-        label="读档"
-        tooltip-side="left"
-        :active="gameStore.isSaveLoadOpen"
-        @click="openSaveLoad"
-      />
-      <SidebarIcon
-        :icon="FileText"
-        label="变量更新"
-        tooltip-side="left"
-        :active="isVariableUpdateOpen"
-        @click="openVariableUpdate"
-      />
-    </div>
-
-    <!-- Main Content Area -->
-    <div class="h-full min-h-0 w-full flex flex-col items-center">
-      <div
-        class="w-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
-        :style="{ maxWidth: textSettings.containerWidth + 'px' }"
-      >
-        <!-- Story Text Area -->
-        <div
-          class="flex-1 bg-dungeon-dark/80 border border-dungeon-brown rounded-t-lg shadow-2xl backdrop-blur-sm p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar relative"
-        >
-          <!-- Decorative Corners -->
-          <div class="absolute top-2 left-2 w-4 h-4 border-t border-l border-dungeon-gold/30"></div>
-          <div class="absolute top-2 right-2 w-4 h-4 border-t border-r border-dungeon-gold/30"></div>
-          <div class="story-floor-indicator pointer-events-none select-none">
-            消息楼层 第 {{ currentTavernFloorNumber }} 层
-          </div>
-
-          <!-- Loading Indicator -->
-          <div v-if="gameStore.isGenerating" class="flex items-center gap-3 mb-4">
-            <div class="flex gap-1">
-              <span class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce" style="animation-delay: 0s"></span>
-              <span class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
-              <span class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce" style="animation-delay: 0.4s"></span>
+        <div v-if="showLandscapeHint" class="landscape-hint-overlay">
+          <div class="landscape-hint-card">
+            <div class="landscape-hint-title">建议横屏体验</div>
+            <div class="landscape-hint-desc">
+              当前主界面使用固定舞台布局，横屏时按钮和正文会更完整。你也可以继续保持竖屏。
             </div>
-            <span class="text-dungeon-gold/60 font-ui text-sm">正在生成...</span>
-          </div>
-
-          <!-- Edit Mode -->
-          <div v-if="gameStore.isEditing" class="flex flex-col h-full">
-            <textarea
-              v-model="gameStore.editingText"
-              class="flex-1 w-full bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper rounded p-4 resize-none focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui custom-scrollbar"
-              :style="{
-                fontSize: textSettings.fontSize + 'px',
-                lineHeight: textSettings.lineHeight,
-                fontFamily: textSettings.fontFamily,
-              }"
-            ></textarea>
-            <!-- Edit Actions -->
-            <div class="flex justify-end gap-3 mt-4">
-              <button
-                class="px-5 py-2 text-sm font-ui text-gray-400 border border-gray-700 rounded
-                       hover:bg-gray-800 transition-colors"
-                @click="gameStore.cancelEdit()"
-              >
-                取消
-              </button>
-              <button
-                class="px-5 py-2 text-sm font-ui text-dungeon-gold border border-dungeon-gold/40 rounded
-                       hover:bg-dungeon-gold/10 transition-colors
-                       shadow-[0_0_8px_rgba(212,175,55,0.15)]"
-                @click="gameStore.saveEdit()"
-              >
-                确认更改
-              </button>
+            <div class="landscape-hint-actions">
+              <button type="button" class="landscape-hint-btn" @click="dismissLandscapeHint">继续竖屏</button>
             </div>
           </div>
+        </div>
 
-          <!-- Normal View (not editing) -->
-          <template v-else>
-            <!-- Story Content -->
+        <!-- Sidebar: Individual Icons Top-Left (no back button, settings already has exit) -->
+        <div class="absolute top-8 left-8 z-50 flex flex-col space-y-4 ui-buttons-left">
+          <SidebarIcon
+            :icon="SettingsIcon"
+            label="设置"
+            tooltip-side="right"
+            :active="activeModal === 'settings'"
+            @click="activeModal = 'settings'"
+          />
+          <SidebarIcon
+            :icon="Scroll"
+            label="卡组"
+            tooltip-side="right"
+            :active="activeModal === 'deck'"
+            @click="activeModal = 'deck'"
+          />
+          <SidebarIcon
+            :icon="Box"
+            label="物品"
+            tooltip-side="right"
+            :active="activeModal === 'relics'"
+            @click="activeModal = 'relics'"
+          />
+          <SidebarIcon
+            :icon="Users"
+            label="羁绊"
+            tooltip-side="right"
+            :active="activeModal === 'bonds'"
+            @click="activeModal = 'bonds'"
+          />
+          <SidebarIcon
+            :icon="MapIcon"
+            label="地图"
+            tooltip-side="right"
+            :active="activeModal === 'map'"
+            @click="activeModal = 'map'"
+          />
+          <SidebarIcon
+            :icon="magicBookSidebarIcon"
+            :label="canEditMagicBooks ? '魔法书' : '魔法书（锁定）'"
+            tooltip-side="right"
+            :active="canEditMagicBooks && activeModal === 'magicBooks'"
+            :highlight="canEditMagicBooks"
+            :disabled="!canEditMagicBooks"
+            @click="openMagicBookModal"
+          />
+          <SidebarIcon
+            :icon="magicHatSidebarIcon"
+            :label="canEditMagicBooks ? '魔法帽' : '魔法帽（锁定）'"
+            tooltip-side="right"
+            :active="canEditMagicBooks && activeModal === 'magicHat'"
+            :highlight="canEditMagicBooks"
+            :disabled="!canEditMagicBooks"
+            @click="openMagicHatModal"
+          />
+        </div>
+
+        <!-- Right sidebar: save/load only (reroll & edit moved into panel) -->
+        <div class="absolute top-8 right-8 z-50 flex flex-col space-y-4 ui-buttons-right">
+          <SidebarIcon :icon="Maximize" label="全屏模式" tooltip-side="left" @click="toggleFullScreen" />
+          <SidebarIcon
+            :icon="BookOpen"
+            label="读档"
+            tooltip-side="left"
+            :active="gameStore.isSaveLoadOpen"
+            @click="openSaveLoad"
+          />
+          <SidebarIcon
+            :icon="FileText"
+            label="变量更新"
+            tooltip-side="left"
+            :active="isVariableUpdateOpen"
+            @click="openVariableUpdate"
+          />
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="h-full min-h-0 w-full flex flex-col items-center">
+          <div
+            class="w-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
+            :style="{ maxWidth: textSettings.containerWidth + 'px' }"
+          >
+            <!-- Story Text Area -->
             <div
-              class="prose prose-invert max-w-none prose-p:text-dungeon-paper tracking-wide"
-              :style="{
-                fontSize: textSettings.fontSize + 'px',
-                lineHeight: textSettings.lineHeight,
-                fontFamily: textSettings.fontFamily,
-              }"
+              class="flex-1 bg-dungeon-dark/80 border border-dungeon-brown rounded-t-lg shadow-2xl backdrop-blur-sm p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar relative"
             >
-              <!-- Streaming text (during generation) -->
-              <p v-if="isStreamingEnabled && gameStore.isGenerating && gameStore.streamingText" class="whitespace-pre-wrap text-dungeon-paper/85">
-                {{ streamingDisplayText }}
-              </p>
-              <!-- Final main text -->
-              <div v-else class="story-rich-text">
-                <template v-for="line in storyMainLines" :key="line.key">
-                  <!-- Image block (inline at original position) -->
-                  <div
-                    v-if="getImageBlockForLine(line)"
-                    class="image-block-inline"
-                  ><span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.openTag }}</span>{{ getImageBlockForLine(line)!.innerContent }}<span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.closeTag }}</span></div>
-                  <!-- Normal text line -->
-                  <p v-else :class="['story-line', `story-line-level-${line.level}`]">
-                    <template v-if="line.segments.length > 0">
-                      <span
-                        v-for="segment in line.segments"
-                        :key="segment.key"
-                        :class="{
-                          'story-segment-muted': segment.type === 'muted',
-                          'story-segment-quote': segment.type === 'quote',
-                        }"
-                      >
-                        {{ segment.text }}
-                      </span>
-                    </template>
-                    <span v-else class="story-line-empty">&nbsp;</span>
-                  </p>
-                </template>
+              <!-- Decorative Corners -->
+              <div class="absolute top-2 left-2 w-4 h-4 border-t border-l border-dungeon-gold/30"></div>
+              <div class="absolute top-2 right-2 w-4 h-4 border-t border-r border-dungeon-gold/30"></div>
+              <div class="story-floor-indicator pointer-events-none select-none">
+                消息楼层 第 {{ currentTavernFloorNumber }} 层
+              </div>
 
-                <div v-if="storyTucaoSections.length > 0" class="story-tucao-section-list">
-                  <div v-for="(section, sectionIndex) in storyTucaoSections" :key="section.key" class="story-tucao-wrap">
-                    <button class="story-tucao-toggle" type="button" @click="toggleTucao(section.key)">
-                      {{
-                        isTucaoExpanded(section.key)
-                          ? `收起脑内剧场 ${Number(sectionIndex) + 1}`
-                          : `🎮 此方的脑内剧场 ${Number(sectionIndex) + 1}`
-                      }}
-                    </button>
-                    <Transition name="tucao-expand">
-                      <div v-if="isTucaoExpanded(section.key)" class="story-tucao-panel">
-                        <p
-                          v-for="line in section.lines"
-                          :key="line.key"
-                          :class="['story-line', `story-line-level-${line.level}`]"
-                        >
-                          <template v-if="line.segments.length > 0">
-                            <span
-                              v-for="segment in line.segments"
-                              :key="segment.key"
-                              :class="{
-                                'story-segment-muted': segment.type === 'muted',
-                                'story-segment-quote': segment.type === 'quote',
-                              }"
-                            >
-                              {{ segment.text }}
-                            </span>
-                          </template>
-                          <span v-else class="story-line-empty">&nbsp;</span>
-                        </p>
+              <!-- Loading Indicator -->
+              <div v-if="gameStore.isGenerating" class="flex items-center gap-3 mb-4">
+                <div class="flex gap-1">
+                  <span class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce" style="animation-delay: 0s"></span>
+                  <span
+                    class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce"
+                    style="animation-delay: 0.2s"
+                  ></span>
+                  <span
+                    class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce"
+                    style="animation-delay: 0.4s"
+                  ></span>
+                </div>
+                <span class="text-dungeon-gold/60 font-ui text-sm">正在生成...</span>
+              </div>
+
+              <!-- Edit Mode -->
+              <div v-if="gameStore.isEditing" class="flex flex-col h-full">
+                <textarea
+                  v-model="gameStore.editingText"
+                  class="flex-1 w-full bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper rounded p-4 resize-none focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui custom-scrollbar"
+                  :style="{
+                    fontSize: textSettings.fontSize + 'px',
+                    lineHeight: textSettings.lineHeight,
+                    fontFamily: textSettings.fontFamily,
+                  }"
+                ></textarea>
+                <!-- Edit Actions -->
+                <div class="flex justify-end gap-3 mt-4">
+                  <button
+                    class="px-5 py-2 text-sm font-ui text-gray-400 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
+                    @click="gameStore.cancelEdit()"
+                  >
+                    取消
+                  </button>
+                  <button
+                    class="px-5 py-2 text-sm font-ui text-dungeon-gold border border-dungeon-gold/40 rounded hover:bg-dungeon-gold/10 transition-colors shadow-[0_0_8px_rgba(212,175,55,0.15)]"
+                    @click="gameStore.saveEdit()"
+                  >
+                    确认更改
+                  </button>
+                </div>
+              </div>
+
+              <!-- Normal View (not editing) -->
+              <template v-else>
+                <!-- Story Content -->
+                <div
+                  class="prose prose-invert max-w-none prose-p:text-dungeon-paper tracking-wide"
+                  :style="{
+                    fontSize: textSettings.fontSize + 'px',
+                    lineHeight: textSettings.lineHeight,
+                    fontFamily: textSettings.fontFamily,
+                  }"
+                >
+                  <!-- Streaming text (during generation) -->
+                  <p
+                    v-if="isStreamingEnabled && gameStore.isGenerating && gameStore.streamingText"
+                    class="whitespace-pre-wrap text-dungeon-paper/85"
+                  >
+                    {{ streamingDisplayText }}
+                  </p>
+                  <!-- Final main text -->
+                  <div v-else class="story-rich-text">
+                    <template v-for="line in storyMainLines" :key="line.key">
+                      <!-- Image block (inline at original position) -->
+                      <div v-if="getImageBlockForLine(line)" class="image-block-inline">
+                        <span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.openTag }}</span
+                        >{{ getImageBlockForLine(line)!.innerContent
+                        }}<span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.closeTag }}</span>
                       </div>
-                    </Transition>
+                      <!-- Normal text line -->
+                      <p v-else :class="['story-line', `story-line-level-${line.level}`]">
+                        <template v-if="line.segments.length > 0">
+                          <span
+                            v-for="segment in line.segments"
+                            :key="segment.key"
+                            :class="{
+                              'story-segment-muted': segment.type === 'muted',
+                              'story-segment-quote': segment.type === 'quote',
+                            }"
+                          >
+                            {{ segment.text }}
+                          </span>
+                        </template>
+                        <span v-else class="story-line-empty">&nbsp;</span>
+                      </p>
+                    </template>
+
+                    <div v-if="storyTucaoSections.length > 0" class="story-tucao-section-list">
+                      <div
+                        v-for="(section, sectionIndex) in storyTucaoSections"
+                        :key="section.key"
+                        class="story-tucao-wrap"
+                      >
+                        <button class="story-tucao-toggle" type="button" @click="toggleTucao(section.key)">
+                          {{
+                            isTucaoExpanded(section.key)
+                              ? `收起脑内剧场 ${Number(sectionIndex) + 1}`
+                              : `🎮 此方的脑内剧场 ${Number(sectionIndex) + 1}`
+                          }}
+                        </button>
+                        <Transition name="tucao-expand">
+                          <div v-if="isTucaoExpanded(section.key)" class="story-tucao-panel">
+                            <p
+                              v-for="line in section.lines"
+                              :key="line.key"
+                              :class="['story-line', `story-line-level-${line.level}`]"
+                            >
+                              <template v-if="line.segments.length > 0">
+                                <span
+                                  v-for="segment in line.segments"
+                                  :key="segment.key"
+                                  :class="{
+                                    'story-segment-muted': segment.type === 'muted',
+                                    'story-segment-quote': segment.type === 'quote',
+                                  }"
+                                >
+                                  {{ segment.text }}
+                                </span>
+                              </template>
+                              <span v-else class="story-line-empty">&nbsp;</span>
+                            </p>
+                          </div>
+                        </Transition>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Options Section -->
+                <div
+                  v-if="
+                    !gameStore.isGenerating &&
+                    (gameStore.options.length > 0 || gameStore.hasOptionE || gameStore.hasLeave || gameStore.hasRebirth)
+                  "
+                  class="mt-8 flex flex-col space-y-3 ui-action-buttons"
+                >
+                  <div
+                    class="h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
+                  ></div>
+
+                  <!-- A-D Normal Options -->
+                  <button
+                    v-for="(option, i) in gameStore.options"
+                    :key="'opt-' + i"
+                    class="w-full text-left px-5 py-3 bg-dungeon-dark/60 hover:bg-dungeon-brown/40 text-dungeon-paper/80 hover:text-dungeon-paper rounded border border-dungeon-brown/50 hover:border-dungeon-gold/40 font-ui text-sm tracking-wide transition-all duration-300 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)] hover:translate-x-1"
+                    :style="optionButtonTextStyle"
+                    @click="handleOptionClick(option)"
+                  >
+                    {{ option }}
+                  </button>
+
+                  <!-- E Option: Special Room Action Button -->
+                  <button
+                    v-if="gameStore.hasOptionE && specialOptionConfig"
+                    class="w-full text-center px-6 py-4 rounded-lg border-2 font-heading text-base tracking-wider transition-all duration-400 hover:scale-[1.02] active:scale-[0.98]"
+                    :style="[
+                      specialOptionButtonTextStyle,
+                      {
+                        backgroundColor: specialOptionConfig.bgColor,
+                        borderColor: specialOptionConfig.borderColor,
+                        color: specialOptionConfig.textColor,
+                        boxShadow: `0 0 20px ${specialOptionConfig.glowColor}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+                      },
+                    ]"
+                    @click="handleSpecialOption"
+                  >
+                    <span class="text-xl mr-2 inline-flex items-center justify-center" aria-hidden="true">
+                      <i :class="specialOptionConfig.icon"></i>
+                    </span>
+                    {{ specialOptionConfig.label }}
+                  </button>
+
+                  <!-- [Leave] Portal System -->
+                  <div v-if="gameStore.hasLeave && portalChoices.length > 0" class="mt-4">
+                    <div class="text-center text-dungeon-gold/40 text-xs font-ui tracking-widest uppercase mb-3">
+                      ─── 传送门 ───
+                    </div>
+                    <div class="flex justify-center gap-4">
+                      <button
+                        v-for="(portal, i) in portalChoices"
+                        :key="'portal-' + i"
+                        class="portal-btn group relative flex flex-col items-center justify-center rounded-lg border-2 backdrop-blur-sm transition-all duration-500 hover:scale-110 active:scale-95"
+                        :style="{
+                          backgroundColor: portal.bgColor,
+                          borderColor: portal.borderColor,
+                          boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
+                        }"
+                        @click="handlePortalClick(portal)"
+                      >
+                        <!-- Portal glow ring -->
+                        <div
+                          class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
+                          :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
+                        ></div>
+                        <!-- Portal icon -->
+                        <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
+                        <!-- Portal label -->
+                        <span
+                          class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
+                          :style="{ color: portal.textColor }"
+                          >{{ portal.label }}</span
+                        >
+                        <!-- Animated ring -->
+                        <div
+                          class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70 animate-[spin_8s_linear_infinite] transition-opacity"
+                          :style="{ borderColor: portal.borderColor }"
+                        ></div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- [Rebirth] Reset Button -->
+                  <div v-if="gameStore.hasRebirth" class="mt-4">
+                    <div class="text-center text-red-300/70 text-xs font-ui tracking-widest uppercase mb-3">
+                      ─── 回溯 ───
+                    </div>
+                    <div class="flex justify-center">
+                      <button
+                        class="group relative px-7 py-3 rounded-lg border-2 font-heading text-sm tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] bg-red-950/45 border-red-500/60 text-red-100 shadow-[0_0_14px_rgba(239,68,68,0.35)] hover:shadow-[0_0_20px_rgba(248,113,113,0.5)]"
+                        :disabled="gameStore.isGenerating"
+                        @click="handleRebirthClick"
+                      >
+                        <span class="text-base mr-2">⟲</span>
+                        回溯重生
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  v-if="hotSpringCleanseMessage"
+                  :key="`spring-cleanse-${hotSpringCleanseMessage.id}`"
+                  class="spring-cleanse-float"
+                >
+                  {{ hotSpringCleanseMessage.text }}
+                </div>
+
+                <!-- Error Display -->
+                <div
+                  v-if="gameStore.error"
+                  class="mt-6 p-4 bg-red-950/30 border border-red-900/50 rounded text-red-300 font-ui text-sm"
+                >
+                  {{ gameStore.error }}
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <!-- Input Area (Stage-Anchored) -->
+        <div class="ui-input-anchor absolute left-0 right-0 bottom-0 z-[60] pb-2">
+          <div class="w-full mx-auto px-4 md:px-12 md:pl-24" :style="{ maxWidth: textSettings.containerWidth + 'px' }">
+            <div class="ui-input-shell bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
+              <div class="w-full flex items-stretch gap-2">
+                <input
+                  v-model="inputText"
+                  type="text"
+                  :disabled="gameStore.isGenerating"
+                  :placeholder="inputPlaceholder"
+                  class="ui-input-field flex-1 h-[4.5rem] bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-tight px-5 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  @keydown.enter="handleSendInput"
+                />
+                <button
+                  class="ui-send-button h-[4.5rem] min-w-[4.5rem] px-3 flex items-center justify-center shrink-0"
+                  :disabled="gameStore.isGenerating"
+                  @click="handleSendInput"
+                >
+                  <Send class="size-7" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Player Status HUD (Bottom Left) -->
+        <div class="absolute bottom-8 left-8 z-[70] flex flex-col gap-2 select-none ui-status-hud">
+          <div class="flex items-center gap-2">
+            <button
+              class="w-10 h-10 rounded-lg flex items-center justify-center bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300 shadow-lg backdrop-blur-md"
+              :title="isStatusOpen ? '折叠状态栏' : '展开状态栏'"
+              @click="isStatusOpen = !isStatusOpen"
+            >
+              <ChevronDown class="size-5 transition-transform duration-200" :class="isStatusOpen ? '' : '-rotate-90'" />
+            </button>
+
+            <button
+              class="w-10 h-10 rounded-lg flex items-center justify-center bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300 shadow-lg backdrop-blur-md"
+              :title="statusHudView === 'base' ? '切换到负面状态界面' : '切换到基础状态界面'"
+              @click="toggleStatusHudView"
+            >
+              <component :is="statusHudView === 'base' ? FileText : Activity" class="size-5" />
+            </button>
+          </div>
+
+          <Transition name="status-slide">
+            <div
+              v-if="isStatusOpen"
+              class="relative p-4 bg-dungeon-dark/90 border border-dungeon-gold/30 rounded-xl backdrop-blur-md shadow-[0_0_30px_rgba(0,0,0,0.8)]"
+            >
+              <!-- Decorative Elements -->
+              <div class="absolute -top-1 -left-1 size-2 bg-dungeon-gold rotate-45 border border-black"></div>
+              <div class="absolute -bottom-1 -right-1 size-2 bg-dungeon-gold rotate-45 border border-black"></div>
+              <div
+                class="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-dungeon-gold/50 to-transparent"
+              ></div>
+
+              <template v-if="statusHudView === 'base'">
+                <!-- HP & MP: Container-fill style -->
+                <div class="flex items-end gap-4 mb-3">
+                  <!-- HP Heart Container -->
+                  <div class="flex flex-col items-center gap-1">
+                    <div class="stat-container-heart" :title="`HP: ${displayHp}/${displayMaxHp}`">
+                      <svg viewBox="0 0 64 64" class="w-14 h-14">
+                        <defs>
+                          <clipPath id="heartClip">
+                            <path
+                              d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
+                            />
+                          </clipPath>
+                          <filter id="hpGlow">
+                            <feGaussianBlur stdDeviation="2" result="glow" />
+                            <feMerge>
+                              <feMergeNode in="glow" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                          <linearGradient id="hpGradient" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stop-color="#8a0e0e" />
+                            <stop offset="50%" stop-color="#cc2222" />
+                            <stop offset="100%" stop-color="#ee4444" />
+                          </linearGradient>
+                        </defs>
+                        <!-- Heart outline (dark) -->
+                        <path
+                          d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
+                          fill="#1a0808"
+                          stroke="#5c1a1a"
+                          stroke-width="1.5"
+                        />
+                        <!-- Fill level (clipped to heart) -->
+                        <g clip-path="url(#heartClip)">
+                          <rect
+                            x="0"
+                            :y="64 - (hpPercent / 100) * 60"
+                            width="64"
+                            :height="(hpPercent / 100) * 60"
+                            fill="url(#hpGradient)"
+                            filter="url(#hpGlow)"
+                            class="transition-all duration-700 ease-out"
+                          />
+                        </g>
+                        <!-- Highlight -->
+                        <ellipse
+                          cx="22"
+                          cy="18"
+                          rx="5"
+                          ry="4"
+                          fill="rgba(255,255,255,0.12)"
+                          transform="rotate(-20,22,18)"
+                        />
+                      </svg>
+                    </div>
+                    <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
+                      <span class="text-[#cc3333] font-bold">{{ displayHp }}</span>
+                      <span class="text-gray-600">/{{ displayMaxHp }}</span>
+                    </span>
+                  </div>
+
+                  <!-- MP Crystal Container -->
+                  <div class="flex flex-col items-center gap-1">
+                    <div class="stat-container-mana" :title="`MP: ${displayMp}`">
+                      <svg viewBox="0 0 64 64" class="w-14 h-14">
+                        <defs>
+                          <clipPath id="manaClip">
+                            <path d="M32 4 L54 24 L32 60 L10 24 Z" />
+                          </clipPath>
+                          <filter id="mpGlow">
+                            <feGaussianBlur stdDeviation="2" result="glow" />
+                            <feMerge>
+                              <feMergeNode in="glow" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                          <linearGradient id="mpGradient" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stop-color="#1a1a8a" />
+                            <stop offset="50%" stop-color="#3344cc" />
+                            <stop offset="100%" stop-color="#5566ee" />
+                          </linearGradient>
+                        </defs>
+                        <!-- Crystal outline -->
+                        <path d="M32 4 L54 24 L32 60 L10 24 Z" fill="#080818" stroke="#1a1a5c" stroke-width="1.5" />
+                        <!-- Fill level -->
+                        <g clip-path="url(#manaClip)">
+                          <rect
+                            x="0"
+                            :y="64 - (mpPercent / 100) * 60"
+                            width="64"
+                            :height="(mpPercent / 100) * 60"
+                            fill="url(#mpGradient)"
+                            filter="url(#mpGlow)"
+                            class="transition-all duration-700 ease-out"
+                          />
+                        </g>
+                        <!-- Highlight -->
+                        <polygon points="26,14 32,8 38,14 32,20" fill="rgba(255,255,255,0.1)" />
+                      </svg>
+                    </div>
+                    <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
+                      <span class="text-blue-400 font-bold">{{ displayMp }}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Divider -->
+                <div
+                  class="my-2 h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent"
+                ></div>
+
+                <!-- Dice Range Row -->
+                <div class="flex items-center justify-between px-1 mb-2">
+                  <div class="flex items-center gap-2 text-dungeon-paper/70">
+                    <Dices class="size-4 text-dungeon-gold-dim drop-shadow-sm" />
+                    <span class="font-ui text-sm tracking-wide">
+                      <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMinDice }}</span>
+                      <span class="text-gray-500">~</span>
+                      <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMaxDice }}</span>
+                    </span>
+                  </div>
+                  <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Dice</span>
+                </div>
+
+                <!-- Gold Row -->
+                <div class="flex items-center justify-between px-1">
+                  <div class="flex items-center gap-2 text-dungeon-gold">
+                    <Coins class="size-4 drop-shadow-sm" />
+                    <span
+                      class="font-heading text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim drop-shadow-sm"
+                    >
+                      {{ displayGold }}
+                    </span>
+                  </div>
+                  <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Gold</span>
+                </div>
+              </template>
+
+              <div v-else class="status-negative-screen">
+                <div class="status-negative-head">
+                  <span class="status-negative-title">负面状态</span>
+                  <span class="status-negative-count">{{ negativeStatusEntries.length }} 项</span>
+                </div>
+                <div v-if="negativeStatusEntries.length === 0" class="status-negative-empty">当前没有负面状态</div>
+                <div v-else class="status-negative-list custom-scrollbar">
+                  <div
+                    v-for="entry in negativeStatusEntries"
+                    :key="`negative-status-${entry.name}`"
+                    class="status-negative-bar"
+                  >
+                    <span class="status-negative-name">{{ entry.name }}</span>
+                    <span class="status-negative-desc">{{ entry.description }}</span>
                   </div>
                 </div>
               </div>
             </div>
+          </Transition>
+        </div>
 
-            <!-- Options Section -->
-            <div v-if="!gameStore.isGenerating && (gameStore.options.length > 0 || gameStore.hasOptionE || gameStore.hasLeave || gameStore.hasRebirth)" class="mt-8 flex flex-col space-y-3 ui-action-buttons">
-              <div
-                class="h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
-              ></div>
-
-              <!-- A-D Normal Options -->
-              <button
-                v-for="(option, i) in gameStore.options"
-                :key="'opt-' + i"
-                class="w-full text-left px-5 py-3 bg-dungeon-dark/60 hover:bg-dungeon-brown/40
-                       text-dungeon-paper/80 hover:text-dungeon-paper
-                       rounded border border-dungeon-brown/50 hover:border-dungeon-gold/40
-                       font-ui text-sm tracking-wide
-                       transition-all duration-300
-                       hover:shadow-[0_0_12px_rgba(212,175,55,0.08)]
-                       hover:translate-x-1"
-                :style="optionButtonTextStyle"
-                @click="handleOptionClick(option)"
-              >
-                {{ option }}
-              </button>
-
-              <!-- E Option: Special Room Action Button -->
-              <button
-                v-if="gameStore.hasOptionE && specialOptionConfig"
-                class="w-full text-center px-6 py-4 rounded-lg border-2 font-heading text-base tracking-wider
-                       transition-all duration-400 hover:scale-[1.02] active:scale-[0.98]"
-                :style="[
-                  specialOptionButtonTextStyle,
-                  {
-                    backgroundColor: specialOptionConfig.bgColor,
-                    borderColor: specialOptionConfig.borderColor,
-                    color: specialOptionConfig.textColor,
-                    boxShadow: `0 0 20px ${specialOptionConfig.glowColor}, inset 0 1px 0 rgba(255,255,255,0.1)`,
-                  },
-                ]"
-                @click="handleSpecialOption"
-              >
-                <span class="text-xl mr-2 inline-flex items-center justify-center" aria-hidden="true">
-                  <i :class="specialOptionConfig.icon"></i>
-                </span>
-                {{ specialOptionConfig.label }}
-              </button>
-
-              <!-- [Leave] Portal System -->
-              <div v-if="gameStore.hasLeave && portalChoices.length > 0" class="mt-4">
-                <div class="text-center text-dungeon-gold/40 text-xs font-ui tracking-widest uppercase mb-3">
-                  ─── 传送门 ───
+        <!-- Modals -->
+        <DungeonModal
+          title="地牢地图"
+          :is-open="activeModal === 'map'"
+          panel-class="max-w-5xl"
+          @close="activeModal = null"
+        >
+          <div class="map-modal">
+            <div class="map-toolbar">
+              <div class="map-summary">
+                本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房
+                <span class="map-summary-divider">|</span>
+                统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房
+              </div>
+              <div class="map-controls">
+                <button type="button" class="map-control-btn" @click="handleMapZoomOut">-</button>
+                <button type="button" class="map-control-btn" @click="handleMapZoomIn">+</button>
+                <button type="button" class="map-control-btn map-control-btn--wide" @click="handleMapResetView">
+                  重置视图
+                </button>
+              </div>
+            </div>
+            <div v-if="currentFloorPath.length === 0" class="map-empty">本层暂无路径记录</div>
+            <div
+              v-else
+              ref="mapViewportRef"
+              class="map-viewport"
+              @wheel.prevent="handleMapWheel"
+              @pointerdown="handleMapPointerDown"
+              @pointermove="handleMapPointerMove"
+              @pointerup="handleMapPointerUp"
+              @pointercancel="handleMapPointerUp"
+            >
+              <div class="map-canvas" :style="mapCanvasStyle">
+                <svg
+                  class="map-links"
+                  :width="mapContentWidth"
+                  :height="mapContentHeight"
+                  :viewBox="`0 0 ${mapContentWidth} ${mapContentHeight}`"
+                >
+                  <line
+                    v-for="line in mapPathLines"
+                    :key="line.key"
+                    :x1="line.x1"
+                    :y1="line.y1"
+                    :x2="line.x2"
+                    :y2="line.y2"
+                    stroke="rgba(0,0,0,0.9)"
+                    stroke-width="4"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <div
+                  v-for="node in mapPathNodes"
+                  :key="`path-node-${node.index}`"
+                  class="map-room-cell"
+                  :style="node.style"
+                >
+                  <span class="map-room-icon">{{ node.icon }}</span>
+                  <span class="map-room-step">{{ node.index + 1 }}</span>
                 </div>
-                <div class="flex justify-center gap-4">
+              </div>
+            </div>
+          </div>
+        </DungeonModal>
+
+        <DungeonModal
+          title="羁绊"
+          :is-open="activeModal === 'bonds'"
+          panel-class="max-w-4xl"
+          @close="activeModal = null"
+        >
+          <div v-if="bondEntries.length > 0" class="bond-list custom-scrollbar max-h-[64vh] overflow-y-auto pr-1">
+            <div v-for="entry in bondEntries" :key="`bond-${entry.name}`" class="bond-row">
+              <button
+                type="button"
+                class="bond-portrait-frame bond-portrait-frame--clickable"
+                @click="openBondPortraitPreview(entry)"
+              >
+                <img
+                  v-if="!bondPortraitErrors[entry.name]"
+                  :src="entry.portraitUrl"
+                  :alt="`${entry.name} 立绘`"
+                  class="bond-portrait-image"
+                  loading="lazy"
+                  @error="handleBondPortraitError(entry.name)"
+                />
+                <div v-else class="bond-portrait-fallback">{{ entry.name.slice(0, 1) }}</div>
+              </button>
+              <div class="bond-affection-wrap">
+                <div class="bond-affection-head">
+                  <span class="bond-role-name">{{ entry.name }}</span>
+                  <span
+                    class="bond-affection-value"
+                    :class="entry.affection >= 0 ? 'bond-affection-value--positive' : 'bond-affection-value--negative'"
+                    >{{ formatBondAffection(entry.affection) }} / 200</span
+                  >
+                </div>
+                <div class="bond-affection-track">
+                  <div
+                    class="bond-affection-fill"
+                    :class="entry.affection >= 0 ? 'bond-affection-fill--positive' : 'bond-affection-fill--negative'"
+                    :style="{ width: `${Math.round(entry.affectionAbsRatio * 100)}%` }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="flex flex-col items-center justify-center gap-3 py-12">
+            <Users class="size-12 text-dungeon-gold/20" />
+            <span class="font-ui text-sm text-dungeon-paper/50">暂无可显示的羁绊角色</span>
+          </div>
+        </DungeonModal>
+        <Teleport to="body">
+          <Transition name="combat-fade">
+            <div
+              v-if="bondPortraitPreview"
+              class="fixed inset-0 z-[230] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm"
+              @click="closeBondPortraitPreview"
+            >
+              <div class="bond-preview-panel" @click.stop>
+                <img
+                  :src="bondPortraitPreview.url"
+                  :alt="`${bondPortraitPreview.name} 立绘大图`"
+                  class="bond-preview-image"
+                />
+                <div class="bond-preview-footer">
+                  <span class="bond-preview-name">{{ bondPortraitPreview.name }}</span>
+                  <button type="button" class="bond-preview-close-btn" @click="closeBondPortraitPreview">关闭</button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
+
+        <DungeonModal title="符文卡组" :is-open="activeModal === 'deck'" @close="activeModal = null">
+          <div v-if="resolvedDeck.length > 0" class="grid grid-cols-3 gap-8 overflow-y-auto max-h-[60%] p-4">
+            <div
+              v-for="(card, i) in resolvedDeck"
+              :key="i"
+              class="hover:scale-105 transition-transform flex justify-center"
+            >
+              <DungeonCard :card="card" disabled />
+            </div>
+          </div>
+          <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
+            <Scroll class="size-12 text-dungeon-gold/20" />
+            <span class="font-ui text-dungeon-paper/40 text-sm">卡组为空 — 尚未装备技能卡</span>
+          </div>
+        </DungeonModal>
+
+        <DungeonModal
+          title="魔法书"
+          :is-open="activeModal === 'magicBooks'"
+          panel-class="max-w-[92rem] max-h-[94%]"
+          @close="activeModal = null"
+        >
+          <div class="w-full max-w-[90rem] mx-auto flex flex-col gap-4">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
+                :class="
+                  magicBooksNavTab === 'books'
+                    ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
+                    : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'
+                "
+                @click="magicBooksNavTab = 'books'"
+              >
+                魔法书
+              </button>
+              <button
+                type="button"
+                class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
+                :class="
+                  magicBooksNavTab === 'active'
+                    ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
+                    : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'
+                "
+                @click="magicBooksNavTab = 'active'"
+              >
+                主动
+              </button>
+            </div>
+
+            <template v-if="magicBooksNavTab === 'books'">
+              <div
+                v-if="carryableMagicBookNames.length > 0"
+                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1"
+              >
+                <button
+                  v-for="bookName in carryableMagicBookNames"
+                  :key="`magic-book-${bookName}`"
+                  type="button"
+                  class="relative rounded-lg border p-3 text-left transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-[#130c08]/80"
+                  :class="
+                    carriedMagicBookSet.has(bookName)
+                      ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.45)] ring-1 ring-dungeon-gold/70'
+                      : 'border-dungeon-brown/70 hover:border-dungeon-gold/45'
+                  "
+                  :disabled="isUpdatingMagicBooks"
+                  @click="toggleMagicBook(bookName)"
+                >
+                  <div
+                    class="relative w-full overflow-hidden rounded-md border"
+                    :class="carriedMagicBookSet.has(bookName) ? 'border-dungeon-gold/60' : 'border-dungeon-brown/60'"
+                  >
+                    <img
+                      :src="getMagicBookCoverUrl(bookName)"
+                      :alt="`${bookName} 魔法书封面`"
+                      class="w-full [aspect-ratio:832/1216] object-cover transition-all duration-300"
+                      :class="
+                        carriedMagicBookSet.has(bookName) ? 'brightness-100 saturate-110' : 'brightness-50 saturate-60'
+                      "
+                      loading="lazy"
+                    />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/38"></div>
+                    <div class="absolute inset-x-2 top-2 z-10">
+                      <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+              <div
+                v-else
+                class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 py-8 text-center text-sm text-dungeon-paper/50"
+              >
+                当前没有可选的附加魔法书。
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="rounded border border-dungeon-brown/60 bg-[#140d08]/70 p-3">
+                <div class="flex items-center justify-end gap-2">
+                  <div class="text-xs text-dungeon-gold/80">当前编辑槽位：{{ selectedStartingActiveSlot + 1 }}</div>
+                </div>
+                <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
                   <button
-                    v-for="(portal, i) in portalChoices"
-                    :key="'portal-' + i"
-                    class="portal-btn group relative flex flex-col items-center justify-center
-                           rounded-lg border-2 backdrop-blur-sm
-                           transition-all duration-500 hover:scale-110
-                           active:scale-95"
+                    v-for="entry in startingActiveSkillEntries"
+                    :key="`starting-active-slot-${entry.idx}`"
+                    type="button"
+                    class="relative w-[180px] h-[250px] rounded-xl border-2 overflow-hidden shadow-lg text-left transition-all"
+                    :class="
+                      selectedStartingActiveSlot === entry.idx
+                        ? 'border-dungeon-gold/75 shadow-[0_0_20px_rgba(212,175,55,0.35)]'
+                        : 'border-dungeon-brown/60 hover:border-dungeon-gold/45'
+                    "
+                    :disabled="isUpdatingStartingActiveSkills"
+                    @click="selectedStartingActiveSlot = entry.idx"
+                  >
+                    <div
+                      class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.16),rgba(18,14,24,0.96)_64%)]"
+                    ></div>
+                    <div
+                      v-if="entry.skill"
+                      class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10"
+                    >
+                      <div
+                        class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
+                      >
+                        {{ entry.skill.manaCost }}
+                      </div>
+                      <div
+                        class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none"
+                      >
+                        主动
+                      </div>
+                    </div>
+                    <div
+                      class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
+                    >
+                      <div
+                        class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"
+                      ></div>
+                      <span class="relative font-heading text-4xl text-white/20 select-none">{{
+                        entry.skill?.name?.[0] ?? '槽'
+                      }}</span>
+                    </div>
+                    <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
+                      <div
+                        class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md"
+                      >
+                        {{ entry.skill?.name ?? `主动槽位 ${entry.idx + 1}` }}
+                      </div>
+                      <div
+                        class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
+                      >
+                        {{ entry.skill?.description ?? '空主动槽位，点击下方技能卡可装备到此槽位。' }}
+                      </div>
+                      <div class="mt-1 text-center text-white/55 font-bold text-[10px] font-ui tracking-wider">
+                        {{ selectedStartingActiveSlot === entry.idx ? '当前编辑中' : `槽位 ${entry.idx + 1}` }}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                <div class="mt-2 flex justify-end">
+                  <button
+                    type="button"
+                    class="px-3 py-1 rounded border border-dungeon-brown/60 text-xs text-dungeon-paper/70 hover:border-dungeon-gold/45 disabled:opacity-50"
+                    :disabled="isUpdatingStartingActiveSkills"
+                    @click="clearStartingActiveSkill(selectedStartingActiveSlot)"
+                  >
+                    清空当前槽位
+                  </button>
+                </div>
+              </div>
+
+              <div
+                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 justify-items-center"
+              >
+                <button
+                  v-for="skill in startingActiveSkillOptions"
+                  :key="`starting-active-skill-${skill.id}`"
+                  type="button"
+                  class="relative w-[180px] h-[250px] rounded-xl border-2 shadow-xl overflow-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="
+                    isSkillEquippedInStartingActive(skill.name)
+                      ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.38)]'
+                      : 'border-dungeon-brown/60 hover:border-dungeon-gold/50'
+                  "
+                  :disabled="isUpdatingStartingActiveSkills"
+                  @click="setStartingActiveSkill(skill)"
+                >
+                  <div
+                    class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.18),rgba(18,14,24,0.96)_64%)]"
+                  ></div>
+                  <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
+                    <div
+                      class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
+                    >
+                      {{ skill.manaCost }}
+                    </div>
+                    <div
+                      class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none"
+                    >
+                      主动
+                    </div>
+                  </div>
+                  <div
+                    class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
+                  >
+                    <div
+                      class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"
+                    ></div>
+                    <span class="relative font-heading text-4xl text-white/20 select-none">{{ skill.name[0] }}</span>
+                  </div>
+                  <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
+                    <div
+                      class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md"
+                    >
+                      {{ skill.name }}
+                    </div>
+                    <div
+                      class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
+                    >
+                      {{ skill.description }}
+                    </div>
+                    <div class="mt-1 flex items-center justify-between text-[10px] text-white/60 font-ui">
+                      <span>CD {{ skill.Cooldown }}</span>
+                      <span
+                        :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'"
+                      >
+                        {{ isSkillEquippedInStartingActive(skill.name) ? '已装备' : '点击装备' }}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </template>
+          </div>
+        </DungeonModal>
+
+        <DungeonModal
+          title="魔法帽"
+          :is-open="activeModal === 'magicHat'"
+          panel-class="max-w-3xl"
+          @close="activeModal = null"
+        >
+          <div class="w-full max-w-3xl mx-auto flex flex-col gap-5">
+            <div
+              class="rounded border border-dungeon-gold/30 bg-[#140d08]/70 px-4 py-3 flex items-center justify-between"
+            >
+              <span class="font-ui text-dungeon-paper/75 text-sm">可用技能点</span>
+              <span class="font-heading text-dungeon-gold text-xl">{{ magicHatSkillPoints }}</span>
+            </div>
+
+            <div
+              v-for="track in magicHatTracks"
+              :key="`magic-hat-${track.id}`"
+              class="rounded border border-dungeon-brown/60 bg-[#160d08]/65 p-4"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="font-heading text-dungeon-gold text-base">{{ track.label }}</div>
+                  <div class="font-ui text-xs text-dungeon-paper/65 mt-1">
+                    当前 {{ track.currentValue }} · 等级 {{ track.currentLevel }}/{{ track.maxLevel }}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="px-3 py-1.5 rounded border text-xs font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  :class="
+                    track.isMax
+                      ? 'border-dungeon-brown/60 text-dungeon-paper/45'
+                      : 'border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10'
+                  "
+                  :disabled="isUpgradingMagicHat || track.isMax"
+                  @click="upgradeMagicHatStat(track.id)"
+                >
+                  {{ track.isMax ? '已满级' : `升级（-${track.nextCost} 技能点）` }}
+                </button>
+              </div>
+              <div class="mt-3 h-2 rounded bg-black/45 border border-dungeon-brown/45 overflow-hidden">
+                <div
+                  class="h-full transition-all duration-300"
+                  :class="track.barClass"
+                  :style="{ width: `${track.progressPercent}%` }"
+                ></div>
+              </div>
+              <div class="mt-2 font-ui text-[11px] text-dungeon-paper/60">
+                {{ track.isMax ? '已达到可升级上限' : `下一级提升至 ${track.nextValue}` }}
+              </div>
+            </div>
+          </div>
+        </DungeonModal>
+
+        <DungeonModal title="圣遗物" :is-open="activeModal === 'relics'" @close="activeModal = null">
+          <div
+            v-if="relicEntries.length > 0"
+            class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-6 gap-y-6 p-4 overflow-y-auto max-h-[60%]"
+          >
+            <button
+              v-for="relic in relicEntries"
+              :key="relic.name"
+              type="button"
+              class="relative flex flex-col items-center p-1.5 rounded border border-dungeon-brown/30 bg-[#1a0f08]/35 hover:border-dungeon-gold/40 transition-colors focus:outline-none focus:border-dungeon-gold/60"
+              @mouseenter="showRelicTooltip($event, relic)"
+              @mouseleave="hideRelicTooltip"
+              @focus="showRelicTooltip($event, relic)"
+              @blur="hideRelicTooltip"
+              @touchstart.passive="handleRelicTouchStart($event, relic)"
+              @touchend="handleRelicTouchEnd"
+              @touchcancel="handleRelicTouchEnd"
+            >
+              <div class="relative">
+                <Box class="size-9 text-dungeon-gold/75" />
+                <span
+                  class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded px-0.5 leading-tight"
+                  >x{{ relic.count }}</span
+                >
+              </div>
+              <span
+                class="font-heading text-dungeon-gold text-[11px] text-center mt-1 leading-relaxed truncate w-full"
+                >{{ relic.name }}</span
+              >
+            </button>
+          </div>
+          <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
+            <Box class="size-12 text-dungeon-gold/20" />
+            <span class="font-ui text-dungeon-paper/40 text-sm">尚未获得圣遗物</span>
+          </div>
+        </DungeonModal>
+        <Teleport to="body">
+          <div
+            v-if="relicTooltip"
+            class="fixed z-[220] pointer-events-none relic-tooltip"
+            :style="{ left: `${relicTooltip.x}px`, top: `${relicTooltip.y}px` }"
+          >
+            <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
+            <div class="relic-tooltip-desc">{{ relicTooltip.description }}</div>
+          </div>
+        </Teleport>
+
+        <!-- Settings Modal -->
+        <DungeonModal
+          title="系统设置"
+          :is-open="activeModal === 'settings'"
+          @close="
+            activeModal = null;
+            closeSettingsHelp();
+          "
+        >
+          <div class="settings-panel flex flex-col space-y-5 w-full max-w-2xl mx-auto">
+            <div class="settings-nav">
+              <button
+                type="button"
+                class="settings-nav-btn"
+                :class="{ 'is-active': settingsNavTab === 'text' }"
+                @click="settingsNavTab = 'text'"
+              >
+                正文框设置
+              </button>
+              <button
+                type="button"
+                class="settings-nav-btn"
+                :class="{ 'is-active': settingsNavTab === 'music' }"
+                @click="settingsNavTab = 'music'"
+              >
+                背景音乐
+              </button>
+              <button
+                type="button"
+                class="settings-nav-btn"
+                :class="{ 'is-active': settingsNavTab === 'ai' }"
+                @click="settingsNavTab = 'ai'"
+              >
+                AI回复
+              </button>
+              <button
+                type="button"
+                class="settings-nav-btn"
+                :class="{ 'is-active': settingsNavTab === 'summary' }"
+                @click="settingsNavTab = 'summary'"
+              >
+                总结
+              </button>
+            </div>
+            <section v-if="settingsNavTab === 'text'" class="settings-section settings-section--text">
+              <h3 class="settings-section-title">正文框设置</h3>
+              <div class="space-y-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">字体大小</label>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <button
+                      class="settings-stepper-btn"
+                      @click="textSettings.fontSize = Math.max(12, textSettings.fontSize - 1)"
+                    >
+                      −
+                    </button>
+                    <span class="text-dungeon-paper font-ui text-sm w-12 text-center"
+                      >{{ textSettings.fontSize }}px</span
+                    >
+                    <button
+                      class="settings-stepper-btn"
+                      @click="textSettings.fontSize = Math.min(40, textSettings.fontSize + 1)"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">行间距</label>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <button
+                      class="settings-stepper-btn"
+                      @click="textSettings.lineHeight = Math.max(1.2, +(textSettings.lineHeight - 0.1).toFixed(1))"
+                    >
+                      −
+                    </button>
+                    <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{
+                      textSettings.lineHeight
+                    }}</span>
+                    <button
+                      class="settings-stepper-btn"
+                      @click="textSettings.lineHeight = Math.min(3.0, +(textSettings.lineHeight + 0.1).toFixed(1))"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">字体样式</label>
+                  <select
+                    v-model="textSettings.fontFamily"
+                    class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui sm:min-w-[14rem]"
+                  >
+                    <option value="'Cinzel', serif">Cinzel (默认)</option>
+                    <option value="'Inter', sans-serif">Inter</option>
+                    <option value="'MedievalSharp', cursive">MedievalSharp</option>
+                    <option value="'MaShanZheng', 'KaiTi', serif">马善政体</option>
+                    <option value="'MagicBookTitle', 'KaiTi', serif">江湖琅琶体</option>
+                    <option value="serif">Serif</option>
+                    <option value="sans-serif">Sans-serif</option>
+                    <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
+                    <option value="'SimSun', serif">宋体</option>
+                    <option value="'KaiTi', serif">楷体</option>
+                  </select>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">正文框宽度</label>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <input
+                      v-model.number="textSettings.containerWidth"
+                      type="range"
+                      min="600"
+                      max="1600"
+                      step="50"
+                      class="w-32 accent-dungeon-gold"
+                    />
+                    <span class="text-dungeon-paper font-ui text-sm w-16 text-center"
+                      >{{ textSettings.containerWidth }}px</span
+                    >
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">背景清晰度</label>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <input
+                      v-model.number="bgOverlayOpacity"
+                      type="range"
+                      min="0"
+                      max="0.8"
+                      step="0.05"
+                      class="w-32 accent-dungeon-gold"
+                    />
+                    <span class="text-dungeon-paper font-ui text-sm w-16 text-center"
+                      >{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section v-else-if="settingsNavTab === 'music'" class="settings-section settings-section--music">
+              <h3 class="settings-section-title">背景音乐</h3>
+              <div class="space-y-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐</label>
+                  <select
+                    v-model="selectedBgmTrackId"
+                    :disabled="bgmTracks.length === 0"
+                    class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[14rem]"
+                  >
+                    <option v-if="bgmTracks.length === 0" value="">暂无可用曲目</option>
+                    <option v-for="track in bgmTracks" :key="track.id" :value="track.id">
+                      {{ track.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐音量</label>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <input
+                      v-model.number="bgmVolumePercent"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      class="w-32 accent-dungeon-gold"
+                    />
+                    <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ bgmVolumePercent }}%</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section v-else-if="settingsNavTab === 'ai'" class="settings-section settings-section--ai">
+              <h3 class="settings-section-title">AI回复</h3>
+              <div class="space-y-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isStreamingEnabled }"
+                    :aria-checked="isStreamingEnabled"
+                    role="switch"
+                    @click="isStreamingEnabled = !isStreamingEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">禁止匹配思维链内XML标签</label>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isForbidMatchingXmlInsideThinkEnabled }"
+                    :aria-checked="isForbidMatchingXmlInsideThinkEnabled"
+                    role="switch"
+                    @click="isForbidMatchingXmlInsideThinkEnabled = !isForbidMatchingXmlInsideThinkEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section v-else class="settings-section settings-section--summary">
+              <h3 class="settings-section-title">总结</h3>
+              <div class="space-y-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>自动总结</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('autoSummaryEnabled')"
+                      @mouseleave="closeSettingsHelp('autoSummaryEnabled')"
+                      @focus="openSettingsHelp('autoSummaryEnabled')"
+                      @blur="closeSettingsHelp('autoSummaryEnabled')"
+                      @touchstart.passive="startSettingsHelpTouch('autoSummaryEnabled')"
+                      @touchend="endSettingsHelpTouch('autoSummaryEnabled')"
+                      @touchcancel="endSettingsHelpTouch('autoSummaryEnabled')"
+                      @click.stop.prevent="toggleSettingsHelp('autoSummaryEnabled')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'autoSummaryEnabled'" class="settings-help-popover">
+                        {{ settingsHelpText.autoSummaryEnabled }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isAutoSummaryEnabled }"
+                    :aria-checked="isAutoSummaryEnabled"
+                    role="switch"
+                    @click="isAutoSummaryEnabled = !isAutoSummaryEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>总结层数</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('summaryVisibleWindow')"
+                      @mouseleave="closeSettingsHelp('summaryVisibleWindow')"
+                      @focus="openSettingsHelp('summaryVisibleWindow')"
+                      @blur="closeSettingsHelp('summaryVisibleWindow')"
+                      @touchstart.passive="startSettingsHelpTouch('summaryVisibleWindow')"
+                      @touchend="endSettingsHelpTouch('summaryVisibleWindow')"
+                      @touchcancel="endSettingsHelpTouch('summaryVisibleWindow')"
+                      @click.stop.prevent="toggleSettingsHelp('summaryVisibleWindow')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'summaryVisibleWindow'" class="settings-help-popover">
+                        {{ settingsHelpText.summaryVisibleWindow }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <input
+                      v-model.lazy.number="summaryVisibleWindowValue"
+                      type="number"
+                      min="1"
+                      max="60"
+                      inputmode="numeric"
+                      :disabled="!isAutoSummaryEnabled"
+                      class="w-20 bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-45 disabled:cursor-not-allowed"
+                    />
+                    <span class="text-dungeon-paper font-ui text-sm">层</span>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>总结按钮</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('manualSummary')"
+                      @mouseleave="closeSettingsHelp('manualSummary')"
+                      @focus="openSettingsHelp('manualSummary')"
+                      @blur="closeSettingsHelp('manualSummary')"
+                      @touchstart.passive="startSettingsHelpTouch('manualSummary')"
+                      @touchend="endSettingsHelpTouch('manualSummary')"
+                      @touchcancel="endSettingsHelpTouch('manualSummary')"
+                      @click.stop.prevent="toggleSettingsHelp('manualSummary')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'manualSummary'" class="settings-help-popover">
+                        {{ settingsHelpText.manualSummary }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <button
+                    class="settings-primary-btn sm:shrink-0"
+                    :disabled="!isAutoSummaryEnabled || gameStore.isGenerating || isManualSummaryRunning"
+                    @click="handleManualSummary"
+                  >
+                    {{ isManualSummaryRunning ? '补全中...' : '补全当前总结' }}
+                  </button>
+                </div>
+
+                <div class="settings-summary-divider"></div>
+
+                <h4 class="settings-subsection-title">大总结设定</h4>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">总结范围设置</label>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <input
+                      v-model.lazy.number="bigSummaryRangeStart"
+                      type="number"
+                      inputmode="numeric"
+                      class="settings-summary-range-input"
+                    />
+                    <span class="text-dungeon-paper/70 text-sm">-</span>
+                    <input
+                      v-model.lazy.number="bigSummaryRangeEnd"
+                      type="number"
+                      inputmode="numeric"
+                      class="settings-summary-range-input"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">大总结字数</label>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <input
+                      v-model.lazy.number="bigSummaryMinWords"
+                      type="number"
+                      min="50"
+                      max="10000"
+                      inputmode="numeric"
+                      class="settings-summary-range-input"
+                    />
+                    <span class="text-dungeon-paper/70 text-sm">-</span>
+                    <input
+                      v-model.lazy.number="bigSummaryMaxWords"
+                      type="number"
+                      min="50"
+                      max="10000"
+                      inputmode="numeric"
+                      class="settings-summary-range-input"
+                    />
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-dungeon-paper/70 text-sm font-ui">当前可总结条目</span>
+                    <span class="text-dungeon-paper/55 text-xs font-ui"
+                      >当前选中 {{ selectedBigSummaryEntryCount }} 条</span
+                    >
+                  </div>
+                  <div class="settings-summary-list">
+                    <div v-if="isBigSummaryEntriesLoading" class="settings-summary-list-empty">加载中...</div>
+                    <div v-else-if="bigSummaryChronicleEntries.length === 0" class="settings-summary-list-empty">
+                      暂无可总结条目
+                    </div>
+                    <div v-else class="space-y-1 pr-1">
+                      <div
+                        v-for="entry in bigSummaryChronicleEntries"
+                        :key="`big-summary-entry-${entry.index}`"
+                        class="settings-summary-item"
+                        :class="{ 'is-selected': isEntryWithinBigSummaryRange(entry.index) }"
+                      >
+                        <span class="settings-summary-item-index">{{ entry.index }}.</span>
+                        <span class="settings-summary-item-text">{{ entry.summary }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex justify-end">
+                  <button
+                    class="settings-primary-btn"
+                    :disabled="!canGenerateBigSummary"
+                    @click="handleGenerateBigSummary"
+                  >
+                    {{ isBigSummaryGenerating ? '总结中...' : '生成大总结' }}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div class="settings-system-actions">
+              <h3 class="settings-section-title settings-section-title--neutral">系统</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button class="settings-action-btn settings-action-btn--gold" @click="toggleFullScreen">
+                  切换全屏模式
+                </button>
+                <button class="settings-action-btn settings-action-btn--danger" @click="$emit('backToSplash')">
+                  退出到标题
+                </button>
+                <button
+                  class="settings-action-btn settings-action-btn--accent sm:col-span-2"
+                  @click="openCombatTestBuilder"
+                >
+                  ⚔ 进入战斗测试
+                </button>
+              </div>
+            </div>
+          </div>
+        </DungeonModal>
+
+        <DungeonModal title="大总结结果确认" :is-open="!!bigSummaryDraft" @close="closeBigSummaryDraft">
+          <div v-if="bigSummaryDraft" class="flex flex-col gap-4 w-full">
+            <div class="text-sm text-dungeon-paper/75 font-ui">
+              已生成范围 {{ bigSummaryDraft.rangeStart }}-{{ bigSummaryDraft.rangeEnd }} 的大总结（共
+              {{ bigSummaryDraft.entryCount }} 条来源）。
+            </div>
+            <textarea
+              v-model="bigSummaryDraft.editedSummary"
+              class="settings-big-summary-result settings-big-summary-editor"
+              rows="12"
+            ></textarea>
+            <div class="flex items-center justify-between gap-3">
+              <button
+                v-if="isBigSummaryDraftEdited"
+                class="settings-action-btn settings-action-btn--gold"
+                :disabled="isBigSummaryApplying"
+                @click="restoreBigSummaryDraft"
+              >
+                还原原文
+              </button>
+              <div class="flex items-center gap-3 ml-auto">
+                <button
+                  class="settings-action-btn settings-action-btn--danger"
+                  :disabled="isBigSummaryApplying"
+                  @click="closeBigSummaryDraft"
+                >
+                  否，关闭
+                </button>
+                <button class="settings-primary-btn" :disabled="isBigSummaryApplying" @click="confirmApplyBigSummary">
+                  {{ isBigSummaryApplying ? '覆盖中...' : '是，覆盖条目' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </DungeonModal>
+
+        <!-- Combat Test Builder Modal -->
+        <DungeonModal title="战斗测试配置" :is-open="activeModal === 'combatTestBuilder'" @close="activeModal = null">
+          <div class="flex flex-col gap-4 w-full max-w-4xl">
+            <template v-if="combatTestStep === 'deck'">
+              <div class="flex items-center justify-between">
+                <h3 class="font-heading text-dungeon-gold text-sm tracking-widest uppercase">步骤1：组建卡组（9张）</h3>
+                <span class="text-xs font-ui text-dungeon-paper/70">{{ selectedTestDeck.length }}/9</span>
+              </div>
+
+              <div class="rounded border border-dungeon-brown/60 bg-dungeon-dark/50 p-3">
+                <div class="mb-2 flex items-center justify-between">
+                  <span class="text-[11px] text-dungeon-paper/70">已选卡牌（点击移除）</span>
+                  <span class="text-[11px] text-dungeon-gold/80">{{ selectedTestDeck.length }}/9</span>
+                </div>
+                <div class="max-h-52 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
+                  <button
+                    v-for="entry in selectedTestDeckCards"
+                    :key="`selected-card-${entry.idx}`"
+                    class="w-full text-left flex items-stretch gap-2 rounded border border-dungeon-gold/20 bg-[#1a0f08]/70 px-2 py-2 hover:border-dungeon-gold/50 transition-colors"
+                    @click="removeCardFromTestDeck(entry.idx)"
+                  >
+                    <span class="w-1.5 rounded" :class="getCardCategoryStripClass(entry.card.category)"></span>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-xs font-heading text-dungeon-gold truncate">{{ entry.card.name }}</span>
+                        <span class="text-[10px] px-1 rounded border" :class="getCardTypeBadgeClass(entry.card.type)">{{
+                          entry.card.type
+                        }}</span>
+                        <span class="text-[10px] px-1 rounded border border-white/15 text-dungeon-paper/60">{{
+                          entry.card.category
+                        }}</span>
+                      </div>
+                      <div class="mt-1 text-[10px] text-dungeon-paper/70 truncate" :title="entry.card.description">
+                        {{ entry.card.description }}
+                      </div>
+                    </div>
+                    <span class="text-[10px] text-red-300/85 shrink-0 self-center">移除</span>
+                  </button>
+                  <div
+                    v-if="selectedTestDeckCards.length === 0"
+                    class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                  >
+                    尚未选择卡牌
+                  </div>
+                </div>
+                <div class="mt-2 grid grid-cols-9 gap-1">
+                  <div
+                    v-for="idx in 9"
+                    :key="`deck-slot-${idx}`"
+                    class="h-2 rounded border"
+                    :class="
+                      idx <= selectedTestDeck.length
+                        ? 'bg-dungeon-gold/70 border-dungeon-gold/60'
+                        : 'bg-black/20 border-dungeon-brown/40'
+                    "
+                  ></div>
+                </div>
+              </div>
+
+              <div
+                class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3 custom-scrollbar"
+              >
+                <div class="space-y-3">
+                  <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
+                    <button
+                      v-for="category in cardCategoryTabsForTest"
+                      :key="`card-tab-${category}`"
+                      class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
+                      :class="
+                        selectedCardCategoryTab === category
+                          ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
+                          : 'bg-[#1a0f08]/80 border-dungeon-brown/70 text-dungeon-paper/70 hover:border-dungeon-gold/50 hover:text-dungeon-gold/90'
+                      "
+                      @click="selectedCardCategoryTab = category"
+                    >
+                      {{ category }}
+                    </button>
+                  </div>
+                  <div
+                    v-for="group in filteredCardCategoryGroupsForTest"
+                    :key="`card-category-${group.category}`"
+                    class="rounded border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
+                  >
+                    <div class="mb-2 flex items-center justify-between">
+                      <h4 class="font-heading text-[11px] tracking-wider uppercase text-dungeon-gold/90">
+                        {{ group.category }}
+                      </h4>
+                      <span class="text-[10px] text-dungeon-paper/50">{{ group.cards.length }} 张</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <button
+                        v-for="card in group.cards"
+                        :key="`all-card-${group.category}-${card.id}`"
+                        class="hover:scale-105 transition-transform flex flex-col items-center rounded border border-dungeon-brown/40 bg-[#1a0f08]/50 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                        :disabled="selectedTestDeck.length >= 9"
+                        @click="addCardToTestDeck(card.name)"
+                      >
+                        <DungeonCard :card="card" disabled />
+                        <span class="mt-1 text-[10px] text-dungeon-gold/80">点击加入</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    v-if="filteredCardCategoryGroupsForTest.length === 0"
+                    class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                  >
+                    当前分类暂无可选卡牌
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex justify-end gap-3">
+                <button
+                  class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
+                  @click="activeModal = null"
+                >
+                  取消
+                </button>
+                <button
+                  class="px-4 py-2 rounded border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown disabled:opacity-40 disabled:cursor-not-allowed"
+                  :disabled="selectedTestDeck.length !== 9"
+                  @click="confirmCombatTestDeck"
+                >
+                  下一步：选择魔物
+                </button>
+              </div>
+            </template>
+
+            <template v-else>
+              <div class="flex items-center justify-between">
+                <h3 class="font-heading text-dungeon-gold text-sm tracking-widest uppercase">步骤2：选择魔物</h3>
+                <span class="text-xs font-ui text-dungeon-paper/70"
+                  >已选卡组: 9张｜圣遗物: {{ selectedRelicTotalCount }} 件</span
+                >
+              </div>
+
+              <div
+                class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar"
+              >
+                <div class="space-y-2">
+                  <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
+                    <button
+                      v-for="floorLabel in combatTestEnemyFloorTabs"
+                      :key="`combat-test-floor-${floorLabel}`"
+                      class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
+                      :class="
+                        selectedEnemyFloorForTest === floorLabel
+                          ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
+                          : 'bg-[#1a0f08]/80 border-dungeon-brown/70 text-dungeon-paper/70 hover:border-dungeon-gold/50 hover:text-dungeon-gold/90'
+                      "
+                      @click="setCombatTestEnemyFloorFilter(floorLabel)"
+                    >
+                      {{ floorLabel }}
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <button
+                      v-for="enemy in filteredEnemyEntriesForTest"
+                      :key="`enemy-${enemy.name}`"
+                      class="text-left px-3 py-2 rounded border text-xs transition-colors"
+                      :class="
+                        selectedTestEnemy === enemy.name
+                          ? 'border-dungeon-gold bg-dungeon-brown/60 text-dungeon-gold'
+                          : 'border-dungeon-brown/60 bg-[#1a0f08] text-dungeon-paper hover:border-dungeon-gold/60'
+                      "
+                      @click="selectedTestEnemy = enemy.name"
+                    >
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="truncate">{{ enemy.name }}</span>
+                        <span class="text-[10px] text-dungeon-paper/55 shrink-0">{{ enemy.floorLabel }}</span>
+                      </div>
+                    </button>
+                  </div>
+                  <div
+                    v-if="filteredEnemyEntriesForTest.length === 0"
+                    class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                  >
+                    当前楼层分类暂无可选魔物
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
+                <div class="mb-2 flex items-center justify-between">
+                  <h4 class="font-heading text-dungeon-gold text-xs tracking-wider uppercase">圣遗物自选</h4>
+                  <span class="text-[11px] text-dungeon-paper/60">将同步写入 MVU `_圣遗物`</span>
+                </div>
+                <div class="max-h-[28vh] overflow-y-auto custom-scrollbar pr-1">
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
+                      <button
+                        v-for="category in relicCategoryTabsForTest"
+                        :key="`relic-tab-${category}`"
+                        class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
+                        :class="
+                          selectedRelicCategoryTab === category
+                            ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
+                            : 'bg-[#1a0f08]/80 border-dungeon-brown/70 text-dungeon-paper/70 hover:border-dungeon-gold/50 hover:text-dungeon-gold/90'
+                        "
+                        @click="selectedRelicCategoryTab = category"
+                      >
+                        {{ category }}
+                      </button>
+                    </div>
+                    <div
+                      v-for="group in filteredRelicCategoryGroupsForTest"
+                      :key="`relic-category-${group.category}`"
+                      class="rounded border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
+                    >
+                      <div class="mb-2 flex items-center justify-between">
+                        <h5 class="font-heading text-[11px] tracking-wider uppercase text-dungeon-gold/90">
+                          {{ group.category }}
+                        </h5>
+                        <span class="text-[10px] text-dungeon-paper/50">{{ group.relics.length }} 件</span>
+                      </div>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div
+                          v-for="relic in group.relics"
+                          :key="`test-relic-${group.category}-${relic.id}`"
+                          class="rounded border border-dungeon-brown/50 bg-[#1a0f08]/70 p-2"
+                        >
+                          <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                              <div class="text-xs font-heading text-dungeon-gold truncate">{{ relic.name }}</div>
+                              <div class="text-[10px] text-dungeon-paper/60">{{ relic.rarity }}</div>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0">
+                              <button
+                                class="h-6 w-6 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold"
+                                @click="decreaseSelectedRelic(relic.name)"
+                              >
+                                -
+                              </button>
+                              <span class="w-6 text-center text-xs text-dungeon-gold">{{
+                                getSelectedTestRelicCount(relic.name)
+                              }}</span>
+                              <button
+                                class="h-6 w-6 rounded border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown"
+                                @click="increaseSelectedRelic(relic.name)"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                          <div class="mt-1 text-[10px] text-dungeon-paper/70 leading-relaxed">{{ relic.effect }}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      v-if="filteredRelicCategoryGroupsForTest.length === 0"
+                      class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                    >
+                      当前分类暂无可选圣遗物
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <label
+                class="flex items-center gap-2 px-3 py-2 rounded border border-dungeon-brown/60 bg-dungeon-dark/40 text-sm text-dungeon-paper/80"
+              >
+                <input v-model="combatTestStartAt999" type="checkbox" class="accent-amber-500" />
+                <span>本场测试启用 999 开局（敌我双方 HP/MP=999）</span>
+              </label>
+
+              <div class="flex justify-between gap-3">
+                <button
+                  class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
+                  @click="combatTestStep = 'deck'"
+                >
+                  返回改卡组
+                </button>
+                <button
+                  class="px-4 py-2 rounded border border-amber-600/40 text-amber-400 hover:bg-amber-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                  :disabled="!selectedTestEnemy"
+                  @click="confirmCombatTestEnemyAndStart"
+                >
+                  开始战斗测试
+                </button>
+              </div>
+            </template>
+          </div>
+        </DungeonModal>
+
+        <!-- Save/Load Panel -->
+        <SaveLoadPanel
+          :is-open="gameStore.isSaveLoadOpen"
+          :entries="gameStore.saveEntries"
+          @close="gameStore.isSaveLoadOpen = false"
+          @rollback="resetTransientUiState"
+        />
+
+        <!-- Variable Update Viewer -->
+        <DungeonModal title="变量更新" :is-open="isVariableUpdateOpen" @close="isVariableUpdateOpen = false">
+          <div class="variable-update-panel">
+            <div class="variable-update-head">
+              <FileText class="variable-update-head-icon" />
+              <div>
+                <div class="variable-update-title">本层变量同步记录</div>
+                <div class="variable-update-subtitle">识别标签：&lt;UpdateVariable&gt; / &lt;update&gt;</div>
+              </div>
+            </div>
+            <div v-if="gameStore.variableUpdateText" class="variable-update-body custom-scrollbar">
+              <pre class="variable-update-content">{{ gameStore.variableUpdateText }}</pre>
+            </div>
+            <div v-else class="variable-update-empty">当前楼层没有检测到变量更新标签。</div>
+          </div>
+        </DungeonModal>
+
+        <!-- Shop Overlay -->
+        <Transition name="combat-fade">
+          <div v-if="showShopView" class="absolute inset-0 z-[94] bg-black">
+            <img :src="shopBackgroundUrl" class="absolute inset-0 h-full w-full object-cover" alt="商店背景" />
+            <div class="absolute inset-0 bg-black/22"></div>
+
+            <img
+              v-if="!isMerchantDefeated"
+              :src="shopMerchantPortraitUrl"
+              class="pointer-events-none absolute left-0 bottom-0 z-[99] h-[92vh] max-h-[1216px] w-auto object-contain"
+              alt="沐芯兰"
+            />
+
+            <div class="shop-layout absolute inset-y-0 right-0 z-[96] flex items-center px-4 md:px-7">
+              <div class="shop-panel ml-auto w-full max-w-[48rem] h-[84vh] max-h-[860px]">
+                <div class="shop-panel-head">
+                  <div class="font-heading text-xl text-amber-100">沐芯兰的商店</div>
+                </div>
+
+                <div class="shop-goods-grid custom-scrollbar">
+                  <button
+                    v-for="item in shopProducts"
+                    :key="item.key"
+                    type="button"
+                    class="shop-item-card"
+                    :class="{ 'is-sold': item.sold }"
+                    :disabled="item.sold || shopBuying"
+                    @click="buyShopProduct(item)"
+                    @mouseenter="showShopProductTooltip($event, item)"
+                    @mouseleave="hideRelicTooltip"
+                    @focus="showShopProductTooltip($event, item)"
+                    @blur="hideRelicTooltip"
+                    @touchstart.passive="handleShopProductTouchStart($event, item)"
+                    @touchend="handleRelicTouchEnd"
+                    @touchcancel="handleRelicTouchEnd"
+                  >
+                    <div class="shop-item-icon-wrap">
+                      <Box class="shop-item-icon" />
+                    </div>
+                    <div class="shop-item-price">
+                      <Coins class="size-3.5" />
+                      <span>{{ item.finalPrice }}</span>
+                    </div>
+                  </button>
+
+                  <div
+                    v-if="shopProducts.length === 0"
+                    class="rounded border border-amber-200/15 bg-black/25 py-10 text-center text-sm text-amber-100/65"
+                  >
+                    暂无可售商品
+                  </div>
+                </div>
+
+                <div class="shop-panel-foot">
+                  <button
+                    class="shop-rob-btn px-5 py-2 font-ui text-xs tracking-wider text-amber-50"
+                    :disabled="shopBuying || gameStore.isGenerating || shopRobbing || isMerchantDefeated"
+                    :style="{ opacity: shopRobBtnOpacity }"
+                    @click="handleShopRobClick"
+                  >
+                    抢夺
+                  </button>
+                  <button
+                    class="shop-exit-btn px-7 py-3 font-ui text-sm tracking-wider text-amber-50"
+                    :disabled="shopBuying || gameStore.isGenerating || shopRobbing"
+                    @click="exitShop"
+                  >
+                    退出商店
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
+        <!-- Treasure Chest Overlay -->
+        <Transition name="combat-fade">
+          <div
+            v-if="showChestView"
+            class="absolute inset-0 z-[95] bg-black"
+            @contextmenu.prevent="handleChestContextMenu"
+            @touchstart.passive="handleChestTouchStart"
+            @touchend="handleChestTouchEnd"
+            @touchcancel="handleChestTouchEnd"
+          >
+            <img
+              :src="chestBackgroundUrl"
+              class="absolute inset-0 h-full w-full object-cover"
+              alt="宝箱界面背景"
+              @load="handleChestBgLoaded"
+            />
+
+            <div v-if="chestStage === 'opened'" class="pointer-events-none absolute inset-0">
+              <div
+                v-if="chestRewardVisible && chestRewardRelics.length > 0"
+                class="chest-reward-anchor"
+                :class="{ 'is-multi': chestRewardRelics.length > 1 }"
+              >
+                <button
+                  v-for="(relic, i) in chestRewardRelics"
+                  :key="`chest-reward-${relic.id}-${i}`"
+                  type="button"
+                  class="pointer-events-auto chest-reward-btn"
+                  :class="{ 'is-collected': chestRewardCollectedFlags[i] }"
+                  :disabled="chestCollecting || chestRewardCollectedFlags[i]"
+                  @click="collectChestReward(i)"
+                  @mouseenter="showChestRewardTooltip($event, i)"
+                  @mouseleave="hideRelicTooltip"
+                  @focus="showChestRewardTooltip($event, i)"
+                  @blur="hideRelicTooltip"
+                  @touchstart.passive="handleChestRewardTouchStart($event, i)"
+                  @touchend="handleRelicTouchEnd"
+                  @touchcancel="handleRelicTouchEnd"
+                >
+                  <Box class="chest-reward-icon" />
+                </button>
+              </div>
+
+              <div class="pointer-events-auto chest-portals-anchor w-full">
+                <div class="flex justify-center gap-4 flex-wrap">
+                  <button
+                    v-for="(portal, i) in chestPortalChoices"
+                    :key="`chest-portal-${i}`"
+                    class="portal-btn group relative flex flex-col items-center justify-center rounded-lg border-2 backdrop-blur-sm transition-all duration-500 hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                     :style="{
                       backgroundColor: portal.bgColor,
                       borderColor: portal.borderColor,
                       boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
                     }"
-                    @click="handlePortalClick(portal)"
+                    :disabled="chestCollecting"
+                    @click="handleChestPortalClick(portal)"
                   >
-                    <!-- Portal glow ring -->
                     <div
                       class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
                       :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
                     ></div>
-                    <!-- Portal icon -->
                     <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
-                    <!-- Portal label -->
                     <span
                       class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
                       :style="{ color: portal.textColor }"
-                    >{{ portal.label }}</span>
-                    <!-- Animated ring -->
+                      >{{ portal.label }}</span
+                    >
                     <div
-                      class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70
-                             animate-[spin_8s_linear_infinite] transition-opacity"
+                      class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70 animate-[spin_8s_linear_infinite] transition-opacity"
                       :style="{ borderColor: portal.borderColor }"
                     ></div>
                   </button>
                 </div>
               </div>
-
-              <!-- [Rebirth] Reset Button -->
-              <div v-if="gameStore.hasRebirth" class="mt-4">
-                <div class="text-center text-red-300/70 text-xs font-ui tracking-widest uppercase mb-3">
-                  ─── 回溯 ───
-                </div>
-                <div class="flex justify-center">
-                  <button
-                    class="group relative px-7 py-3 rounded-lg border-2 font-heading text-sm tracking-wider
-                           transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]
-                           bg-red-950/45 border-red-500/60 text-red-100
-                           shadow-[0_0_14px_rgba(239,68,68,0.35)] hover:shadow-[0_0_20px_rgba(248,113,113,0.5)]"
-                    :disabled="gameStore.isGenerating"
-                    @click="handleRebirthClick"
-                  >
-                    <span class="text-base mr-2">⟲</span>
-                    回溯重生
-                  </button>
-                </div>
-              </div>
             </div>
 
-            <div
-              v-if="hotSpringCleanseMessage"
-              :key="`spring-cleanse-${hotSpringCleanseMessage.id}`"
-              class="spring-cleanse-float"
-            >
-              {{ hotSpringCleanseMessage.text }}
-            </div>
-
-            <!-- Error Display -->
-            <div v-if="gameStore.error" class="mt-6 p-4 bg-red-950/30 border border-red-900/50 rounded text-red-300 font-ui text-sm">
-              {{ gameStore.error }}
-            </div>
-          </template>
-        </div>
-
-      </div>
-    </div>
-    <!-- Input Area (Stage-Anchored) -->
-    <div class="ui-input-anchor absolute left-0 right-0 bottom-0 z-[60] pb-2">
-      <div class="w-full mx-auto px-4 md:px-12 md:pl-24" :style="{ maxWidth: textSettings.containerWidth + 'px' }">
-        <div class="ui-input-shell bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
-          <div class="w-full flex items-stretch gap-2">
-            <input
-              v-model="inputText"
-              type="text"
-              :disabled="gameStore.isGenerating"
-              :placeholder="inputPlaceholder"
-              class="ui-input-field flex-1 h-[4.5rem] bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-tight px-5 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              @keydown.enter="handleSendInput"
-            />
             <button
-              class="ui-send-button h-[4.5rem] min-w-[4.5rem] px-3 flex items-center justify-center shrink-0"
-              :disabled="gameStore.isGenerating"
-              @click="handleSendInput"
-            >
-              <Send class="size-7" />
-            </button>
+              v-if="chestStage === 'closed'"
+              type="button"
+              aria-label="开启宝箱"
+              class="absolute left-1/2 top-1/2 h-[42vh] max-h-[360px] min-h-[220px] w-[36vw] max-w-[540px] min-w-[260px] -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-2xl border-0 bg-transparent p-0 opacity-0"
+              :disabled="chestRolling"
+              @click="handleChestCenterClick"
+            ></button>
           </div>
-        </div>
-      </div>
-    </div>
+        </Transition>
 
-    <!-- Player Status HUD (Bottom Left) -->
-    <div class="absolute bottom-8 left-8 z-[70] flex flex-col gap-2 select-none ui-status-hud">
-      <div class="flex items-center gap-2">
-        <button
-          class="w-10 h-10 rounded-lg flex items-center justify-center
-                 bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim
-                 hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
-                 transition-all duration-300 shadow-lg backdrop-blur-md"
-          :title="isStatusOpen ? '折叠状态栏' : '展开状态栏'"
-          @click="isStatusOpen = !isStatusOpen"
-        >
-          <ChevronDown
-            class="size-5 transition-transform duration-200"
-            :class="isStatusOpen ? '' : '-rotate-90'"
-          />
-        </button>
-
-        <button
-          class="w-10 h-10 rounded-lg flex items-center justify-center
-                 bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim
-                 hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50
-                 transition-all duration-300 shadow-lg backdrop-blur-md"
-          :title="statusHudView === 'base' ? '切换到负面状态界面' : '切换到基础状态界面'"
-          @click="toggleStatusHudView"
-        >
-          <component :is="statusHudView === 'base' ? FileText : Activity" class="size-5" />
-        </button>
-      </div>
-
-      <Transition name="status-slide">
-        <div
-          v-if="isStatusOpen"
-          class="relative p-4 bg-dungeon-dark/90 border border-dungeon-gold/30 rounded-xl backdrop-blur-md shadow-[0_0_30px_rgba(0,0,0,0.8)]"
-        >
-          <!-- Decorative Elements -->
-          <div class="absolute -top-1 -left-1 size-2 bg-dungeon-gold rotate-45 border border-black"></div>
-          <div class="absolute -bottom-1 -right-1 size-2 bg-dungeon-gold rotate-45 border border-black"></div>
-          <div class="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-dungeon-gold/50 to-transparent"></div>
-
-          <template v-if="statusHudView === 'base'">
-          <!-- HP & MP: Container-fill style -->
-          <div class="flex items-end gap-4 mb-3">
-            <!-- HP Heart Container -->
-            <div class="flex flex-col items-center gap-1">
-              <div class="stat-container-heart" :title="`HP: ${displayHp}/${displayMaxHp}`">
-                <svg viewBox="0 0 64 64" class="w-14 h-14">
-                  <defs>
-                    <clipPath id="heartClip">
-                      <path d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z" />
-                    </clipPath>
-                    <filter id="hpGlow">
-                      <feGaussianBlur stdDeviation="2" result="glow" />
-                      <feMerge>
-                        <feMergeNode in="glow" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                    <linearGradient id="hpGradient" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stop-color="#8a0e0e" />
-                      <stop offset="50%" stop-color="#cc2222" />
-                      <stop offset="100%" stop-color="#ee4444" />
-                    </linearGradient>
-                  </defs>
-                  <!-- Heart outline (dark) -->
-                  <path
-                    d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
-                    fill="#1a0808"
-                    stroke="#5c1a1a"
-                    stroke-width="1.5"
-                  />
-                  <!-- Fill level (clipped to heart) -->
-                  <g clip-path="url(#heartClip)">
-                    <rect
-                      x="0"
-                      :y="64 - (hpPercent / 100) * 60"
-                      width="64"
-                      :height="(hpPercent / 100) * 60"
-                      fill="url(#hpGradient)"
-                      filter="url(#hpGlow)"
-                      class="transition-all duration-700 ease-out"
-                    />
-                  </g>
-                  <!-- Highlight -->
-                  <ellipse cx="22" cy="18" rx="5" ry="4" fill="rgba(255,255,255,0.12)" transform="rotate(-20,22,18)" />
-                </svg>
-              </div>
-              <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
-                <span class="text-[#cc3333] font-bold">{{ displayHp }}</span>
-                <span class="text-gray-600">/{{ displayMaxHp }}</span>
-              </span>
-            </div>
-
-            <!-- MP Crystal Container -->
-            <div class="flex flex-col items-center gap-1">
-              <div class="stat-container-mana" :title="`MP: ${displayMp}`">
-                <svg viewBox="0 0 64 64" class="w-14 h-14">
-                  <defs>
-                    <clipPath id="manaClip">
-                      <path d="M32 4 L54 24 L32 60 L10 24 Z" />
-                    </clipPath>
-                    <filter id="mpGlow">
-                      <feGaussianBlur stdDeviation="2" result="glow" />
-                      <feMerge>
-                        <feMergeNode in="glow" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                    <linearGradient id="mpGradient" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stop-color="#1a1a8a" />
-                      <stop offset="50%" stop-color="#3344cc" />
-                      <stop offset="100%" stop-color="#5566ee" />
-                    </linearGradient>
-                  </defs>
-                  <!-- Crystal outline -->
-                  <path
-                    d="M32 4 L54 24 L32 60 L10 24 Z"
-                    fill="#080818"
-                    stroke="#1a1a5c"
-                    stroke-width="1.5"
-                  />
-                  <!-- Fill level -->
-                  <g clip-path="url(#manaClip)">
-                    <rect
-                      x="0"
-                      :y="64 - (mpPercent / 100) * 60"
-                      width="64"
-                      :height="(mpPercent / 100) * 60"
-                      fill="url(#mpGradient)"
-                      filter="url(#mpGlow)"
-                      class="transition-all duration-700 ease-out"
-                    />
-                  </g>
-                  <!-- Highlight -->
-                  <polygon points="26,14 32,8 38,14 32,20" fill="rgba(255,255,255,0.1)" />
-                </svg>
-              </div>
-              <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
-                <span class="text-blue-400 font-bold">{{ displayMp }}</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- Divider -->
-          <div class="my-2 h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent"></div>
-
-          <!-- Dice Range Row -->
-          <div class="flex items-center justify-between px-1 mb-2">
-            <div class="flex items-center gap-2 text-dungeon-paper/70">
-              <Dices class="size-4 text-dungeon-gold-dim drop-shadow-sm" />
-              <span class="font-ui text-sm tracking-wide">
-                <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMinDice }}</span>
-                <span class="text-gray-500">~</span>
-                <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMaxDice }}</span>
-              </span>
-            </div>
-            <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Dice</span>
-          </div>
-
-          <!-- Gold Row -->
-          <div class="flex items-center justify-between px-1">
-            <div class="flex items-center gap-2 text-dungeon-gold">
-              <Coins class="size-4 drop-shadow-sm" />
-              <span
-                class="font-heading text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim drop-shadow-sm"
-              >
-                {{ displayGold }}
-              </span>
-            </div>
-            <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Gold</span>
-          </div>
-          </template>
-
-          <div v-else class="status-negative-screen">
-            <div class="status-negative-head">
-              <span class="status-negative-title">负面状态</span>
-              <span class="status-negative-count">{{ negativeStatusEntries.length }} 项</span>
-            </div>
-            <div v-if="negativeStatusEntries.length === 0" class="status-negative-empty">
-              当前没有负面状态
-            </div>
-            <div v-else class="status-negative-list custom-scrollbar">
-              <div
-                v-for="entry in negativeStatusEntries"
-                :key="`negative-status-${entry.name}`"
-                class="status-negative-bar"
-              >
-                <span class="status-negative-name">{{ entry.name }}</span>
-                <span class="status-negative-desc">{{ entry.description }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </div>
-
-    <!-- Modals -->
-    <DungeonModal title="地牢地图" :is-open="activeModal === 'map'" panel-class="max-w-5xl" @close="activeModal = null">
-      <div class="map-modal">
-        <div class="map-toolbar">
-          <div class="map-summary">
-            本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房
-            <span class="map-summary-divider">|</span>
-            统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房
-          </div>
-          <div class="map-controls">
-            <button type="button" class="map-control-btn" @click="handleMapZoomOut">-</button>
-            <button type="button" class="map-control-btn" @click="handleMapZoomIn">+</button>
-            <button type="button" class="map-control-btn map-control-btn--wide" @click="handleMapResetView">重置视图</button>
-          </div>
-        </div>
-        <div v-if="currentFloorPath.length === 0" class="map-empty">
-          本层暂无路径记录
-        </div>
-        <div
-          v-else
-          ref="mapViewportRef"
-          class="map-viewport"
-          @wheel.prevent="handleMapWheel"
-          @pointerdown="handleMapPointerDown"
-          @pointermove="handleMapPointerMove"
-          @pointerup="handleMapPointerUp"
-          @pointercancel="handleMapPointerUp"
-        >
-          <div class="map-canvas" :style="mapCanvasStyle">
-            <svg
-              class="map-links"
-              :width="mapContentWidth"
-              :height="mapContentHeight"
-              :viewBox="`0 0 ${mapContentWidth} ${mapContentHeight}`"
-            >
-              <line
-                v-for="line in mapPathLines"
-                :key="line.key"
-                :x1="line.x1"
-                :y1="line.y1"
-                :x2="line.x2"
-                :y2="line.y2"
-                stroke="rgba(0,0,0,0.9)"
-                stroke-width="4"
-                stroke-linecap="round"
-              />
-            </svg>
-            <div
-              v-for="node in mapPathNodes"
-              :key="`path-node-${node.index}`"
-              class="map-room-cell"
-              :style="node.style"
-            >
-              <span class="map-room-icon">{{ node.icon }}</span>
-              <span class="map-room-step">{{ node.index + 1 }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </DungeonModal>
-
-    <DungeonModal title="羁绊" :is-open="activeModal === 'bonds'" panel-class="max-w-4xl" @close="activeModal = null">
-      <div v-if="bondEntries.length > 0" class="bond-list custom-scrollbar max-h-[64vh] overflow-y-auto pr-1">
-        <div v-for="entry in bondEntries" :key="`bond-${entry.name}`" class="bond-row">
-          <button type="button" class="bond-portrait-frame bond-portrait-frame--clickable" @click="openBondPortraitPreview(entry)">
-            <img
-              v-if="!bondPortraitErrors[entry.name]"
-              :src="entry.portraitUrl"
-              :alt="`${entry.name} 立绘`"
-              class="bond-portrait-image"
-              loading="lazy"
-              @error="handleBondPortraitError(entry.name)"
-            />
-            <div v-else class="bond-portrait-fallback">{{ entry.name.slice(0, 1) }}</div>
-          </button>
-          <div class="bond-affection-wrap">
-            <div class="bond-affection-head">
-              <span class="bond-role-name">{{ entry.name }}</span>
-              <span
-                class="bond-affection-value"
-                :class="entry.affection >= 0 ? 'bond-affection-value--positive' : 'bond-affection-value--negative'"
-              >{{ formatBondAffection(entry.affection) }} / 200</span>
-            </div>
-            <div class="bond-affection-track">
-              <div
-                class="bond-affection-fill"
-                :class="entry.affection >= 0 ? 'bond-affection-fill--positive' : 'bond-affection-fill--negative'"
-                :style="{ width: `${Math.round(entry.affectionAbsRatio * 100)}%` }"
-              ></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="flex flex-col items-center justify-center gap-3 py-12">
-        <Users class="size-12 text-dungeon-gold/20" />
-        <span class="font-ui text-sm text-dungeon-paper/50">暂无可显示的羁绊角色</span>
-      </div>
-    </DungeonModal>
-    <Teleport to="body">
-      <Transition name="combat-fade">
-        <div v-if="bondPortraitPreview" class="fixed inset-0 z-[230] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm" @click="closeBondPortraitPreview">
-          <div class="bond-preview-panel" @click.stop>
-            <img :src="bondPortraitPreview.url" :alt="`${bondPortraitPreview.name} 立绘大图`" class="bond-preview-image" />
-            <div class="bond-preview-footer">
-              <span class="bond-preview-name">{{ bondPortraitPreview.name }}</span>
-              <button type="button" class="bond-preview-close-btn" @click="closeBondPortraitPreview">关闭</button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
-
-    <DungeonModal title="符文卡组" :is-open="activeModal === 'deck'" @close="activeModal = null">
-      <div v-if="resolvedDeck.length > 0" class="grid grid-cols-3 gap-8 overflow-y-auto max-h-[60%] p-4">
-        <div v-for="(card, i) in resolvedDeck" :key="i" class="hover:scale-105 transition-transform flex justify-center">
-          <DungeonCard :card="card" disabled />
-        </div>
-      </div>
-      <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
-        <Scroll class="size-12 text-dungeon-gold/20" />
-        <span class="font-ui text-dungeon-paper/40 text-sm">卡组为空 — 尚未装备技能卡</span>
-      </div>
-    </DungeonModal>
-
-    <DungeonModal
-      title="魔法书"
-      :is-open="activeModal === 'magicBooks'"
-      panel-class="max-w-[92rem] max-h-[94%]"
-      @close="activeModal = null"
-    >
-      <div class="w-full max-w-[90rem] mx-auto flex flex-col gap-4">
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
-            :class="magicBooksNavTab === 'books'
-              ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
-              : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'"
-            @click="magicBooksNavTab = 'books'"
-          >
-            魔法书
-          </button>
-          <button
-            type="button"
-            class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
-            :class="magicBooksNavTab === 'active'
-              ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
-              : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'"
-            @click="magicBooksNavTab = 'active'"
-          >
-            主动
-          </button>
-        </div>
-
-        <template v-if="magicBooksNavTab === 'books'">
+        <!-- Idol Overlay -->
+        <Transition name="combat-fade">
           <div
-            v-if="carryableMagicBookNames.length > 0"
-            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1"
+            v-if="showIdolView"
+            class="absolute inset-0 z-[96] bg-black overflow-hidden"
+            @pointermove="handleIdolDicePointerMove"
+            @pointerup="handleIdolDicePointerUp"
+            @pointercancel="handleIdolDicePointerUp"
           >
-            <button
-              v-for="bookName in carryableMagicBookNames"
-              :key="`magic-book-${bookName}`"
-              type="button"
-              class="relative rounded-lg border p-3 text-left transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-[#130c08]/80"
-              :class="carriedMagicBookSet.has(bookName)
-                ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.45)] ring-1 ring-dungeon-gold/70'
-                : 'border-dungeon-brown/70 hover:border-dungeon-gold/45'"
-              :disabled="isUpdatingMagicBooks"
-              @click="toggleMagicBook(bookName)"
-            >
-              <div
-                class="relative w-full overflow-hidden rounded-md border"
-                :class="carriedMagicBookSet.has(bookName) ? 'border-dungeon-gold/60' : 'border-dungeon-brown/60'"
-              >
-                <img
-                  :src="getMagicBookCoverUrl(bookName)"
-                  :alt="`${bookName} 魔法书封面`"
-                  class="w-full [aspect-ratio:832/1216] object-cover transition-all duration-300"
-                  :class="carriedMagicBookSet.has(bookName)
-                    ? 'brightness-100 saturate-110'
-                    : 'brightness-50 saturate-60'"
-                  loading="lazy"
-                />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/38"></div>
-                <div class="absolute inset-x-2 top-2 z-10">
-                  <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
-                </div>
-              </div>
-            </button>
-          </div>
-          <div v-else class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 py-8 text-center text-sm text-dungeon-paper/50">
-            当前没有可选的附加魔法书。
-          </div>
-        </template>
+            <img :src="idolBackgroundUrl" class="absolute inset-0 h-full w-full object-cover" alt="神像界面背景" />
 
-        <template v-else>
-          <div class="rounded border border-dungeon-brown/60 bg-[#140d08]/70 p-3">
-            <div class="flex items-center justify-end gap-2">
-              <div class="text-xs text-dungeon-gold/80">当前编辑槽位：{{ selectedStartingActiveSlot + 1 }}</div>
-            </div>
-            <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
-              <button
-                v-for="entry in startingActiveSkillEntries"
-                :key="`starting-active-slot-${entry.idx}`"
-                type="button"
-                class="relative w-[180px] h-[250px] rounded-xl border-2 overflow-hidden shadow-lg text-left transition-all"
-                :class="selectedStartingActiveSlot === entry.idx
-                  ? 'border-dungeon-gold/75 shadow-[0_0_20px_rgba(212,175,55,0.35)]'
-                  : 'border-dungeon-brown/60 hover:border-dungeon-gold/45'"
-                :disabled="isUpdatingStartingActiveSkills"
-                @click="selectedStartingActiveSlot = entry.idx"
-              >
-                <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.16),rgba(18,14,24,0.96)_64%)]"></div>
-                <div v-if="entry.skill" class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
+            <div class="idol-layout absolute inset-0 z-[97]">
+              <div class="idol-slots-row">
+                <div class="idol-slot-wrap">
+                  <div class="idol-slot-hint">增加1.5倍点数的生命上限</div>
                   <div
-                    class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
-                  >
-                    {{ entry.skill.manaCost }}
-                  </div>
-                  <div class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none">主动</div>
+                    ref="idolSlotMaxHpRef"
+                    class="idol-slot"
+                    :class="{
+                      'is-preview': idolSnapPreviewTarget === 'maxHp',
+                      'is-selected': idolAssignedTarget === 'maxHp',
+                    }"
+                  ></div>
                 </div>
-                <div class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden">
-                  <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"></div>
-                  <span class="relative font-heading text-4xl text-white/20 select-none">{{ entry.skill?.name?.[0] ?? '槽' }}</span>
-                </div>
-                <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
-                  <div class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md">
-                    {{ entry.skill?.name ?? `主动槽位 ${entry.idx + 1}` }}
-                  </div>
-                  <div class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center">
-                    {{ entry.skill?.description ?? '空主动槽位，点击下方技能卡可装备到此槽位。' }}
-                  </div>
-                  <div class="mt-1 text-center text-white/55 font-bold text-[10px] font-ui tracking-wider">
-                    {{ selectedStartingActiveSlot === entry.idx ? '当前编辑中' : `槽位 ${entry.idx + 1}` }}
-                  </div>
-                </div>
-              </button>
-            </div>
-            <div class="mt-2 flex justify-end">
-              <button
-                type="button"
-                class="px-3 py-1 rounded border border-dungeon-brown/60 text-xs text-dungeon-paper/70 hover:border-dungeon-gold/45 disabled:opacity-50"
-                :disabled="isUpdatingStartingActiveSkills"
-                @click="clearStartingActiveSkill(selectedStartingActiveSlot)"
-              >
-                清空当前槽位
-              </button>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 justify-items-center">
-            <button
-              v-for="skill in startingActiveSkillOptions"
-              :key="`starting-active-skill-${skill.id}`"
-              type="button"
-              class="relative w-[180px] h-[250px] rounded-xl border-2 shadow-xl overflow-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="isSkillEquippedInStartingActive(skill.name)
-                ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.38)]'
-                : 'border-dungeon-brown/60 hover:border-dungeon-gold/50'"
-              :disabled="isUpdatingStartingActiveSkills"
-              @click="setStartingActiveSkill(skill)"
-            >
-              <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.18),rgba(18,14,24,0.96)_64%)]"></div>
-              <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
-                <div
-                  class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
-                >
-                  {{ skill.manaCost }}
-                </div>
-                <div class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none">主动</div>
-              </div>
-              <div class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden">
-                <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"></div>
-                <span class="relative font-heading text-4xl text-white/20 select-none">{{ skill.name[0] }}</span>
-              </div>
-              <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
-                <div class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md">{{ skill.name }}</div>
-                <div class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center">
-                  {{ skill.description }}
-                </div>
-                <div class="mt-1 flex items-center justify-between text-[10px] text-white/60 font-ui">
-                  <span>CD {{ skill.Cooldown }}</span>
-                  <span :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'">
-                    {{ isSkillEquippedInStartingActive(skill.name) ? '已装备' : '点击装备' }}
-                  </span>
-                </div>
-              </div>
-            </button>
-          </div>
-        </template>
-      </div>
-    </DungeonModal>
-
-    <DungeonModal
-      title="魔法帽"
-      :is-open="activeModal === 'magicHat'"
-      panel-class="max-w-3xl"
-      @close="activeModal = null"
-    >
-      <div class="w-full max-w-3xl mx-auto flex flex-col gap-5">
-        <div class="rounded border border-dungeon-gold/30 bg-[#140d08]/70 px-4 py-3 flex items-center justify-between">
-          <span class="font-ui text-dungeon-paper/75 text-sm">可用技能点</span>
-          <span class="font-heading text-dungeon-gold text-xl">{{ magicHatSkillPoints }}</span>
-        </div>
-
-        <div
-          v-for="track in magicHatTracks"
-          :key="`magic-hat-${track.id}`"
-          class="rounded border border-dungeon-brown/60 bg-[#160d08]/65 p-4"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <div class="font-heading text-dungeon-gold text-base">{{ track.label }}</div>
-              <div class="font-ui text-xs text-dungeon-paper/65 mt-1">
-                当前 {{ track.currentValue }} · 等级 {{ track.currentLevel }}/{{ track.maxLevel }}
-              </div>
-            </div>
-            <button
-              type="button"
-              class="px-3 py-1.5 rounded border text-xs font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="track.isMax
-                ? 'border-dungeon-brown/60 text-dungeon-paper/45'
-                : 'border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10'"
-              :disabled="isUpgradingMagicHat || track.isMax"
-              @click="upgradeMagicHatStat(track.id)"
-            >
-              {{ track.isMax ? '已满级' : `升级（-${track.nextCost} 技能点）` }}
-            </button>
-          </div>
-          <div class="mt-3 h-2 rounded bg-black/45 border border-dungeon-brown/45 overflow-hidden">
-            <div
-              class="h-full transition-all duration-300"
-              :class="track.barClass"
-              :style="{ width: `${track.progressPercent}%` }"
-            ></div>
-          </div>
-          <div class="mt-2 font-ui text-[11px] text-dungeon-paper/60">
-            {{ track.isMax ? '已达到可升级上限' : `下一级提升至 ${track.nextValue}` }}
-          </div>
-        </div>
-      </div>
-    </DungeonModal>
-
-    <DungeonModal title="圣遗物" :is-open="activeModal === 'relics'" @close="activeModal = null">
-      <div v-if="relicEntries.length > 0" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-6 gap-y-6 p-4 overflow-y-auto max-h-[60%]">
-        <button
-          v-for="relic in relicEntries"
-          :key="relic.name"
-          type="button"
-          class="relative flex flex-col items-center p-1.5 rounded border border-dungeon-brown/30 bg-[#1a0f08]/35 hover:border-dungeon-gold/40 transition-colors focus:outline-none focus:border-dungeon-gold/60"
-          @mouseenter="showRelicTooltip($event, relic)"
-          @mouseleave="hideRelicTooltip"
-          @focus="showRelicTooltip($event, relic)"
-          @blur="hideRelicTooltip"
-          @touchstart.passive="handleRelicTouchStart($event, relic)"
-          @touchend="handleRelicTouchEnd"
-          @touchcancel="handleRelicTouchEnd"
-        >
-          <div class="relative">
-            <Box class="size-9 text-dungeon-gold/75" />
-            <span class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded px-0.5 leading-tight">x{{ relic.count }}</span>
-          </div>
-          <span class="font-heading text-dungeon-gold text-[11px] text-center mt-1 leading-relaxed truncate w-full">{{ relic.name }}</span>
-        </button>
-      </div>
-      <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
-        <Box class="size-12 text-dungeon-gold/20" />
-        <span class="font-ui text-dungeon-paper/40 text-sm">尚未获得圣遗物</span>
-      </div>
-    </DungeonModal>
-    <Teleport to="body">
-      <div
-        v-if="relicTooltip"
-        class="fixed z-[220] pointer-events-none relic-tooltip"
-        :style="{ left: `${relicTooltip.x}px`, top: `${relicTooltip.y}px` }"
-      >
-        <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
-        <div class="relic-tooltip-desc">{{ relicTooltip.description }}</div>
-      </div>
-    </Teleport>
-
-    <!-- Settings Modal -->
-    <DungeonModal title="系统设置" :is-open="activeModal === 'settings'" @close="activeModal = null; closeSettingsHelp()">
-      <div class="settings-panel flex flex-col space-y-5 w-full max-w-2xl mx-auto">
-        <div class="settings-nav">
-          <button
-            type="button"
-            class="settings-nav-btn"
-            :class="{ 'is-active': settingsNavTab === 'text' }"
-            @click="settingsNavTab = 'text'"
-          >
-            正文框设置
-          </button>
-          <button
-            type="button"
-            class="settings-nav-btn"
-            :class="{ 'is-active': settingsNavTab === 'music' }"
-            @click="settingsNavTab = 'music'"
-          >
-            背景音乐
-          </button>
-          <button
-            type="button"
-            class="settings-nav-btn"
-            :class="{ 'is-active': settingsNavTab === 'ai' }"
-            @click="settingsNavTab = 'ai'"
-          >
-            AI回复
-          </button>
-          <button
-            type="button"
-            class="settings-nav-btn"
-            :class="{ 'is-active': settingsNavTab === 'summary' }"
-            @click="settingsNavTab = 'summary'"
-          >
-            总结
-          </button>
-        </div>
-        <section v-if="settingsNavTab === 'text'" class="settings-section settings-section--text">
-          <h3 class="settings-section-title">正文框设置</h3>
-          <div class="space-y-4">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">字体大小</label>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <button class="settings-stepper-btn" @click="textSettings.fontSize = Math.max(12, textSettings.fontSize - 1)">−</button>
-                <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{ textSettings.fontSize }}px</span>
-                <button class="settings-stepper-btn" @click="textSettings.fontSize = Math.min(40, textSettings.fontSize + 1)">+</button>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">行间距</label>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <button class="settings-stepper-btn" @click="textSettings.lineHeight = Math.max(1.2, +(textSettings.lineHeight - 0.1).toFixed(1))">−</button>
-                <span class="text-dungeon-paper font-ui text-sm w-12 text-center">{{ textSettings.lineHeight }}</span>
-                <button class="settings-stepper-btn" @click="textSettings.lineHeight = Math.min(3.0, +(textSettings.lineHeight + 0.1).toFixed(1))">+</button>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">字体样式</label>
-              <select
-                v-model="textSettings.fontFamily"
-                class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui sm:min-w-[14rem]"
-              >
-                <option value="'Cinzel', serif">Cinzel (默认)</option>
-                <option value="'Inter', sans-serif">Inter</option>
-                <option value="'MedievalSharp', cursive">MedievalSharp</option>
-                <option value="'MaShanZheng', 'KaiTi', serif">马善政体</option>
-                <option value="'MagicBookTitle', 'KaiTi', serif">江湖琅琶体</option>
-                <option value="serif">Serif</option>
-                <option value="sans-serif">Sans-serif</option>
-                <option value="'Microsoft YaHei', sans-serif">微软雅黑</option>
-                <option value="'SimSun', serif">宋体</option>
-                <option value="'KaiTi', serif">楷体</option>
-              </select>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">正文框宽度</label>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <input
-                  v-model.number="textSettings.containerWidth"
-                  type="range"
-                  min="600"
-                  max="1600"
-                  step="50"
-                  class="w-32 accent-dungeon-gold"
-                />
-                <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ textSettings.containerWidth }}px</span>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">背景清晰度</label>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <input
-                  v-model.number="bgOverlayOpacity"
-                  type="range"
-                  min="0"
-                  max="0.8"
-                  step="0.05"
-                  class="w-32 accent-dungeon-gold"
-                />
-                <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section v-else-if="settingsNavTab === 'music'" class="settings-section settings-section--music">
-          <h3 class="settings-section-title">背景音乐</h3>
-          <div class="space-y-4">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐</label>
-              <select
-                v-model="selectedBgmTrackId"
-                :disabled="bgmTracks.length === 0"
-                class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[14rem]"
-              >
-                <option v-if="bgmTracks.length === 0" value="">暂无可用曲目</option>
-                <option v-for="track in bgmTracks" :key="track.id" :value="track.id">
-                  {{ track.name }}
-                </option>
-              </select>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐音量</label>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <input
-                  v-model.number="bgmVolumePercent"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  class="w-32 accent-dungeon-gold"
-                />
-                <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ bgmVolumePercent }}%</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section v-else-if="settingsNavTab === 'ai'" class="settings-section settings-section--ai">
-          <h3 class="settings-section-title">AI回复</h3>
-          <div class="space-y-4">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
-              <button
-                type="button"
-                class="settings-switch sm:shrink-0"
-                :class="{ 'is-on': isStreamingEnabled }"
-                :aria-checked="isStreamingEnabled"
-                role="switch"
-                @click="isStreamingEnabled = !isStreamingEnabled"
-              >
-                <span class="settings-switch-track">
-                  <span class="settings-switch-label settings-switch-label--off">关</span>
-                  <span class="settings-switch-label settings-switch-label--on">开</span>
-                  <span class="settings-switch-thumb"></span>
-                </span>
-              </button>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">禁止匹配思维链内XML标签</label>
-              <button
-                type="button"
-                class="settings-switch sm:shrink-0"
-                :class="{ 'is-on': isForbidMatchingXmlInsideThinkEnabled }"
-                :aria-checked="isForbidMatchingXmlInsideThinkEnabled"
-                role="switch"
-                @click="isForbidMatchingXmlInsideThinkEnabled = !isForbidMatchingXmlInsideThinkEnabled"
-              >
-                <span class="settings-switch-track">
-                  <span class="settings-switch-label settings-switch-label--off">关</span>
-                  <span class="settings-switch-label settings-switch-label--on">开</span>
-                  <span class="settings-switch-thumb"></span>
-                </span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section v-else class="settings-section settings-section--summary">
-          <h3 class="settings-section-title">总结</h3>
-          <div class="space-y-4">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
-                <span>自动总结</span>
-                <button
-                  type="button"
-                  class="settings-help-trigger"
-                  @mouseenter="openSettingsHelp('autoSummaryEnabled')"
-                  @mouseleave="closeSettingsHelp('autoSummaryEnabled')"
-                  @focus="openSettingsHelp('autoSummaryEnabled')"
-                  @blur="closeSettingsHelp('autoSummaryEnabled')"
-                  @touchstart.passive="startSettingsHelpTouch('autoSummaryEnabled')"
-                  @touchend="endSettingsHelpTouch('autoSummaryEnabled')"
-                  @touchcancel="endSettingsHelpTouch('autoSummaryEnabled')"
-                  @click.stop.prevent="toggleSettingsHelp('autoSummaryEnabled')"
-                >?</button>
-                <Transition name="settings-help-fade">
-                  <div v-if="activeSettingsHelp === 'autoSummaryEnabled'" class="settings-help-popover">
-                    {{ settingsHelpText.autoSummaryEnabled }}
-                  </div>
-                </Transition>
-              </div>
-              <button
-                type="button"
-                class="settings-switch sm:shrink-0"
-                :class="{ 'is-on': isAutoSummaryEnabled }"
-                :aria-checked="isAutoSummaryEnabled"
-                role="switch"
-                @click="isAutoSummaryEnabled = !isAutoSummaryEnabled"
-              >
-                <span class="settings-switch-track">
-                  <span class="settings-switch-label settings-switch-label--off">关</span>
-                  <span class="settings-switch-label settings-switch-label--on">开</span>
-                  <span class="settings-switch-thumb"></span>
-                </span>
-              </button>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
-                <span>总结层数</span>
-                <button
-                  type="button"
-                  class="settings-help-trigger"
-                  @mouseenter="openSettingsHelp('summaryVisibleWindow')"
-                  @mouseleave="closeSettingsHelp('summaryVisibleWindow')"
-                  @focus="openSettingsHelp('summaryVisibleWindow')"
-                  @blur="closeSettingsHelp('summaryVisibleWindow')"
-                  @touchstart.passive="startSettingsHelpTouch('summaryVisibleWindow')"
-                  @touchend="endSettingsHelpTouch('summaryVisibleWindow')"
-                  @touchcancel="endSettingsHelpTouch('summaryVisibleWindow')"
-                  @click.stop.prevent="toggleSettingsHelp('summaryVisibleWindow')"
-                >?</button>
-                <Transition name="settings-help-fade">
-                  <div v-if="activeSettingsHelp === 'summaryVisibleWindow'" class="settings-help-popover">
-                    {{ settingsHelpText.summaryVisibleWindow }}
-                  </div>
-                </Transition>
-              </div>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <input
-                  v-model.lazy.number="summaryVisibleWindowValue"
-                  type="number"
-                  min="1"
-                  max="60"
-                  inputmode="numeric"
-                  :disabled="!isAutoSummaryEnabled"
-                  class="w-20 bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-45 disabled:cursor-not-allowed"
-                />
-                <span class="text-dungeon-paper font-ui text-sm">层</span>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
-                <span>总结按钮</span>
-                <button
-                  type="button"
-                  class="settings-help-trigger"
-                  @mouseenter="openSettingsHelp('manualSummary')"
-                  @mouseleave="closeSettingsHelp('manualSummary')"
-                  @focus="openSettingsHelp('manualSummary')"
-                  @blur="closeSettingsHelp('manualSummary')"
-                  @touchstart.passive="startSettingsHelpTouch('manualSummary')"
-                  @touchend="endSettingsHelpTouch('manualSummary')"
-                  @touchcancel="endSettingsHelpTouch('manualSummary')"
-                  @click.stop.prevent="toggleSettingsHelp('manualSummary')"
-                >?</button>
-                <Transition name="settings-help-fade">
-                  <div v-if="activeSettingsHelp === 'manualSummary'" class="settings-help-popover">
-                    {{ settingsHelpText.manualSummary }}
-                  </div>
-                </Transition>
-              </div>
-              <button
-                class="settings-primary-btn sm:shrink-0"
-                :disabled="!isAutoSummaryEnabled || gameStore.isGenerating || isManualSummaryRunning"
-                @click="handleManualSummary"
-              >
-                {{ isManualSummaryRunning ? '补全中...' : '补全当前总结' }}
-              </button>
-            </div>
-
-            <div class="settings-summary-divider"></div>
-
-            <h4 class="settings-subsection-title">大总结设定</h4>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">总结范围设置</label>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <input
-                  v-model.lazy.number="bigSummaryRangeStart"
-                  type="number"
-                  inputmode="numeric"
-                  class="settings-summary-range-input"
-                />
-                <span class="text-dungeon-paper/70 text-sm">-</span>
-                <input
-                  v-model.lazy.number="bigSummaryRangeEnd"
-                  type="number"
-                  inputmode="numeric"
-                  class="settings-summary-range-input"
-                />
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label class="text-dungeon-paper/70 text-sm font-ui">大总结字数</label>
-              <div class="flex items-center gap-2 sm:shrink-0">
-                <input
-                  v-model.lazy.number="bigSummaryMinWords"
-                  type="number"
-                  min="50"
-                  max="10000"
-                  inputmode="numeric"
-                  class="settings-summary-range-input"
-                />
-                <span class="text-dungeon-paper/70 text-sm">-</span>
-                <input
-                  v-model.lazy.number="bigSummaryMaxWords"
-                  type="number"
-                  min="50"
-                  max="10000"
-                  inputmode="numeric"
-                  class="settings-summary-range-input"
-                />
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-dungeon-paper/70 text-sm font-ui">当前可总结条目</span>
-                <span class="text-dungeon-paper/55 text-xs font-ui">当前选中 {{ selectedBigSummaryEntryCount }} 条</span>
-              </div>
-              <div class="settings-summary-list">
-                <div v-if="isBigSummaryEntriesLoading" class="settings-summary-list-empty">加载中...</div>
-                <div v-else-if="bigSummaryChronicleEntries.length === 0" class="settings-summary-list-empty">
-                  暂无可总结条目
-                </div>
-                <div v-else class="space-y-1 pr-1">
+                <div class="idol-slot-wrap">
+                  <div class="idol-slot-hint">增加1倍点数的初始魔力</div>
                   <div
-                    v-for="entry in bigSummaryChronicleEntries"
-                    :key="`big-summary-entry-${entry.index}`"
-                    class="settings-summary-item"
-                    :class="{ 'is-selected': isEntryWithinBigSummaryRange(entry.index) }"
-                  >
-                    <span class="settings-summary-item-index">{{ entry.index }}.</span>
-                    <span class="settings-summary-item-text">{{ entry.summary }}</span>
-                  </div>
+                    ref="idolSlotMpRef"
+                    class="idol-slot"
+                    :class="{
+                      'is-preview': idolSnapPreviewTarget === 'mp',
+                      'is-selected': idolAssignedTarget === 'mp',
+                    }"
+                  ></div>
+                </div>
+                <div class="idol-slot-wrap">
+                  <div class="idol-slot-hint">增加2倍点数的金币</div>
+                  <div
+                    ref="idolSlotGoldRef"
+                    class="idol-slot"
+                    :class="{
+                      'is-preview': idolSnapPreviewTarget === 'gold',
+                      'is-selected': idolAssignedTarget === 'gold',
+                    }"
+                  ></div>
                 </div>
               </div>
-            </div>
 
-            <div class="flex justify-end">
-              <button
-                class="settings-primary-btn"
-                :disabled="!canGenerateBigSummary"
-                @click="handleGenerateBigSummary"
-              >
-                {{ isBigSummaryGenerating ? '总结中...' : '生成大总结' }}
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <div class="settings-system-actions">
-          <h3 class="settings-section-title settings-section-title--neutral">系统</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              class="settings-action-btn settings-action-btn--gold"
-              @click="toggleFullScreen"
-            >
-              切换全屏模式
-            </button>
-            <button
-              class="settings-action-btn settings-action-btn--danger"
-              @click="$emit('backToSplash')"
-            >
-              退出到标题
-            </button>
-            <button
-              class="settings-action-btn settings-action-btn--accent sm:col-span-2"
-              @click="openCombatTestBuilder"
-            >
-              ⚔ 进入战斗测试
-            </button>
-          </div>
-        </div>
-      </div>
-    </DungeonModal>
-
-    <DungeonModal title="大总结结果确认" :is-open="!!bigSummaryDraft" @close="closeBigSummaryDraft">
-      <div v-if="bigSummaryDraft" class="flex flex-col gap-4 w-full">
-        <div class="text-sm text-dungeon-paper/75 font-ui">
-          已生成范围 {{ bigSummaryDraft.rangeStart }}-{{ bigSummaryDraft.rangeEnd }} 的大总结（共 {{ bigSummaryDraft.entryCount }} 条来源）。
-        </div>
-        <textarea
-          v-model="bigSummaryDraft.editedSummary"
-          class="settings-big-summary-result settings-big-summary-editor"
-          rows="12"
-        ></textarea>
-        <div class="flex items-center justify-between gap-3">
-          <button
-            v-if="isBigSummaryDraftEdited"
-            class="settings-action-btn settings-action-btn--gold"
-            :disabled="isBigSummaryApplying"
-            @click="restoreBigSummaryDraft"
-          >
-            还原原文
-          </button>
-          <div class="flex items-center gap-3 ml-auto">
-            <button
-              class="settings-action-btn settings-action-btn--danger"
-              :disabled="isBigSummaryApplying"
-              @click="closeBigSummaryDraft"
-            >
-              否，关闭
-            </button>
-            <button
-              class="settings-primary-btn"
-              :disabled="isBigSummaryApplying"
-              @click="confirmApplyBigSummary"
-            >
-              {{ isBigSummaryApplying ? '覆盖中...' : '是，覆盖条目' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </DungeonModal>
-
-    <!-- Combat Test Builder Modal -->
-    <DungeonModal title="战斗测试配置" :is-open="activeModal === 'combatTestBuilder'" @close="activeModal = null">
-      <div class="flex flex-col gap-4 w-full max-w-4xl">
-        <template v-if="combatTestStep === 'deck'">
-          <div class="flex items-center justify-between">
-            <h3 class="font-heading text-dungeon-gold text-sm tracking-widest uppercase">步骤1：组建卡组（9张）</h3>
-            <span class="text-xs font-ui text-dungeon-paper/70">{{ selectedTestDeck.length }}/9</span>
-          </div>
-
-          <div class="rounded border border-dungeon-brown/60 bg-dungeon-dark/50 p-3">
-            <div class="mb-2 flex items-center justify-between">
-              <span class="text-[11px] text-dungeon-paper/70">已选卡牌（点击移除）</span>
-              <span class="text-[11px] text-dungeon-gold/80">{{ selectedTestDeck.length }}/9</span>
-            </div>
-            <div class="max-h-52 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
-              <button
-                v-for="entry in selectedTestDeckCards"
-                :key="`selected-card-${entry.idx}`"
-                class="w-full text-left flex items-stretch gap-2 rounded border border-dungeon-gold/20 bg-[#1a0f08]/70 px-2 py-2 hover:border-dungeon-gold/50 transition-colors"
-                @click="removeCardFromTestDeck(entry.idx)"
-              >
-                <span class="w-1.5 rounded" :class="getCardCategoryStripClass(entry.card.category)"></span>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-xs font-heading text-dungeon-gold truncate">{{ entry.card.name }}</span>
-                    <span class="text-[10px] px-1 rounded border" :class="getCardTypeBadgeClass(entry.card.type)">{{ entry.card.type }}</span>
-                    <span class="text-[10px] px-1 rounded border border-white/15 text-dungeon-paper/60">{{ entry.card.category }}</span>
-                  </div>
-                  <div class="mt-1 text-[10px] text-dungeon-paper/70 truncate" :title="entry.card.description">{{ entry.card.description }}</div>
-                </div>
-                <span class="text-[10px] text-red-300/85 shrink-0 self-center">移除</span>
-              </button>
-              <div
-                v-if="selectedTestDeckCards.length === 0"
-                class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
-              >
-                尚未选择卡牌
-              </div>
-            </div>
-            <div class="mt-2 grid grid-cols-9 gap-1">
-              <div
-                v-for="idx in 9"
-                :key="`deck-slot-${idx}`"
-                class="h-2 rounded border"
-                :class="idx <= selectedTestDeck.length
-                  ? 'bg-dungeon-gold/70 border-dungeon-gold/60'
-                  : 'bg-black/20 border-dungeon-brown/40'"
-              ></div>
-            </div>
-          </div>
-
-          <div class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3 custom-scrollbar">
-            <div class="space-y-3">
-              <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
-                <button
-                  v-for="category in cardCategoryTabsForTest"
-                  :key="`card-tab-${category}`"
-                  class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
-                  :class="selectedCardCategoryTab === category
-                    ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
-                    : 'bg-[#1a0f08]/80 border-dungeon-brown/70 text-dungeon-paper/70 hover:border-dungeon-gold/50 hover:text-dungeon-gold/90'"
-                  @click="selectedCardCategoryTab = category"
-                >
-                  {{ category }}
-                </button>
-              </div>
-              <div
-                v-for="group in filteredCardCategoryGroupsForTest"
-                :key="`card-category-${group.category}`"
-                class="rounded border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
-              >
-                <div class="mb-2 flex items-center justify-between">
-                  <h4 class="font-heading text-[11px] tracking-wider uppercase text-dungeon-gold/90">{{ group.category }}</h4>
-                  <span class="text-[10px] text-dungeon-paper/50">{{ group.cards.length }} 张</span>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <button
-                    v-for="card in group.cards"
-                    :key="`all-card-${group.category}-${card.id}`"
-                    class="hover:scale-105 transition-transform flex flex-col items-center rounded border border-dungeon-brown/40 bg-[#1a0f08]/50 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                    :disabled="selectedTestDeck.length >= 9"
-                    @click="addCardToTestDeck(card.name)"
-                  >
-                    <DungeonCard :card="card" disabled />
-                    <span class="mt-1 text-[10px] text-dungeon-gold/80">点击加入</span>
-                  </button>
-                </div>
-              </div>
-              <div
-                v-if="filteredCardCategoryGroupsForTest.length === 0"
-                class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
-              >
-                当前分类暂无可选卡牌
-              </div>
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-3">
-            <button
-              class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
-              @click="activeModal = null"
-            >
-              取消
-            </button>
-            <button
-              class="px-4 py-2 rounded border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown disabled:opacity-40 disabled:cursor-not-allowed"
-              :disabled="selectedTestDeck.length !== 9"
-              @click="confirmCombatTestDeck"
-            >
-              下一步：选择魔物
-            </button>
-          </div>
-        </template>
-
-        <template v-else>
-          <div class="flex items-center justify-between">
-            <h3 class="font-heading text-dungeon-gold text-sm tracking-widest uppercase">步骤2：选择魔物</h3>
-            <span class="text-xs font-ui text-dungeon-paper/70">已选卡组: 9张｜圣遗物: {{ selectedRelicTotalCount }} 件</span>
-          </div>
-
-          <div class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar">
-            <div class="space-y-2">
-              <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
-                <button
-                  v-for="floorLabel in combatTestEnemyFloorTabs"
-                  :key="`combat-test-floor-${floorLabel}`"
-                  class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
-                  :class="selectedEnemyFloorForTest === floorLabel
-                    ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
-                    : 'bg-[#1a0f08]/80 border-dungeon-brown/70 text-dungeon-paper/70 hover:border-dungeon-gold/50 hover:text-dungeon-gold/90'"
-                  @click="setCombatTestEnemyFloorFilter(floorLabel)"
-                >
-                  {{ floorLabel }}
-                </button>
-              </div>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
-                <button
-                  v-for="enemy in filteredEnemyEntriesForTest"
-                  :key="`enemy-${enemy.name}`"
-                  class="text-left px-3 py-2 rounded border text-xs transition-colors"
-                  :class="selectedTestEnemy === enemy.name
-                    ? 'border-dungeon-gold bg-dungeon-brown/60 text-dungeon-gold'
-                    : 'border-dungeon-brown/60 bg-[#1a0f08] text-dungeon-paper hover:border-dungeon-gold/60'"
-                  @click="selectedTestEnemy = enemy.name"
-                >
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="truncate">{{ enemy.name }}</span>
-                    <span class="text-[10px] text-dungeon-paper/55 shrink-0">{{ enemy.floorLabel }}</span>
-                  </div>
-                </button>
-              </div>
-              <div
-                v-if="filteredEnemyEntriesForTest.length === 0"
-                class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
-              >
-                当前楼层分类暂无可选魔物
-              </div>
-            </div>
-          </div>
-
-          <div class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
-            <div class="mb-2 flex items-center justify-between">
-              <h4 class="font-heading text-dungeon-gold text-xs tracking-wider uppercase">圣遗物自选</h4>
-              <span class="text-[11px] text-dungeon-paper/60">将同步写入 MVU `_圣遗物`</span>
-            </div>
-            <div class="max-h-[28vh] overflow-y-auto custom-scrollbar pr-1">
-              <div class="space-y-2">
-                <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
-                  <button
-                    v-for="category in relicCategoryTabsForTest"
-                    :key="`relic-tab-${category}`"
-                    class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
-                    :class="selectedRelicCategoryTab === category
-                      ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
-                      : 'bg-[#1a0f08]/80 border-dungeon-brown/70 text-dungeon-paper/70 hover:border-dungeon-gold/50 hover:text-dungeon-gold/90'"
-                    @click="selectedRelicCategoryTab = category"
-                  >
-                    {{ category }}
-                  </button>
-                </div>
+              <div ref="idolDiceStageRef" class="idol-dice-stage">
                 <div
-                  v-for="group in filteredRelicCategoryGroupsForTest"
-                  :key="`relic-category-${group.category}`"
-                  class="rounded border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
+                  ref="idolDiceRef"
+                  class="idol-dice-draggable"
+                  :class="{ 'is-locked': idolDiceRolling }"
+                  :style="{ transform: `translate(${idolDicePosition.x}px, ${idolDicePosition.y}px)` }"
+                  @pointerdown="handleIdolDicePointerDown"
                 >
-                  <div class="mb-2 flex items-center justify-between">
-                    <h5 class="font-heading text-[11px] tracking-wider uppercase text-dungeon-gold/90">{{ group.category }}</h5>
-                    <span class="text-[10px] text-dungeon-paper/50">{{ group.relics.length }} 件</span>
+                  <DungeonDice
+                    :value="idolDiceValue"
+                    :rolling="idolDiceRolling"
+                    color="gold"
+                    size="lg"
+                    :rolling-min="idolDiceMin"
+                    :rolling-max="idolDiceMax"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              class="idol-exit-btn absolute right-5 bottom-5 z-[98] px-6 py-3 font-ui text-sm tracking-wider text-amber-50"
+              :disabled="gameStore.isGenerating"
+              @click="exitIdolView"
+            >
+              退出
+            </button>
+          </div>
+        </Transition>
+
+        <!-- Victory Card Reward Overlay -->
+        <Transition name="combat-fade">
+          <div v-if="showVictoryRewardView" class="absolute inset-0 z-[102] bg-black/90">
+            <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
+              <div
+                class="w-full max-w-6xl origin-center scale-[1.3] rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]"
+              >
+                <div class="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div class="font-heading text-xl text-dungeon-gold">战胜奖励</div>
+                    <div class="text-xs text-dungeon-paper/65 mt-1">
+                      {{
+                        victoryRewardStage === 'pick'
+                          ? '请选择 1 张奖励（卡牌或主动技能）'
+                          : victoryRewardStage === 'replaceActive'
+                            ? '选择要替换的主动技能槽位（共2槽）'
+                            : '选择要替换的卡组槽位（共9槽）'
+                      }}
+                    </div>
                   </div>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div
-                      v-for="relic in group.relics"
-                      :key="`test-relic-${group.category}-${relic.id}`"
-                      class="rounded border border-dungeon-brown/50 bg-[#1a0f08]/70 p-2"
+                  <div class="flex items-center gap-2">
+                    <button
+                      v-if="canRefreshVictoryReward"
+                      class="px-4 py-2 rounded border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 disabled:opacity-50"
+                      :disabled="rewardApplying"
+                      @click="refreshVictoryRewardOptions"
                     >
-                      <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                          <div class="text-xs font-heading text-dungeon-gold truncate">{{ relic.name }}</div>
-                          <div class="text-[10px] text-dungeon-paper/60">{{ relic.rarity }}</div>
-                        </div>
-                        <div class="flex items-center gap-1 shrink-0">
-                          <button
-                            class="h-6 w-6 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold"
-                            @click="decreaseSelectedRelic(relic.name)"
-                          >
-                            -
-                          </button>
-                          <span class="w-6 text-center text-xs text-dungeon-gold">{{ getSelectedTestRelicCount(relic.name) }}</span>
-                          <button
-                            class="h-6 w-6 rounded border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown"
-                            @click="increaseSelectedRelic(relic.name)"
-                          >
-                            +
-                          </button>
+                      刷新奖励
+                    </button>
+                    <button
+                      class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50"
+                      :disabled="rewardApplying"
+                      @click="exitVictoryRewardFlow"
+                    >
+                      退出
+                    </button>
+                  </div>
+                </div>
+
+                <template v-if="victoryRewardStage === 'pick'">
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <button
+                      v-for="reward in victoryRewardOptions"
+                      :key="`reward-option-${reward.id}`"
+                      type="button"
+                      class="rounded-lg border border-dungeon-brown/50 bg-[#160d08]/75 p-3 transition-all hover:border-dungeon-gold/60 hover:scale-[1.01]"
+                      @click="pickVictoryRewardCard(reward)"
+                    >
+                      <div class="mb-2 text-center text-[11px] text-dungeon-paper/75">
+                        {{ getVictoryRewardTypeText(reward) }}
+                      </div>
+                      <div class="flex justify-center">
+                        <DungeonCard v-if="!isActiveSkillReward(reward)" :card="reward" disabled />
+                        <div
+                          v-else
+                          class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                        >
+                          <div class="flex items-center justify-between text-[11px] font-semibold">
+                            <span>{{ reward.name }}</span>
+                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
+                          </div>
+                          <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
+                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
+                              >MP {{ reward.manaCost }}</span
+                            >
+                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
+                              >CD {{ reward.Cooldown }}</span
+                            >
+                          </div>
+                          <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
+                            {{ reward.description }}
+                          </div>
+                          <div class="text-[11px] text-zinc-500">类别：{{ reward.category }} · {{ reward.rarity }}</div>
                         </div>
                       </div>
-                      <div class="mt-1 text-[10px] text-dungeon-paper/70 leading-relaxed">{{ relic.effect }}</div>
+                      <div class="mt-2 text-center text-xs text-dungeon-gold/90">选择此卡</div>
+                    </button>
+                  </div>
+                </template>
+
+                <template v-else-if="victoryRewardStage === 'replaceDeck' || victoryRewardStage === 'replaceActive'">
+                  <div class="mb-4 rounded border border-dungeon-gold/25 bg-black/20 p-3">
+                    <div class="text-xs text-dungeon-paper/70 mb-2">
+                      已选择奖励{{
+                        selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)
+                          ? '主动技能'
+                          : '卡牌'
+                      }}：
+                    </div>
+                    <div class="flex justify-center">
+                      <DungeonCard
+                        v-if="selectedVictoryRewardCard && !isActiveSkillReward(selectedVictoryRewardCard)"
+                        :card="selectedVictoryRewardCard"
+                        disabled
+                      />
+                      <div
+                        v-else-if="selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)"
+                        class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                      >
+                        <div class="flex items-center justify-between text-[11px] font-semibold">
+                          <span>{{ selectedVictoryRewardCard.name }}</span>
+                          <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
+                        </div>
+                        <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
+                          <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
+                            >MP {{ selectedVictoryRewardCard.manaCost }}</span
+                          >
+                          <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
+                            >CD {{ selectedVictoryRewardCard.Cooldown }}</span
+                          >
+                        </div>
+                        <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
+                          {{ selectedVictoryRewardCard.description }}
+                        </div>
+                        <div class="text-[11px] text-zinc-500">
+                          类别：{{ selectedVictoryRewardCard.category }} · {{ selectedVictoryRewardCard.rarity }}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div
-                  v-if="filteredRelicCategoryGroupsForTest.length === 0"
-                  class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
-                >
-                  当前分类暂无可选圣遗物
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <label class="flex items-center gap-2 px-3 py-2 rounded border border-dungeon-brown/60 bg-dungeon-dark/40 text-sm text-dungeon-paper/80">
-            <input v-model="combatTestStartAt999" type="checkbox" class="accent-amber-500" />
-            <span>本场测试启用 999 开局（敌我双方 HP/MP=999）</span>
-          </label>
-
-          <div class="flex justify-between gap-3">
-            <button
-              class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
-              @click="combatTestStep = 'deck'"
-            >
-              返回改卡组
-            </button>
-            <button
-              class="px-4 py-2 rounded border border-amber-600/40 text-amber-400 hover:bg-amber-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
-              :disabled="!selectedTestEnemy"
-              @click="confirmCombatTestEnemyAndStart"
-            >
-              开始战斗测试
-            </button>
-          </div>
-        </template>
-      </div>
-    </DungeonModal>
-
-    <!-- Save/Load Panel -->
-    <SaveLoadPanel
-      :is-open="gameStore.isSaveLoadOpen"
-      :entries="gameStore.saveEntries"
-      @close="gameStore.isSaveLoadOpen = false"
-      @rollback="resetTransientUiState"
-    />
-
-    <!-- Variable Update Viewer -->
-    <DungeonModal title="变量更新" :is-open="isVariableUpdateOpen" @close="isVariableUpdateOpen = false">
-      <div class="variable-update-panel">
-        <div class="variable-update-head">
-          <FileText class="variable-update-head-icon" />
-          <div>
-            <div class="variable-update-title">本层变量同步记录</div>
-            <div class="variable-update-subtitle">识别标签：&lt;UpdateVariable&gt; / &lt;update&gt;</div>
-          </div>
-        </div>
-        <div
-          v-if="gameStore.variableUpdateText"
-          class="variable-update-body custom-scrollbar"
-        >
-          <pre class="variable-update-content">{{ gameStore.variableUpdateText }}</pre>
-        </div>
-        <div v-else class="variable-update-empty">
-          当前楼层没有检测到变量更新标签。
-        </div>
-      </div>
-    </DungeonModal>
-
-    <!-- Shop Overlay -->
-    <Transition name="combat-fade">
-      <div v-if="showShopView" class="absolute inset-0 z-[94] bg-black">
-        <img
-          :src="shopBackgroundUrl"
-          class="absolute inset-0 h-full w-full object-cover"
-          alt="商店背景"
-        />
-        <div class="absolute inset-0 bg-black/22"></div>
-
-        <img
-          v-if="!isMerchantDefeated"
-          :src="shopMerchantPortraitUrl"
-          class="pointer-events-none absolute left-0 bottom-0 z-[99] h-[92vh] max-h-[1216px] w-auto object-contain"
-          alt="沐芯兰"
-        />
-
-        <div class="shop-layout absolute inset-y-0 right-0 z-[96] flex items-center px-4 md:px-7">
-          <div class="shop-panel ml-auto w-full max-w-[48rem] h-[84vh] max-h-[860px]">
-            <div class="shop-panel-head">
-              <div class="font-heading text-xl text-amber-100">沐芯兰的商店</div>
-            </div>
-
-            <div class="shop-goods-grid custom-scrollbar">
-              <button
-                v-for="item in shopProducts"
-                :key="item.key"
-                type="button"
-                class="shop-item-card"
-                :class="{ 'is-sold': item.sold }"
-                :disabled="item.sold || shopBuying"
-                @click="buyShopProduct(item)"
-                @mouseenter="showShopProductTooltip($event, item)"
-                @mouseleave="hideRelicTooltip"
-                @focus="showShopProductTooltip($event, item)"
-                @blur="hideRelicTooltip"
-                @touchstart.passive="handleShopProductTouchStart($event, item)"
-                @touchend="handleRelicTouchEnd"
-                @touchcancel="handleRelicTouchEnd"
-              >
-                <div class="shop-item-icon-wrap">
-                  <Box class="shop-item-icon" />
-                </div>
-                <div class="shop-item-price">
-                  <Coins class="size-3.5" />
-                  <span>{{ item.finalPrice }}</span>
-                </div>
-              </button>
-
-              <div
-                v-if="shopProducts.length === 0"
-                class="rounded border border-amber-200/15 bg-black/25 py-10 text-center text-sm text-amber-100/65"
-              >
-                暂无可售商品
-              </div>
-            </div>
-
-            <div class="shop-panel-foot">
-              <button
-                class="shop-rob-btn px-5 py-2 font-ui text-xs tracking-wider text-amber-50"
-                :disabled="shopBuying || gameStore.isGenerating || shopRobbing || isMerchantDefeated"
-                :style="{ opacity: shopRobBtnOpacity }"
-                @click="handleShopRobClick"
-              >
-                抢夺
-              </button>
-              <button
-                class="shop-exit-btn px-7 py-3 font-ui text-sm tracking-wider text-amber-50"
-                :disabled="shopBuying || gameStore.isGenerating || shopRobbing"
-                @click="exitShop"
-              >
-                退出商店
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
-    <!-- Treasure Chest Overlay -->
-    <Transition name="combat-fade">
-      <div
-        v-if="showChestView"
-        class="absolute inset-0 z-[95] bg-black"
-        @contextmenu.prevent="handleChestContextMenu"
-        @touchstart.passive="handleChestTouchStart"
-        @touchend="handleChestTouchEnd"
-        @touchcancel="handleChestTouchEnd"
-      >
-        <img
-          :src="chestBackgroundUrl"
-          class="absolute inset-0 h-full w-full object-cover"
-          alt="宝箱界面背景"
-          @load="handleChestBgLoaded"
-        />
-
-        <div
-          v-if="chestStage === 'opened'"
-          class="pointer-events-none absolute inset-0"
-        >
-          <div
-            v-if="chestRewardVisible && chestRewardRelics.length > 0"
-            class="chest-reward-anchor"
-            :class="{ 'is-multi': chestRewardRelics.length > 1 }"
-          >
-            <button
-              v-for="(relic, i) in chestRewardRelics"
-              :key="`chest-reward-${relic.id}-${i}`"
-              type="button"
-              class="pointer-events-auto chest-reward-btn"
-              :class="{ 'is-collected': chestRewardCollectedFlags[i] }"
-              :disabled="chestCollecting || chestRewardCollectedFlags[i]"
-              @click="collectChestReward(i)"
-              @mouseenter="showChestRewardTooltip($event, i)"
-              @mouseleave="hideRelicTooltip"
-              @focus="showChestRewardTooltip($event, i)"
-              @blur="hideRelicTooltip"
-              @touchstart.passive="handleChestRewardTouchStart($event, i)"
-              @touchend="handleRelicTouchEnd"
-              @touchcancel="handleRelicTouchEnd"
-            >
-              <Box class="chest-reward-icon" />
-            </button>
-          </div>
-
-          <div class="pointer-events-auto chest-portals-anchor w-full">
-            <div class="flex justify-center gap-4 flex-wrap">
-              <button
-                v-for="(portal, i) in chestPortalChoices"
-                :key="`chest-portal-${i}`"
-                class="portal-btn group relative flex flex-col items-center justify-center
-                       rounded-lg border-2 backdrop-blur-sm
-                       transition-all duration-500 hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                :style="{
-                  backgroundColor: portal.bgColor,
-                  borderColor: portal.borderColor,
-                  boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
-                }"
-                :disabled="chestCollecting"
-                @click="handleChestPortalClick(portal)"
-              >
-                <div
-                  class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
-                  :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
-                ></div>
-                <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
-                <span
-                  class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
-                  :style="{ color: portal.textColor }"
-                >{{ portal.label }}</span>
-                <div
-                  class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70
-                         animate-[spin_8s_linear_infinite] transition-opacity"
-                  :style="{ borderColor: portal.borderColor }"
-                ></div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <button
-          v-if="chestStage === 'closed'"
-          type="button"
-          aria-label="开启宝箱"
-          class="absolute left-1/2 top-1/2 h-[42vh] max-h-[360px] min-h-[220px] w-[36vw] max-w-[540px] min-w-[260px] -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-2xl border-0 bg-transparent p-0 opacity-0"
-          :disabled="chestRolling"
-          @click="handleChestCenterClick"
-        ></button>
-      </div>
-    </Transition>
-
-    <!-- Idol Overlay -->
-    <Transition name="combat-fade">
-      <div
-        v-if="showIdolView"
-        class="absolute inset-0 z-[96] bg-black overflow-hidden"
-        @pointermove="handleIdolDicePointerMove"
-        @pointerup="handleIdolDicePointerUp"
-        @pointercancel="handleIdolDicePointerUp"
-      >
-        <img
-          :src="idolBackgroundUrl"
-          class="absolute inset-0 h-full w-full object-cover"
-          alt="神像界面背景"
-        />
-
-        <div class="idol-layout absolute inset-0 z-[97]">
-          <div class="idol-slots-row">
-            <div class="idol-slot-wrap">
-              <div class="idol-slot-hint">增加1.5倍点数的生命上限</div>
-              <div
-                ref="idolSlotMaxHpRef"
-                class="idol-slot"
-                :class="{
-                  'is-preview': idolSnapPreviewTarget === 'maxHp',
-                  'is-selected': idolAssignedTarget === 'maxHp',
-                }"
-              ></div>
-            </div>
-            <div class="idol-slot-wrap">
-              <div class="idol-slot-hint">增加1倍点数的初始魔力</div>
-              <div
-                ref="idolSlotMpRef"
-                class="idol-slot"
-                :class="{
-                  'is-preview': idolSnapPreviewTarget === 'mp',
-                  'is-selected': idolAssignedTarget === 'mp',
-                }"
-              ></div>
-            </div>
-            <div class="idol-slot-wrap">
-              <div class="idol-slot-hint">增加2倍点数的金币</div>
-              <div
-                ref="idolSlotGoldRef"
-                class="idol-slot"
-                :class="{
-                  'is-preview': idolSnapPreviewTarget === 'gold',
-                  'is-selected': idolAssignedTarget === 'gold',
-                }"
-              ></div>
-            </div>
-          </div>
-
-          <div ref="idolDiceStageRef" class="idol-dice-stage">
-            <div
-              ref="idolDiceRef"
-              class="idol-dice-draggable"
-              :class="{ 'is-locked': idolDiceRolling }"
-              :style="{ transform: `translate(${idolDicePosition.x}px, ${idolDicePosition.y}px)` }"
-              @pointerdown="handleIdolDicePointerDown"
-            >
-              <DungeonDice
-                :value="idolDiceValue"
-                :rolling="idolDiceRolling"
-                color="gold"
-                size="lg"
-                :rolling-min="idolDiceMin"
-                :rolling-max="idolDiceMax"
-              />
-            </div>
-          </div>
-        </div>
-
-        <button
-          class="idol-exit-btn absolute right-5 bottom-5 z-[98] px-6 py-3 font-ui text-sm tracking-wider text-amber-50"
-          :disabled="gameStore.isGenerating"
-          @click="exitIdolView"
-        >
-          退出
-        </button>
-      </div>
-    </Transition>
-
-    <!-- Victory Card Reward Overlay -->
-    <Transition name="combat-fade">
-      <div v-if="showVictoryRewardView" class="absolute inset-0 z-[102] bg-black/90">
-        <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
-          <div class="w-full max-w-6xl origin-center scale-[1.3] rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]">
-            <div class="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <div class="font-heading text-xl text-dungeon-gold">战胜奖励</div>
-                <div class="text-xs text-dungeon-paper/65 mt-1">
-                  {{
-                    victoryRewardStage === 'pick'
-                      ? '请选择 1 张奖励（卡牌或主动技能）'
-                      : (
-                        victoryRewardStage === 'replaceActive'
-                          ? '选择要替换的主动技能槽位（共2槽）'
-                          : '选择要替换的卡组槽位（共9槽）'
-                      )
-                  }}
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  v-if="canRefreshVictoryReward"
-                  class="px-4 py-2 rounded border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 disabled:opacity-50"
-                  :disabled="rewardApplying"
-                  @click="refreshVictoryRewardOptions"
-                >
-                  刷新奖励
-                </button>
-                <button
-                  class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50"
-                  :disabled="rewardApplying"
-                  @click="exitVictoryRewardFlow"
-                >
-                  退出
-                </button>
-              </div>
-            </div>
-
-            <template v-if="victoryRewardStage === 'pick'">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <button
-                  v-for="reward in victoryRewardOptions"
-                  :key="`reward-option-${reward.id}`"
-                  type="button"
-                  class="rounded-lg border border-dungeon-brown/50 bg-[#160d08]/75 p-3 transition-all hover:border-dungeon-gold/60 hover:scale-[1.01]"
-                  @click="pickVictoryRewardCard(reward)"
-                >
-                  <div class="mb-2 text-center text-[11px] text-dungeon-paper/75">
-                    {{ getVictoryRewardTypeText(reward) }}
-                  </div>
-                  <div class="flex justify-center">
-                    <DungeonCard v-if="!isActiveSkillReward(reward)" :card="reward" disabled />
-                    <div
-                      v-else
-                      class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
-                    >
-                      <div class="flex items-center justify-between text-[11px] font-semibold">
-                        <span>{{ reward.name }}</span>
-                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
-                      </div>
-                      <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
-                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">MP {{ reward.manaCost }}</span>
-                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">CD {{ reward.Cooldown }}</span>
-                      </div>
-                      <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
-                        {{ reward.description }}
-                      </div>
-                      <div class="text-[11px] text-zinc-500">类别：{{ reward.category }} · {{ reward.rarity }}</div>
-                    </div>
-                  </div>
-                  <div class="mt-2 text-center text-xs text-dungeon-gold/90">选择此卡</div>
-                </button>
-              </div>
-            </template>
-
-            <template v-else-if="victoryRewardStage === 'replaceDeck' || victoryRewardStage === 'replaceActive'">
-              <div class="mb-4 rounded border border-dungeon-gold/25 bg-black/20 p-3">
-                <div class="text-xs text-dungeon-paper/70 mb-2">
-                  已选择奖励{{ selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard) ? '主动技能' : '卡牌' }}：
-                </div>
-                <div class="flex justify-center">
-                  <DungeonCard
-                    v-if="selectedVictoryRewardCard && !isActiveSkillReward(selectedVictoryRewardCard)"
-                    :card="selectedVictoryRewardCard"
-                    disabled
-                  />
                   <div
-                    v-else-if="selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)"
-                    class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                    v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length === 0"
+                    class="rounded border border-dungeon-brown/50 bg-black/20 p-4 text-center"
                   >
-                    <div class="flex items-center justify-between text-[11px] font-semibold">
-                      <span>{{ selectedVictoryRewardCard.name }}</span>
-                      <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
-                    </div>
-                    <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
-                      <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">MP {{ selectedVictoryRewardCard.manaCost }}</span>
-                      <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">CD {{ selectedVictoryRewardCard.Cooldown }}</span>
-                    </div>
-                    <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
-                      {{ selectedVictoryRewardCard.description }}
-                    </div>
-                    <div class="text-[11px] text-zinc-500">类别：{{ selectedVictoryRewardCard.category }} · {{ selectedVictoryRewardCard.rarity }}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length === 0"
-                class="rounded border border-dungeon-brown/50 bg-black/20 p-4 text-center"
-              >
-                <div class="text-sm text-dungeon-paper/70">当前卡组为空，将奖励卡加入卡组。</div>
-                <button
-                  type="button"
-                  class="mt-3 px-4 py-2 rounded border border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10 disabled:opacity-50"
-                  :disabled="rewardApplying"
-                  @click="replaceDeckCardWithReward(0)"
-                >
-                  加入卡组
-                </button>
-              </div>
-
-              <div
-                v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length > 0"
-                class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
-              >
-                <button
-                  v-for="entry in rewardDeckReplaceEntries"
-                  :key="`reward-replace-${entry.idx}`"
-                  type="button"
-                  class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
-                  :disabled="rewardApplying"
-                  @click="replaceDeckCardWithReward(entry.idx)"
-                >
-                  <div class="text-[11px] text-dungeon-paper/65 mb-2">槽位 {{ entry.idx + 1 }}</div>
-                  <div class="flex justify-center">
-                    <DungeonCard v-if="entry.card" :card="entry.card" disabled />
-                    <div v-else class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55">
-                      {{ entry.name || '空槽位' }}
-                    </div>
-                  </div>
-                </button>
-              </div>
-
-              <div
-                v-if="victoryRewardStage === 'replaceActive'"
-                class="grid grid-cols-1 md:grid-cols-2 gap-4"
-              >
-                <button
-                  v-for="entry in rewardActiveReplaceEntries"
-                  :key="`reward-active-replace-${entry.idx}`"
-                  type="button"
-                  class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
-                  :disabled="rewardApplying"
-                  @click="replaceActiveSkillWithReward(entry.idx)"
-                >
-                  <div class="text-[11px] text-dungeon-paper/65 mb-2">主动槽位 {{ entry.idx + 1 }}</div>
-                  <div class="flex justify-center">
-                    <div
-                      v-if="entry.skill"
-                      class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                    <div class="text-sm text-dungeon-paper/70">当前卡组为空，将奖励卡加入卡组。</div>
+                    <button
+                      type="button"
+                      class="mt-3 px-4 py-2 rounded border border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10 disabled:opacity-50"
+                      :disabled="rewardApplying"
+                      @click="replaceDeckCardWithReward(0)"
                     >
-                      <div class="flex items-center justify-between text-[11px] font-semibold">
-                        <span>{{ entry.skill.name }}</span>
-                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
-                      </div>
-                      <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
-                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">MP {{ entry.skill.manaCost }}</span>
-                        <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">CD {{ entry.skill.Cooldown }}</span>
-                      </div>
-                      <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
-                        {{ entry.skill.description }}
-                      </div>
-                      <div class="text-[11px] text-zinc-500">类别：{{ entry.skill.category }} · {{ entry.skill.rarity }}</div>
-                    </div>
-                    <div
-                      v-else
-                      class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
-                    >
-                      {{ entry.name || '空主动槽位' }}
-                    </div>
+                      加入卡组
+                    </button>
                   </div>
-                </button>
+
+                  <div
+                    v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length > 0"
+                    class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
+                  >
+                    <button
+                      v-for="entry in rewardDeckReplaceEntries"
+                      :key="`reward-replace-${entry.idx}`"
+                      type="button"
+                      class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                      :disabled="rewardApplying"
+                      @click="replaceDeckCardWithReward(entry.idx)"
+                    >
+                      <div class="text-[11px] text-dungeon-paper/65 mb-2">槽位 {{ entry.idx + 1 }}</div>
+                      <div class="flex justify-center">
+                        <DungeonCard v-if="entry.card" :card="entry.card" disabled />
+                        <div
+                          v-else
+                          class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
+                        >
+                          {{ entry.name || '空槽位' }}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div v-if="victoryRewardStage === 'replaceActive'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      v-for="entry in rewardActiveReplaceEntries"
+                      :key="`reward-active-replace-${entry.idx}`"
+                      type="button"
+                      class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                      :disabled="rewardApplying"
+                      @click="replaceActiveSkillWithReward(entry.idx)"
+                    >
+                      <div class="text-[11px] text-dungeon-paper/65 mb-2">主动槽位 {{ entry.idx + 1 }}</div>
+                      <div class="flex justify-center">
+                        <div
+                          v-if="entry.skill"
+                          class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                        >
+                          <div class="flex items-center justify-between text-[11px] font-semibold">
+                            <span>{{ entry.skill.name }}</span>
+                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
+                          </div>
+                          <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
+                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
+                              >MP {{ entry.skill.manaCost }}</span
+                            >
+                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
+                              >CD {{ entry.skill.Cooldown }}</span
+                            >
+                          </div>
+                          <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
+                            {{ entry.skill.description }}
+                          </div>
+                          <div class="text-[11px] text-zinc-500">
+                            类别：{{ entry.skill.category }} · {{ entry.skill.rarity }}
+                          </div>
+                        </div>
+                        <div
+                          v-else
+                          class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
+                        >
+                          {{ entry.name || '空主动槽位' }}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </template>
               </div>
-            </template>
+            </div>
           </div>
-        </div>
-      </div>
-    </Transition>
+        </Transition>
 
-    <!-- Combat Overlay -->
-    <Transition name="combat-fade">
-      <div v-if="showCombat" class="absolute inset-0 z-[100] bg-black">
-        <CombatView
-          class="w-full h-full"
-          :enemy-name="combatEnemyName"
-          :player-deck="resolvedDeck"
-          :player-active-skills="resolvedActiveSkills"
-          :player-relics="combatRelicMap"
-          :test-start-at-999="combatTestStartAt999CurrentBattle"
-          :track-discovery="activeCombatContext !== 'combatTest'"
-          :ui-font-family="textSettings.fontFamily"
-          :initial-player-stats="{
-            hp: displayHp,
-            maxHp: displayMaxHp,
-            mp: displayMp,
-            minDice: displayMinDice || 1,
-            maxDice: displayMaxDice || 6,
-            effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' as const }],
-          }"
-          @end-combat="handleCombatEnd"
-          @open-deck="activeModal = 'deck'"
-          @open-relics="activeModal = 'relics'"
+        <!-- Combat Overlay -->
+        <Transition name="combat-fade">
+          <div v-if="showCombat" class="absolute inset-0 z-[100] bg-black">
+            <CombatView
+              class="w-full h-full"
+              :enemy-name="combatEnemyName"
+              :player-deck="resolvedDeck"
+              :player-active-skills="resolvedActiveSkills"
+              :player-relics="combatRelicMap"
+              :test-start-at-999="combatTestStartAt999CurrentBattle"
+              :track-discovery="activeCombatContext !== 'combatTest'"
+              :ui-font-family="textSettings.fontFamily"
+              :initial-player-stats="{
+                hp: displayHp,
+                maxHp: displayMaxHp,
+                mp: displayMp,
+                minDice: displayMinDice || 1,
+                maxDice: displayMaxDice || 6,
+                effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' as const }],
+              }"
+              @end-combat="handleCombatEnd"
+              @open-deck="activeModal = 'deck'"
+              @open-relics="activeModal = 'relics'"
+            />
+            <!-- Exit combat button -->
+            <button
+              class="absolute top-4 right-4 z-[110] px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
+              @click="showCombat = false"
+            >
+              ✕ 退出战斗
+            </button>
+          </div>
+        </Transition>
+
+        <OpeningInfoEntryView
+          v-if="props.showOpeningEntry"
+          :background-url="props.openingEntryBackgroundUrl"
+          :loading="props.openingEntryLoading"
+          :error="props.openingEntryError"
+          @back-to-splash="emit('backToSplash')"
+          @submit="emit('submitOpeningEntry', $event)"
         />
-        <!-- Exit combat button -->
-        <button
-          class="absolute top-4 right-4 z-[110] px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg
-                 hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
-          @click="showCombat = false"
-        >
-          ✕ 退出战斗
-        </button>
-      </div>
-    </Transition>
       </div>
     </div>
   </div>
@@ -2175,15 +2363,33 @@ import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
+import type { OpeningInfoSubmission } from '../openingProfile';
 import { CardType, EffectType, type ActiveSkillData, type CardData } from '../types';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 import DungeonModal from './DungeonModal.vue';
+import OpeningInfoEntryView from './OpeningInfoEntryView.vue';
 import SaveLoadPanel from './SaveLoadPanel.vue';
 
-defineEmits<{
+const props = withDefaults(
+  defineProps<{
+    showOpeningEntry?: boolean;
+    openingEntryBackgroundUrl?: string;
+    openingEntryLoading?: boolean;
+    openingEntryError?: string | null;
+  }>(),
+  {
+    showOpeningEntry: false,
+    openingEntryBackgroundUrl: '',
+    openingEntryLoading: false,
+    openingEntryError: null,
+  },
+);
+
+const emit = defineEmits<{
   backToSplash: [];
+  submitOpeningEntry: [payload: OpeningInfoSubmission];
 }>();
 
 const SidebarIcon = defineComponent({
@@ -2207,12 +2413,12 @@ const SidebarIcon = defineComponent({
             props.disabled
               ? 'bg-[#120d0a] text-dungeon-paper/35 border-dungeon-brown/70'
               : props.active
-              ? (props.highlight
-                ? 'bg-dungeon-gold text-[#221507] border-amber-100 shadow-[0_0_18px_rgba(212,175,55,0.68)]'
-                : 'bg-[#e3be63] text-[#221507] border-amber-100 shadow-[0_0_14px_rgba(212,175,55,0.52)]')
-              : (props.highlight
-                ? 'bg-[#1d130b]/95 text-dungeon-gold border-dungeon-gold/70 shadow-[0_0_11px_rgba(212,175,55,0.42)] hover:bg-[#2a180c] hover:text-amber-100 hover:border-dungeon-gold hover:-translate-y-0.5 hover:shadow-[0_0_14px_rgba(212,175,55,0.46)]'
-                : 'bg-[#1a0f08]/95 text-dungeon-gold-dim border-dungeon-brown/90 hover:bg-[#28170c] hover:text-dungeon-gold hover:border-dungeon-gold/60 hover:-translate-y-0.5 hover:shadow-[0_0_10px_rgba(212,175,55,0.22)]'),
+                ? props.highlight
+                  ? 'bg-dungeon-gold text-[#221507] border-amber-100 shadow-[0_0_18px_rgba(212,175,55,0.68)]'
+                  : 'bg-[#e3be63] text-[#221507] border-amber-100 shadow-[0_0_14px_rgba(212,175,55,0.52)]'
+                : props.highlight
+                  ? 'bg-[#1d130b]/95 text-dungeon-gold border-dungeon-gold/70 shadow-[0_0_11px_rgba(212,175,55,0.42)] hover:bg-[#2a180c] hover:text-amber-100 hover:border-dungeon-gold hover:-translate-y-0.5 hover:shadow-[0_0_14px_rgba(212,175,55,0.46)]'
+                  : 'bg-[#1a0f08]/95 text-dungeon-gold-dim border-dungeon-brown/90 hover:bg-[#28170c] hover:text-dungeon-gold hover:border-dungeon-gold/60 hover:-translate-y-0.5 hover:shadow-[0_0_10px_rgba(212,175,55,0.22)]',
           ],
           onClick: () => {
             if (!props.disabled) {
@@ -2264,12 +2470,18 @@ const updateViewportMetrics = () => {
   const docHeight = docEl?.clientHeight ?? 0;
   const visualViewport = window.visualViewport;
 
-  viewportWidth.value = viewportRect && viewportRect.width > 0
-    ? viewportRect.width
-    : (docWidth > 0 ? docWidth : (visualViewport?.width ?? window.innerWidth));
-  viewportHeight.value = viewportRect && viewportRect.height > 0
-    ? viewportRect.height
-    : (docHeight > 0 ? docHeight : (visualViewport?.height ?? window.innerHeight));
+  viewportWidth.value =
+    viewportRect && viewportRect.width > 0
+      ? viewportRect.width
+      : docWidth > 0
+        ? docWidth
+        : (visualViewport?.width ?? window.innerWidth);
+  viewportHeight.value =
+    viewportRect && viewportRect.height > 0
+      ? viewportRect.height
+      : docHeight > 0
+        ? docHeight
+        : (visualViewport?.height ?? window.innerHeight);
   isTouchViewport.value = window.matchMedia('(pointer: coarse)').matches;
 };
 const handleViewportResize = () => {
@@ -2294,18 +2506,16 @@ const currentTavernFloorNumber = computed<number>(() => {
   if (!Number.isFinite(lastMessageId) || lastMessageId < 0) return 0;
   return Math.floor(lastMessageId);
 });
-const showLandscapeHint = computed(() => (
-  isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value
-));
+const showLandscapeHint = computed(
+  () => isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value,
+);
 const activeModal = ref<string | null>(null);
 const inputText = ref('');
 const inputWaitingDotsStep = ref(1);
 let inputWaitingDotsTimer: number | null = null;
-const inputPlaceholder = computed(() => (
-  gameStore.isGenerating
-    ? `等待回复中${'.'.repeat(inputWaitingDotsStep.value)}`
-    : '输入你的行动'
-));
+const inputPlaceholder = computed(() =>
+  gameStore.isGenerating ? `等待回复中${'.'.repeat(inputWaitingDotsStep.value)}` : '输入你的行动',
+);
 const dismissLandscapeHint = () => {
   landscapeHintDismissed.value = true;
 };
@@ -2484,11 +2694,31 @@ const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
 const HF_USER_DIR = '地牢/user';
 const HF_MONSTER_DIR = '地牢/魔物';
 const BOSS_FOLDER_NAMES = new Set([
-  '普莉姆', '宁芙', '温蒂尼', '玛塔', '罗丝', '厄休拉',
-  '希尔薇', '因克', '阿卡夏', '多萝西', '维罗妮卡',
-  '伊丽莎白', '尤斯蒂娅', '克拉肯', '布偶',
-  '赛琳娜', '米拉', '梦魔双子', '贝希摩斯',
-  '佩恩', '西格尔', '摩尔', '利维坦', '奥赛罗', '盖亚',
+  '普莉姆',
+  '宁芙',
+  '温蒂尼',
+  '玛塔',
+  '罗丝',
+  '厄休拉',
+  '希尔薇',
+  '因克',
+  '阿卡夏',
+  '多萝西',
+  '维罗妮卡',
+  '伊丽莎白',
+  '尤斯蒂娅',
+  '克拉肯',
+  '布偶',
+  '赛琳娜',
+  '米拉',
+  '梦魔双子',
+  '贝希摩斯',
+  '佩恩',
+  '西格尔',
+  '摩尔',
+  '利维坦',
+  '奥赛罗',
+  '盖亚',
 ]);
 const bondFolderImageCache = new Map<string, string[]>();
 const bondFolderImagePromiseCache = new Map<string, Promise<string[]>>();
@@ -2500,9 +2730,14 @@ const bondPortraitPreview = ref<{ name: string; url: string } | null>(null);
 let bondPortraitLoaderDisposed = false;
 
 const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
-const encodeRepoPath = (path: string) => normalizeRepoPath(path).split('/').map((seg) => encodeURIComponent(seg)).join('/');
+const encodeRepoPath = (path: string) =>
+  normalizeRepoPath(path)
+    .split('/')
+    .map(seg => encodeURIComponent(seg))
+    .join('/');
 const toResolveUrl = (repoPath: string) => `${IMAGE_CDN_ROOT}/${encodeRepoPath(repoPath)}`;
-const pickRandom = <T,>(items: T[]): T | null => (items.length > 0 ? items[Math.floor(Math.random() * items.length)]! : null);
+const pickRandom = <T,>(items: T[]): T | null =>
+  items.length > 0 ? items[Math.floor(Math.random() * items.length)]! : null;
 
 const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
   const folder = normalizeRepoPath(repoFolderPath);
@@ -2525,18 +2760,11 @@ const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
   }
 };
 
-const resolveRandomPortrait = async (
-  folderPath: string,
-  fallbackFilePath: string,
-): Promise<string> => {
+const resolveRandomPortrait = async (folderPath: string, fallbackFilePath: string): Promise<string> => {
   const images = await fetchFolderImages(folderPath);
   const randomPath = pickRandom(images);
   const firstPath = getLocalFolderFirstImagePath(folderPath);
-  return randomPath
-    ? toResolveUrl(randomPath)
-    : firstPath
-      ? toResolveUrl(firstPath)
-      : toResolveUrl(fallbackFilePath);
+  return randomPath ? toResolveUrl(randomPath) : firstPath ? toResolveUrl(firstPath) : toResolveUrl(fallbackFilePath);
 };
 
 const resolvePortraitFolderByName = (characterName: string): string => {
@@ -2600,17 +2828,16 @@ const bondRoleEntries = computed<Array<{ name: string; affection: number }>>(() 
     });
 });
 
-const getBondPortraitUrl = (characterName: string) => (
-  bondPortraitUrls.value[characterName] ?? toResolveUrl(`${HF_MONSTER_DIR}/${characterName}.png`)
-);
+const getBondPortraitUrl = (characterName: string) =>
+  bondPortraitUrls.value[characterName] ?? toResolveUrl(`${HF_MONSTER_DIR}/${characterName}.png`);
 
-const bondEntries = computed(() => (
-  bondRoleEntries.value.map((entry) => ({
+const bondEntries = computed(() =>
+  bondRoleEntries.value.map(entry => ({
     ...entry,
     portraitUrl: getBondPortraitUrl(entry.name),
     affectionAbsRatio: Math.min(1, Math.abs(entry.affection) / 200),
-  }))
-));
+  })),
+);
 
 const ensureBondPortraitLoaded = async (characterName: string) => {
   if (bondPortraitUrls.value[characterName]) return;
@@ -2694,7 +2921,7 @@ function onBgError() {
 
 const BG_OPACITY_KEY = 'dungeon.bg_overlay_opacity';
 const bgOverlayOpacity = ref(parseFloat(localStorage.getItem(BG_OPACITY_KEY) ?? '0.5'));
-watch(bgOverlayOpacity, (v) => localStorage.setItem(BG_OPACITY_KEY, String(v)));
+watch(bgOverlayOpacity, v => localStorage.setItem(BG_OPACITY_KEY, String(v)));
 
 const CHEST_BG_CLOSED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B11.png`;
 const CHEST_BG_OPENED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B12.png`;
@@ -2715,19 +2942,19 @@ const IDOL_BLESSING_CONFIG: Record<IdolBlessingTarget, IdolBlessingConfig> = {
     target: 'maxHp',
     slotLabel: '生命上限',
     statueName: '生命神像',
-    rewardText: (dice) => `生命上限+${Math.floor(dice * 1.5)}`,
+    rewardText: dice => `生命上限+${Math.floor(dice * 1.5)}`,
   },
   mp: {
     target: 'mp',
     slotLabel: '初始魔力',
     statueName: '魔力神像',
-    rewardText: (dice) => `魔量+${dice}`,
+    rewardText: dice => `魔量+${dice}`,
   },
   gold: {
     target: 'gold',
     slotLabel: '金币',
     statueName: '财富神像',
-    rewardText: (dice) => `金币+${dice * 2}`,
+    rewardText: dice => `金币+${dice * 2}`,
   },
 };
 const IDOL_SNAP_DISTANCE = 112;
@@ -2790,19 +3017,17 @@ const cardCategoryGroupsForTest = computed<Array<{ category: string; cards: Card
 });
 const cardCategoryTabsForTest = computed<string[]>(() => [
   '全部',
-  ...cardCategoryGroupsForTest.value.map((group) => group.category),
+  ...cardCategoryGroupsForTest.value.map(group => group.category),
 ]);
 const filteredCardCategoryGroupsForTest = computed<Array<{ category: string; cards: CardData[] }>>(() => {
   if (selectedCardCategoryTab.value === '全部') return cardCategoryGroupsForTest.value;
-  return cardCategoryGroupsForTest.value.filter((group) => group.category === selectedCardCategoryTab.value);
+  return cardCategoryGroupsForTest.value.filter(group => group.category === selectedCardCategoryTab.value);
 });
 const MAGIC_BOOK_COVER_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E6%B3%95%E4%B9%A6%E5%B0%81%E9%9D%A2`;
 const getMagicBookCoverUrl = (bookName: string) => `${MAGIC_BOOK_COVER_BASE}/${encodeURIComponent(bookName)}.png`;
-const carryableMagicBookNames = computed<string[]>(() => (
-  cardCategoryGroupsForTest.value
-    .map((group) => group.category)
-    .filter((category) => category !== '基础')
-));
+const carryableMagicBookNames = computed<string[]>(() =>
+  cardCategoryGroupsForTest.value.map(group => group.category).filter(category => category !== '基础'),
+);
 const rawCarriedMagicBooks = computed<string[]>(() => {
   const raw = gameStore.statData._携带的魔法书;
   if (!Array.isArray(raw)) return [];
@@ -2810,7 +3035,7 @@ const rawCarriedMagicBooks = computed<string[]>(() => {
 });
 const carriedMagicBooks = computed<string[]>(() => {
   const available = new Set(carryableMagicBookNames.value);
-  return rawCarriedMagicBooks.value.filter((name) => available.has(name));
+  return rawCarriedMagicBooks.value.filter(name => available.has(name));
 });
 const carriedMagicBookSet = computed(() => new Set(carriedMagicBooks.value));
 const ownedLegendaryRelicNameSet = computed<Set<string>>(() => {
@@ -2828,12 +3053,12 @@ const ownedLegendaryRelicNameSet = computed<Set<string>>(() => {
 });
 const selectableRelicPool = computed<RelicData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
-  let pool = getAllRelics().filter((relic) => categorySet.has(relic.category));
+  let pool = getAllRelics().filter(relic => categorySet.has(relic.category));
   if (pool.length === 0) {
-    pool = getAllRelics().filter((relic) => relic.category === '基础');
+    pool = getAllRelics().filter(relic => relic.category === '基础');
   }
   const ownedLegendaryNames = ownedLegendaryRelicNameSet.value;
-  pool = pool.filter((relic) => relic.rarity !== '传奇' || !ownedLegendaryNames.has(relic.name));
+  pool = pool.filter(relic => relic.rarity !== '传奇' || !ownedLegendaryNames.has(relic.name));
   return [...pool];
 });
 const muxinlanFavor = computed<number>(() => {
@@ -2856,9 +3081,7 @@ const parseMerchantDefeatedValue = (value: unknown): boolean => {
   return false;
 };
 const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人));
-const canEditMagicBooks = computed(() => (
-  ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝'
-));
+const canEditMagicBooks = computed(() => ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝');
 const magicBookSidebarIcon = computed(() => (canEditMagicBooks.value ? Book : Lock));
 const magicHatSidebarIcon = computed(() => (canEditMagicBooks.value ? WizardHatIcon : Lock));
 const isUpdatingMagicBooks = ref(false);
@@ -2957,9 +3180,7 @@ const openMagicHatModal = () => {
 const toggleMagicBook = async (bookName: string) => {
   if (isUpdatingMagicBooks.value) return;
   const current = rawCarriedMagicBooks.value;
-  const nextBooks = current.includes(bookName)
-    ? current.filter((name) => name !== bookName)
-    : [...current, bookName];
+  const nextBooks = current.includes(bookName) ? current.filter(name => name !== bookName) : [...current, bookName];
   isUpdatingMagicBooks.value = true;
   await gameStore.updateStatDataFields({
     _携带的魔法书: Array.from(new Set(nextBooks)),
@@ -2970,7 +3191,7 @@ const upgradeMagicHatStat = async (id: MagicHatUpgradeType) => {
   if (!canEditMagicBooks.value) return;
   if (isUpgradingMagicHat.value) return;
 
-  const track = magicHatTracks.value.find((item) => item.id === id);
+  const track = magicHatTracks.value.find(item => item.id === id);
   if (!track || track.isMax) return;
 
   if (magicHatSkillPoints.value < track.nextCost) {
@@ -3026,9 +3247,9 @@ const activeSkillByNameMap = computed(() => {
   }
   return map;
 });
-const startingActiveSkillOptions = computed<ActiveSkillData[]>(() => (
-  activeSkillsForBattle.value.filter((skill) => skill.category === '基础')
-));
+const startingActiveSkillOptions = computed<ActiveSkillData[]>(() =>
+  activeSkillsForBattle.value.filter(skill => skill.category === '基础'),
+);
 const startingActiveSkillEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
   const raw = Array.isArray(gameStore.statData.$主动) ? [...(gameStore.statData.$主动 as string[])].slice(0, 2) : [];
   while (raw.length < 2) raw.push('');
@@ -3038,13 +3259,12 @@ const startingActiveSkillEntries = computed<Array<{ idx: number; name: string; s
     skill: activeSkillByNameMap.value.get(name) ?? null,
   }));
 });
-const isSkillEquippedInStartingActive = (skillName: string): boolean => (
-  startingActiveSkillEntries.value.some((entry) => entry.name === skillName)
-);
+const isSkillEquippedInStartingActive = (skillName: string): boolean =>
+  startingActiveSkillEntries.value.some(entry => entry.name === skillName);
 const setStartingActiveSkill = async (skill: ActiveSkillData) => {
   if (isUpdatingStartingActiveSkills.value) return;
   const slot = Math.max(0, Math.min(1, Math.floor(selectedStartingActiveSlot.value)));
-  const next = startingActiveSkillEntries.value.map((entry) => entry.name);
+  const next = startingActiveSkillEntries.value.map(entry => entry.name);
   const conflictSlot = next.findIndex((name, idx) => name === skill.name && idx !== slot);
   if (conflictSlot >= 0) {
     const previous = next[slot] ?? '';
@@ -3063,7 +3283,7 @@ const setStartingActiveSkill = async (skill: ActiveSkillData) => {
 const clearStartingActiveSkill = async (slotIdx: number) => {
   if (isUpdatingStartingActiveSkills.value) return;
   const slot = Math.max(0, Math.min(1, Math.floor(slotIdx)));
-  const next = startingActiveSkillEntries.value.map((entry) => entry.name);
+  const next = startingActiveSkillEntries.value.map(entry => entry.name);
   while (next.length < 2) next.push('');
   next[slot] = '';
 
@@ -3090,24 +3310,21 @@ const EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS = new Set<string>([
 ]);
 const rewardCardPool = computed<CardData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
-  const filtered = allCardsForTest.value.filter((card) => (
-    categorySet.has(card.category)
-    && !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id)
-  ));
+  const filtered = allCardsForTest.value.filter(
+    card => categorySet.has(card.category) && !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id),
+  );
   if (filtered.length > 0) return filtered;
-  return allCardsForTest.value.filter((card) => !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id));
+  return allCardsForTest.value.filter(card => !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id));
 });
 const rewardActiveSkillPool = computed<ActiveSkillData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
-  const filtered = activeSkillsForBattle.value.filter((skill) => (
-    categorySet.has(skill.category)
-    && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id)
-  ));
+  const filtered = activeSkillsForBattle.value.filter(
+    skill => categorySet.has(skill.category) && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id),
+  );
   if (filtered.length > 0) return filtered;
-  return activeSkillsForBattle.value.filter((skill) => (
-    skill.category === '基础'
-    && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id)
-  ));
+  return activeSkillsForBattle.value.filter(
+    skill => skill.category === '基础' && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id),
+  );
 });
 const rewardDeckReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
   const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
@@ -3160,10 +3377,7 @@ const enemyFloorMapForTest = computed(() => {
   for (const [floorLabel, config] of Object.entries(FLOOR_MONSTER_CONFIG)) {
     const floorNumber = parseFloorNumberForTest(floorLabel);
     if (!floorNumber) continue;
-    const floorEnemies = [
-      ...config.common,
-      ...Object.values(config.uniqueByArea).flat(),
-    ];
+    const floorEnemies = [...config.common, ...Object.values(config.uniqueByArea).flat()];
     for (const enemyName of floorEnemies) {
       if (!map.has(enemyName)) {
         map.set(enemyName, floorNumber);
@@ -3180,9 +3394,9 @@ const enemyFloorMapForTest = computed(() => {
 
   return map;
 });
-const allEnemyEntriesForTest = computed<Array<{ name: string; floorLabel: string; floorRank: number }>>(() => (
+const allEnemyEntriesForTest = computed<Array<{ name: string; floorLabel: string; floorRank: number }>>(() =>
   getAllEnemyNames()
-    .map((name) => {
+    .map(name => {
       if (SPECIAL_TEST_ENEMY_NAMES.has(name)) {
         return { name, floorLabel: '特殊', floorRank: enemyFloorLabelRankForTest('特殊') };
       }
@@ -3196,25 +3410,25 @@ const allEnemyEntriesForTest = computed<Array<{ name: string; floorLabel: string
     .sort((a, b) => {
       if (a.floorRank !== b.floorRank) return a.floorRank - b.floorRank;
       return a.name.localeCompare(b.name, 'zh-Hans-CN');
-    })
-));
+    }),
+);
 const combatTestEnemyFloorTabs = computed<string[]>(() => {
-  const floorLabels = Array.from(new Set(allEnemyEntriesForTest.value.map((entry) => entry.floorLabel)));
+  const floorLabels = Array.from(new Set(allEnemyEntriesForTest.value.map(entry => entry.floorLabel)));
   floorLabels.sort((a, b) => enemyFloorLabelRankForTest(a) - enemyFloorLabelRankForTest(b));
   return ['全部', ...floorLabels];
 });
 const filteredEnemyEntriesForTest = computed(() => {
   if (selectedEnemyFloorForTest.value === '全部') return allEnemyEntriesForTest.value;
-  return allEnemyEntriesForTest.value.filter((entry) => entry.floorLabel === selectedEnemyFloorForTest.value);
+  return allEnemyEntriesForTest.value.filter(entry => entry.floorLabel === selectedEnemyFloorForTest.value);
 });
-const allEnemyNamesForTest = computed(() => allEnemyEntriesForTest.value.map((entry) => entry.name));
-const baseRelicsForTest = computed<readonly RelicData[]>(() => (
+const allEnemyNamesForTest = computed(() => allEnemyEntriesForTest.value.map(entry => entry.name));
+const baseRelicsForTest = computed<readonly RelicData[]>(() =>
   [...getAllRelics()].sort((a, b) => {
     const categoryDiff = compareCategory(a.category, b.category);
     if (categoryDiff !== 0) return categoryDiff;
     return a.name.localeCompare(b.name, 'zh-Hans-CN');
-  })
-));
+  }),
+);
 const relicCategoryGroupsForTest = computed<Array<{ category: string; relics: RelicData[] }>>(() => {
   const grouped = new Map<string, RelicData[]>();
   for (const relic of baseRelicsForTest.value) {
@@ -3230,63 +3444,75 @@ const relicCategoryGroupsForTest = computed<Array<{ category: string; relics: Re
 });
 const relicCategoryTabsForTest = computed<string[]>(() => [
   '全部',
-  ...relicCategoryGroupsForTest.value.map((group) => group.category),
+  ...relicCategoryGroupsForTest.value.map(group => group.category),
 ]);
 const filteredRelicCategoryGroupsForTest = computed<Array<{ category: string; relics: RelicData[] }>>(() => {
   if (selectedRelicCategoryTab.value === '全部') return relicCategoryGroupsForTest.value;
-  return relicCategoryGroupsForTest.value.filter((group) => group.category === selectedRelicCategoryTab.value);
+  return relicCategoryGroupsForTest.value.filter(group => group.category === selectedRelicCategoryTab.value);
 });
 
-watch(cardCategoryTabsForTest, (tabs) => {
-  if (!tabs.includes(selectedCardCategoryTab.value)) {
-    selectedCardCategoryTab.value = '全部';
-  }
-}, { immediate: true });
-watch(relicCategoryTabsForTest, (tabs) => {
-  if (!tabs.includes(selectedRelicCategoryTab.value)) {
-    selectedRelicCategoryTab.value = '全部';
-  }
-}, { immediate: true });
-watch(bondRoleEntries, (entries) => {
-  const names = entries.map((entry) => entry.name);
-  const keepSet = new Set(names);
-
-  const nextUrls: Record<string, string> = {};
-  for (const [name, url] of Object.entries(bondPortraitUrls.value)) {
-    if (keepSet.has(name)) {
-      nextUrls[name] = url;
+watch(
+  cardCategoryTabsForTest,
+  tabs => {
+    if (!tabs.includes(selectedCardCategoryTab.value)) {
+      selectedCardCategoryTab.value = '全部';
     }
-  }
-  if (Object.keys(nextUrls).length !== Object.keys(bondPortraitUrls.value).length) {
-    bondPortraitUrls.value = nextUrls;
-  }
-
-  const nextErrors: Record<string, boolean> = {};
-  for (const [name, hasError] of Object.entries(bondPortraitErrors.value)) {
-    if (keepSet.has(name)) {
-      nextErrors[name] = hasError;
+  },
+  { immediate: true },
+);
+watch(
+  relicCategoryTabsForTest,
+  tabs => {
+    if (!tabs.includes(selectedRelicCategoryTab.value)) {
+      selectedRelicCategoryTab.value = '全部';
     }
-  }
-  if (Object.keys(nextErrors).length !== Object.keys(bondPortraitErrors.value).length) {
-    bondPortraitErrors.value = nextErrors;
-  }
+  },
+  { immediate: true },
+);
+watch(
+  bondRoleEntries,
+  entries => {
+    const names = entries.map(entry => entry.name);
+    const keepSet = new Set(names);
 
-  const nextFallbackTried: Record<string, boolean> = {};
-  for (const [name, tried] of Object.entries(bondPortraitFallbackTried.value)) {
-    if (keepSet.has(name)) {
-      nextFallbackTried[name] = tried;
+    const nextUrls: Record<string, string> = {};
+    for (const [name, url] of Object.entries(bondPortraitUrls.value)) {
+      if (keepSet.has(name)) {
+        nextUrls[name] = url;
+      }
     }
-  }
-  if (Object.keys(nextFallbackTried).length !== Object.keys(bondPortraitFallbackTried.value).length) {
-    bondPortraitFallbackTried.value = nextFallbackTried;
-  }
+    if (Object.keys(nextUrls).length !== Object.keys(bondPortraitUrls.value).length) {
+      bondPortraitUrls.value = nextUrls;
+    }
 
-  for (const name of names) {
-    if (!bondPortraitUrls.value[name]) {
-      void ensureBondPortraitLoaded(name);
+    const nextErrors: Record<string, boolean> = {};
+    for (const [name, hasError] of Object.entries(bondPortraitErrors.value)) {
+      if (keepSet.has(name)) {
+        nextErrors[name] = hasError;
+      }
     }
-  }
-}, { immediate: true, deep: true });
+    if (Object.keys(nextErrors).length !== Object.keys(bondPortraitErrors.value).length) {
+      bondPortraitErrors.value = nextErrors;
+    }
+
+    const nextFallbackTried: Record<string, boolean> = {};
+    for (const [name, tried] of Object.entries(bondPortraitFallbackTried.value)) {
+      if (keepSet.has(name)) {
+        nextFallbackTried[name] = tried;
+      }
+    }
+    if (Object.keys(nextFallbackTried).length !== Object.keys(bondPortraitFallbackTried.value).length) {
+      bondPortraitFallbackTried.value = nextFallbackTried;
+    }
+
+    for (const name of names) {
+      if (!bondPortraitUrls.value[name]) {
+        void ensureBondPortraitLoaded(name);
+      }
+    }
+  },
+  { immediate: true, deep: true },
+);
 
 const getCardTypeBadgeClass = (type: CardType) => {
   switch (type) {
@@ -3307,13 +3533,10 @@ const getCardTypeBadgeClass = (type: CardType) => {
   }
 };
 
-const isActiveSkillReward = (item: VictoryRewardItem | null | undefined): item is ActiveSkillData => (
-  Boolean(item && item.type === CardType.ACTIVE)
-);
+const isActiveSkillReward = (item: VictoryRewardItem | null | undefined): item is ActiveSkillData =>
+  Boolean(item && item.type === CardType.ACTIVE);
 
-const getVictoryRewardTypeText = (item: VictoryRewardItem) => (
-  isActiveSkillReward(item) ? '主动技能' : '卡牌'
-);
+const getVictoryRewardTypeText = (item: VictoryRewardItem) => (isActiveSkillReward(item) ? '主动技能' : '卡牌');
 
 const getCardCategoryStripClass = (category: string) => {
   switch (category) {
@@ -3335,11 +3558,11 @@ const getCardCategoryStripClass = (category: string) => {
 // ── Resolved deck from MVU _技能 via card registry ──
 const resolvedDeck = computed<CardData[]>(() => {
   const skills: string[] = gameStore.statData._技能 ?? [];
-  return resolveCardNames(skills.filter((s) => s !== ''));
+  return resolveCardNames(skills.filter(s => s !== ''));
 });
 const resolvedActiveSkills = computed<ActiveSkillData[]>(() => {
   const skills = Array.isArray(gameStore.statData.$主动) ? (gameStore.statData.$主动 as string[]) : [];
-  return resolveActiveSkillNames(skills.filter((s) => s !== ''));
+  return resolveActiveSkillNames(skills.filter(s => s !== ''));
 });
 
 // ── Resolved relics from MVU _圣遗物 ──
@@ -3364,7 +3587,7 @@ const relicEntries = computed(() => {
 
 type RelicEntryView = (typeof relicEntries.value)[number];
 const getOwnedRelicCountById = (id: string): number => {
-  const relic = getAllRelics().find((entry) => entry.id === id);
+  const relic = getAllRelics().find(entry => entry.id === id);
   if (!relic) return 0;
   const raw = gameStore.statData._圣遗物 ?? {};
   const byName = Number((raw as Record<string, number>)[relic.name] ?? 0);
@@ -3382,28 +3605,29 @@ const RELIC_DICE_RANGE_BONUS_CONFIG = {
   min: [{ id: 'lucky_coin_small', bonus: 1 }],
   max: [{ id: 'lucky_coin_large', bonus: 1 }],
 } as const;
-const bloodpoolPassiveMaxHpBonus = computed(() => (
+const bloodpoolPassiveMaxHpBonus = computed(() =>
   BLOODPOOL_PASSIVE_MAX_HP_RELICS.reduce((sum, item) => {
-    return sum + (getOwnedRelicCountById(item.id) * item.bonus);
-  }, 0)
-));
-const canRefreshVictoryReward = computed(() => (
-  showVictoryRewardView.value
-  && victoryRewardStage.value === 'pick'
-  && rewardIsNormalEnemy.value
-  && !rewardRefreshUsed.value
-  && getOwnedRelicCountById('base_silver_card') > 0
-));
-const chestRewardEntries = computed<RelicEntryView[]>(() => (
-  chestRewardRelics.value.map((relic) => ({
+    return sum + getOwnedRelicCountById(item.id) * item.bonus;
+  }, 0),
+);
+const canRefreshVictoryReward = computed(
+  () =>
+    showVictoryRewardView.value &&
+    victoryRewardStage.value === 'pick' &&
+    rewardIsNormalEnemy.value &&
+    !rewardRefreshUsed.value &&
+    getOwnedRelicCountById('base_silver_card') > 0,
+);
+const chestRewardEntries = computed<RelicEntryView[]>(() =>
+  chestRewardRelics.value.map(relic => ({
     name: relic.name,
     count: 1,
     rarity: relic.rarity,
     category: relic.category,
     effect: relic.effect,
     description: relic.description ?? relic.effect ?? '',
-  }))
-));
+  })),
+);
 
 const clearRelicTooltipTimers = () => {
   if (relicTooltipLongPressTimer) {
@@ -3494,20 +3718,18 @@ const combatRelicMap = computed<Record<string, number>>(() => {
 
 watch(
   resolvedDeck,
-  (cards) => {
+  cards => {
     if (!Array.isArray(cards) || cards.length === 0) return;
-    recordEncounteredCards(cards.map((card) => card.id));
+    recordEncounteredCards(cards.map(card => card.id));
   },
   { immediate: true },
 );
 
 watch(
   relicEntries,
-  (entries) => {
+  entries => {
     if (!Array.isArray(entries) || entries.length === 0) return;
-    const ids = entries
-      .map((entry) => getRelicByName(entry.name)?.id ?? '')
-      .filter((id): id is string => Boolean(id));
+    const ids = entries.map(entry => getRelicByName(entry.name)?.id ?? '').filter((id): id is string => Boolean(id));
     if (ids.length === 0) return;
     recordEncounteredRelics(ids);
   },
@@ -3516,32 +3738,32 @@ watch(
 
 watch(
   () => chestRewardRelics.value,
-  (relics) => {
+  relics => {
     if (!Array.isArray(relics) || relics.length === 0) return;
-    recordEncounteredRelics(relics.map((relic) => relic.id));
+    recordEncounteredRelics(relics.map(relic => relic.id));
   },
   { deep: false },
 );
 
 watch(
   () => shopProducts.value,
-  (products) => {
+  products => {
     if (!Array.isArray(products) || products.length === 0) return;
-    recordEncounteredRelics(products.map((item) => item.relic.id));
+    recordEncounteredRelics(products.map(item => item.relic.id));
   },
   { deep: false },
 );
 
 watch(
   () => victoryRewardOptions.value,
-  (cards) => {
+  cards => {
     if (!Array.isArray(cards) || cards.length === 0) return;
-    recordEncounteredCards(cards.map((card) => card.id));
+    recordEncounteredCards(cards.map(card => card.id));
   },
   { deep: false },
 );
 
-watch(activeModal, (modal) => {
+watch(activeModal, modal => {
   if (modal === 'magicBooks' || modal === 'magicHat') {
     gameStore.loadStatData();
   }
@@ -3562,15 +3784,15 @@ watch(activeModal, (modal) => {
     closeBigSummaryDraft();
   }
 });
-watch(canEditMagicBooks, (editable) => {
+watch(canEditMagicBooks, editable => {
   if (!editable && (activeModal.value === 'magicBooks' || activeModal.value === 'magicHat')) {
     activeModal.value = null;
   }
 });
 
-const selectedRelicTotalCount = computed(() => (
-  Object.values(selectedTestRelicCounts.value).reduce((sum, value) => sum + Math.max(0, Math.floor(value)), 0)
-));
+const selectedRelicTotalCount = computed(() =>
+  Object.values(selectedTestRelicCounts.value).reduce((sum, value) => sum + Math.max(0, Math.floor(value)), 0),
+);
 
 // ── Text display settings (reactive, persisted) ──
 type TextSettingsState = {
@@ -3610,15 +3832,21 @@ const clampTextSettingNumber = (value: unknown, min: number, max: number, fallba
 };
 
 const normalizeTextSettings = (value: unknown): TextSettingsState => {
-  const candidate = value && typeof value === 'object' ? value as Partial<TextSettingsState> : {};
-  const normalizedFontFamily = typeof candidate.fontFamily === 'string' && TEXT_FONT_FAMILY_OPTIONS.has(candidate.fontFamily)
-    ? candidate.fontFamily
-    : DEFAULT_TEXT_SETTINGS.fontFamily;
+  const candidate = value && typeof value === 'object' ? (value as Partial<TextSettingsState>) : {};
+  const normalizedFontFamily =
+    typeof candidate.fontFamily === 'string' && TEXT_FONT_FAMILY_OPTIONS.has(candidate.fontFamily)
+      ? candidate.fontFamily
+      : DEFAULT_TEXT_SETTINGS.fontFamily;
   return {
     fontSize: Math.round(clampTextSettingNumber(candidate.fontSize, 12, 40, DEFAULT_TEXT_SETTINGS.fontSize)),
-    lineHeight: Number(clampTextSettingNumber(candidate.lineHeight, 1.2, 3.0, DEFAULT_TEXT_SETTINGS.lineHeight).toFixed(1)),
+    lineHeight: Number(
+      clampTextSettingNumber(candidate.lineHeight, 1.2, 3.0, DEFAULT_TEXT_SETTINGS.lineHeight).toFixed(1),
+    ),
     fontFamily: normalizedFontFamily,
-    containerWidth: Math.round(clampTextSettingNumber(candidate.containerWidth, 600, 1600, DEFAULT_TEXT_SETTINGS.containerWidth) / 50) * 50,
+    containerWidth:
+      Math.round(
+        clampTextSettingNumber(candidate.containerWidth, 600, 1600, DEFAULT_TEXT_SETTINGS.containerWidth) / 50,
+      ) * 50,
   };
 };
 
@@ -3642,63 +3870,57 @@ const persistTextSettings = (value: TextSettingsState) => {
 
 const textSettings = reactive<TextSettingsState>(readTextSettings());
 
-const optionButtonFontSize = computed(() => (
-  Math.round(clampTextSettingNumber(
-    textSettings.fontSize * (14 / DEFAULT_TEXT_SETTINGS.fontSize),
-    11,
-    18,
-    14,
-  ))
-));
+const optionButtonFontSize = computed(() =>
+  Math.round(clampTextSettingNumber(textSettings.fontSize * (14 / DEFAULT_TEXT_SETTINGS.fontSize), 11, 18, 14)),
+);
 
 const optionButtonTextStyle = computed(() => ({
   fontSize: `${optionButtonFontSize.value}px`,
   lineHeight: '1.6',
 }));
 
-const specialOptionButtonFontSize = computed(() => (
-  Math.round(clampTextSettingNumber(
-    textSettings.fontSize * (16 / DEFAULT_TEXT_SETTINGS.fontSize),
-    13,
-    20,
-    16,
-  ))
-));
+const specialOptionButtonFontSize = computed(() =>
+  Math.round(clampTextSettingNumber(textSettings.fontSize * (16 / DEFAULT_TEXT_SETTINGS.fontSize), 13, 20, 16)),
+);
 
 const specialOptionButtonTextStyle = computed(() => ({
   fontSize: `${specialOptionButtonFontSize.value}px`,
   lineHeight: '1.5',
 }));
 
-watch(textSettings, (value) => {
-  persistTextSettings({
-    fontSize: value.fontSize,
-    lineHeight: value.lineHeight,
-    fontFamily: value.fontFamily,
-    containerWidth: value.containerWidth,
-  });
-}, { deep: true });
+watch(
+  textSettings,
+  value => {
+    persistTextSettings({
+      fontSize: value.fontSize,
+      lineHeight: value.lineHeight,
+      fontFamily: value.fontFamily,
+      containerWidth: value.containerWidth,
+    });
+  },
+  { deep: true },
+);
 
 const isStreamingEnabled = computed<boolean>({
   get: () => gameStore.useStreaming,
-  set: (value) => gameStore.setUseStreaming(value),
+  set: value => gameStore.setUseStreaming(value),
 });
 
 const isForbidMatchingXmlInsideThinkEnabled = computed<boolean>({
   get: () => gameStore.forbidMatchingXmlInsideThink,
-  set: (value) => gameStore.setForbidMatchingXmlInsideThink(value),
+  set: value => gameStore.setForbidMatchingXmlInsideThink(value),
 });
 
 const isAutoSummaryEnabled = computed<boolean>({
   get: () => gameStore.autoSummaryEnabled,
-  set: (value) => {
+  set: value => {
     void gameStore.setAutoSummaryEnabled(value);
   },
 });
 
 const summaryVisibleWindowValue = computed<number>({
   get: () => gameStore.summaryVisibleWindow,
-  set: (value) => {
+  set: value => {
     void gameStore.setSummaryVisibleWindow(value);
   },
 });
@@ -3728,14 +3950,35 @@ const DEFAULT_BIG_SUMMARY_SETTINGS = {
 };
 
 const normalizeBigSummarySettings = (value: unknown) => {
-  const candidate = value && typeof value === 'object'
-    ? value as Partial<{ rangeStart: number; rangeEnd: number; minWords: number; maxWords: number }>
-    : {};
+  const candidate =
+    value && typeof value === 'object'
+      ? (value as Partial<{ rangeStart: number; rangeEnd: number; minWords: number; maxWords: number }>)
+      : {};
   return {
-    rangeStart: normalizeIntegerInput(candidate.rangeStart ?? DEFAULT_BIG_SUMMARY_SETTINGS.rangeStart, DEFAULT_BIG_SUMMARY_SETTINGS.rangeStart, 0, 999999),
-    rangeEnd: normalizeIntegerInput(candidate.rangeEnd ?? DEFAULT_BIG_SUMMARY_SETTINGS.rangeEnd, DEFAULT_BIG_SUMMARY_SETTINGS.rangeEnd, 0, 999999),
-    minWords: normalizeIntegerInput(candidate.minWords ?? DEFAULT_BIG_SUMMARY_SETTINGS.minWords, DEFAULT_BIG_SUMMARY_SETTINGS.minWords, 50, 10000),
-    maxWords: normalizeIntegerInput(candidate.maxWords ?? DEFAULT_BIG_SUMMARY_SETTINGS.maxWords, DEFAULT_BIG_SUMMARY_SETTINGS.maxWords, 50, 10000),
+    rangeStart: normalizeIntegerInput(
+      candidate.rangeStart ?? DEFAULT_BIG_SUMMARY_SETTINGS.rangeStart,
+      DEFAULT_BIG_SUMMARY_SETTINGS.rangeStart,
+      0,
+      999999,
+    ),
+    rangeEnd: normalizeIntegerInput(
+      candidate.rangeEnd ?? DEFAULT_BIG_SUMMARY_SETTINGS.rangeEnd,
+      DEFAULT_BIG_SUMMARY_SETTINGS.rangeEnd,
+      0,
+      999999,
+    ),
+    minWords: normalizeIntegerInput(
+      candidate.minWords ?? DEFAULT_BIG_SUMMARY_SETTINGS.minWords,
+      DEFAULT_BIG_SUMMARY_SETTINGS.minWords,
+      50,
+      10000,
+    ),
+    maxWords: normalizeIntegerInput(
+      candidate.maxWords ?? DEFAULT_BIG_SUMMARY_SETTINGS.maxWords,
+      DEFAULT_BIG_SUMMARY_SETTINGS.maxWords,
+      50,
+      10000,
+    ),
   };
 };
 
@@ -3749,7 +3992,12 @@ const readBigSummarySettings = () => {
   }
 };
 
-const persistBigSummarySettings = (value: { rangeStart: number; rangeEnd: number; minWords: number; maxWords: number }) => {
+const persistBigSummarySettings = (value: {
+  rangeStart: number;
+  rangeEnd: number;
+  minWords: number;
+  maxWords: number;
+}) => {
   try {
     localStorage.setItem(BIG_SUMMARY_SETTINGS_KEY, JSON.stringify(normalizeBigSummarySettings(value)));
   } catch {
@@ -3768,7 +4016,7 @@ const isBigSummaryGenerating = ref(false);
 const isBigSummaryApplying = ref(false);
 const bigSummaryDraft = ref<BigSummaryDraft | null>(null);
 
-watch(settingsNavTab, (tab) => {
+watch(settingsNavTab, tab => {
   if (tab === 'summary' && activeModal.value === 'settings') {
     void refreshBigSummaryChronicleEntries();
   }
@@ -3777,9 +4025,12 @@ watch(settingsNavTab, (tab) => {
 const activeSettingsHelp = ref<SettingsHelpKey | null>(null);
 let settingsHelpTouchTimer: number | null = null;
 const settingsHelpText: Record<SettingsHelpKey, string> = {
-  autoSummaryEnabled: '关闭后不会再把每层楼的 <sum> 自动写入总结条目，并且会清空该条目内容，从而停止这部分提示词注入；重新打开后会按历史楼层重新生成。',
-  summaryVisibleWindow: '该项参数为会将正文完整发送给AI的楼层层数：设置越高，AI对于过往记忆细节越清晰，token数也会增加；设置越低，会降低AI对于过往记忆细节回想，但token数会显著下降。',
-  manualSummary: '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用（注意！会覆盖大总结内容且不可逆！没事别点。）。',
+  autoSummaryEnabled:
+    '关闭后不会再把每层楼的 <sum> 自动写入总结条目，并且会清空该条目内容，从而停止这部分提示词注入；重新打开后会按历史楼层重新生成。',
+  summaryVisibleWindow:
+    '该项参数为会将正文完整发送给AI的楼层层数：设置越高，AI对于过往记忆细节越清晰，token数也会增加；设置越低，会降低AI对于过往记忆细节回想，但token数会显著下降。',
+  manualSummary:
+    '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用（注意！会覆盖大总结内容且不可逆！没事别点。）。',
 };
 
 const openSettingsHelp = (key: SettingsHelpKey) => {
@@ -3805,18 +4056,18 @@ const normalizedBigSummaryRange = computed<{ start: number; end: number } | null
 const selectedBigSummaryEntryCount = computed<number>(() => {
   const range = normalizedBigSummaryRange.value;
   if (!range) return 0;
-  return bigSummaryChronicleEntries.value.filter((entry) => (
-    entry.index >= range.start && entry.index <= range.end
-  )).length;
+  return bigSummaryChronicleEntries.value.filter(entry => entry.index >= range.start && entry.index <= range.end)
+    .length;
 });
 
-const canGenerateBigSummary = computed<boolean>(() => (
-  bigSummaryChronicleEntries.value.length > 0
-  && selectedBigSummaryEntryCount.value > 0
-  && !gameStore.isGenerating
-  && !isBigSummaryGenerating.value
-  && !isBigSummaryApplying.value
-));
+const canGenerateBigSummary = computed<boolean>(
+  () =>
+    bigSummaryChronicleEntries.value.length > 0 &&
+    selectedBigSummaryEntryCount.value > 0 &&
+    !gameStore.isGenerating &&
+    !isBigSummaryGenerating.value &&
+    !isBigSummaryApplying.value,
+);
 
 const isBigSummaryDraftEdited = computed<boolean>(() => {
   const draft = bigSummaryDraft.value;
@@ -3981,12 +4232,12 @@ const handleManualSummary = async () => {
 
 const selectedBgmTrackId = computed<string>({
   get: () => bgmTrackId.value,
-  set: (value) => setBgmTrack(value),
+  set: value => setBgmTrack(value),
 });
 
 const bgmVolumePercent = computed<number>({
   get: () => Math.round(bgmVolume.value * 100),
-  set: (value) => setBgmVolume(value / 100),
+  set: value => setBgmVolume(value / 100),
 });
 
 /** Strip entire <image>…</image> blocks – used only for streaming preview */
@@ -4010,7 +4261,7 @@ const processedMainText = computed<{ text: string; imageBlocks: InlineImageBlock
   const raw = gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出';
   const blocks: InlineImageBlock[] = [];
   const imageRe = /<\s*(?:image|img)(?:\s[^>]*)?>[\s\S]*?<\/\s*(?:image|img)\s*>/gi;
-  const replaced = raw.replace(imageRe, (fullMatch) => {
+  const replaced = raw.replace(imageRe, fullMatch => {
     const idx = blocks.length;
     const openEnd = fullMatch.indexOf('>') + 1;
     const closeStart = fullMatch.lastIndexOf('<');
@@ -4080,19 +4331,17 @@ const MAP_ROOM_VISUAL_BY_LABEL: Record<string, MapRoomVisual> = {
 };
 
 const currentFloorPath = computed<string[]>(() => {
-  const rawPath = (
-    Array.isArray(gameStore.statData.$路径)
-      ? gameStore.statData.$路径
-      : ((gameStore.statData.$统计 as any)?.$路径 ?? null)
-  );
+  const rawPath = Array.isArray(gameStore.statData.$路径)
+    ? gameStore.statData.$路径
+    : ((gameStore.statData.$统计 as any)?.$路径 ?? null);
   if (!Array.isArray(rawPath)) return [];
   return rawPath
     .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
 });
 const currentLayerRoomCount = computed<number>(() => {
-  const rawCount = Number(((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0));
+  const rawCount = Number((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0);
   if (!Number.isFinite(rawCount)) return 0;
   return Math.max(0, Math.floor(rawCount));
 });
@@ -4109,7 +4358,7 @@ const mapPathNodes = computed<MapPathNodeView[]>(() => {
   return currentFloorPath.value.map((label, index) => {
     const row = Math.floor(index / MAP_PATH_COLUMNS);
     const positionInRow = index % MAP_PATH_COLUMNS;
-    const col = row % 2 === 0 ? positionInRow : (MAP_PATH_COLUMNS - 1 - positionInRow);
+    const col = row % 2 === 0 ? positionInRow : MAP_PATH_COLUMNS - 1 - positionInRow;
     const x = col * step;
     const y = row * step;
     const visual = MAP_ROOM_VISUAL_BY_LABEL[label] ?? {
@@ -4123,8 +4372,8 @@ const mapPathNodes = computed<MapPathNodeView[]>(() => {
       index,
       x,
       y,
-      centerX: x + (MAP_CELL_SIZE / 2),
-      centerY: y + (MAP_CELL_SIZE / 2),
+      centerX: x + MAP_CELL_SIZE / 2,
+      centerY: y + MAP_CELL_SIZE / 2,
       icon: visual.icon,
       style: {
         left: `${x}px`,
@@ -4136,9 +4385,7 @@ const mapPathNodes = computed<MapPathNodeView[]>(() => {
     };
   });
 });
-const mapContentWidth = computed<number>(() => (
-  (MAP_PATH_COLUMNS - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE
-));
+const mapContentWidth = computed<number>(() => (MAP_PATH_COLUMNS - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE);
 const mapContentHeight = computed<number>(() => {
   const total = mapPathNodes.value.length;
   const rowCount = total > 0 ? Math.floor((total - 1) / MAP_PATH_COLUMNS) + 1 : 1;
@@ -4176,10 +4423,10 @@ const centerMapOnLatestNode = (resetScale: boolean = false) => {
     mapScale.value = 1;
   }
   const latest = mapPathNodes.value[mapPathNodes.value.length - 1];
-  const focusX = latest ? latest.centerX : (mapContentWidth.value / 2);
-  const focusY = latest ? latest.centerY : (mapContentHeight.value / 2);
-  mapOffsetX.value = (viewport.clientWidth / 2) - (focusX * mapScale.value);
-  mapOffsetY.value = (viewport.clientHeight / 2) - (focusY * mapScale.value);
+  const focusX = latest ? latest.centerX : mapContentWidth.value / 2;
+  const focusY = latest ? latest.centerY : mapContentHeight.value / 2;
+  mapOffsetX.value = viewport.clientWidth / 2 - focusX * mapScale.value;
+  mapOffsetY.value = viewport.clientHeight / 2 - focusY * mapScale.value;
 };
 const zoomMap = (delta: number) => {
   const viewport = mapViewportRef.value;
@@ -4194,8 +4441,8 @@ const zoomMap = (delta: number) => {
   const worldX = (centerX - mapOffsetX.value) / mapScale.value;
   const worldY = (centerY - mapOffsetY.value) / mapScale.value;
   mapScale.value = nextScale;
-  mapOffsetX.value = centerX - (worldX * nextScale);
-  mapOffsetY.value = centerY - (worldY * nextScale);
+  mapOffsetX.value = centerX - worldX * nextScale;
+  mapOffsetY.value = centerY - worldY * nextScale;
 };
 const handleMapZoomIn = () => zoomMap(MAP_SCALE_STEP);
 const handleMapZoomOut = () => zoomMap(-MAP_SCALE_STEP);
@@ -4227,11 +4474,14 @@ const handleMapPointerUp = (event: PointerEvent) => {
   }
   mapDragPointerId.value = null;
 };
-watch(() => currentFloorPath.value.length, () => {
-  if (activeModal.value === 'map') {
-    nextTick(() => centerMapOnLatestNode(false));
-  }
-});
+watch(
+  () => currentFloorPath.value.length,
+  () => {
+    if (activeModal.value === 'map') {
+      nextTick(() => centerMapOnLatestNode(false));
+    }
+  },
+);
 
 type StoryInlineSegmentType = 'text' | 'muted' | 'quote';
 
@@ -4268,24 +4518,26 @@ function isQuotedText(text: string): boolean {
   const value = text.trim();
   if (value.length < 2) return false;
   return (
-    /^“[^”\r\n]+”$/.test(value)
-    || /^「[^」\r\n]+」$/.test(value)
-    || /^"[^"\r\n]+"$/.test(value)
-    || /^'[^'\r\n]+'$/.test(value)
+    /^“[^”\r\n]+”$/.test(value) ||
+    /^「[^」\r\n]+」$/.test(value) ||
+    /^"[^"\r\n]+"$/.test(value) ||
+    /^'[^'\r\n]+'$/.test(value)
   );
 }
 
 function normalizeTucaoMarkers(text: string): string {
-  return text
-    // HTML entity forms: &lt;tucao&gt;...&lt;/tucao&gt;
-    .replace(/&lt;\s*tucao(?:\s+[^&]*?)?&gt;/gi, '<tucao>')
-    .replace(/&lt;\s*\/\s*tucao\s*&gt;/gi, '</tucao>')
-    // Alternate bracket forms: [tucao]...[/tucao]
-    .replace(/\[\s*tucao\s*]/gi, '<tucao>')
-    .replace(/\[\s*\/\s*tucao\s*]/gi, '</tucao>')
-    // Chinese tag alias: <吐槽>...</吐槽>
-    .replace(/<\s*吐槽(?:\s+[^>]*)?>/gi, '<tucao>')
-    .replace(/<\s*\/\s*吐槽\s*>/gi, '</tucao>');
+  return (
+    text
+      // HTML entity forms: &lt;tucao&gt;...&lt;/tucao&gt;
+      .replace(/&lt;\s*tucao(?:\s+[^&]*?)?&gt;/gi, '<tucao>')
+      .replace(/&lt;\s*\/\s*tucao\s*&gt;/gi, '</tucao>')
+      // Alternate bracket forms: [tucao]...[/tucao]
+      .replace(/\[\s*tucao\s*]/gi, '<tucao>')
+      .replace(/\[\s*\/\s*tucao\s*]/gi, '</tucao>')
+      // Chinese tag alias: <吐槽>...</吐槽>
+      .replace(/<\s*吐槽(?:\s+[^>]*)?>/gi, '<tucao>')
+      .replace(/<\s*\/\s*吐槽\s*>/gi, '</tucao>')
+  );
 }
 
 function parseInlineSegments(line: string, keyPrefix: string): StoryInlineSegment[] {
@@ -4427,18 +4679,20 @@ const storyContentState = computed<StoryContentState>(() => parseStoryContent(di
 const storyMainLines = computed<StoryLineBlock[]>(() => storyContentState.value.lines);
 const storyTucaoSections = computed<StoryTucaoSection[]>(() => storyContentState.value.tucaoSections);
 
-watch(storyTucaoSections, (sections) => {
-  const validKeys = new Set(
-    sections.map(section => section.key),
-  );
-  const nextState: Record<string, boolean> = {};
-  for (const [key, value] of Object.entries(tucaoExpandedState.value)) {
-    if (validKeys.has(key)) {
-      nextState[key] = value;
+watch(
+  storyTucaoSections,
+  sections => {
+    const validKeys = new Set(sections.map(section => section.key));
+    const nextState: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(tucaoExpandedState.value)) {
+      if (validKeys.has(key)) {
+        nextState[key] = value;
+      }
     }
-  }
-  tucaoExpandedState.value = nextState;
-}, { immediate: true });
+    tucaoExpandedState.value = nextState;
+  },
+  { immediate: true },
+);
 
 const isTucaoExpanded = (key: string) => Boolean(tucaoExpandedState.value[key]);
 const toggleTucao = (key: string) => {
@@ -4465,16 +4719,16 @@ const displayGold = computed(() => gameStore.statData._金币 ?? 0);
 // Dice range
 const displayMinDice = computed(() => gameStore.statData.$最小点数 ?? 0);
 const displayMaxDice = computed(() => gameStore.statData.$最大点数 ?? 0);
-const relicMinDiceBonus = computed(() => (
+const relicMinDiceBonus = computed(() =>
   RELIC_DICE_RANGE_BONUS_CONFIG.min.reduce((sum, item) => {
-    return sum + (getOwnedRelicCountById(item.id) * item.bonus);
-  }, 0)
-));
-const relicMaxDiceBonus = computed(() => (
+    return sum + getOwnedRelicCountById(item.id) * item.bonus;
+  }, 0),
+);
+const relicMaxDiceBonus = computed(() =>
   RELIC_DICE_RANGE_BONUS_CONFIG.max.reduce((sum, item) => {
-    return sum + (getOwnedRelicCountById(item.id) * item.bonus);
-  }, 0)
-));
+    return sum + getOwnedRelicCountById(item.id) * item.bonus;
+  }, 0),
+);
 const effectiveDisplayMinDice = computed(() => {
   const baseMin = toNonNegativeInt(displayMinDice.value, 1);
   return Math.max(1, baseMin + relicMinDiceBonus.value);
@@ -4533,12 +4787,14 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[血族印记]': '被伊丽莎白支配后留下的烙印，后续剧情会体现其持续影响。',
   '[人格排泄]': '被灌入人格排泄剂，理性与意识融化凝结为人格果冻，灵魂被禁锢于排泄出的果冻中，肉体沦为空壳。',
 };
-const negativeStatusEntries = computed(() => (
-  normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name) => ({
+const negativeStatusEntries = computed(() =>
+  normalizeNegativeStatusList(gameStore.statData.$负面状态).map(name => ({
     name,
-    description: NEGATIVE_STATUS_DESCRIPTION_MAP[name] ?? '如果你看到了这串字，且你没有动变量，那么说明你遇到bug了，请反馈给作者。',
-  }))
-));
+    description:
+      NEGATIVE_STATUS_DESCRIPTION_MAP[name] ??
+      '如果你看到了这串字，且你没有动变量，那么说明你遇到bug了，请反馈给作者。',
+  })),
+);
 const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(effectiveDisplayMinDice.value, 1)));
 const idolDiceMax = computed(() => Math.max(idolDiceMin.value, toNonNegativeInt(effectiveDisplayMaxDice.value, 6)));
 
@@ -4558,11 +4814,7 @@ const idolRewardSummary = computed(() => {
   if (!target) return null;
   const config = IDOL_BLESSING_CONFIG[target];
   const dice = idolDiceValue.value;
-  const amount = target === 'gold'
-    ? dice * 2
-    : target === 'maxHp'
-      ? Math.floor(dice * 1.5)
-      : dice;
+  const amount = target === 'gold' ? dice * 2 : target === 'maxHp' ? Math.floor(dice * 1.5) : dice;
   return {
     target,
     statueName: config.statueName,
@@ -4586,10 +4838,15 @@ const handleOptionClick = (option: string) => {
 };
 
 const REBIRTH_STARTER_DECK = [
-  '普通物理攻击', '普通物理攻击', '普通物理攻击',
-  '普通魔法攻击', '普通魔法攻击',
-  '普通护盾', '普通护盾',
-  '普通闪避', '普通闪避',
+  '普通物理攻击',
+  '普通物理攻击',
+  '普通物理攻击',
+  '普通魔法攻击',
+  '普通魔法攻击',
+  '普通护盾',
+  '普通护盾',
+  '普通闪避',
+  '普通闪避',
 ];
 const HOT_SPRING_CLEANSE_ACTION_TEXT = '<user>浸泡在暖泉中，污秽正悄然消融。（负面效果已全部消除）';
 const HOT_SPRING_CLEANSE_LINES = [
@@ -4613,8 +4870,9 @@ const buildRebirthResetFields = (): Record<string, any> => {
   const currentFloor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
   const rebirthSkillPointGain = Math.floor((currentFloor * (currentFloor + 1)) / 2);
   const currentNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
-  const retainedNegativeStatuses = currentNegativeStatuses
-    .filter((status) => REBIRTH_PERSISTENT_NEGATIVE_STATUSES.has(status));
+  const retainedNegativeStatuses = currentNegativeStatuses.filter(status =>
+    REBIRTH_PERSISTENT_NEGATIVE_STATUSES.has(status),
+  );
   return {
     _血量: initialMaxHp,
     _血量上限: initialMaxHp,
@@ -4671,7 +4929,9 @@ const handleRebirthClick = () => {
   resetTransientUiState();
   gameStore.setPendingCombatMvuChanges(null);
   gameStore.setPendingStatDataChanges(buildRebirthResetFields());
-  gameStore.sendAction('<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。');
+  gameStore.sendAction(
+    '<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。',
+  );
 };
 
 // ── Room type config for E option ──
@@ -4685,12 +4945,54 @@ interface RoomConfig {
 }
 
 const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
-  '宝箱房': { label: '打开宝箱', icon: 'fa-solid fa-gem', bgColor: 'rgba(161,98,7,0.25)', borderColor: '#eab308', textColor: '#fde68a', glowColor: '#eab30880' },
-  '战斗房': { label: '战斗', icon: 'fa-solid fa-khanda', bgColor: 'rgba(185,28,28,0.25)', borderColor: '#dc2626', textColor: '#fca5a5', glowColor: '#dc262680' },
-  '领主房': { label: '战斗', icon: 'fa-brands fa-fulcrum', bgColor: 'rgba(185,28,28,0.3)', borderColor: '#ef4444', textColor: '#fca5a5', glowColor: '#ef444480' },
-  '商店房': { label: '打开商店', icon: 'fa-solid fa-store', bgColor: 'rgba(21,128,61,0.25)', borderColor: '#22c55e', textColor: '#bbf7d0', glowColor: '#22c55e80' },
-  '温泉房': { label: '清除诅咒', icon: 'fa-solid fa-spa', bgColor: 'rgba(8,145,178,0.25)', borderColor: '#06b6d4', textColor: '#a5f3fc', glowColor: '#06b6d480' },
-  '神像房': { label: '膜拜', icon: 'fa-solid fa-person-praying', bgColor: 'rgba(126,34,206,0.25)', borderColor: '#a855f7', textColor: '#e9d5ff', glowColor: '#a855f780' },
+  宝箱房: {
+    label: '打开宝箱',
+    icon: 'fa-solid fa-gem',
+    bgColor: 'rgba(161,98,7,0.25)',
+    borderColor: '#eab308',
+    textColor: '#fde68a',
+    glowColor: '#eab30880',
+  },
+  战斗房: {
+    label: '战斗',
+    icon: 'fa-solid fa-khanda',
+    bgColor: 'rgba(185,28,28,0.25)',
+    borderColor: '#dc2626',
+    textColor: '#fca5a5',
+    glowColor: '#dc262680',
+  },
+  领主房: {
+    label: '战斗',
+    icon: 'fa-brands fa-fulcrum',
+    bgColor: 'rgba(185,28,28,0.3)',
+    borderColor: '#ef4444',
+    textColor: '#fca5a5',
+    glowColor: '#ef444480',
+  },
+  商店房: {
+    label: '打开商店',
+    icon: 'fa-solid fa-store',
+    bgColor: 'rgba(21,128,61,0.25)',
+    borderColor: '#22c55e',
+    textColor: '#bbf7d0',
+    glowColor: '#22c55e80',
+  },
+  温泉房: {
+    label: '清除诅咒',
+    icon: 'fa-solid fa-spa',
+    bgColor: 'rgba(8,145,178,0.25)',
+    borderColor: '#06b6d4',
+    textColor: '#a5f3fc',
+    glowColor: '#06b6d480',
+  },
+  神像房: {
+    label: '膜拜',
+    icon: 'fa-solid fa-person-praying',
+    bgColor: 'rgba(126,34,206,0.25)',
+    borderColor: '#a855f7',
+    textColor: '#e9d5ff',
+    glowColor: '#a855f780',
+  },
 };
 
 // E option: no button for 事件房 / 陷阱房
@@ -4739,29 +5041,32 @@ const formatCombatLogs = (logs: string[]) => {
   const ordered = [...logs]
     .reverse()
     .map(sanitizeCombatLogLine)
-    .filter((line) => line.length > 0);
+    .filter(line => line.length > 0);
   if (ordered.length === 0) return '（战斗日志为空）';
   return ordered.join('\n');
 };
 
 const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context: CombatContext, logs: string[]) => {
-  const outcomeLine = outcome === 'win'
-    ? `<user>战斗结果：[胜利]，<user>战胜了${enemyName}。`
-    : outcome === 'lose'
-      ? `<user>战斗结果：[败北]，<user>被${enemyName}击败。`
-      : '<user>战斗结果：[脱离]，一方逃离战斗。';
-  const contextLine = context === 'shopRobbery'
-    ? '<user>本次战斗发生在抢夺商店的冲突中。'
-    : context === 'chestMimic'
-    ? '<user>本次战斗发生在宝箱怪伏击中。'
-    : context === 'combatTest'
-    ? '<user>本次战斗来自战斗测试。'
-    : '<user>本次战斗发生在地牢探索途中。';
-  const followupLine = outcome === 'win'
-    ? '<user>请根据以下完整战斗日志继续剧情，并体现胜利后的后续发展。'
-    : outcome === 'lose'
-      ? '<user>请根据以下完整战斗日志继续剧情，并体现战败后的后续发展。'
-      : '<user>请根据以下完整战斗日志继续剧情，并体现脱离战斗后的后续发展。';
+  const outcomeLine =
+    outcome === 'win'
+      ? `<user>战斗结果：[胜利]，<user>战胜了${enemyName}。`
+      : outcome === 'lose'
+        ? `<user>战斗结果：[败北]，<user>被${enemyName}击败。`
+        : '<user>战斗结果：[脱离]，一方逃离战斗。';
+  const contextLine =
+    context === 'shopRobbery'
+      ? '<user>本次战斗发生在抢夺商店的冲突中。'
+      : context === 'chestMimic'
+        ? '<user>本次战斗发生在宝箱怪伏击中。'
+        : context === 'combatTest'
+          ? '<user>本次战斗来自战斗测试。'
+          : '<user>本次战斗发生在地牢探索途中。';
+  const followupLine =
+    outcome === 'win'
+      ? '<user>请根据以下完整战斗日志继续剧情，并体现胜利后的后续发展。'
+      : outcome === 'lose'
+        ? '<user>请根据以下完整战斗日志继续剧情，并体现战败后的后续发展。'
+        : '<user>请根据以下完整战斗日志继续剧情，并体现脱离战斗后的后续发展。';
   return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
 };
 
@@ -4789,8 +5094,8 @@ const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativ
   const passiveMaxHpBonus = bloodpoolPassiveMaxHpBonus.value;
   const normalizedNegativeEffects = negativeEffects
     .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
   let nextHp = hasHp ? Math.max(0, Math.floor(hpRaw)) : undefined;
 
   if (win && nextHp !== undefined && bloodPoolCount > 0) {
@@ -4799,7 +5104,7 @@ const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativ
       : Math.max(1, baseMaxHp + passiveMaxHpBonus);
     if (nextHp <= Math.floor(combatMaxHp * 0.5)) {
       const maxHpAfterBattle = Math.max(1, baseMaxHp + stomachBonus + passiveMaxHpBonus);
-      nextHp = Math.min(maxHpAfterBattle, nextHp + (12 * bloodPoolCount));
+      nextHp = Math.min(maxHpAfterBattle, nextHp + 12 * bloodPoolCount);
     }
   }
 
@@ -4823,11 +5128,8 @@ const applyMerchantDefeatedShopState = () => {
   }
 };
 
-const pickUniqueRewardItem = (
-  pool: VictoryRewardItem[],
-  usedIds: Set<string>,
-): VictoryRewardItem | null => {
-  const candidates = pool.filter((item) => !usedIds.has(item.id));
+const pickUniqueRewardItem = (pool: VictoryRewardItem[], usedIds: Set<string>): VictoryRewardItem | null => {
+  const candidates = pool.filter(item => !usedIds.has(item.id));
   if (candidates.length === 0) return null;
   return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
 };
@@ -4842,10 +5144,10 @@ const buildVictoryRewardOptions = (): VictoryRewardItem[] => {
   const hasRainbowCard = isNormalEnemy && getOwnedRelicCountById('base_rainbow_card') > 0;
   const hasGoldenCard = isNormalEnemy && getOwnedRelicCountById('base_golden_card') > 0;
   const optionCount = 3 + (hasRainbowCard ? 1 : 0);
-  const rareChance = isLordRoom ? 1 : (hasGoldenCard ? 0.1 : 0.05);
+  const rareChance = isLordRoom ? 1 : hasGoldenCard ? 0.1 : 0.05;
 
-  const normalPool = pool.filter((item) => item.rarity === '普通');
-  const rarePool = pool.filter((item) => item.rarity === '稀有');
+  const normalPool = pool.filter(item => item.rarity === '普通');
+  const rarePool = pool.filter(item => item.rarity === '稀有');
   const options: VictoryRewardItem[] = [];
   const usedIds = new Set<string>();
 
@@ -4911,10 +5213,9 @@ const pickVictoryRewardCard = (card: VictoryRewardItem) => {
 };
 
 const replaceDeckCardWithReward = (idx: number) => {
-  if (!selectedVictoryRewardCard.value || rewardApplying.value || isActiveSkillReward(selectedVictoryRewardCard.value)) return;
-  const raw = Array.isArray(gameStore.statData._技能)
-    ? [...(gameStore.statData._技能 as string[])].slice(0, 9)
-    : [];
+  if (!selectedVictoryRewardCard.value || rewardApplying.value || isActiveSkillReward(selectedVictoryRewardCard.value))
+    return;
+  const raw = Array.isArray(gameStore.statData._技能) ? [...(gameStore.statData._技能 as string[])].slice(0, 9) : [];
   if (raw.length === 0) {
     raw.push(selectedVictoryRewardCard.value.name);
   } else if (idx >= 0 && idx < raw.length) {
@@ -4928,11 +5229,10 @@ const replaceDeckCardWithReward = (idx: number) => {
 };
 
 const replaceActiveSkillWithReward = (idx: number) => {
-  if (!selectedVictoryRewardCard.value || rewardApplying.value || !isActiveSkillReward(selectedVictoryRewardCard.value)) return;
+  if (!selectedVictoryRewardCard.value || rewardApplying.value || !isActiveSkillReward(selectedVictoryRewardCard.value))
+    return;
   if (idx < 0 || idx > 1) return;
-  const raw = Array.isArray(gameStore.statData.$主动)
-    ? [...(gameStore.statData.$主动 as string[])].slice(0, 2)
-    : [];
+  const raw = Array.isArray(gameStore.statData.$主动) ? [...(gameStore.statData.$主动 as string[])].slice(0, 2) : [];
   while (raw.length < 2) raw.push('');
   raw[idx] = selectedVictoryRewardCard.value.name;
   rewardApplying.value = true;
@@ -4983,9 +5283,9 @@ const generateShopProducts = () => {
 
   for (let i = 0; i < count; i++) {
     const targetRarity = rollShopRarity();
-    let candidates = pool.filter((relic) => !usedNames.has(relic.name) && relic.rarity === targetRarity);
+    let candidates = pool.filter(relic => !usedNames.has(relic.name) && relic.rarity === targetRarity);
     if (candidates.length === 0) {
-      candidates = pool.filter((relic) => !usedNames.has(relic.name));
+      candidates = pool.filter(relic => !usedNames.has(relic.name));
     }
     if (candidates.length === 0) break;
     const relic = pickOne(candidates);
@@ -5062,7 +5362,7 @@ const buildNextRelicInventory = (
   pickedRelic: RelicData,
   baseInventory?: Record<string, number>,
 ): Record<string, number> => {
-  const rawRelics = baseInventory ?? (gameStore.statData._圣遗物 ?? {});
+  const rawRelics = baseInventory ?? gameStore.statData._圣遗物 ?? {};
   const nextRelics: Record<string, number> = {};
   for (const [name, value] of Object.entries(rawRelics as Record<string, number>)) {
     const count = Math.max(0, Math.floor(Number(value ?? 0)));
@@ -5103,7 +5403,7 @@ const buyShopProduct = (item: ShopProduct) => {
 const exitShop = () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
   const purchasedStartIndex = Math.max(0, Math.min(shopEntryPurchasedCount.value, shopPurchasedItems.value.length));
-  const purchased = shopPurchasedItems.value.slice(purchasedStartIndex).map((item) => ({ ...item }));
+  const purchased = shopPurchasedItems.value.slice(purchasedStartIndex).map(item => ({ ...item }));
   const total = Math.max(0, shopSpentGold.value - shopEntrySpentGold.value);
   if (purchased.length > 0) {
     const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
@@ -5132,9 +5432,10 @@ const exitShop = () => {
   const narrative = pendingCombatNarrative.value;
   closeShopView();
   if (narrative && narrative.context === 'shopRobbery' && narrative.outcome === 'win') {
-    const lootedText = purchased.length > 0
-      ? `<user>我在失守的货架上拿走了${purchased.map((item) => `${item.name}（${item.rarity}）`).join('，')}。`
-      : '<user>我没有额外拿走商店货架上的物品。';
+    const lootedText =
+      purchased.length > 0
+        ? `<user>我在失守的货架上拿走了${purchased.map(item => `${item.name}（${item.rarity}）`).join('，')}。`
+        : '<user>我没有额外拿走商店货架上的物品。';
     const report = `${narrative.text}\n${lootedText}\n<user>我离开了商店，请基于战斗结果、战斗日志与离店行为继续后续剧情。`;
     pendingCombatNarrative.value = null;
     sendCombatNarrativeOnce(narrative, report);
@@ -5142,7 +5443,7 @@ const exitShop = () => {
   }
 
   if (purchased.length === 0) return;
-  const purchasedText = purchased.map((item) => `${item.name}（${item.rarity}）`).join('，');
+  const purchasedText = purchased.map(item => `${item.name}（${item.rarity}）`).join('，');
   gameStore.sendAction(`<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`);
 };
 
@@ -5215,8 +5516,9 @@ const showHotSpringCleanseText = () => {
 
 const useHotSpringCleanse = () => {
   showHotSpringCleanseText();
-  const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态)
-    .filter((status) => HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES.has(status));
+  const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态).filter(status =>
+    HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES.has(status),
+  );
   gameStore.setPendingStatDataChanges({ $负面状态: retainedNegativeStatuses });
   gameStore.sendAction(HOT_SPRING_CLEANSE_ACTION_TEXT);
 };
@@ -5303,14 +5605,14 @@ const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null =>
   const scale = stageScale.value > 0 ? stageScale.value : 1;
   const stageRect = stageEl.getBoundingClientRect();
   const diceRect = diceEl.getBoundingClientRect();
-  const stageWidth = stageEl.clientWidth || (stageRect.width / scale);
-  const stageHeight = stageEl.clientHeight || (stageRect.height / scale);
+  const stageWidth = stageEl.clientWidth || stageRect.width / scale;
+  const stageHeight = stageEl.clientHeight || stageRect.height / scale;
   const diceWidth = diceRect.width / scale;
   const diceHeight = diceRect.height / scale;
   const maxX = Math.max(0, stageWidth - diceWidth);
   const maxY = Math.max(0, stageHeight - diceHeight);
-  const diceCenterX = x + (diceWidth / 2);
-  const diceCenterY = y + (diceHeight / 2);
+  const diceCenterX = x + diceWidth / 2;
+  const diceCenterY = y + diceHeight / 2;
 
   let best: IdolSnapCandidate | null = null;
   const targets: IdolBlessingTarget[] = ['maxHp', 'mp', 'gold'];
@@ -5320,11 +5622,11 @@ const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null =>
     const slotRect = slotEl.getBoundingClientRect();
     const slotWidth = slotRect.width / scale;
     const slotHeight = slotRect.height / scale;
-    const slotCenterX = ((slotRect.left - stageRect.left) / scale) + (slotWidth / 2);
-    const slotCenterY = ((slotRect.top - stageRect.top) / scale) + (slotHeight / 2);
+    const slotCenterX = (slotRect.left - stageRect.left) / scale + slotWidth / 2;
+    const slotCenterY = (slotRect.top - stageRect.top) / scale + slotHeight / 2;
     const distance = Math.hypot(slotCenterX - diceCenterX, slotCenterY - diceCenterY);
-    const snapX = clampNumber(slotCenterX - (diceWidth / 2), 0, maxX);
-    const snapY = clampNumber(slotCenterY - (diceHeight / 2), 0, maxY);
+    const snapX = clampNumber(slotCenterX - diceWidth / 2, 0, maxX);
+    const snapY = clampNumber(slotCenterY - diceHeight / 2, 0, maxY);
     if (!best || distance < best.distance) {
       best = { target, distance, snapX, snapY };
     }
@@ -5341,8 +5643,8 @@ const placeIdolDiceAtStart = () => {
   const scale = stageScale.value > 0 ? stageScale.value : 1;
   const stageRect = stageEl.getBoundingClientRect();
   const diceRect = diceEl.getBoundingClientRect();
-  const stageWidth = stageEl.clientWidth || (stageRect.width / scale);
-  const stageHeight = stageEl.clientHeight || (stageRect.height / scale);
+  const stageWidth = stageEl.clientWidth || stageRect.width / scale;
+  const stageHeight = stageEl.clientHeight || stageRect.height / scale;
   const diceWidth = diceRect.width / scale;
   const diceHeight = diceRect.height / scale;
   const maxX = Math.max(0, stageWidth - diceWidth);
@@ -5399,8 +5701,8 @@ const handleIdolDicePointerMove = (event: PointerEvent) => {
   const scale = stageScale.value > 0 ? stageScale.value : 1;
   const stageRect = stageEl.getBoundingClientRect();
   const diceRect = diceEl.getBoundingClientRect();
-  const stageWidth = stageEl.clientWidth || (stageRect.width / scale);
-  const stageHeight = stageEl.clientHeight || (stageRect.height / scale);
+  const stageWidth = stageEl.clientWidth || stageRect.width / scale;
+  const stageHeight = stageEl.clientHeight || stageRect.height / scale;
   const diceWidth = diceRect.width / scale;
   const diceHeight = diceRect.height / scale;
   const maxX = Math.max(0, stageWidth - diceWidth);
@@ -5482,12 +5784,12 @@ const pickChestRewardRelics = (count: number): RelicData[] => {
 
   for (let i = 0; i < count; i += 1) {
     const targetRarity = rollChestRewardRarity();
-    let candidates = candidatePool.filter((relic) => relic.rarity === targetRarity && !usedIds.has(relic.id));
+    let candidates = candidatePool.filter(relic => relic.rarity === targetRarity && !usedIds.has(relic.id));
     if (candidates.length === 0) {
-      candidates = candidatePool.filter((relic) => !usedIds.has(relic.id));
+      candidates = candidatePool.filter(relic => !usedIds.has(relic.id));
     }
     if (candidates.length === 0) {
-      candidates = candidatePool.filter((relic) => relic.rarity === targetRarity);
+      candidates = candidatePool.filter(relic => relic.rarity === targetRarity);
     }
     if (candidates.length === 0) {
       candidates = candidatePool;
@@ -5516,7 +5818,7 @@ const queueChestMimicCombatTransition = () => {
 
 const closeOpenedChestForRefresh = () => {
   if (chestStage.value !== 'opened' || chestRolling.value || chestCollecting.value) return;
-  const hasCollectedAnyReward = chestRewardCollectedFlags.value.some((flag) => flag);
+  const hasCollectedAnyReward = chestRewardCollectedFlags.value.some(flag => flag);
   if (hasCollectedAnyReward) {
     toastr.info('已领取过圣遗物，当前宝箱不能关闭刷新。');
     return;
@@ -5562,8 +5864,8 @@ const collectChestReward = (index: number) => {
   chestRewardCollectedFlags.value[index] = true;
   chestCollecting.value = false;
 
-  const allCollected = chestRewardCollectedFlags.value.length > 0
-    && chestRewardCollectedFlags.value.every((flag) => flag);
+  const allCollected =
+    chestRewardCollectedFlags.value.length > 0 && chestRewardCollectedFlags.value.every(flag => flag);
   if (!allCollected) return;
 
   clearChestRewardFadeTimer();
@@ -5627,9 +5929,7 @@ const startCombatFromSpecialOption = async () => {
 
   let enemyName = ((gameStore.statData._对手名称 as string) || '').trim();
   if (!enemyName) {
-    enemyName = roomType === '领主房'
-      ? (pickLordMonsterByArea(area) ?? '')
-      : (pickBattleMonsterByArea(area) ?? '');
+    enemyName = roomType === '领主房' ? (pickLordMonsterByArea(area) ?? '') : (pickBattleMonsterByArea(area) ?? '');
     if (!enemyName) {
       toastr.warning('当前未找到可战斗的对手。');
       return;
@@ -5674,12 +5974,12 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
       chest: {
         stage: chestStage.value,
         rolling: chestRolling.value,
-        rewardRelicIds: chestRewardRelics.value.map((relic) => relic.id),
+        rewardRelicIds: chestRewardRelics.value.map(relic => relic.id),
         rewardCollectedFlags: chestRewardRelics.value.map((_, idx) => Boolean(chestRewardCollectedFlags.value[idx])),
         collecting: chestCollecting.value,
         rewardVisible: chestRewardVisible.value,
         openedBgReady: chestOpenedBgReady.value,
-        portalChoices: chestPortalChoices.value.map((portal) => ({ ...portal })),
+        portalChoices: chestPortalChoices.value.map(portal => ({ ...portal })),
         rewardCountFixed: chestRewardCountFixed.value,
         closeCount: chestCloseCount.value,
         forceMimicNextOpen: chestForceMimicNextOpen.value,
@@ -5691,7 +5991,7 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
       version: 1,
       active: 'shop',
       shop: {
-        products: shopProducts.value.map((item) => ({
+        products: shopProducts.value.map(item => ({
           key: item.key,
           relicId: item.relic.id,
           basePrice: item.basePrice,
@@ -5699,7 +5999,7 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
           sold: item.sold,
         })),
         spentGold: shopSpentGold.value,
-        purchasedItems: shopPurchasedItems.value.map((item) => ({ ...item })),
+        purchasedItems: shopPurchasedItems.value.map(item => ({ ...item })),
         robClickCount: shopRobClickCount.value,
         robbing: shopRobbing.value,
       },
@@ -5724,7 +6024,7 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
       active: 'victoryReward',
       victory: {
         stage: victoryRewardStage.value,
-        optionRewardIds: victoryRewardOptions.value.map((item) => item.id),
+        optionRewardIds: victoryRewardOptions.value.map(item => item.id),
         selectedRewardId: selectedVictoryRewardCard.value?.id ?? null,
         refreshUsed: rewardRefreshUsed.value,
         isNormalEnemy: rewardIsNormalEnemy.value,
@@ -5755,13 +6055,13 @@ const resolvePersistedPortalChoices = (choices: unknown): PortalChoice[] => {
     if (!entry || typeof entry !== 'object') continue;
     const portal = entry as Partial<PortalChoice>;
     if (
-      typeof portal.label !== 'string'
-      || typeof portal.roomType !== 'string'
-      || typeof portal.icon !== 'string'
-      || typeof portal.bgColor !== 'string'
-      || typeof portal.borderColor !== 'string'
-      || typeof portal.textColor !== 'string'
-      || typeof portal.glowColor !== 'string'
+      typeof portal.label !== 'string' ||
+      typeof portal.roomType !== 'string' ||
+      typeof portal.icon !== 'string' ||
+      typeof portal.bgColor !== 'string' ||
+      typeof portal.borderColor !== 'string' ||
+      typeof portal.textColor !== 'string' ||
+      typeof portal.glowColor !== 'string'
     ) {
       continue;
     }
@@ -5801,7 +6101,7 @@ const restoreOverlaySnapshot = () => {
   try {
     if (parsed.active === 'chest' && parsed.chest) {
       const relics = parsed.chest.rewardRelicIds
-        .map((id) => relicByIdMap.value.get(id) ?? getRelicById(id))
+        .map(id => relicByIdMap.value.get(id) ?? getRelicById(id))
         .filter((relic): relic is RelicData => Boolean(relic));
       showChestView.value = true;
       chestStage.value = parsed.chest.stage;
@@ -5812,9 +6112,10 @@ const restoreOverlaySnapshot = () => {
       chestRewardVisible.value = Boolean(parsed.chest.rewardVisible);
       chestOpenedBgReady.value = Boolean(parsed.chest.openedBgReady);
       chestPortalChoices.value = resolvePersistedPortalChoices(parsed.chest.portalChoices);
-      chestRewardCountFixed.value = parsed.chest.rewardCountFixed === null
-        ? null
-        : Math.max(1, Math.min(2, toNonNegativeInt(parsed.chest.rewardCountFixed, 1)));
+      chestRewardCountFixed.value =
+        parsed.chest.rewardCountFixed === null
+          ? null
+          : Math.max(1, Math.min(2, toNonNegativeInt(parsed.chest.rewardCountFixed, 1)));
       chestCloseCount.value = toNonNegativeInt(parsed.chest.closeCount, 0);
       chestForceMimicNextOpen.value = Boolean(parsed.chest.forceMimicNextOpen);
       if (chestStage.value === 'mimic') {
@@ -5841,12 +6142,12 @@ const restoreOverlaySnapshot = () => {
       shopSpentGold.value = Math.max(0, toNonNegativeInt(parsed.shop.spentGold, 0));
       shopPurchasedItems.value = Array.isArray(parsed.shop.purchasedItems)
         ? parsed.shop.purchasedItems
-          .filter((item) => item && typeof item.name === 'string')
-          .map((item) => ({
-            name: item.name,
-            rarity: typeof item.rarity === 'string' ? item.rarity : '普通',
-            price: Math.max(0, toNonNegativeInt(item.price, 0)),
-          }))
+            .filter(item => item && typeof item.name === 'string')
+            .map(item => ({
+              name: item.name,
+              rarity: typeof item.rarity === 'string' ? item.rarity : '普通',
+              price: Math.max(0, toNonNegativeInt(item.price, 0)),
+            }))
         : [];
       shopRobClickCount.value = Math.max(0, toNonNegativeInt(parsed.shop.robClickCount, 0));
       shopRobbing.value = Boolean(parsed.shop.robbing);
@@ -5857,7 +6158,11 @@ const restoreOverlaySnapshot = () => {
 
     if (parsed.active === 'idol' && parsed.idol) {
       showIdolView.value = true;
-      idolDiceValue.value = clampNumber(toNonNegativeInt(parsed.idol.diceValue, idolDiceMin.value), idolDiceMin.value, idolDiceMax.value);
+      idolDiceValue.value = clampNumber(
+        toNonNegativeInt(parsed.idol.diceValue, idolDiceMin.value),
+        idolDiceMin.value,
+        idolDiceMax.value,
+      );
       idolDiceRolling.value = false;
       idolAssignedTarget.value = parsed.idol.assignedTarget;
       idolSnapPreviewTarget.value = parsed.idol.snapPreviewTarget;
@@ -5877,9 +6182,11 @@ const restoreOverlaySnapshot = () => {
       };
       const optionIds = Array.isArray(victoryData.optionRewardIds)
         ? victoryData.optionRewardIds
-        : (Array.isArray(victoryData.optionCardIds) ? victoryData.optionCardIds : []);
+        : Array.isArray(victoryData.optionCardIds)
+          ? victoryData.optionCardIds
+          : [];
       const options = optionIds
-        .map((id) => cardByIdMap.value.get(id) ?? activeSkillByIdMap.value.get(id))
+        .map(id => cardByIdMap.value.get(id) ?? activeSkillByIdMap.value.get(id))
         .filter((item): item is VictoryRewardItem => Boolean(item));
       if (options.length === 0) {
         localStorage.removeItem(OVERLAY_STATE_KEY);
@@ -5969,7 +6276,7 @@ onMounted(() => {
 
 watch(
   () => gameStore.isGenerating,
-  (isGenerating) => {
+  isGenerating => {
     if (!isGenerating) {
       inputWaitingDotsStep.value = 1;
     }
@@ -5987,65 +6294,85 @@ interface FloorMonsterConfig {
 
 // 基于 EJS魔物.txt 的楼层怪物池；结合区域条目标注的“特有魔物”建立区域限制
 const FLOOR_MONSTER_CONFIG: Record<string, FloorMonsterConfig> = {
-  '第一层': {
+  第一层: {
     common: ['游荡粘液球', '荧光蛾', '根须潜行者'],
     uniqueByArea: {
-      '粘液之沼': ['沼泽潜伏者', '拟态气泡怪'],
-      '发情迷雾森林': ['迷雾精怪', '藤蔓行者'],
-      '喷精泉眼': ['泉水精魄', '潜伏触手怪'],
-      '触手菌窟': ['穴居触手'],
-      '肉欲食人花圃': ['极乐蜜蜂', '花粉喷射者'],
+      粘液之沼: ['沼泽潜伏者', '拟态气泡怪'],
+      发情迷雾森林: ['迷雾精怪', '藤蔓行者'],
+      喷精泉眼: ['泉水精魄', '潜伏触手怪'],
+      触手菌窟: ['穴居触手'],
+      肉欲食人花圃: ['极乐蜜蜂', '花粉喷射者'],
     },
   },
-  '第二层': {
+  第二层: {
     common: ['浮游书页', '墨痕鼠', '低语幽灵'],
     uniqueByArea: {
-      '禁忌图书馆': ['书魔', '墨水史莱姆'],
-      '呻吟阅览室': ['椅子拟态怪', '桌面触手'],
-      '催情墨染湖': ['墨团怪', '触手羽毛笔'],
-      '性癖记录馆': ['窥视之眼', '羞耻阴影'],
-      '淫乱教职工宿舍': ['堕落学者', '宿舍幽灵'],
+      禁忌图书馆: ['书魔', '墨水史莱姆'],
+      呻吟阅览室: ['椅子拟态怪', '桌面触手'],
+      催情墨染湖: ['墨团怪', '触手羽毛笔'],
+      性癖记录馆: ['窥视之眼', '羞耻阴影'],
+      淫乱教职工宿舍: ['堕落学者', '宿舍幽灵'],
     },
   },
-  '第三层': {
+  第三层: {
     common: ['巡逻铁蝠', '荆棘匍匐者', '影牢使魔'],
     uniqueByArea: {
-      '欲望监狱': ['刺链蛇', '惩戒傀儡', '羞耻蛭'],
-      '吸血鬼古堡': ['血蝙蝠', '血仆', '梦魇驹'],
-      '调教审判庭': ['审判蛛', '证词虫', '刽子手偶'],
-      '触手水牢': ['深渊水母', '寄生水蛭'],
-      '人偶工坊': ['缝合蜘蛛', '丝线傀儡', '测试者'],
+      欲望监狱: ['刺链蛇', '惩戒傀儡', '羞耻蛭'],
+      吸血鬼古堡: ['血蝙蝠', '血仆', '梦魇驹'],
+      调教审判庭: ['审判蛛', '证词虫', '刽子手偶'],
+      触手水牢: ['深渊水母', '寄生水蛭'],
+      人偶工坊: ['缝合蜘蛛', '丝线傀儡', '测试者'],
     },
   },
-  '第四层': {
+  第四层: {
     common: ['虚空游光', '面具侍从', '空间裂隙虫'],
     uniqueByArea: {
-      '虚空宫殿': ['肉壁蠕虫'],
-      '镜之舞厅': ['镜像分身', '碎镜蝠'],
-      '双子寝宫': ['梦魇蛾', '枕头精'],
-      '春梦回廊': ['画框捕食者'],
-      '极乐宴会厅': ['侍宴者'],
+      虚空宫殿: ['肉壁蠕虫'],
+      镜之舞厅: ['镜像分身', '碎镜蝠'],
+      双子寝宫: ['梦魇蛾', '枕头精'],
+      春梦回廊: ['画框捕食者'],
+      极乐宴会厅: ['侍宴者'],
     },
   },
-  '第五层': {
+  第五层: {
     common: ['祈祷烛灵', '圣痕蝶', '忏悔天使'],
     uniqueByArea: {
-      '交媾祭坛': ['祭司傀儡', '神恩触手'],
-      '圣水之海': ['圣水水母', '深渊鱼群', '圣水精灵'],
-      '苦修之路': ['晶体刺猬', '苦修幽灵'],
-      '神谕淫纹室': ['符文精灵', '光球守卫'],
-      '女神的产房': ['胎儿魔物', '脐带触手'],
+      交媾祭坛: ['祭司傀儡', '神恩触手'],
+      圣水之海: ['圣水水母', '深渊鱼群', '圣水精灵'],
+      苦修之路: ['晶体刺猬', '苦修幽灵'],
+      神谕淫纹室: ['符文精灵', '光球守卫'],
+      女神的产房: ['胎儿魔物', '脐带触手'],
     },
   },
 };
 
 // 领主顺序严格按 FLOOR_MONSTER_CONFIG 的区域顺序映射。
 const LORD_MONSTER_ORDER: string[] = [
-  '普莉姆', '宁芙', '温蒂尼', '玛塔', '罗丝', '厄休拉',
-  '希尔薇', '因克', '阿卡夏', '多萝西', '维罗妮卡',
-  '伊丽莎白', '尤斯蒂娅', '克拉肯', '布偶',
-  '赛琳娜', '米拉', '梦魔双子', '贝希摩斯',
-  '佩恩', '西格尔', '摩尔', '利维坦', '奥赛罗', '盖亚',
+  '普莉姆',
+  '宁芙',
+  '温蒂尼',
+  '玛塔',
+  '罗丝',
+  '厄休拉',
+  '希尔薇',
+  '因克',
+  '阿卡夏',
+  '多萝西',
+  '维罗妮卡',
+  '伊丽莎白',
+  '尤斯蒂娅',
+  '克拉肯',
+  '布偶',
+  '赛琳娜',
+  '米拉',
+  '梦魔双子',
+  '贝希摩斯',
+  '佩恩',
+  '西格尔',
+  '摩尔',
+  '利维坦',
+  '奥赛罗',
+  '盖亚',
 ];
 
 const LORD_MONSTER_BY_AREA: Record<string, string> = (() => {
@@ -6076,10 +6403,7 @@ function pickBattleMonsterByArea(area: string): string | null {
   if (!config) return null;
 
   // 等概率：普通池 + 当前区域特有池 合并后随机（去重避免重复项改变概率）
-  const mergedPool = Array.from(new Set([
-    ...config.common,
-    ...(config.uniqueByArea[area] ?? []),
-  ]));
+  const mergedPool = Array.from(new Set([...config.common, ...(config.uniqueByArea[area] ?? [])]));
   return pickOne(mergedPool);
 }
 
@@ -6092,44 +6416,44 @@ function pickLordMonsterByArea(area: string): string | null {
 // ── Portal visuals ──
 const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
 const PORTAL_ROOM_WEIGHTS: Record<string, number> = {
-  '战斗房': 35,
-  '宝箱房': 20,
-  '商店房': 12,
-  '温泉房': 12,
-  '神像房': 16,
-  '事件房': 0,
-  '陷阱房': 5,
+  战斗房: 35,
+  宝箱房: 20,
+  商店房: 12,
+  温泉房: 12,
+  神像房: 16,
+  事件房: 0,
+  陷阱房: 5,
 };
 const TRAP_POOL_BY_AREA: Record<string, string[]> = {
-  '粘液之沼': ['粘液深坑', '史莱姆的温床'],
-  '发情迷雾森林': ['迷雾漩涡', '活体树洞', '树精的共生茧'],
-  '喷精泉眼': ['间歇性喷泉', '深水陷阱', '圣泉倒灌'],
-  '肉欲食人花圃': ['诱惑陷阱', '粘性花蜜池'],
-  '触手菌窟': ['孢子爆炸', '活体陷阱'],
+  粘液之沼: ['粘液深坑', '史莱姆的温床'],
+  发情迷雾森林: ['迷雾漩涡', '活体树洞', '树精的共生茧'],
+  喷精泉眼: ['间歇性喷泉', '深水陷阱', '圣泉倒灌'],
+  肉欲食人花圃: ['诱惑陷阱', '粘性花蜜池'],
+  触手菌窟: ['孢子爆炸', '活体陷阱'],
 
-  '禁忌图书馆': ['幻境之书', '禁言束缚'],
+  禁忌图书馆: ['幻境之书', '禁言束缚'],
   // 呻吟阅览室：无陷阱（传送门中会移除陷阱房）
-  '催情墨染湖': ['强制纹身', '墨汁洗礼', '沉溺之爱'],
-  '性癖记录馆': ['公开处刑'],
-  '淫乱教职工宿舍': ['催眠广播', '强制派对'],
+  催情墨染湖: ['强制纹身', '墨汁洗礼', '沉溺之爱'],
+  性癖记录馆: ['公开处刑'],
+  淫乱教职工宿舍: ['催眠广播', '强制派对'],
 
-  '欲望监狱': ['自动拘束床', '审讯室陷阱', '矫正项圈'],
-  '吸血鬼古堡': ['魅惑血雾', '血契房间'],
-  '调教审判庭': ['真言之椅', '雷霆忏悔席'],
-  '触手水牢': ['伪装平台', '嵌墙活体标本'],
-  '人偶工坊': ['丝线操控', '强制装配台'],
+  欲望监狱: ['自动拘束床', '审讯室陷阱', '矫正项圈'],
+  吸血鬼古堡: ['魅惑血雾', '血契房间'],
+  调教审判庭: ['真言之椅', '雷霆忏悔席'],
+  触手水牢: ['伪装平台', '嵌墙活体标本'],
+  人偶工坊: ['丝线操控', '强制装配台'],
 
-  '虚空宫殿': ['重力反转', '维度分割展台'],
-  '镜之舞厅': ['镜像置换', '自我对峙', '无尽回廊'],
-  '双子寝宫': ['永恒春梦', '梦境具现', '双子的探访'],
-  '春梦回廊': ['记忆囚笼', '梦魇骑行'],
-  '极乐宴会厅': ['欲望之酒', '暴食者的终宴'],
+  虚空宫殿: ['重力反转', '维度分割展台'],
+  镜之舞厅: ['镜像置换', '自我对峙', '无尽回廊'],
+  双子寝宫: ['永恒春梦', '梦境具现', '双子的探访'],
+  春梦回廊: ['记忆囚笼', '梦魇骑行'],
+  极乐宴会厅: ['欲望之酒', '暴食者的终宴'],
 
-  '交媾祭坛': ['神圣跪拜', '献祭仪式'],
-  '圣水之海': ['圣水灌注', '溺亡的极乐', '依赖成瘾'],
-  '苦修之路': ['感官过载', '镜中诱惑', '跌倒的代价'],
-  '神谕淫纹室': ['强制烙印', '欲望显现', '连锁反应'],
-  '女神的产房': ['强制受孕', '母性陷阱', '子宫回归'],
+  交媾祭坛: ['神圣跪拜', '献祭仪式'],
+  圣水之海: ['圣水灌注', '溺亡的极乐', '依赖成瘾'],
+  苦修之路: ['感官过载', '镜中诱惑', '跌倒的代价'],
+  神谕淫纹室: ['强制烙印', '欲望显现', '连锁反应'],
+  女神的产房: ['强制受孕', '母性陷阱', '子宫回归'],
 };
 
 const ALL_TRAPS = Object.values(TRAP_POOL_BY_AREA).flat();
@@ -6143,32 +6467,90 @@ const pickTrapByArea = (area: string): string | null => {
 
 const getAvailablePortalRoomTypes = (currentArea: string) => {
   if (parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人)) {
-    const withoutShop = PORTAL_ROOM_TYPES.filter((type) => type !== '商店房');
+    const withoutShop = PORTAL_ROOM_TYPES.filter(type => type !== '商店房');
     if (currentArea === '呻吟阅览室') {
-      return withoutShop.filter((type) => type !== '陷阱房');
+      return withoutShop.filter(type => type !== '陷阱房');
     }
     return withoutShop;
   }
   if (currentArea === '呻吟阅览室') {
-    return PORTAL_ROOM_TYPES.filter((type) => type !== '陷阱房');
+    return PORTAL_ROOM_TYPES.filter(type => type !== '陷阱房');
   }
   return [...PORTAL_ROOM_TYPES];
 };
 
-interface PortalVisual { icon: string; bgColor: string; borderColor: string; textColor: string; glowColor: string; }
+interface PortalVisual {
+  icon: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  glowColor: string;
+}
 
 const PORTAL_ROOM_VISUALS: Record<string, PortalVisual> = {
-  '战斗房': { icon: '⚔️', bgColor: 'rgba(127,29,29,0.5)',  borderColor: '#991b1b', textColor: '#fca5a5', glowColor: '#dc2626' },
-  '宝箱房': { icon: '💎', bgColor: 'rgba(113,63,18,0.5)',  borderColor: '#a16207', textColor: '#fde68a', glowColor: '#eab308' },
-  '商店房': { icon: '🏪', bgColor: 'rgba(20,83,45,0.5)',   borderColor: '#166534', textColor: '#bbf7d0', glowColor: '#22c55e' },
-  '温泉房': { icon: '♨️', bgColor: 'rgba(22,78,99,0.5)',   borderColor: '#155e75', textColor: '#a5f3fc', glowColor: '#06b6d4' },
-  '神像房': { icon: '🗿', bgColor: 'rgba(88,28,135,0.5)',  borderColor: '#7e22ce', textColor: '#e9d5ff', glowColor: '#a855f7' },
-  '事件房': { icon: '❓', bgColor: 'rgba(63,63,70,0.5)',   borderColor: '#52525b', textColor: '#d4d4d8', glowColor: '#71717a' },
-  '陷阱房': { icon: '⚠️', bgColor: 'rgba(124,45,18,0.5)',  borderColor: '#9a3412', textColor: '#fed7aa', glowColor: '#ea580c' },
-  '领主房': { icon: '👑', bgColor: 'rgba(127,29,29,0.6)',  borderColor: '#dc2626', textColor: '#fca5a5', glowColor: '#ef4444' },
+  战斗房: {
+    icon: '⚔️',
+    bgColor: 'rgba(127,29,29,0.5)',
+    borderColor: '#991b1b',
+    textColor: '#fca5a5',
+    glowColor: '#dc2626',
+  },
+  宝箱房: {
+    icon: '💎',
+    bgColor: 'rgba(113,63,18,0.5)',
+    borderColor: '#a16207',
+    textColor: '#fde68a',
+    glowColor: '#eab308',
+  },
+  商店房: {
+    icon: '🏪',
+    bgColor: 'rgba(20,83,45,0.5)',
+    borderColor: '#166534',
+    textColor: '#bbf7d0',
+    glowColor: '#22c55e',
+  },
+  温泉房: {
+    icon: '♨️',
+    bgColor: 'rgba(22,78,99,0.5)',
+    borderColor: '#155e75',
+    textColor: '#a5f3fc',
+    glowColor: '#06b6d4',
+  },
+  神像房: {
+    icon: '🗿',
+    bgColor: 'rgba(88,28,135,0.5)',
+    borderColor: '#7e22ce',
+    textColor: '#e9d5ff',
+    glowColor: '#a855f7',
+  },
+  事件房: {
+    icon: '❓',
+    bgColor: 'rgba(63,63,70,0.5)',
+    borderColor: '#52525b',
+    textColor: '#d4d4d8',
+    glowColor: '#71717a',
+  },
+  陷阱房: {
+    icon: '⚠️',
+    bgColor: 'rgba(124,45,18,0.5)',
+    borderColor: '#9a3412',
+    textColor: '#fed7aa',
+    glowColor: '#ea580c',
+  },
+  领主房: {
+    icon: '👑',
+    bgColor: 'rgba(127,29,29,0.6)',
+    borderColor: '#dc2626',
+    textColor: '#fca5a5',
+    glowColor: '#ef4444',
+  },
 };
 const AREA_PORTAL_VISUAL: PortalVisual = {
-  icon: '🌀', bgColor: 'rgba(79,70,229,0.5)', borderColor: '#6366f1', textColor: '#c7d2fe', glowColor: '#818cf8',
+  icon: '🌀',
+  bgColor: 'rgba(79,70,229,0.5)',
+  borderColor: '#6366f1',
+  textColor: '#c7d2fe',
+  glowColor: '#818cf8',
 };
 
 interface PortalChoice {
@@ -6208,15 +6590,17 @@ const MARKED_BATTLE_ROOM_WEIGHT = 95;
 function pickWeightedRoomTypes(roomTypes: string[], count: number): string[] {
   const picked: string[] = [];
   if (roomTypes.length === 0 || count <= 0) return picked;
-  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态)
-    .includes(NEGATIVE_STATUS_MARKED);
+  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态).includes(
+    NEGATIVE_STATUS_MARKED,
+  );
 
   // 允许可重复抽取：每次都从同一候选池按权重抽取，不移除已抽中的房间类型
-  const weightedPool = roomTypes.map((type) => ({
+  const weightedPool = roomTypes.map(type => ({
     type,
-    weight: type === '战斗房' && hasMarkedNegativeStatus
-      ? MARKED_BATTLE_ROOM_WEIGHT
-      : Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
+    weight:
+      type === '战斗房' && hasMarkedNegativeStatus
+        ? MARKED_BATTLE_ROOM_WEIGHT
+        : Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
   }));
   const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
 
@@ -6301,10 +6685,11 @@ const portalChoices = computed<PortalChoice[]>(() => {
   // 构建状态指纹：区域 + 房间类型 + 统计，任何变化都重新生成
   const area = (gameStore.statData._当前区域 as string) || '';
   const roomType = (gameStore.statData._当前房间类型 as string) || '';
-  const rooms = ((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0);
+  const rooms = (gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0;
   const merchantDefeated = parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人);
-  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态)
-    .includes(NEGATIVE_STATUS_MARKED);
+  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态).includes(
+    NEGATIVE_STATUS_MARKED,
+  );
   const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}|${hasMarkedNegativeStatus ? 1 : 0}`;
   if (fingerprint !== cachedPortalFingerprint) {
     cachedPortalFingerprint = fingerprint;
@@ -6315,12 +6700,16 @@ const portalChoices = computed<PortalChoice[]>(() => {
 
 // ── Room type → $统计 field mapping ──
 const ROOM_STAT_KEY: Record<string, string> = {
-  '战斗房': '累计经过战斗', '宝箱房': '累计经过宝箱', '商店房': '累计经过商店',
-  '温泉房': '累计经过温泉', '神像房': '累计经过神像', '事件房': '累计经过事件', '陷阱房': '累计经过陷阱',
+  战斗房: '累计经过战斗',
+  宝箱房: '累计经过宝箱',
+  商店房: '累计经过商店',
+  温泉房: '累计经过温泉',
+  神像房: '累计经过神像',
+  事件房: '累计经过事件',
+  陷阱房: '累计经过陷阱',
 };
-const getPathLabelByRoomType = (roomType: string): string => (
-  roomType.endsWith('房') ? roomType.slice(0, -1) : roomType
-);
+const getPathLabelByRoomType = (roomType: string): string =>
+  roomType.endsWith('房') ? roomType.slice(0, -1) : roomType;
 
 interface QueuedPortalAction {
   actionText: string;
@@ -6354,17 +6743,15 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   const statKey = ROOM_STAT_KEY[portal.roomType];
   if (statKey) incrementKeys.push(statKey);
   const currentArea = (gameStore.statData._当前区域 as string) || '';
-  const encounterMonster = portal.roomType === '领主房'
-    ? pickLordMonsterByArea(currentArea)
-    : portal.roomType === '战斗房'
-      ? pickBattleMonsterByArea(currentArea)
-      : null;
-  const trapName = portal.roomType === '陷阱房'
-    ? pickTrapByArea(currentArea)
-    : null;
-  const trapHpAfterDamage = portal.roomType === '陷阱房'
-    ? Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5)
-    : undefined;
+  const encounterMonster =
+    portal.roomType === '领主房'
+      ? pickLordMonsterByArea(currentArea)
+      : portal.roomType === '战斗房'
+        ? pickBattleMonsterByArea(currentArea)
+        : null;
+  const trapName = portal.roomType === '陷阱房' ? pickTrapByArea(currentArea) : null;
+  const trapHpAfterDamage =
+    portal.roomType === '陷阱房' ? Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5) : undefined;
   let pendingStatDataFields: Record<string, any> | undefined;
   if (portal.roomType === '陷阱房') {
     pendingStatDataFields = {
@@ -6386,11 +6773,12 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   });
   console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
 
-  const enterText = (portal.roomType === '战斗房' || portal.roomType === '领主房') && encounterMonster
-    ? `进入了${portal.roomType}并遭遇了${encounterMonster}`
-    : portal.roomType === '陷阱房' && trapName
-      ? `进入了${portal.roomType}的房间，当前陷阱房为${trapName}`
-      : `进入了${portal.roomType}的房间`;
+  const enterText =
+    (portal.roomType === '战斗房' || portal.roomType === '领主房') && encounterMonster
+      ? `进入了${portal.roomType}并遭遇了${encounterMonster}`
+      : portal.roomType === '陷阱房' && trapName
+        ? `进入了${portal.roomType}的房间，当前陷阱房为${trapName}`
+        : `进入了${portal.roomType}的房间`;
 
   return {
     enterText,
@@ -6435,17 +6823,20 @@ const handleChestPortalClick = async (portal: PortalChoice) => {
     }
     mergedPendingStatDataFields._圣遗物 = nextRelics;
   }
-  gameStore.setPendingStatDataChanges(Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null);
+  gameStore.setPendingStatDataChanges(
+    Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null,
+  );
 
-  const relicNameText = collectedRelics.map((relic) => relic.name).join('、');
+  const relicNameText = collectedRelics.map(relic => relic.name).join('、');
   closeChestView();
   if (relicNameText) {
-    gameStore.sendAction(`<user>打开了箱子并从中获取了圣遗物${relicNameText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`);
+    gameStore.sendAction(
+      `<user>打开了箱子并从中获取了圣遗物${relicNameText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+    );
     return;
   }
   gameStore.sendAction(actionText);
 };
-
 
 const openSaveLoad = () => {
   gameStore.loadSaveEntries();
@@ -6494,9 +6885,9 @@ const buildSelectedRelicPayload = (): Record<string, number> => {
 const openCombatTestBuilder = () => {
   gameStore.loadStatData();
   const availableCardNames = new Set(allCardsForTest.value.map(c => c.name));
-  const availableRelicNames = new Set(baseRelicsForTest.value.map((relic) => relic.name));
+  const availableRelicNames = new Set(baseRelicsForTest.value.map(relic => relic.name));
   const presetDeck = Array.isArray(gameStore.statData._技能)
-    ? (gameStore.statData._技能 as string[]).filter((name) => availableCardNames.has(name)).slice(0, 9)
+    ? (gameStore.statData._技能 as string[]).filter(name => availableCardNames.has(name)).slice(0, 9)
     : [];
   const presetRelicsRaw: Record<string, number> = gameStore.statData._圣遗物 ?? {};
   const presetRelics: Record<string, number> = {};
@@ -6521,7 +6912,7 @@ const openCombatTestBuilder = () => {
 const setCombatTestEnemyFloorFilter = (floorLabel: string) => {
   selectedEnemyFloorForTest.value = floorLabel;
   if (!selectedTestEnemy.value) return;
-  const stillVisible = filteredEnemyEntriesForTest.value.some((entry) => entry.name === selectedTestEnemy.value);
+  const stillVisible = filteredEnemyEntriesForTest.value.some(entry => entry.name === selectedTestEnemy.value);
   if (!stillVisible) {
     selectedTestEnemy.value = '';
   }
@@ -6577,9 +6968,14 @@ const confirmCombatTestEnemyAndStart = async () => {
   showCombat.value = true;
 };
 
-const handleCombatEnd = async (outcome: CombatOutcome, finalStats: unknown, logs: string[], negativeEffects: string[]) => {
+const handleCombatEnd = async (
+  outcome: CombatOutcome,
+  finalStats: unknown,
+  logs: string[],
+  negativeEffects: string[],
+) => {
   const context = activeCombatContext.value;
-  const enemyName = combatEnemyName.value || ((gameStore.statData._对手名称 as string) || '未知敌人');
+  const enemyName = combatEnemyName.value || (gameStore.statData._对手名称 as string) || '未知敌人';
   pendingCombatNarrative.value = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     context,
@@ -6711,9 +7107,7 @@ onBeforeUnmount(() => {
 }
 
 .ui-input-shell {
-  background:
-    radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.06), transparent 46%),
-    #0f0f0f;
+  background: radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.06), transparent 46%), #0f0f0f;
 }
 
 .ui-input-field::placeholder {
@@ -6724,14 +7118,16 @@ onBeforeUnmount(() => {
   transform: none;
   border-radius: 0.72rem;
   border: 1px solid rgba(212, 175, 55, 0.4);
-  background:
-    radial-gradient(circle at 28% 18%, rgba(251, 191, 36, 0.12), transparent 52%),
-    rgba(28, 15, 8, 0.94);
+  background: radial-gradient(circle at 28% 18%, rgba(251, 191, 36, 0.12), transparent 52%), rgba(28, 15, 8, 0.94);
   color: rgba(251, 191, 36, 0.94);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 6px 16px rgba(0, 0, 0, 0.34);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .ui-send-button:hover:not(:disabled),
@@ -6786,9 +7182,7 @@ onBeforeUnmount(() => {
   width: min(92vw, 28rem);
   border-radius: 0.9rem;
   border: 1px solid rgba(212, 175, 55, 0.42);
-  background:
-    radial-gradient(circle at 18% 12%, rgba(251, 191, 36, 0.14), transparent 56%),
-    rgba(15, 11, 10, 0.94);
+  background: radial-gradient(circle at 18% 12%, rgba(251, 191, 36, 0.14), transparent 56%), rgba(15, 11, 10, 0.94);
   padding: 0.95rem 1rem;
   box-shadow:
     0 8px 26px rgba(0, 0, 0, 0.45),
@@ -6822,7 +7216,9 @@ onBeforeUnmount(() => {
   color: rgba(253, 230, 138, 0.96);
   font-size: 0.75rem;
   padding: 0.44rem 0.8rem;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .landscape-hint-btn:hover {
@@ -7050,8 +7446,7 @@ onBeforeUnmount(() => {
   gap: 0.6rem;
   border-radius: 0.56rem;
   border: 1px solid rgba(251, 113, 133, 0.5);
-  background:
-    linear-gradient(120deg, rgba(69, 10, 10, 0.82), rgba(31, 41, 55, 0.72));
+  background: linear-gradient(120deg, rgba(69, 10, 10, 0.82), rgba(31, 41, 55, 0.72));
   padding: 0.46rem 0.56rem;
 }
 
@@ -7198,8 +7593,7 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(217, 119, 6, 0.35);
   background:
     radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%),
-    radial-gradient(circle at 86% 84%, rgba(30, 41, 59, 0.34), transparent 58%),
-    rgba(16, 10, 8, 0.86);
+    radial-gradient(circle at 86% 84%, rgba(30, 41, 59, 0.34), transparent 58%), rgba(16, 10, 8, 0.86);
   overflow: hidden;
   touch-action: none;
   cursor: grab;
@@ -7289,7 +7683,10 @@ onBeforeUnmount(() => {
 
 .bond-portrait-frame--clickable {
   cursor: zoom-in;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .bond-portrait-frame--clickable:hover {
@@ -7362,9 +7759,7 @@ onBeforeUnmount(() => {
   border-radius: 9999px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background:
-    linear-gradient(90deg, rgba(26, 42, 58, 0.72), rgba(26, 18, 14, 0.72)),
-    rgba(7, 7, 10, 0.72);
+  background: linear-gradient(90deg, rgba(26, 42, 58, 0.72), rgba(26, 18, 14, 0.72)), rgba(7, 7, 10, 0.72);
 }
 
 .bond-affection-fill {
@@ -7374,16 +7769,12 @@ onBeforeUnmount(() => {
 }
 
 .bond-affection-fill--positive {
-  background:
-    linear-gradient(90deg, rgba(245, 158, 11, 0.92), rgba(251, 191, 36, 0.95)),
-    rgba(245, 158, 11, 0.9);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.92), rgba(251, 191, 36, 0.95)), rgba(245, 158, 11, 0.9);
   box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
 }
 
 .bond-affection-fill--negative {
-  background:
-    linear-gradient(90deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.96)),
-    rgba(14, 165, 233, 0.9);
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.96)), rgba(14, 165, 233, 0.9);
   box-shadow: 0 0 16px rgba(56, 189, 248, 0.34);
 }
 
@@ -7431,7 +7822,10 @@ onBeforeUnmount(() => {
   color: rgba(251, 191, 36, 0.95);
   padding: 0.18rem 0.72rem;
   font-size: 0.78rem;
-  transition: border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    color 0.2s ease;
 }
 
 .bond-preview-close-btn:hover {
@@ -7466,10 +7860,11 @@ onBeforeUnmount(() => {
   width: 6.5rem;
   height: 6.5rem;
   color: rgba(252, 211, 77, 0.98);
-  transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
-  filter:
-    drop-shadow(0 0 14px rgba(251, 191, 36, 0.8))
-    drop-shadow(0 0 28px rgba(245, 158, 11, 0.55))
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    filter 0.2s ease;
+  filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 28px rgba(245, 158, 11, 0.55))
     drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
 }
 
@@ -7478,7 +7873,9 @@ onBeforeUnmount(() => {
   border-radius: 9999px;
   background: transparent;
   padding: 0.25rem;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .chest-reward-btn:hover .chest-reward-icon {
@@ -7492,9 +7889,7 @@ onBeforeUnmount(() => {
 .chest-reward-btn.is-collected .chest-reward-icon {
   opacity: 0;
   transform: scale(0.82);
-  filter:
-    drop-shadow(0 0 8px rgba(251, 191, 36, 0.45))
-    drop-shadow(0 0 16px rgba(245, 158, 11, 0.25))
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.45)) drop-shadow(0 0 16px rgba(245, 158, 11, 0.25))
     drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
 }
 
@@ -7550,7 +7945,10 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 0.28rem;
-  transition: transform 0.2s ease, opacity 0.25s ease, filter 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.25s ease,
+    filter 0.2s ease;
 }
 
 .shop-item-card:hover {
@@ -7602,7 +8000,10 @@ onBeforeUnmount(() => {
   box-shadow:
     0 0 10px rgba(245, 158, 11, 0.25),
     inset 0 1px 0 rgba(255, 237, 213, 0.15);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .shop-rob-btn:hover:not(:disabled) {
@@ -7626,7 +8027,9 @@ onBeforeUnmount(() => {
     0 0 14px rgba(245, 158, 11, 0.45),
     0 0 30px rgba(180, 83, 9, 0.35),
     inset 0 1px 0 rgba(255, 237, 213, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .shop-exit-btn:hover:not(:disabled) {
@@ -7701,7 +8104,12 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255, 255, 255, 0.72);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(226, 232, 240, 0.14)),
-    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.1) 60%, rgba(148, 163, 184, 0.06) 100%);
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(255, 255, 255, 0.62),
+      rgba(255, 255, 255, 0.1) 60%,
+      rgba(148, 163, 184, 0.06) 100%
+    );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7753,7 +8161,12 @@ onBeforeUnmount(() => {
   border-color: rgba(253, 224, 71, 0.96);
   background:
     linear-gradient(145deg, rgba(255, 248, 220, 0.58), rgba(255, 255, 255, 0.18)),
-    radial-gradient(circle at 50% 35%, rgba(255, 250, 205, 0.68), rgba(255, 255, 255, 0.08) 64%, rgba(250, 204, 21, 0.08) 100%);
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(255, 250, 205, 0.68),
+      rgba(255, 255, 255, 0.08) 64%,
+      rgba(250, 204, 21, 0.08) 100%
+    );
   box-shadow:
     inset 0 0 0 1px rgba(253, 224, 71, 0.18),
     0 0 22px rgba(253, 224, 71, 0.44),
@@ -7764,7 +8177,12 @@ onBeforeUnmount(() => {
   border-color: rgba(255, 255, 255, 0.98);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(241, 245, 249, 0.22)),
-    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.12) 64%, rgba(250, 204, 21, 0.1) 100%);
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(255, 255, 255, 0.78),
+      rgba(255, 255, 255, 0.12) 64%,
+      rgba(250, 204, 21, 0.1) 100%
+    );
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.22),
     0 0 26px rgba(255, 255, 255, 0.4),
@@ -7842,7 +8260,10 @@ onBeforeUnmount(() => {
     0 0 14px rgba(168, 85, 247, 0.45),
     0 0 28px rgba(109, 40, 217, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .idol-exit-btn:hover:not(:disabled) {
@@ -7927,7 +8348,6 @@ onBeforeUnmount(() => {
   font-family: 'Inter', sans-serif;
 }
 
-
 .settings-panel {
   width: 100%;
 }
@@ -7947,7 +8367,11 @@ onBeforeUnmount(() => {
   font-family: 'Inter', sans-serif;
   font-size: 0.76rem;
   letter-spacing: 0.02em;
-  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .settings-nav-btn:hover,
@@ -7962,9 +8386,7 @@ onBeforeUnmount(() => {
 .settings-nav-btn.is-active {
   border-color: rgba(245, 158, 11, 0.86);
   color: rgba(255, 231, 170, 0.98);
-  background:
-    radial-gradient(circle at 15% 10%, rgba(245, 158, 11, 0.14), transparent 58%),
-    rgba(72, 31, 13, 0.85);
+  background: radial-gradient(circle at 15% 10%, rgba(245, 158, 11, 0.14), transparent 58%), rgba(72, 31, 13, 0.85);
   box-shadow: 0 0 12px rgba(245, 158, 11, 0.14);
 }
 
@@ -7972,8 +8394,7 @@ onBeforeUnmount(() => {
   border-radius: 1rem;
   border: 1px solid rgba(92, 62, 38, 0.78);
   padding: 1rem;
-  background:
-    linear-gradient(180deg, rgba(20, 12, 8, 0.94), rgba(9, 6, 5, 0.86));
+  background: linear-gradient(180deg, rgba(20, 12, 8, 0.94), rgba(9, 6, 5, 0.86));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 10px 24px rgba(0, 0, 0, 0.2);
@@ -8057,13 +8478,15 @@ onBeforeUnmount(() => {
   height: 1.75rem;
   border-radius: 0.45rem;
   border: 1px solid rgba(212, 175, 55, 0.3);
-  background:
-    radial-gradient(circle at 26% 20%, rgba(251, 191, 36, 0.12), transparent 55%),
-    rgba(26, 15, 8, 0.88);
+  background: radial-gradient(circle at 26% 20%, rgba(251, 191, 36, 0.12), transparent 55%), rgba(26, 15, 8, 0.88);
   color: rgba(212, 175, 55, 0.86);
   font-size: 0.92rem;
   line-height: 1;
-  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .settings-stepper-btn:hover,
@@ -8097,13 +8520,14 @@ onBeforeUnmount(() => {
   height: 2.2rem;
   border-radius: 0.72rem;
   border: 1px solid rgba(212, 175, 55, 0.32);
-  background:
-    linear-gradient(180deg, rgba(34, 21, 14, 0.98), rgba(18, 12, 9, 0.94));
+  background: linear-gradient(180deg, rgba(34, 21, 14, 0.98), rgba(18, 12, 9, 0.94));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 8px 16px rgba(0, 0, 0, 0.18);
   overflow: hidden;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .settings-switch:hover .settings-switch-track,
@@ -8147,7 +8571,10 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 4px 10px rgba(0, 0, 0, 0.28);
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
 }
 
 .settings-switch.is-on .settings-switch-thumb {
@@ -8169,14 +8596,16 @@ onBeforeUnmount(() => {
 .settings-primary-btn {
   border-radius: 0.58rem;
   border: 1px solid rgba(217, 119, 6, 0.55);
-  background:
-    radial-gradient(circle at 18% 12%, rgba(251, 191, 36, 0.16), transparent 52%),
-    rgba(69, 26, 3, 0.64);
+  background: radial-gradient(circle at 18% 12%, rgba(251, 191, 36, 0.16), transparent 52%), rgba(69, 26, 3, 0.64);
   color: rgba(252, 211, 77, 0.96);
   font-family: 'Inter', sans-serif;
   font-size: 0.84rem;
   padding: 0.52rem 1.04rem;
-  transition: border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .settings-primary-btn:hover:not(:disabled),
@@ -8200,7 +8629,12 @@ onBeforeUnmount(() => {
   font-family: 'Inter', sans-serif;
   font-size: 0.82rem;
   letter-spacing: 0.03em;
-  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
 }
 
 .settings-action-btn:hover,
@@ -8239,9 +8673,7 @@ onBeforeUnmount(() => {
 
 .settings-action-btn--accent {
   border-color: rgba(217, 119, 6, 0.56);
-  background:
-    radial-gradient(circle at 12% 10%, rgba(251, 191, 36, 0.14), transparent 50%),
-    rgba(69, 26, 3, 0.48);
+  background: radial-gradient(circle at 12% 10%, rgba(251, 191, 36, 0.14), transparent 50%), rgba(69, 26, 3, 0.48);
   color: rgba(251, 191, 36, 0.94);
 }
 
@@ -8274,7 +8706,11 @@ onBeforeUnmount(() => {
   font-size: 0.65rem;
   font-weight: 700;
   line-height: 1;
-  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .settings-help-trigger:hover,
@@ -8307,7 +8743,9 @@ onBeforeUnmount(() => {
 
 .settings-help-fade-enter-active,
 .settings-help-fade-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
 
 .settings-help-fade-enter-from,
