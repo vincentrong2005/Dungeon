@@ -110,6 +110,7 @@
           >
             <!-- Story Text Area -->
             <div
+              ref="storyTextContainerRef"
               class="flex-1 bg-dungeon-dark/80 border border-dungeon-brown rounded-t-lg shadow-2xl backdrop-blur-sm p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar relative"
             >
               <!-- Decorative Corners -->
@@ -1199,6 +1200,23 @@
                       >{{ Math.round((1 - bgOverlayOpacity) * 100) }}%</span
                     >
                   </div>
+                </div>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">自动回顶</label>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isAutoScrollTopOnReplyEnabled }"
+                    :aria-checked="isAutoScrollTopOnReplyEnabled"
+                    role="switch"
+                    @click="isAutoScrollTopOnReplyEnabled = !isAutoScrollTopOnReplyEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
                 </div>
               </div>
             </section>
@@ -2455,6 +2473,7 @@ const gameStore = useGameStore();
 const STAGE_BASE_WIDTH = 1920;
 const STAGE_BASE_HEIGHT = 1080;
 const viewportRef = ref<HTMLElement | null>(null);
+const storyTextContainerRef = ref<HTMLElement | null>(null);
 const viewportWidth = ref(STAGE_BASE_WIDTH);
 const viewportHeight = ref(STAGE_BASE_HEIGHT);
 const isTouchViewport = ref(false);
@@ -3806,6 +3825,7 @@ type SettingsNavTab = 'text' | 'music' | 'ai' | 'summary';
 type SettingsHelpKey = 'autoSummaryEnabled' | 'summaryVisibleWindow' | 'manualSummary';
 
 const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
+const AUTO_SCROLL_TOP_ON_REPLY_KEY = 'dungeon.auto_scroll_top_on_reply.v1';
 const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
   fontSize: 26,
   lineHeight: 2.0,
@@ -3868,7 +3888,26 @@ const persistTextSettings = (value: TextSettingsState) => {
   }
 };
 
+const readAutoScrollTopOnReplyEnabled = (): boolean => {
+  try {
+    const raw = localStorage.getItem(AUTO_SCROLL_TOP_ON_REPLY_KEY);
+    if (raw === null) return true;
+    return raw === 'true';
+  } catch {
+    return true;
+  }
+};
+
+const persistAutoScrollTopOnReplyEnabled = (enabled: boolean) => {
+  try {
+    localStorage.setItem(AUTO_SCROLL_TOP_ON_REPLY_KEY, String(enabled));
+  } catch {
+    // Ignore persistence errors in restricted environments
+  }
+};
+
 const textSettings = reactive<TextSettingsState>(readTextSettings());
+const isAutoScrollTopOnReplyEnabled = ref(readAutoScrollTopOnReplyEnabled());
 
 const optionButtonFontSize = computed(() =>
   Math.round(clampTextSettingNumber(textSettings.fontSize * (14 / DEFAULT_TEXT_SETTINGS.fontSize), 11, 18, 14)),
@@ -3900,6 +3939,10 @@ watch(
   },
   { deep: true },
 );
+
+watch(isAutoScrollTopOnReplyEnabled, enabled => {
+  persistAutoScrollTopOnReplyEnabled(enabled);
+});
 
 const isStreamingEnabled = computed<boolean>({
   get: () => gameStore.useStreaming,
@@ -6276,9 +6319,16 @@ onMounted(() => {
 
 watch(
   () => gameStore.isGenerating,
-  isGenerating => {
+  (isGenerating, wasGenerating) => {
     if (!isGenerating) {
       inputWaitingDotsStep.value = 1;
+      if (wasGenerating && isAutoScrollTopOnReplyEnabled.value) {
+        nextTick(() => {
+          const container = storyTextContainerRef.value;
+          if (!container) return;
+          container.scrollTop = 0;
+        });
+      }
     }
   },
 );

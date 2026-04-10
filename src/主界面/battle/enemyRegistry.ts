@@ -3,7 +3,7 @@ import { getAllCards } from './cardRegistry';
 import { ELEMENTAL_DEBUFF_TYPES } from './effects';
 
 function pickCardById(ctx: EnemyAIContext, id: string): CardData {
-  return ctx.deck.find((c) => c.id === id) ?? ctx.deck[0]!;
+  return ctx.deck.find(c => c.id === id) ?? ctx.deck[0]!;
 }
 
 function weightedRandom<T>(options: { value: T; weight: number }[]): T {
@@ -16,31 +16,46 @@ function weightedRandom<T>(options: { value: T; weight: number }[]): T {
   return options[options.length - 1]!.value;
 }
 
-const pickRandomCard = (cards: CardData[]): CardData | null => (
-  cards.length > 0 ? cards[Math.floor(Math.random() * cards.length)]! : null
-);
+const pickRandomCard = (cards: CardData[]): CardData | null =>
+  cards.length > 0 ? cards[Math.floor(Math.random() * cards.length)]! : null;
 
 const selectCardByMindRead = (ctx: EnemyAIContext): CardData => {
   const hand = (ctx.playerHand ?? []).slice(0, 3);
-  const hasPhysical = hand.some((card) => card.type === CardType.PHYSICAL);
-  const hasMagic = hand.some((card) => card.type === CardType.MAGIC);
-  const hasDodge = hand.some((card) => card.type === CardType.DODGE);
+  const hasPhysical = hand.some(card => card.type === CardType.PHYSICAL);
+  const hasMagic = hand.some(card => card.type === CardType.MAGIC);
+  const hasDodge = hand.some(card => card.type === CardType.DODGE);
 
   const handKey = `${hasPhysical ? 1 : 0}${hasMagic ? 1 : 0}${hasDodge ? 1 : 0}`;
   let preferredType: CardType;
   switch (handKey) {
-    case '111': preferredType = CardType.FUNCTION; break;
-    case '110': preferredType = CardType.DODGE; break;
-    case '101': preferredType = CardType.MAGIC; break;
-    case '100': preferredType = CardType.MAGIC; break;
-    case '011': preferredType = CardType.PHYSICAL; break;
-    case '010': preferredType = CardType.PHYSICAL; break;
-    case '001': preferredType = CardType.FUNCTION; break;
-    default: preferredType = CardType.MAGIC; break;
+    case '111':
+      preferredType = CardType.FUNCTION;
+      break;
+    case '110':
+      preferredType = CardType.DODGE;
+      break;
+    case '101':
+      preferredType = CardType.MAGIC;
+      break;
+    case '100':
+      preferredType = CardType.MAGIC;
+      break;
+    case '011':
+      preferredType = CardType.PHYSICAL;
+      break;
+    case '010':
+      preferredType = CardType.PHYSICAL;
+      break;
+    case '001':
+      preferredType = CardType.FUNCTION;
+      break;
+    default:
+      preferredType = CardType.MAGIC;
+      break;
   }
 
-  const cardsByType = (type: CardType) => ctx.deck.filter((card) => card.type === type);
-  const playableMagicCards = cardsByType(CardType.MAGIC).filter((card) => card.manaCost <= ctx.enemyStats.mp);
+  const cardsByType = (type: CardType) => ctx.deck.filter(card => card.type === type);
+  const playableMagicCards = cardsByType(CardType.MAGIC).filter(card => card.manaCost <= ctx.enemyStats.mp);
 
   if (preferredType === CardType.MAGIC) {
     const pickedMagic = pickRandomCard(playableMagicCards);
@@ -53,15 +68,15 @@ const selectCardByMindRead = (ctx: EnemyAIContext): CardData => {
   }
 
   const fallback =
-    pickRandomCard(cardsByType(CardType.PHYSICAL))
-    ?? pickRandomCard(cardsByType(CardType.DODGE))
-    ?? pickRandomCard(cardsByType(CardType.FUNCTION))
-    ?? pickRandomCard(playableMagicCards)
-    ?? pickRandomCard(ctx.deck);
+    pickRandomCard(cardsByType(CardType.PHYSICAL)) ??
+    pickRandomCard(cardsByType(CardType.DODGE)) ??
+    pickRandomCard(cardsByType(CardType.FUNCTION)) ??
+    pickRandomCard(playableMagicCards) ??
+    pickRandomCard(ctx.deck);
   return fallback ?? ctx.deck[0]!;
 };
 
-const CARD_BY_ID = new Map<string, CardData>(getAllCards().map((card) => [card.id, card]));
+const CARD_BY_ID = new Map<string, CardData>(getAllCards().map(card => [card.id, card]));
 const requireCardById = (id: string): CardData => {
   const card = CARD_BY_ID.get(id);
   if (!card) {
@@ -69,7 +84,7 @@ const requireCardById = (id: string): CardData => {
   }
   return card;
 };
-const buildDeckById = (ids: string[]) => ids.map((id) => requireCardById(id));
+const buildDeckById = (ids: string[]) => ids.map(id => requireCardById(id));
 
 const 沐芯兰名称 = '沐芯兰';
 const 宝箱怪名称 = '宝箱怪';
@@ -517,9 +532,8 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
         return pickCardById(ctx, MUXINLAN_CARD.CUNNING);
       }
 
-      const getStacks = (t: EffectType) => ctx.playerStats.effects.find((e) => e.type === t)?.stacks ?? 0;
-      const elementalTotal = ELEMENTAL_DEBUFF_TYPES
-        .reduce((sum, type) => sum + getStacks(type), 0);
+      const getStacks = (t: EffectType) => ctx.playerStats.effects.find(e => e.type === t)?.stacks ?? 0;
+      const elementalTotal = ELEMENTAL_DEBUFF_TYPES.reduce((sum, type) => sum + getStacks(type), 0);
       if (elementalTotal >= 12) {
         return pickCardById(ctx, MUXINLAN_CARD.LIQUIDATION);
       }
@@ -536,7 +550,12 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
         return pickCardById(ctx, chosen);
       }
 
-      const lowMpPool = [MUXINLAN_CARD.FORCED, MUXINLAN_CARD.TAKE_IT, MUXINLAN_CARD.PREMIUM, MUXINLAN_CARD.AMBUSH] as const;
+      const lowMpPool = [
+        MUXINLAN_CARD.FORCED,
+        MUXINLAN_CARD.TAKE_IT,
+        MUXINLAN_CARD.PREMIUM,
+        MUXINLAN_CARD.AMBUSH,
+      ] as const;
       const chosen = lowMpPool[Math.floor(Math.random() * lowMpPool.length)]!;
       return pickCardById(ctx, chosen);
     },
@@ -555,15 +574,9 @@ function create宝箱怪Definition(currentFloor: number): EnemyDefinition {
       maxDice: 3 + 2 * floor,
       effects: [],
     },
-    deck: buildDeckById([
-      MIMIC_CARD.TENTACLE,
-      MIMIC_CARD.TONGUE,
-      MIMIC_CARD.MAW,
-      MIMIC_CARD.CRUSH,
-      MIMIC_CARD.DIGEST,
-    ]),
+    deck: buildDeckById([MIMIC_CARD.TENTACLE, MIMIC_CARD.TONGUE, MIMIC_CARD.MAW, MIMIC_CARD.CRUSH, MIMIC_CARD.DIGEST]),
     selectCard(ctx: EnemyAIContext) {
-      const playerHasDevour = ctx.playerStats.effects.some((e) => e.type === EffectType.DEVOUR && e.stacks > 0);
+      const playerHasDevour = ctx.playerStats.effects.some(e => e.type === EffectType.DEVOUR && e.stacks > 0);
       if (playerHasDevour) {
         const devourPool = [MIMIC_CARD.CRUSH, MIMIC_CARD.DIGEST] as const;
         const chosen = devourPool[Math.floor(Math.random() * devourPool.length)]!;
@@ -668,12 +681,12 @@ const 沼泽潜伏者: EnemyDefinition = {
     SWAMP_LURKER_CARD.CORRODE,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerHasDevour = ctx.playerStats.effects.some((e) => e.type === EffectType.DEVOUR && e.stacks > 0);
+    const playerHasDevour = ctx.playerStats.effects.some(e => e.type === EffectType.DEVOUR && e.stacks > 0);
     if (playerHasDevour) {
       return pickCardById(ctx, SWAMP_LURKER_CARD.CORRODE);
     }
 
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
     if (playerHasBind) {
       return pickCardById(ctx, SWAMP_LURKER_CARD.FLUID_WRAP);
     }
@@ -754,12 +767,12 @@ const 藤蔓行者: EnemyDefinition = {
       return pickCardById(ctx, VINEWALKER_CARD.LURK);
     }
 
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
     if (playerHasBind) {
       return pickCardById(ctx, VINEWALKER_CARD.PARALYTIC_TOXIN);
     }
 
-    const selfHasAmbush = ctx.enemyStats.effects.some((e) => e.type === EffectType.AMBUSH && e.stacks > 0);
+    const selfHasAmbush = ctx.enemyStats.effects.some(e => e.type === EffectType.AMBUSH && e.stacks > 0);
     if (!selfHasAmbush) {
       return pickCardById(ctx, VINEWALKER_CARD.LURK);
     }
@@ -792,8 +805,9 @@ const 泉水精魄: EnemyDefinition = {
     SPRING_SPIRIT_CARD.SILENT_INFILTRATION,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const selfHasElementalDebuff = ELEMENTAL_DEBUFF_TYPES
-      .some((type) => ctx.enemyStats.effects.some((e) => e.type === type && e.stacks > 0));
+    const selfHasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some(type =>
+      ctx.enemyStats.effects.some(e => e.type === type && e.stacks > 0),
+    );
 
     if (!selfHasElementalDebuff) {
       const chosen = weightedRandom<string>([
@@ -836,7 +850,7 @@ const 潜伏触手怪: EnemyDefinition = {
       return pickCardById(ctx, INFILTRATOR_TENTACLE_CARD.LIGHTNING_AMBUSH);
     }
 
-    const selfHasAmbush = ctx.enemyStats.effects.some((e) => e.type === EffectType.AMBUSH && e.stacks > 0);
+    const selfHasAmbush = ctx.enemyStats.effects.some(e => e.type === EffectType.AMBUSH && e.stacks > 0);
     if (!selfHasAmbush) {
       const chosen = weightedRandom<string>([
         { value: INFILTRATOR_TENTACLE_CARD.TREMOR_SENSE, weight: 20 },
@@ -884,9 +898,7 @@ const 穴居触手: EnemyDefinition = {
       return pickCardById(ctx, CAVE_TENTACLE_CARD.LIGHTNING_AMBUSH);
     }
 
-    const chosen = Math.random() < 0.5
-      ? CAVE_TENTACLE_CARD.INFILTRATE_CLIMB
-      : CAVE_TENTACLE_CARD.LIGHTNING_AMBUSH;
+    const chosen = Math.random() < 0.5 ? CAVE_TENTACLE_CARD.INFILTRATE_CLIMB : CAVE_TENTACLE_CARD.LIGHTNING_AMBUSH;
     return pickCardById(ctx, chosen);
   },
 };
@@ -915,7 +927,7 @@ const 极乐蜜蜂: EnemyDefinition = {
       return pickCardById(ctx, BLISS_BEE_CARD.SWARM_BURST);
     }
 
-    const playerHasPoison = ctx.playerStats.effects.some((e) => e.type === EffectType.POISON && e.stacks > 0);
+    const playerHasPoison = ctx.playerStats.effects.some(e => e.type === EffectType.POISON && e.stacks > 0);
     if (playerHasPoison) {
       const chosen = weightedRandom<string>([
         { value: BLISS_BEE_CARD.SENSITIVE_SCOUT, weight: 20 },
@@ -925,7 +937,7 @@ const 极乐蜜蜂: EnemyDefinition = {
       return pickCardById(ctx, chosen);
     }
 
-    const playerHasVulnerable = ctx.playerStats.effects.some((e) => e.type === EffectType.VULNERABLE && e.stacks > 0);
+    const playerHasVulnerable = ctx.playerStats.effects.some(e => e.type === EffectType.VULNERABLE && e.stacks > 0);
     if (playerHasVulnerable) {
       const chosen = weightedRandom<string>([
         { value: BLISS_BEE_CARD.SENSITIVE_SCOUT, weight: 20 },
@@ -948,10 +960,7 @@ const POLLEN_SPRAYER_ENEMY: EnemyDefinition = {
     maxDice: 3,
     effects: [],
   },
-  deck: buildDeckById([
-    POLLEN_SPRAYER_CARD.HIGH_PRESSURE_SPRAY,
-    POLLEN_SPRAYER_CARD.INFILTRATION,
-  ]),
+  deck: buildDeckById([POLLEN_SPRAYER_CARD.HIGH_PRESSURE_SPRAY, POLLEN_SPRAYER_CARD.INFILTRATION]),
   selectCard(ctx: EnemyAIContext) {
     if (!ctx.flags.pollenSprayerOpenedWithHighPressureSpray) {
       ctx.flags.pollenSprayerOpenedWithHighPressureSpray = true;
@@ -990,7 +999,7 @@ const PATROL_BAT_ENEMY: EnemyDefinition = {
       return pickCardById(ctx, PATROL_BAT_CARD.MARK);
     }
 
-    const playerHasBleed = ctx.playerStats.effects.some((e) => e.type === EffectType.BLEED && e.stacks > 0);
+    const playerHasBleed = ctx.playerStats.effects.some(e => e.type === EffectType.BLEED && e.stacks > 0);
     if (playerHasBleed || ctx.turn === 6) {
       return pickCardById(ctx, PATROL_BAT_CARD.METAL_SCREECH);
     }
@@ -1089,11 +1098,7 @@ const 证词虫: EnemyDefinition = {
       { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
     ],
   },
-  deck: buildDeckById([
-    WITNESS_WORM_CARD.PARASITIC_DRILL,
-    WITNESS_WORM_CARD.MENTAL_SHOCK,
-    WITNESS_WORM_CARD.RETREAT,
-  ]),
+  deck: buildDeckById([WITNESS_WORM_CARD.PARASITIC_DRILL, WITNESS_WORM_CARD.MENTAL_SHOCK, WITNESS_WORM_CARD.RETREAT]),
   selectCard(ctx: EnemyAIContext) {
     if (ctx.flags.shameLeechParasiticDrillHit) {
       return pickCardById(ctx, WITNESS_WORM_CARD.RETREAT);
@@ -1193,11 +1198,7 @@ const 血仆: EnemyDefinition = {
       { type: EffectType.REGEN, stacks: 5, polarity: 'buff' },
     ],
   },
-  deck: buildDeckById([
-    BLOOD_SERVANT_CARD.OFFERING_SMILE,
-    BLOOD_SERVANT_CARD.INVITATION,
-    BLOOD_SERVANT_CARD.LURE,
-  ]),
+  deck: buildDeckById([BLOOD_SERVANT_CARD.OFFERING_SMILE, BLOOD_SERVANT_CARD.INVITATION, BLOOD_SERVANT_CARD.LURE]),
   selectCard(ctx: EnemyAIContext) {
     if (ctx.turn === 1) {
       return pickCardById(ctx, BLOOD_SERVANT_CARD.OFFERING_SMILE);
@@ -1219,9 +1220,7 @@ const 梦魇驹: EnemyDefinition = {
     mp: 0,
     minDice: 3,
     maxDice: 7,
-    effects: [
-      { type: EffectType.SHIELD_BARRIER, stacks: 2, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.SHIELD_BARRIER, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
     NIGHTMARE_STEED_CARD.SNIFF,
@@ -1327,9 +1326,7 @@ const 影牢使魔: EnemyDefinition = {
     mp: 0,
     minDice: 2,
     maxDice: 5,
-    effects: [
-      { type: EffectType.ILLUSORY_BODY, stacks: 1, polarity: 'trait' },
-    ],
+    effects: [{ type: EffectType.ILLUSORY_BODY, stacks: 1, polarity: 'trait' }],
   },
   deck: buildDeckById([
     SHADOW_JAILER_CARD.SHADOW_ASSAULT,
@@ -1371,7 +1368,7 @@ const 荆棘匍匐者: EnemyDefinition = {
     THORN_CRAWLER_CARD.TOXIN_PULSE,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
 
     if (playerHasBind && ctx.enemyStats.mp >= 2) {
       return pickCardById(ctx, THORN_CRAWLER_CARD.TOXIN_PULSE);
@@ -1411,8 +1408,8 @@ const 刺链蛇: EnemyDefinition = {
       return pickCardById(ctx, SPINE_CHAIN_SNAKE_CARD.LURK);
     }
 
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
-    const selfHasAmbush = ctx.enemyStats.effects.some((e) => e.type === EffectType.AMBUSH && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
+    const selfHasAmbush = ctx.enemyStats.effects.some(e => e.type === EffectType.AMBUSH && e.stacks > 0);
 
     if (playerHasBind && ctx.enemyStats.mp >= 2) {
       return pickCardById(ctx, SPINE_CHAIN_SNAKE_CARD.TOXIN_PULSE);
@@ -1538,9 +1535,7 @@ const 堕落学者: EnemyDefinition = {
     mp: 0,
     minDice: 3,
     maxDice: 6,
-    effects: [
-      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' }],
   },
   deck: buildDeckById([
     FALLEN_SCHOLAR_CARD.SENSITIVE_DEVELOPMENT,
@@ -1563,7 +1558,7 @@ const 堕落学者: EnemyDefinition = {
       return pickCardById(ctx, chosen);
     }
 
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
     if (playerHasBind) {
       const chosen = weightedRandom<string>([
         { value: FALLEN_SCHOLAR_CARD.COOPERATIVE_EXPERIMENT, weight: 60 },
@@ -1639,14 +1634,9 @@ const 普莉姆: EnemyDefinition = {
       { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
     ],
   },
-  deck: buildDeckById([
-    PRIM_CARD.EMBRACE,
-    PRIM_CARD.FLUID_EVASION,
-    PRIM_CARD.DIGEST_CARESS,
-    PRIM_CARD.ENTITY_CLONE,
-  ]),
+  deck: buildDeckById([PRIM_CARD.EMBRACE, PRIM_CARD.FLUID_EVASION, PRIM_CARD.DIGEST_CARESS, PRIM_CARD.ENTITY_CLONE]),
   selectCard(ctx: EnemyAIContext) {
-    const selfHasSwarm = ctx.enemyStats.effects.some((e) => e.type === EffectType.SWARM && e.stacks > 0);
+    const selfHasSwarm = ctx.enemyStats.effects.some(e => e.type === EffectType.SWARM && e.stacks > 0);
     if (ctx.enemyStats.hp < ctx.enemyStats.maxHp * 0.5 && !selfHasSwarm) {
       return pickCardById(ctx, PRIM_CARD.ENTITY_CLONE);
     }
@@ -1693,7 +1683,7 @@ const 宁芙: EnemyDefinition = {
       return pickCardById(ctx, NYMPH_CARD.MENTAL_SHOCK);
     }
 
-    const selfHasIllusoryBody = ctx.enemyStats.effects.some((e) => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
+    const selfHasIllusoryBody = ctx.enemyStats.effects.some(e => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
     if (selfHasIllusoryBody) {
       const chosen = weightedRandom<string>([
         { value: NYMPH_CARD.MISTY_SWIRL, weight: 40 },
@@ -1768,9 +1758,7 @@ const 玛塔: EnemyDefinition = {
     mp: 0,
     minDice: 2,
     maxDice: 5,
-    effects: [
-      { type: EffectType.SWARM, stacks: 1, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.SWARM, stacks: 1, polarity: 'buff' }],
   },
   deck: buildDeckById([
     MATA_CARD.MATRIARCH_INVITATION,
@@ -1779,8 +1767,7 @@ const 玛塔: EnemyDefinition = {
     MATA_CARD.FALSE_SMILE,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerPoisonAmount = ctx.playerStats.effects
-      .find((e) => e.type === EffectType.POISON_AMOUNT)?.stacks ?? 0;
+    const playerPoisonAmount = ctx.playerStats.effects.find(e => e.type === EffectType.POISON_AMOUNT)?.stacks ?? 0;
     if (ctx.enemyStats.hp < ctx.enemyStats.maxHp * 0.5 && playerPoisonAmount >= 5) {
       return pickCardById(ctx, MATA_CARD.FUNGAL_REPAIR);
     }
@@ -1802,9 +1789,7 @@ const 罗丝: EnemyDefinition = {
     mp: 0,
     minDice: 1,
     maxDice: 6,
-    effects: [
-      { type: EffectType.THORNS, stacks: 1, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.THORNS, stacks: 1, polarity: 'buff' }],
   },
   deck: buildDeckById([
     ROSE_CARD.PLANT_DOMINION,
@@ -1849,12 +1834,12 @@ const 厄休拉: EnemyDefinition = {
     URSULA_CARD.COMMANDMENT,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerHasSilence = ctx.playerStats.effects.some((e) => e.type === EffectType.SILENCE && e.stacks > 0);
+    const playerHasSilence = ctx.playerStats.effects.some(e => e.type === EffectType.SILENCE && e.stacks > 0);
     if (ctx.enemyStats.mp >= 6 && playerHasSilence) {
       return pickCardById(ctx, URSULA_CARD.LUST_IMPRINT);
     }
 
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
     if (playerHasBind) {
       const chosen = weightedRandom<string>([
         { value: URSULA_CARD.SILENCE_SPELL, weight: 20 },
@@ -1882,9 +1867,7 @@ const 希尔薇: EnemyDefinition = {
     mp: 0,
     minDice: 3,
     maxDice: 7,
-    effects: [
-      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
     HILVY_CARD.SILENT_DECREE,
@@ -1895,7 +1878,7 @@ const 希尔薇: EnemyDefinition = {
     HILVY_CARD.SILENT_FINALE,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerHasSilence = ctx.playerStats.effects.some((e) => e.type === EffectType.SILENCE && e.stacks > 0);
+    const playerHasSilence = ctx.playerStats.effects.some(e => e.type === EffectType.SILENCE && e.stacks > 0);
     if (ctx.enemyStats.mp >= 6 && playerHasSilence) {
       return pickCardById(ctx, HILVY_CARD.SILENT_FINALE);
     }
@@ -1946,9 +1929,7 @@ const 尤斯蒂娅: EnemyDefinition = {
     mp: 0,
     minDice: 5,
     maxDice: 10,
-    effects: [
-      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
     YUSTIA_CARD.SILENT_PROCLAMATION,
@@ -1958,7 +1939,7 @@ const 尤斯蒂娅: EnemyDefinition = {
     YUSTIA_CARD.SCALE_POWDER_BARRIER,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerCold = ctx.playerStats.effects.find((e) => e.type === EffectType.COLD)?.stacks ?? 0;
+    const playerCold = ctx.playerStats.effects.find(e => e.type === EffectType.COLD)?.stacks ?? 0;
     if (playerCold >= 12) {
       const chosen = weightedRandom<string>([
         { value: YUSTIA_CARD.SILENT_PROCLAMATION, weight: 20 },
@@ -2012,8 +1993,8 @@ const 伊丽莎白: EnemyDefinition = {
     ELIZABETH_CARD.BLOOD_MIST_AVATAR,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const hasIllusoryBody = ctx.enemyStats.effects.some((e) => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
-    const isBelowSixtyPercentHp = ctx.enemyStats.maxHp > 0 && (ctx.enemyStats.hp * 5) < (ctx.enemyStats.maxHp * 3);
+    const hasIllusoryBody = ctx.enemyStats.effects.some(e => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
+    const isBelowSixtyPercentHp = ctx.enemyStats.maxHp > 0 && ctx.enemyStats.hp * 5 < ctx.enemyStats.maxHp * 3;
     if (isBelowSixtyPercentHp && !hasIllusoryBody) {
       return pickCardById(ctx, ELIZABETH_CARD.BLOOD_MIST_AVATAR);
     }
@@ -2070,12 +2051,12 @@ const 因克: EnemyDefinition = {
     INK_LORD_CARD.BLACK_TIDE_INFUSION,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerHasControlled = ctx.playerStats.effects.some((e) => e.type === EffectType.CONTROLLED && e.stacks > 0);
+    const playerHasControlled = ctx.playerStats.effects.some(e => e.type === EffectType.CONTROLLED && e.stacks > 0);
     if ((ctx.enemyStats.mp >= 6 && playerHasControlled) || ctx.enemyStats.mp >= 10) {
       return pickCardById(ctx, INK_LORD_CARD.BLACK_TIDE_INFUSION);
     }
 
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
     if (playerHasBind) {
       const chosen = weightedRandom<string>([
         { value: INK_LORD_CARD.FORCED_SCRIPT, weight: 50 },
@@ -2124,15 +2105,12 @@ const 阿卡夏: EnemyDefinition = {
 const 多萝西: EnemyDefinition = {
   name: '多萝西',
   stats: {
-    hp: 120,
-    maxHp: 120,
+    hp: 100,
+    maxHp: 100,
     mp: 0,
-    minDice: 5,
-    maxDice: 8,
-    effects: [
-      { type: EffectType.REGEN, stacks: 1, polarity: 'buff' },
-      { type: EffectType.WHITE_TURBID, stacks: 1, polarity: 'mixed' },
-    ],
+    minDice: 4,
+    maxDice: 7,
+    effects: [{ type: EffectType.WHITE_TURBID, stacks: 1, polarity: 'mixed' }],
   },
   deck: buildDeckById([
     DOROTHY_CARD.HOLD_GROUND,
@@ -2173,9 +2151,9 @@ const 维罗妮卡: EnemyDefinition = {
   ]),
   selectCard(ctx: EnemyAIContext) {
     const hpRatio = ctx.enemyStats.maxHp > 0 ? ctx.enemyStats.hp / ctx.enemyStats.maxHp : 0;
-    const playerHasBleed = ctx.playerStats.effects.some((e) => e.type === EffectType.BLEED && e.stacks > 0);
+    const playerHasBleed = ctx.playerStats.effects.some(e => e.type === EffectType.BLEED && e.stacks > 0);
     const berserkNotUsed = ctx.flags.veronicaBerserkUsed !== true;
-    const canUseBerserkNow = ctx.deck.some((card) => card.id === VERONICA_CARD.BERSERK);
+    const canUseBerserkNow = ctx.deck.some(card => card.id === VERONICA_CARD.BERSERK);
 
     if (berserkNotUsed && hpRatio < 0.5 && canUseBerserkNow) {
       ctx.flags.veronicaBerserkUsed = true;
@@ -2228,8 +2206,8 @@ const 浮游书页: EnemyDefinition = {
     FLOATING_PAGE_CARD.FORCED_IMMERSION,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerCorrosion = ctx.playerStats.effects.find((e) => e.type === EffectType.CORROSION)?.stacks ?? 0;
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerCorrosion = ctx.playerStats.effects.find(e => e.type === EffectType.CORROSION)?.stacks ?? 0;
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
     if (ctx.enemyStats.mp >= 4 && playerCorrosion >= 3) {
       return pickCardById(ctx, FLOATING_PAGE_CARD.SENSORY_INFUSION);
     }
@@ -2262,7 +2240,7 @@ const 墨痕鼠: EnemyDefinition = {
     INK_MOUSE_CARD.LIQUEFY_REGEN,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const selfSwarm = ctx.enemyStats.effects.find((e) => e.type === EffectType.SWARM)?.stacks ?? 0;
+    const selfSwarm = ctx.enemyStats.effects.find(e => e.type === EffectType.SWARM)?.stacks ?? 0;
     if (selfSwarm <= 0 && ctx.enemyStats.maxHp <= 1) {
       return pickCardById(ctx, INK_MOUSE_CARD.RUNAWAY);
     }
@@ -2341,7 +2319,7 @@ const 墨水史莱姆: EnemyDefinition = {
     INK_SLIME_CARD.SLIME_DODGE,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const selfSwarm = ctx.enemyStats.effects.find((e) => e.type === EffectType.SWARM)?.stacks ?? 0;
+    const selfSwarm = ctx.enemyStats.effects.find(e => e.type === EffectType.SWARM)?.stacks ?? 0;
     if (selfSwarm <= 1) {
       const chosen = weightedRandom<string>([
         { value: INK_SLIME_CARD.CHARGE, weight: 20 },
@@ -2478,9 +2456,7 @@ const CHAIR_MIMIC_ENEMY: EnemyDefinition = {
     mp: 0,
     minDice: 2,
     maxDice: 5,
-    effects: [
-      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' }],
   },
   deck: buildDeckById([
     CHAIR_MIMIC_CARD.SILENT_DISGUISE,
@@ -2531,7 +2507,7 @@ const 桌面触手: EnemyDefinition = {
       return pickCardById(ctx, DESK_TENTACLE_CARD.SILENT_DISGUISE);
     }
 
-    const hasAmbush = ctx.enemyStats.effects.some((e) => e.type === EffectType.AMBUSH && e.stacks > 0);
+    const hasAmbush = ctx.enemyStats.effects.some(e => e.type === EffectType.AMBUSH && e.stacks > 0);
     if (!hasAmbush) {
       const chosen = weightedRandom<string>([
         { value: DESK_TENTACLE_CARD.SILENT_DISGUISE, weight: 50 },
@@ -2559,9 +2535,7 @@ const 审判蛛: EnemyDefinition = {
     mp: 0,
     minDice: 3,
     maxDice: 6,
-    effects: [
-      { type: EffectType.MIND_READ, stacks: 1, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.MIND_READ, stacks: 1, polarity: 'buff' }],
   },
   deck: buildDeckById([
     JUDGMENT_SPIDER_CARD.BINDING_SILK,
@@ -2588,13 +2562,9 @@ const 丝线傀儡: EnemyDefinition = {
       { type: EffectType.SELF_REPAIR, stacks: 3, polarity: 'buff' },
     ],
   },
-  deck: buildDeckById([
-    SILK_PUPPET_CARD.RALLY,
-    SILK_PUPPET_CARD.POUNCE,
-    SILK_PUPPET_CARD.COOPERATIVE_SUBDUE,
-  ]),
+  deck: buildDeckById([SILK_PUPPET_CARD.RALLY, SILK_PUPPET_CARD.POUNCE, SILK_PUPPET_CARD.COOPERATIVE_SUBDUE]),
   selectCard(ctx: EnemyAIContext) {
-    const playerHasBind = ctx.playerStats.effects.some((e) => e.type === EffectType.BIND && e.stacks > 0);
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
     if (playerHasBind) {
       return pickCardById(ctx, SILK_PUPPET_CARD.COOPERATIVE_SUBDUE);
     }
@@ -2629,7 +2599,7 @@ const 测试者: EnemyDefinition = {
     TESTER_CARD.MULTI_WHIP_KICK,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const hasAmber = ctx.enemyStats.effects.some((e) => e.type === EffectType.IRIS_AMBER && e.stacks > 0);
+    const hasAmber = ctx.enemyStats.effects.some(e => e.type === EffectType.IRIS_AMBER && e.stacks > 0);
     if (hasAmber && (ctx.enemyStats.hp <= ctx.enemyStats.maxHp * 0.7 || ctx.turn >= 5)) {
       return pickCardById(ctx, TESTER_CARD.COMPLETE_ANALYSIS_IRIS_SHIFT);
     }
@@ -2642,7 +2612,6 @@ const 测试者: EnemyDefinition = {
       ]);
       return pickCardById(ctx, chosen);
     }
-
 
     const chosen = weightedRandom<string>([
       { value: TESTER_CARD.BACKSTEP_DODGE, weight: 40 },
@@ -2660,9 +2629,7 @@ const 克拉肯: EnemyDefinition = {
     mp: 0,
     minDice: 5,
     maxDice: 10,
-    effects: [
-      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
     KRAKEN_CARD.GENTLE_ENTANGLE,
@@ -2674,7 +2641,7 @@ const 克拉肯: EnemyDefinition = {
   ]),
   selectCard(ctx: EnemyAIContext) {
     const targetHpLow = ctx.playerStats.hp <= ctx.playerStats.maxHp * 0.3;
-    const targetHasMemoryFog = ctx.playerStats.effects.some((e) => e.type === EffectType.MEMORY_FOG && e.stacks > 0);
+    const targetHasMemoryFog = ctx.playerStats.effects.some(e => e.type === EffectType.MEMORY_FOG && e.stacks > 0);
     let pool: Array<{ value: string; weight: number }> = [];
 
     if (ctx.enemyStats.mp >= 8) {
@@ -2716,9 +2683,7 @@ const 布偶: EnemyDefinition = {
     mp: 0,
     minDice: 5,
     maxDice: 7,
-    effects: [
-      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
     DOLL_CARD.SILK_CORROSION,
@@ -2733,7 +2698,7 @@ const 布偶: EnemyDefinition = {
       return pickCardById(ctx, DOLL_CARD.SENSORY_SYNC);
     }
 
-    const playerCorrosion = ctx.playerStats.effects.find((e) => e.type === EffectType.CORROSION)?.stacks ?? 0;
+    const playerCorrosion = ctx.playerStats.effects.find(e => e.type === EffectType.CORROSION)?.stacks ?? 0;
     let pool: Array<{ value: string; weight: number }> = [];
 
     if (ctx.enemyStats.mp >= 8) {
@@ -2767,9 +2732,7 @@ const 深渊水母: EnemyDefinition = {
     mp: 0,
     minDice: 2,
     maxDice: 6,
-    effects: [
-      { type: EffectType.TOXIN_SPREAD, stacks: 1, polarity: 'buff' },
-    ],
+    effects: [{ type: EffectType.TOXIN_SPREAD, stacks: 1, polarity: 'buff' }],
   },
   deck: buildDeckById([
     ABYSS_JELLYFISH_CARD.NEURAL_EXCITE_FILAMENT,
@@ -2858,11 +2821,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [书魔.name, 书魔],
 ]);
 
-const ENEMY_NAME_ORDER: readonly string[] = [
-  沐芯兰名称,
-  宝箱怪名称,
-  ...STATIC_ENEMY_REGISTRY.keys(),
-];
+const ENEMY_NAME_ORDER: readonly string[] = [沐芯兰名称, 宝箱怪名称, ...STATIC_ENEMY_REGISTRY.keys()];
 
 export function getEnemyByName(name: string, currentFloor: number = 1): EnemyDefinition | undefined {
   if (name === 沐芯兰名称) {
