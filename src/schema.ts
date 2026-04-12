@@ -1,4 +1,24 @@
 export const Schema = z.object({
+  主角信息: z
+    .object({
+      种族: z.string().prefault(''),
+      姓名: z.string().prefault(''),
+      年龄: z.coerce.number().int().prefault(0),
+      贞操: z.string().prefault(''),
+      天赋: z.string().prefault(''),
+      外貌: z.string().prefault(''),
+      特征: z.string().prefault(''),
+      身高: z.coerce.number().int().prefault(0),
+      体重: z.string().prefault(''),
+      胸围: z.string().prefault(''),
+      臀部: z.string().prefault(''),
+      小穴: z.string().prefault(''),
+      屁穴: z.string().prefault(''),
+      敏感点: z.string().prefault(''),
+      背景故事: z.string().prefault(''),
+    })
+    .prefault({}),
+
   // 人物属性
   _血量: z.coerce.number().prefault(10),
   _血量上限: z.coerce.number().prefault(10),

@@ -69,6 +69,9 @@
                 <p><span class="preview-label">姓名</span>{{ previewName }}</p>
                 <p><span class="preview-label">种族</span>{{ resolvedRace || '待填写' }}</p>
                 <p><span class="preview-label">年龄</span>{{ ageInput || '待填写' }}</p>
+                <p><span class="preview-label">天赋</span>{{ talent.trim() || '未填写' }}</p>
+                <p><span class="preview-label">外貌</span>{{ appearance.trim() || '未填写' }}</p>
+                <p><span class="preview-label">特征</span>{{ traits.trim() || '未填写' }}</p>
                 <p><span class="preview-label">体型</span>{{ `${heightCm}cm / ${weightType}` }}</p>
                 <p><span class="preview-label">敏感点</span>{{ sensitivePoints.trim() || '未填写' }}</p>
               </div>
@@ -121,6 +124,39 @@
                       <select v-model="chastity" class="form-control">
                         <option v-for="option in CHASTITY_OPTIONS" :key="option" :value="option">{{ option }}</option>
                       </select>
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                      <span class="form-label">天赋</span>
+                      <input
+                        v-model="talent"
+                        type="text"
+                        class="form-control"
+                        maxlength="80"
+                        placeholder="可选，自定义填写"
+                      />
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                      <span class="form-label">外貌</span>
+                      <input
+                        v-model="appearance"
+                        type="text"
+                        class="form-control"
+                        maxlength="120"
+                        placeholder="可选，自定义填写"
+                      />
+                    </label>
+
+                    <label class="block space-y-2 md:col-span-2">
+                      <span class="form-label">特征</span>
+                      <input
+                        v-model="traits"
+                        type="text"
+                        class="form-control"
+                        maxlength="120"
+                        placeholder="可选，自定义填写"
+                      />
                     </label>
                   </div>
                 </template>
@@ -323,6 +359,9 @@ const customRace = ref('');
 const name = ref('');
 const ageInput = ref('');
 const chastity = ref<OpeningInfoSubmission['chastity']>('处女');
+const talent = ref('');
+const appearance = ref('');
+const traits = ref('');
 const heightCm = ref(165);
 const weightType = ref<(typeof WEIGHT_OPTIONS)[number]>('匀称');
 const bust = ref<(typeof BUST_OPTIONS)[number]>('C');
@@ -405,6 +444,9 @@ const buildCurrentSubmission = (): OpeningInfoSubmission => ({
   name: name.value.trim(),
   age: Number(ageInput.value),
   chastity: chastity.value,
+  talent: talent.value.trim(),
+  appearance: appearance.value.trim(),
+  traits: traits.value.trim(),
   heightCm: Number(heightCm.value),
   weightType: weightType.value,
   bust: bust.value,

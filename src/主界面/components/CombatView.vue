@@ -5295,12 +5295,13 @@ const resolveCombat = async (
         }
         const cycles = Math.max(0, Math.floor(consumedArmor / 2));
         if (cycles > 0) {
-          applyStatusEffectWithRelics(defenderSide, ET.COLD, cycles, { source: card.id });
+          const coldApplied = cycles * 2;
+          applyStatusEffectWithRelics(defenderSide, ET.COLD, coldApplied, { source: card.id });
           const manaResult = changeManaWithShock(source, cycles, `法力变化（${label}【${card.name}】）`, {
             showPositiveFloating: true,
           });
           const restored = Math.max(0, manaResult.actualDelta);
-          log(`<span class="text-sky-300">${label}【${card.name}】消耗 ${consumedArmor} 点护甲，施加 ${cycles} 层寒冷并回复 ${restored} 点魔力</span>`);
+          log(`<span class="text-sky-300">${label}【${card.name}】消耗 ${consumedArmor} 点护甲，施加 ${coldApplied} 层寒冷并回复 ${restored} 点魔力</span>`);
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】护甲不足2点，未触发转化</span>`);
         }
@@ -5310,7 +5311,7 @@ const resolveCombat = async (
       if (card.id === 'yanhan_cold_source_rectifier') {
         syncCurrentPointForUi();
         const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
-        const consumedCold = Math.min(4, coldStacks);
+        const consumedCold = Math.min(10, coldStacks);
         if (consumedCold > 0) {
           reduceEffectStacks(defender, ET.COLD, consumedCold);
           const { healed } = healForSide(source, consumedCold);
@@ -5996,7 +5997,7 @@ const resolveCombat = async (
       }
 
       if (card.id === 'yanhan_feedback_freeze_wheel') {
-        const armorGain = Math.max(0, Math.floor(getEffectStacks(defender, ET.COLD) / 2));
+        const armorGain = Math.max(0, getEffectStacks(defender, ET.COLD));
         if (armorGain > 0) {
           applyStatusEffectWithRelics(source, ET.ARMOR, armorGain, { source: card.id });
           pushFloatingNumber(source, armorGain, 'shield', '+');

@@ -5187,7 +5187,7 @@ const buildVictoryRewardOptions = (): VictoryRewardItem[] => {
   const hasRainbowCard = isNormalEnemy && getOwnedRelicCountById('base_rainbow_card') > 0;
   const hasGoldenCard = isNormalEnemy && getOwnedRelicCountById('base_golden_card') > 0;
   const optionCount = 3 + (hasRainbowCard ? 1 : 0);
-  const rareChance = isLordRoom ? 1 : hasGoldenCard ? 0.1 : 0.05;
+  const rareChance = isLordRoom ? 1 : hasGoldenCard ? 0.05 : 0.02;
 
   const normalPool = pool.filter(item => item.rarity === '普通');
   const rarePool = pool.filter(item => item.rarity === '稀有');

@@ -38,7 +38,7 @@ interface RelicSharedHookContext {
   getRerollCharges: (side: RelicSide) => number;
 }
 
-export interface RelicLifecycleHookContext extends RelicSharedHookContext {}
+export type RelicLifecycleHookContext = RelicSharedHookContext;
 
 export interface RelicPointHookContext {
   count: number;
@@ -345,7 +345,7 @@ const RELIC_LIST: readonly RelicData[] = [
   {
     id: 'base_rainbow_card',
     name: '彩虹卡牌',
-    rarity: '稀有',
+    rarity: '普通',
     category: '基础',
     effect: '普通敌人额外掉落1张卡牌奖励',
     description: '战胜普通敌人时，奖励卡牌选项额外+1。',

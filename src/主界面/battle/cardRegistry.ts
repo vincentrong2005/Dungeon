@@ -170,7 +170,7 @@ const 普通护盾: CardData = {
       effectType: EffectType.ARMOR,
       target: 'self',
       valueMode: 'point_scale',
-      scale: 1.0,           // 护甲层数 = FinalPoint * 1.0
+      scale: 1.0, // 护甲层数 = FinalPoint * 1.0
     },
   ],
   description: '点数+1，获得1倍点数的护甲',
@@ -383,9 +383,7 @@ const 导路采样: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.5 },
-  ],
+  cardEffects: [{ kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.5 }],
   description: '回复1.5倍点数魔力',
 };
 
@@ -943,7 +941,7 @@ const 折光回避: CardData = {
   description: '闪避。若闪避成功，则施加1倍点数的寒冷',
 };
 
-/** 回授冻轮：施加寒冷并按敌方当前寒冷获得护甲（护甲逻辑在 CombatView） */
+/** 回授冻轮：造成伤害并施加寒冷，按敌方寒冷层数获得护甲（护甲逻辑在 CombatView） */
 const 回授冻轮: CardData = {
   id: 'yanhan_feedback_freeze_wheel',
   name: '回授冻轮',
@@ -952,13 +950,13 @@ const 回授冻轮: CardData = {
   rarity: '普通',
   manaCost: 4,
   calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '造成0.5倍点数伤害并施加0.5倍点数寒冷，获得floor(敌方当前寒冷/2)护甲',
+  description: '造成1倍点数伤害并施加1倍点数寒冷，获得对方寒冷层数的护甲',
 };
 
 /** 冷室复写：将敌方当前寒冷翻倍并造成1倍点数伤害（翻倍逻辑在 CombatView） */
@@ -995,7 +993,7 @@ const 温差效应: CardData = {
   description: '造成0.5倍点数伤害，并施加1层温差',
 };
 
-/** 压差循环：消耗护甲并转化为寒冷与回蓝（结算逻辑在 CombatView） */
+/** 压差循环：消耗护甲并转化为寒冷与回蓝，连击（结算逻辑在 CombatView） */
 const 压差循环: CardData = {
   id: 'yanhan_pressure_cycle',
   name: '压差循环',
@@ -1007,7 +1005,7 @@ const 压差循环: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗自身最多10点护甲，每消耗2点：敌方寒冷+1且自身回1MP，连击',
+  description: '消耗自身最多10点护甲，每消耗2点：敌方寒冷+2且自身回1MP，连击',
 };
 
 /** 冷源整流：消耗寒冷并回复生命（结算逻辑在 CombatView） */
@@ -1022,7 +1020,7 @@ const 冷源整流: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗敌方至多4层寒冷，自身回复等量生命',
+  description: '消耗敌方至多10层寒冷，自身回复等量生命',
 };
 
 /** 零界裁定：阈值控制与施加寒冷（阈值逻辑在 CombatView） */
@@ -1140,9 +1138,7 @@ const 放血: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 2 },
-  ],
+  cardEffects: [{ kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 2 }],
   selfDamage: 2,
   description: '自伤2，回复2点魔力，连击',
 };
@@ -1870,7 +1866,13 @@ const 穿体冲击: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.MAX_HP_REDUCTION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
   ],
   description: '点数+1，施加1倍点数生命上限削减',
 };
@@ -1889,7 +1891,13 @@ const 命令低语: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.MAX_HP_REDUCTION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
   ],
   description: '施加1层禁言与1倍点数的生命上限削减',
 };
@@ -1908,7 +1916,13 @@ const 多体共鸣: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
-    { kind: 'apply_buff', effectType: EffectType.MAX_HP_REDUCTION, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.MAX_HP_REDUCTION,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 0.5,
+    },
   ],
   description: '点数*1.5，施加0.5倍点数中毒与生命上限削减',
 };
@@ -3068,7 +3082,7 @@ const 恶作剧: CardData = {
   description: '闪避，若闪避成功或对方跳过回合，对对方施加1倍点数的电击',
 };
 
-/** 巨大化投影：移除自身的虚幻之躯，获得2倍点数生命与护甲，最小点数+2，最大点数+4（结算逻辑在 CombatView） */
+/** 巨大化投影：点数+2，移除自身的虚幻之躯，获得2倍点数生命与护甲，最小点数+2，最大点数+4（结算逻辑在 CombatView） */
 const 巨大化投影: CardData = {
   id: 'enemy_nymph_giant_projection',
   name: '巨大化投影',
@@ -3076,14 +3090,14 @@ const 巨大化投影: CardData = {
   category: '敌人',
   rarity: '稀有',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
+  calculation: { multiplier: 1.0, addition: 2 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 },
     { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 2.0 },
   ],
-  description: '移除自身的“虚幻之躯”，获得2倍点数生命与护甲，最小点数+2，最大点数+4',
+  description: '点数+2，移除自身的“虚幻之躯”，获得2倍点数生命与护甲，最小点数+2，最大点数+4',
 };
 
 /** 血刺丛生：造成0.3倍点数伤害，5连击；每击有50%概率施加2层流血（概率逻辑在 CombatView） */
@@ -5475,7 +5489,7 @@ const 回复: CardData = {
       kind: 'heal',
       target: 'self',
       valueMode: 'point_scale',
-      scale: 1.0,           // 回复量 = FinalPoint * 1.0
+      scale: 1.0, // 回复量 = FinalPoint * 1.0
     },
   ],
   description: '回复1倍点数的生命值',
@@ -5600,9 +5614,7 @@ const 等价交换: CardData = {
   calculation: { multiplier: 1.0, addition: 1 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['炼金废料', '炼金废料'] },
-  cardEffects: [
-    { kind: 'heal', valueMode: 'point_scale', scale: 2.0, target: 'self' },
-  ],
+  cardEffects: [{ kind: 'heal', valueMode: 'point_scale', scale: 2.0, target: 'self' }],
   description: '点数+1，插入两张炼金废料到对方牌库，同时回复2倍点数的生命',
 };
 
@@ -5963,9 +5975,7 @@ export function getCardByName(name: string): CardData | undefined {
 
 /** 批量将卡名数组转换为 CardData 数组（跳过未找到的卡名） */
 export function resolveCardNames(names: string[]): CardData[] {
-  return names
-    .map((n) => CARD_REGISTRY.get(n))
-    .filter((c): c is CardData => c !== undefined);
+  return names.map(n => CARD_REGISTRY.get(n)).filter((c): c is CardData => c !== undefined);
 }
 
 /** 获取卡牌库中所有卡牌名称 */

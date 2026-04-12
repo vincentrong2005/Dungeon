@@ -13,7 +13,7 @@ import {
   type ResponseParserOptions,
 } from './responseParser';
 import { getFloorNumberForArea } from './floor';
-import { buildOpeningBackstoryDraftPrompt, type OpeningInfoSubmission } from './openingProfile';
+import { FIXED_OPENING_BACKGROUND_SETTING, buildOpeningBackstoryDraftPrompt, type OpeningInfoSubmission } from './openingProfile';
 
 /**
  * Maintenance note:
@@ -392,11 +392,6 @@ export const useGameStore = defineStore('game', () => {
   };
 
   const generateOpeningBackstoryDraft = async (profile: OpeningInfoSubmission): Promise<string> => {
-    const backgroundSetting = await getWorldbookEntryContentByName('背景设定');
-    if (!backgroundSetting) {
-      throw new Error('未找到世界书条目“背景设定”。');
-    }
-
     const witchSetting = await getWorldbookEntryContentByName('魔女');
     if (!witchSetting) {
       throw new Error('未找到世界书条目“魔女”。');
@@ -408,6 +403,9 @@ export const useGameStore = defineStore('game', () => {
         name: profile.name,
         age: profile.age,
         chastity: profile.chastity,
+        talent: profile.talent,
+        appearance: profile.appearance,
+        traits: profile.traits,
         heightCm: profile.heightCm,
         weightType: profile.weightType,
         bust: profile.bust,
@@ -415,7 +413,7 @@ export const useGameStore = defineStore('game', () => {
         sensitivePoints: profile.sensitivePoints,
         existingBackstory: profile.backstory,
       },
-      backgroundSetting,
+      FIXED_OPENING_BACKGROUND_SETTING,
       witchSetting,
     );
 

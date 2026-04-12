@@ -1656,8 +1656,8 @@ const 普莉姆: EnemyDefinition = {
 const 宁芙: EnemyDefinition = {
   name: '宁芙',
   stats: {
-    hp: 45,
-    maxHp: 45,
+    hp: 50,
+    maxHp: 50,
     mp: 0,
     minDice: 1,
     maxDice: 3,

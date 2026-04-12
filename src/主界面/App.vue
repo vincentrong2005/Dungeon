@@ -34,7 +34,7 @@ import WitchCollectionModal from './components/WitchCollectionModal.vue';
 import { disposeBgm, initializeBgm } from './bgm';
 import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
-import { buildOpeningPrompt, buildUserInformationBlock, type OpeningInfoSubmission } from './openingProfile';
+import { buildOpeningPrompt, type OpeningInfoSubmission } from './openingProfile';
 
 const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
 const isCollectionOpen = ref(false);
@@ -79,11 +79,31 @@ async function handleOpeningEntrySubmit(payload: OpeningInfoSubmission) {
   openingEntryError.value = null;
 
   try {
-    const userInformationBlock = buildUserInformationBlock(payload);
-    const updated = await gameStore.overwriteUserWorldbookEntryContent(userInformationBlock);
+    const roleProfile = {
+      种族: payload.race,
+      姓名: payload.name,
+      年龄: payload.age,
+      贞操: payload.chastity,
+      天赋: payload.talent,
+      外貌: payload.appearance,
+      特征: payload.traits,
+      身高: payload.heightCm,
+      体重: payload.weightType,
+      胸围: payload.bust,
+      臀部: payload.hips,
+      小穴: payload.vagina,
+      屁穴: payload.anus,
+      敏感点: payload.sensitivePoints,
+      背景故事: payload.backstory,
+    };
+
+    const updated = await gameStore.updateStatDataFields({
+      主角信息: roleProfile,
+    });
     if (!updated) {
-      openingEntryError.value = '未找到已绑定世界书中名为 user 的条目，已停止开场注入。';
-      return;
+      gameStore.setPendingStatDataChanges({
+        主角信息: roleProfile,
+      });
     }
 
     await gameStore.sendAction(buildOpeningPrompt(payload));

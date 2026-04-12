@@ -3,6 +3,9 @@ export interface OpeningInfoSubmission {
   name: string;
   age: number;
   chastity: '处女' | '非处女';
+  talent: string;
+  appearance: string;
+  traits: string;
   heightCm: number;
   weightType: string;
   bust: string;
@@ -18,6 +21,9 @@ export interface OpeningBackstoryDraftInput {
   name: string;
   age: number;
   chastity: OpeningInfoSubmission['chastity'];
+  talent: string;
+  appearance: string;
+  traits: string;
   heightCm: number;
   weightType: string;
   bust: string;
@@ -117,6 +123,31 @@ export const formatSensitivePoints = (value: string): string => {
   return normalized || '无';
 };
 
+const formatOptionalInline = (value: string): string => {
+  const normalized = normalizeInline(value);
+  return normalized || '无';
+};
+
+export const FIXED_OPENING_BACKGROUND_SETTING = [
+  '概述: |',
+  '  这是一座由远古的欲望之神遗留下来的庞大地下城，隐藏在世界的某个不起眼的角落。',
+  '  地下城共分五层，但每一层的结构都错综复杂，分为多个独立的区域。',
+  '  每个区域都有独特的环境以及统治该区域的领主（BOSS）。',
+  '  踏入地下城的那一刻起，入侵者便会被神之封印困住，无法逃离，只能不断深入或死于其中。',
+  '',
+  '空间法则: |',
+  '  这是一座空间极其复杂的地下城，在这个领域内并不存在固定的路径。',
+  '  所有的路线都是随机生成的，同一个区域内的任何两个地点在理论上都是瞬间连通的。',
+  '  探险者可能上一秒还在走廊的东侧，下一秒就跨越空间来到了西侧的深处。',
+  '  这种"空间折叠"现象仅限于同一个区域内部，区域与区域之间、楼层与楼层之间依然存在着屏障，仅在特定地点连通，但这些地点一般被领主们镇守着。',
+  '  在这个混乱的空间中，回头路是不存在的——因为当你回过头时，身后的道路早已变成了通往其他未知的入口。',
+  '对于闯入者，初始区域必定为安全区，这是一个位于第一层入口附近岩壁深处的一个天然洞穴，是所有冒险者踏入地牢后最先抵达的起点。',
+  '没人知道这个地方是谁建造的，但它自地牢被发现以来就已经存在了。',
+  '历代冒险者都从这里起始、从这里出发。',
+  '洞穴里留有无数前人生活过的痕迹——墙上的涂鸦、工作台上磨损的刻痕、角落里被遗弃的旧物。',
+  '这里是地牢中唯一绝对安全的区域，也是所有冒险者唯一的"家"。',
+].join('\n');
+
 export const buildUserInformationBlock = (profile: OpeningInfoSubmission): string => {
   const backstory = profile.backstory.trim();
 
@@ -127,6 +158,9 @@ export const buildUserInformationBlock = (profile: OpeningInfoSubmission): strin
     `姓名：${normalizeInline(profile.name)}`,
     `年龄：${profile.age}`,
     `贞操：${profile.chastity}`,
+    `天赋：${formatOptionalInline(profile.talent)}`,
+    `外貌：${formatOptionalInline(profile.appearance)}`,
+    `特征：${formatOptionalInline(profile.traits)}`,
     `身高：${profile.heightCm}cm`,
     `体重：${normalizeInline(profile.weightType)}`,
     `胸围：${profile.bust}`,
@@ -158,7 +192,7 @@ export const buildOpeningBackstoryDraftPrompt = (
 
   return [
     '你要为一名即将进入欲望之神地下城的女性角色生成一段开局背景故事草稿。',
-    '你只能参考我接下来提供的角色已填信息与世界书条目【背景设定】、【魔女】。',
+    '你只能参考我接下来提供的角色已填信息、固定背景设定与世界书条目【魔女】。',
     '不要调用其他设定，不要补充未提供的外部规则，不要引用聊天历史。',
     '',
     '[背景设定]',
@@ -172,6 +206,9 @@ export const buildOpeningBackstoryDraftPrompt = (
     `姓名：${profile.name.trim()}`,
     `年龄：${profile.age}`,
     `贞操：${profile.chastity}`,
+    `天赋：${formatOptionalInline(profile.talent)}`,
+    `外貌：${formatOptionalInline(profile.appearance)}`,
+    `特征：${formatOptionalInline(profile.traits)}`,
     `身高：${profile.heightCm}cm`,
     `体重：${profile.weightType.trim()}`,
     `胸围：${profile.bust}`,
@@ -191,6 +228,6 @@ export const buildOpeningBackstoryDraftPrompt = (
     '1. 只输出背景故事正文，不要标题，不要解释，不要分点。',
     '2. 风格要贴合欲望之神地下城的世界观，气质成熟、自然、连贯。',
     '3. 不要让角色拥有超出当前世界观限制的破格能力或设定。',
-    '4. 篇幅控制在300到800字之间。',
+    '4. 篇幅控制在300到600字之间。',
   ].join('\n');
 };

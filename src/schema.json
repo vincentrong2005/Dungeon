@@ -2,6 +2,61 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
+    "主角信息": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "种族": {
+          "type": "string"
+        },
+        "姓名": {
+          "type": "string"
+        },
+        "年龄": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "贞操": {
+          "type": "string"
+        },
+        "天赋": {
+          "type": "string"
+        },
+        "外貌": {
+          "type": "string"
+        },
+        "特征": {
+          "type": "string"
+        },
+        "身高": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "体重": {
+          "type": "string"
+        },
+        "胸围": {
+          "type": "string"
+        },
+        "臀部": {
+          "type": "string"
+        },
+        "小穴": {
+          "type": "string"
+        },
+        "屁穴": {
+          "type": "string"
+        },
+        "敏感点": {
+          "type": "string"
+        },
+        "背景故事": {
+          "type": "string"
+        }
+      }
+    },
     "_血量": {
       "default": 10,
       "type": "number"
