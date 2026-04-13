@@ -457,7 +457,9 @@ export class BattleStateMachine {
         relicModifiers,
       });
       this.state.logs.push(...dmg.logs);
-      const result = applyDamageToEntity(defender, dmg.damage, dmg.isTrueDamage);
+      const result = applyDamageToEntity(defender, dmg.damage, dmg.isTrueDamage, {
+        swarmAttack: !!card.swarmAttack,
+      });
       this.state.logs.push(...result.logs);
       this.state.logs.push(...consumeColdAfterDealingDamage(attacker, result.actualDamage));
       if (defender.hp <= 0) break;

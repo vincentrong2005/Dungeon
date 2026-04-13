@@ -28,6 +28,7 @@
 </template>
 
 <script setup lang="ts">
+import { ensureAuthorTestAccessBenefits } from './authorTestAccess';
 import GameView from './components/GameView.vue';
 import SplashScreen from './components/SplashScreen.vue';
 import WitchCollectionModal from './components/WitchCollectionModal.vue';
@@ -45,6 +46,7 @@ const splashBackgroundUrl = ref('');
 const gameStore = useGameStore();
 
 onMounted(() => {
+  ensureAuthorTestAccessBenefits();
   void initializeBgm();
 });
 

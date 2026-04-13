@@ -133,6 +133,8 @@ export interface CardData {
   manaDrain?: number;
   /** 无视闪避：对闪避牌时不进入闪避拼点，直接生效 */
   ignoreDodge?: boolean;
+  /** 群攻：对目标造成伤害时，永久减少其本场战斗中“群集”可恢复的生命值 */
+  swarmAttack?: boolean;
   /** 逃离：任意一方打出后立刻结束战斗（无金币/卡牌奖励） */
   excape?: boolean;
   /**
@@ -290,7 +292,7 @@ export enum EffectType {
   BLOODBLADE_ATTACH = '血刃附加',
   /** 雷电附加 — 每次成功闪避时为对手施加电击 */
   LIGHTNING_ATTACH = '雷电附加',
-  /** 荆棘 — 反弹50%物理直接伤害 */
+  /** 荆棘 — 每次受到直接伤害时，反弹等同于层数的伤害 */
   THORNS = '荆棘',
   /** 共损 — 将自身当前回合受到的所有非真实伤害返还给敌方，回合结束时层数-1 */
   CO_DAMAGE = '共损',
@@ -369,6 +371,8 @@ export interface EntityStats {
   /** 骰子范围 */
   minDice: number;
   maxDice: number;
+  /** 本场战斗中“群集”可恢复生命值的累计削减量 */
+  swarmHealReduction?: number;
   /** 当前身上的效果列表 */
   effects: EffectInstance[];
 }

@@ -617,6 +617,7 @@
               type="button"
               class="relative w-30 h-44 rounded-xl border-2 shadow-xl overflow-hidden transition-all"
               :class="[
+                slot.skill?.rarity === '稀有' ? 'rare-active-skill-card' : '',
                 slot.skill
                   ? 'border-zinc-100/85 bg-[#1b1722] text-dungeon-paper'
                   : 'border-white/20 bg-[#15131c]/95 text-white/45',
@@ -637,11 +638,11 @@
                 <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
                   <div
                     class="w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center border shadow-md"
-                    :class="slot.skill.manaCost > 0
+                    :class="slot.manaCost > 0
                       ? 'bg-purple-700/80 text-white border-purple-300/40'
                       : 'bg-zinc-700/60 text-zinc-100 border-zinc-300/35'"
                   >
-                    {{ slot.skill.manaCost }}
+                    {{ slot.manaCost }}
                   </div>
                   <div class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none">
                     主动
@@ -848,7 +849,7 @@ import {
   consumeColdAfterDealingDamage,
   triggerSwarmReviveIfNeeded as triggerSwarmReviveIfNeededInAlgorithm,
 } from '../battle/algorithms';
-import { getCardByName } from '../battle/cardRegistry';
+import { getAllCards, getCardByName } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import {
@@ -881,12 +882,14 @@ const props = withDefaults(defineProps<{
   playerDeck: CardData[];
   playerActiveSkills?: ActiveSkillData[];
   playerRelics?: Record<string, number>;
+  playerPortraitOverrideUrl?: string;
   testStartAt999?: boolean;
   uiFontFamily?: string;
   trackDiscovery?: boolean;
 }>(), {
   playerActiveSkills: () => [],
   playerRelics: () => ({}),
+  playerPortraitOverrideUrl: '',
   testStartAt999: false,
   uiFontFamily: '',
   trackDiscovery: true,
@@ -1003,6 +1006,17 @@ const tryFallbackPortrait = async (
 };
 
 const onPlayerPortraitError = () => {
+  if (props.playerPortraitOverrideUrl && playerPortraitUrl.value === props.playerPortraitOverrideUrl) {
+    void (async () => {
+      const fallbackUrl = await resolveRandomPortrait(HF_USER_DIR, `${HF_USER_DIR}/立绘.png`);
+      if (!portraitLoaderDisposed) {
+        playerPortraitFallbackTried.value = false;
+        playerPortraitError.value = false;
+        playerPortraitUrl.value = fallbackUrl;
+      }
+    })();
+    return;
+  }
   void tryFallbackPortrait(HF_USER_DIR, playerPortraitUrl, playerPortraitError, playerPortraitFallbackTried);
 };
 
@@ -1011,7 +1025,9 @@ const onEnemyPortraitError = () => {
 };
 
 const initPortraitUrls = async () => {
-  const playerUrl = await resolveRandomPortrait(HF_USER_DIR, `${HF_USER_DIR}/立绘.png`);
+  const playerUrl = props.playerPortraitOverrideUrl
+    ? props.playerPortraitOverrideUrl
+    : await resolveRandomPortrait(HF_USER_DIR, `${HF_USER_DIR}/立绘.png`);
   if (!portraitLoaderDisposed) {
     playerPortraitFallbackTried.value = false;
     playerPortraitError.value = false;
@@ -1333,6 +1349,7 @@ type TooltipAlign = 'center' | 'right';
 interface ActiveSkillRuntimeState {
   nextAvailableTurn: number;
   usedCount: number;
+  manaTaxThisTurn: number;
 }
 
 interface ActiveSkillSlotView {
@@ -1341,6 +1358,7 @@ interface ActiveSkillSlotView {
   cooldownRemaining: number;
   usedCount: number;
   maxUses: number | null;
+  manaCost: number;
 }
 
 interface FloatingNumberEntry {
@@ -1460,6 +1478,25 @@ const lightningAmbushFirstUseConsumed = ref<Record<BattleSide, boolean>>({
   player: false,
   enemy: false,
 });
+const battleCardFirstUseConsumed = ref<Record<BattleSide, Record<string, boolean>>>({
+  player: {},
+  enemy: {},
+});
+const battleCardPointBonus = ref<Record<BattleSide, Record<string, number>>>({
+  player: {},
+  enemy: {},
+});
+const turnPointModifier = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
+const blankOfBlankActiveThisTurn = ref(false);
+const blankOfBlankBonusThisTurn = ref(0);
+const armorDecaySkippedThisTurn = ref<Record<BattleSide, boolean>>({
+  player: false,
+  enemy: false,
+});
+const temporaryBarrierToRemoveAtTurnEnd = ref(0);
 const previewPlayerDice = ref<number | null>(null);
 const previewEnemyDice = ref<number | null>(null);
 const playerDicePreviewLines = ref<string[]>([]);
@@ -1804,7 +1841,13 @@ const applyDamageToSideWithRelics = (
   damage: number,
   isTrueDamage: boolean,
   reason: string,
-  options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean; skipCoDamage?: boolean },
+  options?: {
+    skipHeartMark?: boolean;
+    sourceSide?: BattleSide;
+    isDirectDamage?: boolean;
+    skipCoDamage?: boolean;
+    card?: CardData;
+  },
 ) => {
   const incoming = Math.max(0, Math.floor(damage));
   const adjusted = side === 'player'
@@ -1812,6 +1855,7 @@ const applyDamageToSideWithRelics = (
     : incoming;
   const result = applyDamageToEntity(target, adjusted, isTrueDamage, {
     disableRevive: shouldDisableReviveForSide(side),
+    swarmAttack: !!options?.card?.swarmAttack,
   });
   addDamageHitTakenThisCombat(side, result.actualDamage);
   triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, options);
@@ -2624,6 +2668,7 @@ const applyCardEffectsByTrigger = (
   card: CardData,
   finalPoint: number,
   trigger: CardEffectTrigger = 'on_use',
+  kindMode: 'all' | 'pre_reroll_self_buff_only' | 'post_reroll_on_use' = 'all',
 ) => {
   const attacker = source === 'player' ? playerStats.value : enemyStats.value;
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
@@ -2632,6 +2677,18 @@ const applyCardEffectsByTrigger = (
   for (const ce of card.cardEffects) {
     if (!cardEffectMatchesTrigger(ce.triggers, trigger)) continue;
     const targetKey = ce.target ?? 'self';
+    if (kindMode === 'pre_reroll_self_buff_only') {
+      if (trigger !== 'on_use' || ce.kind !== 'apply_buff' || targetKey !== 'self') continue;
+    }
+    if (
+      kindMode === 'post_reroll_on_use'
+      && trigger === 'on_use'
+      && card.traits.reroll !== 'none'
+      && ce.kind === 'apply_buff'
+      && targetKey === 'self'
+    ) {
+      continue;
+    }
     const targetEntity = targetKey === 'self' ? attacker : defender;
     const targetSide = resolveTargetSide(source, targetKey);
 
@@ -2763,7 +2820,7 @@ const triggerShadowAssaultDamage = (
     adjustedDamage,
     isTrueDamage,
     `卡牌【${card.name}】(${triggerText})`,
-    { sourceSide: source, isDirectDamage: true },
+    { sourceSide: source, isDirectDamage: true, card },
   );
   const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
   log(`${label}【${card.name}】${triggerText}触发，造成 <span class="${damageLogColorClass} font-bold">${actualDamage}</span> 点伤害`);
@@ -2915,6 +2972,110 @@ const withFirstUseLightningAmbushBonus = (
     log(`<span class="text-indigo-300">${sourceLabel}【${card.name}】首次使用，点数 +4</span>`);
   }
   return boosted;
+};
+
+const getBattleCardUseCount = (side: BattleSide, cardId: string): number => (
+  Math.max(0, Math.floor(battleCardPointBonus.value[side][cardId] ?? 0))
+);
+
+const markBattleCardFirstUse = (side: BattleSide, cardId: string): boolean => {
+  if (battleCardFirstUseConsumed.value[side][cardId]) return false;
+  battleCardFirstUseConsumed.value[side][cardId] = true;
+  return true;
+};
+
+const increaseBattleCardPointBonus = (side: BattleSide, cardId: string, amount: number, maxBonus: number) => {
+  const next = Math.min(
+    Math.max(0, Math.floor(maxBonus)),
+    Math.max(0, getBattleCardUseCount(side, cardId) + Math.floor(amount)),
+  );
+  battleCardPointBonus.value[side][cardId] = next;
+  return next;
+};
+
+const adjustTurnPointModifier = (side: BattleSide, amount: number) => {
+  turnPointModifier.value[side] = Math.floor(turnPointModifier.value[side] + amount);
+  return turnPointModifier.value[side];
+};
+
+const getActiveSkillManaCost = (idx: number): number => {
+  const skill = normalizedPlayerActiveSkills.value[idx];
+  if (!skill) return 0;
+  const runtime = activeSkillRuntime.value[idx];
+  return Math.max(0, Math.floor(skill.manaCost) + Math.max(0, Math.floor(runtime?.manaTaxThisTurn ?? 0)));
+};
+
+const getOpposingCardForPointComparison = (source: BattleSide): { side: BattleSide; card: CardData | null; baseDice: number } => {
+  if (source === 'player') {
+    return {
+      side: 'enemy',
+      card: combatState.value.enemyIntentCard ?? null,
+      baseDice: combatState.value.enemyBaseDice,
+    };
+  }
+  return {
+    side: 'player',
+    card: combatState.value.playerSelectedCard ?? null,
+    baseDice: combatState.value.playerBaseDice,
+  };
+};
+
+const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number => {
+  const sourceStats = from === 'player' ? playerStats.value : enemyStats.value;
+  const targetStats = to === 'player' ? playerStats.value : enemyStats.value;
+  const debuffs = sourceStats.effects
+    .filter(effect => EFFECT_REGISTRY[effect.type]?.polarity === 'debuff' && effect.stacks > 0)
+    .map(effect => ({ type: effect.type, stacks: effect.stacks, source: effect.source }));
+
+  for (const effect of debuffs) {
+    removeEffect(sourceStats, effect.type);
+    applyEffect(targetStats, effect.type, effect.stacks, { source: effect.source });
+  }
+  return debuffs.length;
+};
+
+const replacePlayerHandWithRandomRareCards = (count: number): CardData[] => {
+  const rarePool = getAllCards().filter(card => card.category !== '敌人' && card.type !== CardType.ACTIVE && card.rarity === '稀有');
+  const nextHand: CardData[] = [];
+  for (let i = 0; i < count; i++) {
+    if (rarePool.length <= 0) break;
+    const picked = rarePool[Math.floor(Math.random() * rarePool.length)]!;
+    nextHand.push(cloneCardForBattle(picked));
+  }
+  return nextHand;
+};
+
+const collectCardsForSide = (side: BattleSide, currentCard?: CardData): CardData[] => {
+  const cards: CardData[] = [];
+  if (side === 'player') {
+    cards.push(...combatState.value.playerHand, ...combatState.value.playerDeck, ...combatState.value.discardPile);
+    if (combatState.value.playerSelectedCard) cards.push(combatState.value.playerSelectedCard);
+  } else {
+    cards.push(...combatState.value.enemyDeck, ...combatState.value.enemyDiscard);
+    if (combatState.value.enemyIntentCard) cards.push(combatState.value.enemyIntentCard);
+  }
+  if (currentCard) cards.push(currentCard);
+  return cards;
+};
+
+const isOnlyPhysicalCardForSide = (side: BattleSide, card: CardData): boolean => {
+  if (card.type !== CardType.PHYSICAL) return false;
+  const physicalIds = new Set(
+    collectCardsForSide(side, card)
+      .filter(item => item.type === CardType.PHYSICAL)
+      .map(item => item.id),
+  );
+  return physicalIds.size === 1 && physicalIds.has(card.id);
+};
+
+const hasNoPhysicalOrMagicInHand = (side: BattleSide, currentCard?: CardData): boolean => {
+  const handCards = side === 'player'
+    ? [...combatState.value.playerHand]
+    : [];
+  if (currentCard && !handCards.some(card => card === currentCard)) {
+    handCards.push(currentCard);
+  }
+  return !handCards.some(card => card.type === CardType.PHYSICAL || card.type === CardType.MAGIC);
 };
 
 let poisonAmountImmediateCheckRunning = false;
@@ -3118,6 +3279,7 @@ const getCardFinalPoint = (
   card: CardData,
   baseDice: number,
   isPreview: boolean = false,
+  suppressComparisonSpecials: boolean = false,
 ) => {
   const attacker = source === 'player' ? playerStats.value : enemyStats.value;
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
@@ -3158,6 +3320,53 @@ const getCardFinalPoint = (
   if (card.id === 'enemy_yustia_trueword_scale_powder') {
     finalPoint += Math.max(0, Math.floor(defender.mp));
   }
+  if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
+    finalPoint += 3;
+    if (!isPreview) {
+      log(`<span class="text-amber-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】为当前卡组中仅有的物理卡牌，点数 +3</span>`);
+    }
+  }
+  if (card.id === 'basic_jagged_attack') {
+    finalPoint += getBattleCardUseCount(source, card.id);
+  }
+  if (card.id === 'basic_raid_attack' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
+    finalPoint += 4;
+    if (!isPreview && markBattleCardFirstUse(source, card.id)) {
+      log(`<span class="text-indigo-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】首次使用，点数 +4</span>`);
+    }
+  }
+  if (card.id === 'basic_targeted_slash' && source === 'player' && currentRoomType.value === '领主') {
+    finalPoint += 4;
+  }
+  if (card.id === 'basic_stealth' && source === 'player' && hasNoPhysicalOrMagicInHand(source, card)) {
+    finalPoint -= 3;
+    if (!isPreview) {
+      log('<span class="text-cyan-300">我方【潜行】手牌中没有物理或魔法卡牌，点数 -3</span>');
+    }
+  }
+  if (card.id === 'basic_life_death_judgement' && baseDice === 4) {
+    finalPoint *= 4;
+    if (!isPreview) {
+      log(`<span class="text-rose-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】投掷点数为4，点数 x4</span>`);
+    }
+  }
+  if (card.id === 'basic_scarlet_scythe' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
+    finalPoint *= 2;
+    if (!isPreview && markBattleCardFirstUse(source, card.id)) {
+      log(`<span class="text-rose-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】首次使用，点数 x2</span>`);
+    }
+  }
+  if (card.id === 'basic_slime_axe' && !suppressComparisonSpecials) {
+    const opposing = getOpposingCardForPointComparison(source);
+    if (opposing.card) {
+      const opposingPoint = getCardFinalPoint(opposing.side, opposing.card, opposing.baseDice, true, true);
+      if (finalPoint <= opposingPoint) {
+        finalPoint = opposingPoint + 1;
+      }
+    }
+  }
+  finalPoint += Math.max(0, blankOfBlankBonusThisTurn.value);
+  finalPoint += Math.floor(turnPointModifier.value[source] ?? 0);
   if (card.type === CardType.DODGE) {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
   }
@@ -3264,6 +3473,56 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       finalPoint += manaBonus;
       lines.push(`真言鳞粉（目标魔力${manaBonus}）+${manaBonus} => ${finalPoint}`);
     }
+  }
+  if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
+    finalPoint += 3;
+    lines.push(`尖锐攻击（当前仅有的物理牌）+3 => ${finalPoint}`);
+  }
+  if (card.id === 'basic_jagged_attack') {
+    const jaggedBonus = getBattleCardUseCount(source, card.id);
+    if (jaggedBonus > 0) {
+      finalPoint += jaggedBonus;
+      lines.push(`锯齿攻击（本战累计）+${jaggedBonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'basic_raid_attack' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
+    finalPoint += 4;
+    lines.push(`袭击（首次使用）+4 => ${finalPoint}`);
+  }
+  if (card.id === 'basic_targeted_slash' && source === 'player' && currentRoomType.value === '领主') {
+    finalPoint += 4;
+    lines.push(`针对性斩击（领主）+4 => ${finalPoint}`);
+  }
+  if (card.id === 'basic_stealth' && source === 'player' && hasNoPhysicalOrMagicInHand(source, card)) {
+    finalPoint -= 3;
+    lines.push(`潜行（手牌无物理/魔法）-3 => ${finalPoint}`);
+  }
+  if (card.id === 'basic_life_death_judgement' && baseDice === 4) {
+    finalPoint *= 4;
+    lines.push(`生死决断（投掷点数为4）x4 => ${finalPoint}`);
+  }
+  if (card.id === 'basic_scarlet_scythe' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
+    finalPoint *= 2;
+    lines.push(`猩红镰刀（首次使用）x2 => ${finalPoint}`);
+  }
+  if (card.id === 'basic_slime_axe') {
+    const opposing = getOpposingCardForPointComparison(source);
+    if (opposing.card) {
+      const opposingPoint = getCardFinalPoint(opposing.side, opposing.card, opposing.baseDice, true, true);
+      if (finalPoint <= opposingPoint) {
+        finalPoint = opposingPoint + 1;
+        lines.push(`粘液斧（超过对方最终点数）=> ${finalPoint}`);
+      }
+    }
+  }
+  if (blankOfBlankBonusThisTurn.value > 0) {
+    finalPoint += blankOfBlankBonusThisTurn.value;
+    lines.push(`空白的空白（本回合累计）+${blankOfBlankBonusThisTurn.value} => ${finalPoint}`);
+  }
+  if ((turnPointModifier.value[source] ?? 0) !== 0) {
+    const delta = Math.floor(turnPointModifier.value[source] ?? 0);
+    finalPoint += delta;
+    lines.push(`本回合点数修正 ${delta >= 0 ? '+' : ''}${delta} => ${finalPoint}`);
   }
 
 
@@ -3663,6 +3922,12 @@ onMounted(() => {
   }
   void initPortraitUrls();
 });
+watch(
+  () => props.playerPortraitOverrideUrl,
+  () => {
+    void initPortraitUrls();
+  },
+);
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', updateCombatViewportMode);
@@ -3739,14 +4004,15 @@ const normalizedPlayerActiveSkills = computed<Array<ActiveSkillData | null>>(() 
 });
 
 const activeSkillRuntime = ref<ActiveSkillRuntimeState[]>([
-  { nextAvailableTurn: 1, usedCount: 0 },
-  { nextAvailableTurn: 1, usedCount: 0 },
+  { nextAvailableTurn: 1, usedCount: 0, manaTaxThisTurn: 0 },
+  { nextAvailableTurn: 1, usedCount: 0, manaTaxThisTurn: 0 },
 ]);
 
 const resetActiveSkillRuntime = () => {
   activeSkillRuntime.value = normalizedPlayerActiveSkills.value.map(() => ({
     nextAvailableTurn: 1,
     usedCount: 0,
+    manaTaxThisTurn: 0,
   }));
 };
 
@@ -3780,7 +4046,7 @@ const activeSkillDisabledReason = (idx: number): string | null => {
     return `本场已达到最大使用次数（${maxUses}）`;
   }
 
-  if (playerStats.value.mp < Math.max(0, Math.floor(skill.manaCost))) {
+  if (playerStats.value.mp < getActiveSkillManaCost(idx)) {
     return '魔力不足';
   }
 
@@ -3793,6 +4059,7 @@ const playerActiveSkillSlots = computed<ActiveSkillSlotView[]>(() => normalizedP
   cooldownRemaining: activeSkillCooldownRemaining(idx),
   usedCount: activeSkillRuntime.value[idx]?.usedCount ?? 0,
   maxUses: skill ? Math.max(0, Math.floor(skill.maxUses ?? 0)) || null : null,
+  manaCost: skill ? getActiveSkillManaCost(idx) : 0,
 })));
 
 const getActiveSkillStatusText = (slot: ActiveSkillSlotView): string => {
@@ -3831,7 +4098,7 @@ const useActiveSkill = (idx: number) => {
     return;
   }
 
-  const manaCost = Math.max(0, Math.floor(skill.manaCost));
+  const manaCost = getActiveSkillManaCost(idx);
   if (manaCost > 0) {
     const ok = spendManaWithShock('player', manaCost, `使用主动【${skill.name}】`);
     if (!ok) {
@@ -3890,6 +4157,88 @@ const useActiveSkill = (idx: number) => {
       log(`<span class="text-zinc-200">主动【${skill.name}】：敌方骰子点数 ${before} → ${combatState.value.enemyBaseDice}</span>`);
       break;
     }
+    case 'active_basic_expose': {
+      const before = combatState.value.enemyBaseDice;
+      combatState.value.enemyBaseDice = Math.max(0, combatState.value.enemyBaseDice + 3);
+      enemyTurnRawDice.value = Math.max(0, enemyTurnRawDice.value + 3);
+      log(`<span class="text-zinc-200">主动【${skill.name}】：敌方原始点数 ${before} → ${combatState.value.enemyBaseDice}</span>`);
+      break;
+    }
+    case 'active_basic_parry_blade': {
+      if (applyEffect(playerStats.value, ET.BARRIER, 1, { source: skill.id })) {
+        temporaryBarrierToRemoveAtTurnEnd.value += 1;
+        log(`<span class="text-zinc-200">主动【${skill.name}】：获得1层持续到回合结束的结界。</span>`);
+      }
+      break;
+    }
+    case 'active_basic_graffiti': {
+      combatState.value.playerBaseDice = 6;
+      combatState.value.enemyBaseDice = 6;
+      playerTurnRawDice.value = 6;
+      enemyTurnRawDice.value = 6;
+      log(`<span class="text-zinc-200">主动【${skill.name}】：将双方骰子点数设为6。</span>`);
+      break;
+    }
+    case 'active_basic_sprint': {
+      const { drawn, newDeck, newDiscard } = drawCards(1, combatState.value.playerDeck, combatState.value.discardPile);
+      applyOnDrawCardEffects(drawn);
+      combatState.value.playerDeck = newDeck;
+      combatState.value.discardPile = newDiscard;
+      const card = drawn[0];
+      if (!card) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：牌库与弃牌堆都为空，未抽到卡牌。</span>`);
+      } else if (combatState.value.playerHand.length >= 3) {
+        const replaceIdx = Math.floor(Math.random() * combatState.value.playerHand.length);
+        const replaced = combatState.value.playerHand[replaceIdx]!;
+        combatState.value.playerHand.splice(replaceIdx, 1, card);
+        combatState.value.discardPile.push(replaced);
+        log(`<span class="text-zinc-200">主动【${skill.name}】：手牌已满，随机替换了【${replaced.name}】→【${card.name}】。</span>`);
+      } else {
+        combatState.value.playerHand = [...combatState.value.playerHand, card];
+        log(`<span class="text-zinc-200">主动【${skill.name}】：抽到【${card.name}】。</span>`);
+      }
+      break;
+    }
+    case 'active_basic_shuffle_magic': {
+      const handCount = combatState.value.playerHand.length;
+      combatState.value.discardPile = [...combatState.value.discardPile, ...combatState.value.playerHand];
+      combatState.value.playerHand = [];
+      const { drawn, newDeck, newDiscard } = drawCards(Math.max(3, handCount), combatState.value.playerDeck, combatState.value.discardPile);
+      applyOnDrawCardEffects(drawn);
+      combatState.value.playerHand = drawn.slice(0, 3);
+      combatState.value.playerDeck = newDeck;
+      combatState.value.discardPile = newDiscard;
+      log(`<span class="text-zinc-200">主动【${skill.name}】：重新抽取了 ${combatState.value.playerHand.length} 张卡牌。</span>`);
+      break;
+    }
+    case 'active_basic_infinite_amp_magic': {
+      const before = combatState.value.playerBaseDice;
+      combatState.value.playerBaseDice = Math.max(0, combatState.value.playerBaseDice + 1);
+      playerTurnRawDice.value = Math.max(0, playerTurnRawDice.value + 1);
+      log(`<span class="text-zinc-200">主动【${skill.name}】：我方原始点数 ${before} → ${combatState.value.playerBaseDice}</span>`);
+      break;
+    }
+    case 'active_basic_slot_machine': {
+      rerollSideDiceByActiveSkill('player', skill.name);
+      rerollSideDiceByActiveSkill('enemy', skill.name);
+      break;
+    }
+    case 'active_basic_peace': {
+      combatState.value.playerBaseDice = 0;
+      combatState.value.enemyBaseDice = 0;
+      playerTurnRawDice.value = 0;
+      enemyTurnRawDice.value = 0;
+      log(`<span class="text-zinc-200">主动【${skill.name}】：将双方骰子点数设为0。</span>`);
+      break;
+    }
+    case 'active_basic_golden_chest': {
+      const oldHand = [...combatState.value.playerHand];
+      const nextHand = replacePlayerHandWithRandomRareCards(oldHand.length);
+      combatState.value.discardPile = [...combatState.value.discardPile, ...oldHand];
+      combatState.value.playerHand = nextHand;
+      log(`<span class="text-zinc-200">主动【${skill.name}】：将手牌替换为 ${nextHand.length} 张随机稀有卡牌。</span>`);
+      break;
+    }
     default:
       log(`<span class="text-gray-400">主动【${skill.name}】尚未实现效果。</span>`);
       break;
@@ -3898,6 +4247,9 @@ const useActiveSkill = (idx: number) => {
   const runtime = activeSkillRuntime.value[idx];
   if (runtime) {
     runtime.usedCount += 1;
+    if (skill.id === 'active_basic_infinite_amp_magic' || skill.id === 'active_basic_slot_machine') {
+      runtime.manaTaxThisTurn += 1;
+    }
     const cooldown = Math.max(0, Math.floor(skill.Cooldown));
     runtime.nextAvailableTurn = cooldown > 0 ? combatState.value.turn + cooldown : combatState.value.turn;
   }
@@ -4006,6 +4358,16 @@ const startTurn = () => {
   log(`<span class="text-slate-300">——第${combatState.value.turn}回合——</span>`);
   hideIdleDiceUntilNextTurn.value = false;
   enemyManaLackHintTurn = -1;
+  armorDecaySkippedThisTurn.value.player = false;
+  armorDecaySkippedThisTurn.value.enemy = false;
+  turnPointModifier.value.player = 0;
+  turnPointModifier.value.enemy = 0;
+  blankOfBlankActiveThisTurn.value = false;
+  blankOfBlankBonusThisTurn.value = 0;
+  temporaryBarrierToRemoveAtTurnEnd.value = 0;
+  activeSkillRuntime.value.forEach((runtime) => {
+    runtime.manaTaxThisTurn = 0;
+  });
   if (sealCircuitPendingMana.value > 0) {
     const pending = sealCircuitPendingMana.value;
     sealCircuitPendingMana.value = 0;
@@ -4107,6 +4469,15 @@ watch(
       if (combatState.value.turn === 1) {
         bloodpoolFirstBleedFeastTriggered.value = false;
         bloodpoolCriticalReboundTriggered.value = false;
+        battleCardFirstUseConsumed.value = { player: {}, enemy: {} };
+        battleCardPointBonus.value = { player: {}, enemy: {} };
+        turnPointModifier.value = { player: 0, enemy: 0 };
+        blankOfBlankActiveThisTurn.value = false;
+        blankOfBlankBonusThisTurn.value = 0;
+        armorDecaySkippedThisTurn.value = { player: false, enemy: false };
+        temporaryBarrierToRemoveAtTurnEnd.value = 0;
+        playerStats.value.swarmHealReduction = 0;
+        enemyStats.value.swarmHealReduction = 0;
         nextMagicDoubleCast.value.player = 0;
         nextMagicDoubleCast.value.enemy = 0;
         nextTurnMagicCostFree.value.player = 0;
@@ -4387,13 +4758,10 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     return;
   }
 
-  if (runtimeCard.type === CardType.MAGIC) {
-    const canSpend = spendManaWithShock('player', runtimeCard.manaCost, `使用【${card.name}】`);
-    if (!canSpend) {
-      triggerInvalidCardShake(card);
-      log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
-      return;
-    }
+  if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
+    triggerInvalidCardShake(card);
+    log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+    return;
   }
 
   // 出牌后立即离开手牌（卡牌“消失”），并进入弃牌堆
@@ -4488,6 +4856,24 @@ const resolveCombat = async (
   const enemySkippedTurn = resolvedEnemyCard.id === PASS_CARD.id;
   let resolvedPlayerDice = pDice;
   let resolvedEnemyDice = eDice;
+  if (resolvedPlayerCard.traits.reroll !== 'none') {
+    applyCardEffectsByTrigger(
+      'player',
+      resolvedPlayerCard,
+      getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice),
+      'on_use',
+      'pre_reroll_self_buff_only',
+    );
+  }
+  if (resolvedEnemyCard.traits.reroll !== 'none') {
+    applyCardEffectsByTrigger(
+      'enemy',
+      resolvedEnemyCard,
+      getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice),
+      'on_use',
+      'pre_reroll_self_buff_only',
+    );
+  }
   const rerollByTrait = (source: BattleSide, card: CardData) => {
     if (card.id === PASS_CARD.id || card.traits.reroll === 'none') return;
     const sourceLabel = source === 'player' ? '我方' : '敌方';
@@ -4497,7 +4883,8 @@ const resolveCombat = async (
     }
     const targetLabel = target === 'player' ? '我方' : '敌方';
     const targetStats = target === 'player' ? playerStats.value : enemyStats.value;
-    const rerolled = rollDiceInRange(targetStats.minDice, targetStats.maxDice);
+    const rerolledRaw = rollDiceInRange(targetStats.minDice, targetStats.maxDice);
+    const rerolled = consumeChargeOnRoll(targetStats, targetLabel, rerolledRaw);
     const before = target === 'player' ? resolvedPlayerDice : resolvedEnemyDice;
 
     if (target === 'player') {
@@ -4717,6 +5104,7 @@ const resolveCombat = async (
     const defenderSide = source === 'player' ? 'enemy' : 'player';
     const defenderLabel = defenderSide === 'player' ? '我方' : '敌方';
     const opponentSkippedTurn = source === 'player' ? enemySkippedTurn : playerSkippedTurn;
+    const cardForCalculation = card;
     const enemyColdBeforeAction = getEffectStacks(enemyStats.value, ET.COLD);
     const playerBurnBeforeAction = getEffectStacks(playerStats.value, ET.BURN);
     const playerHpBeforeAction = playerStats.value.hp;
@@ -4734,6 +5122,14 @@ const resolveCombat = async (
     }
     await playResolvedCardAnimation(source, card);
     if (endCombatPending.value) return;
+    if (source === 'player' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id) {
+      const runtimeCard = withEffectiveManaCost('player', card);
+      const canSpend = spendManaWithShock('player', runtimeCard.manaCost, `使用【${card.name}】`);
+      if (!canSpend) {
+        log(`<span class="text-red-400">${label}【${card.name}】发动失败：法力已不足。</span>`);
+        return;
+      }
+    }
     if (card.excape) {
       const sourceLabel = source === 'player' ? '我方' : '敌方';
       log(`<span class="text-zinc-300">${sourceLabel}触发逃离：一方逃离战斗。</span>`);
@@ -4886,6 +5282,14 @@ const resolveCombat = async (
           aiFlags.abyssJellyfishFullWrapHit = true;
         }
       }
+      if (card.id === 'basic_jagged_attack') {
+        const nextBonus = increaseBattleCardPointBonus(source, card.id, 2, 4);
+        log(`<span class="text-amber-300">${label}【${card.name}】本场战斗点数加成提升至 +${nextBonus}</span>`);
+      }
+      if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value) {
+        blankOfBlankBonusThisTurn.value += 1;
+        log(`<span class="text-cyan-300">【空白的空白】使本回合所有卡牌点数额外 +${blankOfBlankBonusThisTurn.value}</span>`);
+      }
       applyCardExtraAttributes();
       queueCardNegativeEffectForPlayer(source, card);
       applyInsertTrait(source, card);
@@ -4919,8 +5323,11 @@ const resolveCombat = async (
       }
     };
 
-    const applyCardEffects = (trigger: CardEffectTrigger = 'on_use') => (
-      applyCardEffectsByTrigger(source, card, finalPoint, trigger)
+    const applyCardEffects = (
+      trigger: CardEffectTrigger = 'on_use',
+      kindMode: 'all' | 'pre_reroll_self_buff_only' | 'post_reroll_on_use' = 'post_reroll_on_use',
+    ) => (
+      applyCardEffectsByTrigger(source, card, finalPoint, trigger, kindMode)
     );
 
     if (opponentSkippedTurn) {
@@ -5428,6 +5835,40 @@ const resolveCombat = async (
         return;
       }
 
+      if (card.id === 'basic_guard') {
+        syncCurrentPointForUi();
+        applyCardEffects();
+        armorDecaySkippedThisTurn.value[source] = true;
+        log(`<span class="text-cyan-300">${label}【${card.name}】使本回合护甲不触发减半</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'basic_blank_of_blank') {
+        syncCurrentPointForUi();
+        blankOfBlankActiveThisTurn.value = true;
+        log(`<span class="text-cyan-300">${label}【${card.name}】使本回合每出1张牌，所有卡牌点数 +1</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'basic_mana_expand') {
+        syncCurrentPointForUi();
+        applyCardEffects();
+        attacker.maxDice += 1;
+        log(`<span class="text-cyan-300">${label}【${card.name}】使本场战斗最大骰子点数 +1</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'basic_cognitive_swap') {
+        syncCurrentPointForUi();
+        applyCardEffects();
+        if (battleCardFirstUseConsumed.value[source][card.id] !== true && markBattleCardFirstUse(source, card.id)) {
+          const moved = transferDebuffsBetweenSides(source, defenderSide);
+          log(`<span class="text-cyan-300">${label}【${card.name}】首次使用，转移了 ${moved} 个负面状态</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
+
       // Process card effects (heal, apply_buff, restore_mana, cleanse)
       syncCurrentPointForUi();
       const hasEffect = applyCardEffects();
@@ -5655,7 +6096,7 @@ const resolveCombat = async (
           adjustedDamage,
           isTrueDamage,
           `卡牌【${card.name}】`,
-          { sourceSide: source, isDirectDamage: true },
+          { sourceSide: source, isDirectDamage: true, card: cardForCalculation },
         );
         const hitPrefix = totalHitCount > 1 ? `第${hit + 1}段` : '';
         const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
@@ -5681,10 +6122,10 @@ const resolveCombat = async (
           totalActualDamageDealt += actualDamage;
         }
 
-        if (card.type === CardType.PHYSICAL && !isTrueDamage && actualDamage > 0) {
+        if (actualDamage > 0) {
           const thornStacks = getEffectStacks(defender, ET.THORNS);
           if (thornStacks > 0) {
-            let reflectedDamage = Math.max(0, Math.floor(actualDamage * 0.5));
+            let reflectedDamage = Math.max(0, thornStacks);
             if (source === 'player') {
               reflectedDamage = applyPlayerSkinMarkDamageReduction(reflectedDamage, '荆棘反弹');
             }
@@ -5778,6 +6219,14 @@ const resolveCombat = async (
         });
         const restored = Math.max(0, manaResult.actualDelta);
         log(`<span class="text-blue-300">${label}【${card.name}】回收 ${restored} 点魔力</span>`);
+      }
+      if (card.id === 'basic_element_attack') {
+        const elementalStacks = Math.max(0, Math.floor(finalPoint));
+        if (elementalStacks > 0) {
+          const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
+          applyStatusEffectWithRelics(defenderSide, picked, elementalStacks, { source: card.id });
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】施加了 ${elementalStacks} 层${EFFECT_REGISTRY[picked]?.name ?? picked}</span>`);
+        }
       }
       if (card.id === 'bloodpool_siphon_slash') {
         const healAmount = Math.max(0, Math.floor(totalActualDamageDealt * 0.5));
@@ -6106,10 +6555,16 @@ const resolveCombat = async (
   }
 
   const applyPointSuppressBeforeQueue = () => {
-    const playerSuppress = (pSuccess && resolvedPlayerCard.id === 'basic_point_suppress')
+    const playerSuppress = (pSuccess && (
+      resolvedPlayerCard.id === 'basic_point_suppress'
+      || resolvedPlayerCard.id === 'basic_weak_magic'
+    ))
       ? Math.max(0, getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice))
       : 0;
-    const enemySuppress = (eSuccess && resolvedEnemyCard.id === 'basic_point_suppress')
+    const enemySuppress = (eSuccess && (
+      resolvedEnemyCard.id === 'basic_point_suppress'
+      || resolvedEnemyCard.id === 'basic_weak_magic'
+    ))
       ? Math.max(0, getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice))
       : 0;
 
@@ -6119,7 +6574,7 @@ const resolveCombat = async (
       const reduced = Math.max(0, before - resolvedEnemyDice);
       if (reduced > 0) {
         combatState.value.enemyBaseDice = resolvedEnemyDice;
-        log(`<span class="text-amber-300">我方【${resolvedPlayerCard.name}】使敌方当前骰子点数 -${reduced}（${before}→${resolvedEnemyDice}）</span>`);
+        log(`<span class="text-amber-300">我方【${resolvedPlayerCard.name}】使敌方原始点数 -${reduced}（${before}→${resolvedEnemyDice}）</span>`);
       }
     }
 
@@ -6129,7 +6584,7 @@ const resolveCombat = async (
       const reduced = Math.max(0, before - resolvedPlayerDice);
       if (reduced > 0) {
         combatState.value.playerBaseDice = resolvedPlayerDice;
-        log(`<span class="text-amber-300">敌方【${resolvedEnemyCard.name}】使我方当前骰子点数 -${reduced}（${before}→${resolvedPlayerDice}）</span>`);
+        log(`<span class="text-amber-300">敌方【${resolvedEnemyCard.name}】使我方原始点数 -${reduced}（${before}→${resolvedPlayerDice}）</span>`);
       }
     }
   };
@@ -6226,8 +6681,37 @@ const resolveCombat = async (
 
   // End-of-turn effect processing (armor halving, stun clear, etc.)
   const playerArmorBeforeEnd = getEffectStacks(playerStats.value, ET.ARMOR);
+  const enemyArmorBeforeEnd = getEffectStacks(enemyStats.value, ET.ARMOR);
+  const playerSkipArmorDecay = armorDecaySkippedThisTurn.value.player;
+  const enemySkipArmorDecay = armorDecaySkippedThisTurn.value.enemy;
   const pEndLogs = processOnTurnEnd(playerStats.value);
   const eEndLogs = processOnTurnEnd(enemyStats.value);
+  if (playerSkipArmorDecay) {
+    const playerArmorAfterDecay = getEffectStacks(playerStats.value, ET.ARMOR);
+    if (playerArmorAfterDecay < playerArmorBeforeEnd) {
+      applyStatusEffectWithRelics('player', ET.ARMOR, playerArmorBeforeEnd - playerArmorAfterDecay, {
+        source: 'basic_guard',
+      });
+      log('<span class="text-cyan-300">我方【守护】使本回合护甲不触发减半</span>');
+    }
+  }
+  if (enemySkipArmorDecay) {
+    const enemyArmorAfterDecay = getEffectStacks(enemyStats.value, ET.ARMOR);
+    if (enemyArmorAfterDecay < enemyArmorBeforeEnd) {
+      applyStatusEffectWithRelics('enemy', ET.ARMOR, enemyArmorBeforeEnd - enemyArmorAfterDecay, {
+        source: 'basic_guard',
+      });
+    }
+  }
+  if (temporaryBarrierToRemoveAtTurnEnd.value > 0) {
+    const currentBarrier = Math.max(0, getEffectStacks(playerStats.value, ET.BARRIER));
+    const removable = Math.min(currentBarrier, temporaryBarrierToRemoveAtTurnEnd.value);
+    if (removable > 0) {
+      reduceEffectStacks(playerStats.value, ET.BARRIER, removable);
+      log(`<span class="text-zinc-300">主动【弹刀】提供的结界在回合结束时消失了。</span>`);
+    }
+    temporaryBarrierToRemoveAtTurnEnd.value = 0;
+  }
   const playerArmorAfterEnd = getEffectStacks(playerStats.value, ET.ARMOR);
   const armorLostOnDecay = Math.max(0, playerArmorBeforeEnd - playerArmorAfterEnd);
 
@@ -6492,6 +6976,22 @@ watch(
   transform: scale(1);
   will-change: transform, opacity, filter;
   filter: drop-shadow(0 0 18px rgba(0, 0, 0, 0.45));
+}
+
+.rare-active-skill-card {
+  position: relative;
+}
+
+.rare-active-skill-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid rgba(250, 204, 21, 0.52);
+  box-shadow:
+    0 0 8px rgba(250, 204, 21, 0.34),
+    0 0 18px rgba(245, 158, 11, 0.2);
+  pointer-events: none;
 }
 
 .combat-card-visual-scale {

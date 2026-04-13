@@ -555,7 +555,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: true,
     maxStacks: 0,
-    description: '反弹50%物理直接伤害',
+    description: '每次受到直接伤害时，反弹等同于层数的伤害',
   },
   [EffectType.CO_DAMAGE]: {
     type: EffectType.CO_DAMAGE,

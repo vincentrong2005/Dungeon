@@ -224,8 +224,15 @@ export function triggerSwarmReviveIfNeeded(
   const swarmStacks = getEffectStacks(target, EffectType.SWARM);
   if (swarmStacks > 0) {
     reduceEffectStacks(target, EffectType.SWARM, 1);
-    target.hp = target.maxHp;
-    logs.push(`[群集] 触发复苏，消耗1层并恢复至${target.maxHp}生命。`);
+    const swarmHealReduction = Math.max(0, Math.floor(target.swarmHealReduction ?? 0));
+    const revivedHp = Math.max(0, target.maxHp - swarmHealReduction);
+    if (revivedHp <= 0) {
+      target.hp = 0;
+      logs.push(`[群集] 触发复苏，但受群攻影响无法恢复生命值。`);
+      return { revived: false, logs };
+    }
+    target.hp = revivedHp;
+    logs.push(`[群集] 触发复苏，消耗1层并恢复至${revivedHp}生命。`);
     return { revived: true, logs };
   }
 
@@ -278,7 +285,7 @@ export function applyDamageToEntity(
   target: EntityStats,
   damage: number,
   isTrueDamage: boolean,
-  options?: { disableRevive?: boolean },
+  options?: { disableRevive?: boolean; swarmAttack?: boolean },
 ): { actualDamage: number; logs: string[] } {
   const logs: string[] = [];
   if (!isTrueDamage) {
@@ -298,6 +305,10 @@ export function applyDamageToEntity(
   const actual = Math.min(damage, target.hp);
   target.hp -= actual;
   logs.push(`受到${actual}点伤害(HP: ${target.hp}/${target.maxHp})。`);
+  if (options?.swarmAttack && actual > 0) {
+    target.swarmHealReduction = Math.max(0, Math.floor(target.swarmHealReduction ?? 0) + actual);
+    logs.push(`[群攻] 本场群集回复生命值上限减少 ${actual}，当前累计减少 ${target.swarmHealReduction}。`);
+  }
   const reviveResult = triggerSwarmReviveIfNeeded(target, {
     disableRevive: options?.disableRevive,
   });

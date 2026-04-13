@@ -408,10 +408,10 @@
 
             <button
               class="w-10 h-10 rounded-lg flex items-center justify-center bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300 shadow-lg backdrop-blur-md"
-              :title="statusHudView === 'base' ? '切换到负面状态界面' : '切换到基础状态界面'"
-              @click="toggleStatusHudView"
+              title="打开详细状态栏"
+              @click="activeModal = 'statusDetails'"
             >
-              <component :is="statusHudView === 'base' ? FileText : Activity" class="size-5" />
+              <FileText class="size-5" />
             </button>
           </div>
 
@@ -427,167 +427,263 @@
                 class="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-dungeon-gold/50 to-transparent"
               ></div>
 
-              <template v-if="statusHudView === 'base'">
-                <!-- HP & MP: Container-fill style -->
-                <div class="flex items-end gap-4 mb-3">
-                  <!-- HP Heart Container -->
-                  <div class="flex flex-col items-center gap-1">
-                    <div class="stat-container-heart" :title="`HP: ${displayHp}/${displayMaxHp}`">
-                      <svg viewBox="0 0 64 64" class="w-14 h-14">
-                        <defs>
-                          <clipPath id="heartClip">
-                            <path
-                              d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
-                            />
-                          </clipPath>
-                          <filter id="hpGlow">
-                            <feGaussianBlur stdDeviation="2" result="glow" />
-                            <feMerge>
-                              <feMergeNode in="glow" />
-                              <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                          </filter>
-                          <linearGradient id="hpGradient" x1="0" y1="1" x2="0" y2="0">
-                            <stop offset="0%" stop-color="#8a0e0e" />
-                            <stop offset="50%" stop-color="#cc2222" />
-                            <stop offset="100%" stop-color="#ee4444" />
-                          </linearGradient>
-                        </defs>
-                        <!-- Heart outline (dark) -->
-                        <path
-                          d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
-                          fill="#1a0808"
-                          stroke="#5c1a1a"
-                          stroke-width="1.5"
-                        />
-                        <!-- Fill level (clipped to heart) -->
-                        <g clip-path="url(#heartClip)">
-                          <rect
-                            x="0"
-                            :y="64 - (hpPercent / 100) * 60"
-                            width="64"
-                            :height="(hpPercent / 100) * 60"
-                            fill="url(#hpGradient)"
-                            filter="url(#hpGlow)"
-                            class="transition-all duration-700 ease-out"
+              <!-- HP & MP: Container-fill style -->
+              <div class="flex items-end gap-4 mb-3">
+                <!-- HP Heart Container -->
+                <div class="flex flex-col items-center gap-1">
+                  <div class="stat-container-heart" :title="`HP: ${displayHp}/${displayMaxHp}`">
+                    <svg viewBox="0 0 64 64" class="w-14 h-14">
+                      <defs>
+                        <clipPath id="heartClip">
+                          <path
+                            d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
                           />
-                        </g>
-                        <!-- Highlight -->
-                        <ellipse
-                          cx="22"
-                          cy="18"
-                          rx="5"
-                          ry="4"
-                          fill="rgba(255,255,255,0.12)"
-                          transform="rotate(-20,22,18)"
+                        </clipPath>
+                        <filter id="hpGlow">
+                          <feGaussianBlur stdDeviation="2" result="glow" />
+                          <feMerge>
+                            <feMergeNode in="glow" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
+                        </filter>
+                        <linearGradient id="hpGradient" x1="0" y1="1" x2="0" y2="0">
+                          <stop offset="0%" stop-color="#8a0e0e" />
+                          <stop offset="50%" stop-color="#cc2222" />
+                          <stop offset="100%" stop-color="#ee4444" />
+                        </linearGradient>
+                      </defs>
+                      <!-- Heart outline (dark) -->
+                      <path
+                        d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
+                        fill="#1a0808"
+                        stroke="#5c1a1a"
+                        stroke-width="1.5"
+                      />
+                      <!-- Fill level (clipped to heart) -->
+                      <g clip-path="url(#heartClip)">
+                        <rect
+                          x="0"
+                          :y="64 - (hpPercent / 100) * 60"
+                          width="64"
+                          :height="(hpPercent / 100) * 60"
+                          fill="url(#hpGradient)"
+                          filter="url(#hpGlow)"
+                          class="transition-all duration-700 ease-out"
                         />
-                      </svg>
-                    </div>
-                    <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
-                      <span class="text-[#cc3333] font-bold">{{ displayHp }}</span>
-                      <span class="text-gray-600">/{{ displayMaxHp }}</span>
-                    </span>
+                      </g>
+                      <!-- Highlight -->
+                      <ellipse
+                        cx="22"
+                        cy="18"
+                        rx="5"
+                        ry="4"
+                        fill="rgba(255,255,255,0.12)"
+                        transform="rotate(-20,22,18)"
+                      />
+                    </svg>
                   </div>
-
-                  <!-- MP Crystal Container -->
-                  <div class="flex flex-col items-center gap-1">
-                    <div class="stat-container-mana" :title="`MP: ${displayMp}`">
-                      <svg viewBox="0 0 64 64" class="w-14 h-14">
-                        <defs>
-                          <clipPath id="manaClip">
-                            <path d="M32 4 L54 24 L32 60 L10 24 Z" />
-                          </clipPath>
-                          <filter id="mpGlow">
-                            <feGaussianBlur stdDeviation="2" result="glow" />
-                            <feMerge>
-                              <feMergeNode in="glow" />
-                              <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                          </filter>
-                          <linearGradient id="mpGradient" x1="0" y1="1" x2="0" y2="0">
-                            <stop offset="0%" stop-color="#1a1a8a" />
-                            <stop offset="50%" stop-color="#3344cc" />
-                            <stop offset="100%" stop-color="#5566ee" />
-                          </linearGradient>
-                        </defs>
-                        <!-- Crystal outline -->
-                        <path d="M32 4 L54 24 L32 60 L10 24 Z" fill="#080818" stroke="#1a1a5c" stroke-width="1.5" />
-                        <!-- Fill level -->
-                        <g clip-path="url(#manaClip)">
-                          <rect
-                            x="0"
-                            :y="64 - (mpPercent / 100) * 60"
-                            width="64"
-                            :height="(mpPercent / 100) * 60"
-                            fill="url(#mpGradient)"
-                            filter="url(#mpGlow)"
-                            class="transition-all duration-700 ease-out"
-                          />
-                        </g>
-                        <!-- Highlight -->
-                        <polygon points="26,14 32,8 38,14 32,20" fill="rgba(255,255,255,0.1)" />
-                      </svg>
-                    </div>
-                    <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
-                      <span class="text-blue-400 font-bold">{{ displayMp }}</span>
-                    </span>
-                  </div>
+                  <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
+                    <span class="text-[#cc3333] font-bold">{{ displayHp }}</span>
+                    <span class="text-gray-600">/{{ displayMaxHp }}</span>
+                  </span>
                 </div>
 
-                <!-- Divider -->
-                <div
-                  class="my-2 h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent"
-                ></div>
-
-                <!-- Dice Range Row -->
-                <div class="flex items-center justify-between px-1 mb-2">
-                  <div class="flex items-center gap-2 text-dungeon-paper/70">
-                    <Dices class="size-4 text-dungeon-gold-dim drop-shadow-sm" />
-                    <span class="font-ui text-sm tracking-wide">
-                      <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMinDice }}</span>
-                      <span class="text-gray-500">~</span>
-                      <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMaxDice }}</span>
-                    </span>
+                <!-- MP Crystal Container -->
+                <div class="flex flex-col items-center gap-1">
+                  <div class="stat-container-mana" :title="`MP: ${displayMp}`">
+                    <svg viewBox="0 0 64 64" class="w-14 h-14">
+                      <defs>
+                        <clipPath id="manaClip">
+                          <path d="M32 4 L54 24 L32 60 L10 24 Z" />
+                        </clipPath>
+                        <filter id="mpGlow">
+                          <feGaussianBlur stdDeviation="2" result="glow" />
+                          <feMerge>
+                            <feMergeNode in="glow" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
+                        </filter>
+                        <linearGradient id="mpGradient" x1="0" y1="1" x2="0" y2="0">
+                          <stop offset="0%" stop-color="#1a1a8a" />
+                          <stop offset="50%" stop-color="#3344cc" />
+                          <stop offset="100%" stop-color="#5566ee" />
+                        </linearGradient>
+                      </defs>
+                      <!-- Crystal outline -->
+                      <path d="M32 4 L54 24 L32 60 L10 24 Z" fill="#080818" stroke="#1a1a5c" stroke-width="1.5" />
+                      <!-- Fill level -->
+                      <g clip-path="url(#manaClip)">
+                        <rect
+                          x="0"
+                          :y="64 - (mpPercent / 100) * 60"
+                          width="64"
+                          :height="(mpPercent / 100) * 60"
+                          fill="url(#mpGradient)"
+                          filter="url(#mpGlow)"
+                          class="transition-all duration-700 ease-out"
+                        />
+                      </g>
+                      <!-- Highlight -->
+                      <polygon points="26,14 32,8 38,14 32,20" fill="rgba(255,255,255,0.1)" />
+                    </svg>
                   </div>
-                  <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Dice</span>
+                  <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
+                    <span class="text-blue-400 font-bold">{{ displayMp }}</span>
+                  </span>
                 </div>
+              </div>
 
-                <!-- Gold Row -->
-                <div class="flex items-center justify-between px-1">
-                  <div class="flex items-center gap-2 text-dungeon-gold">
-                    <Coins class="size-4 drop-shadow-sm" />
-                    <span
-                      class="font-heading text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim drop-shadow-sm"
-                    >
-                      {{ displayGold }}
-                    </span>
-                  </div>
-                  <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Gold</span>
-                </div>
-              </template>
+              <!-- Divider -->
+              <div
+                class="my-2 h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent"
+              ></div>
 
-              <div v-else class="status-negative-screen">
-                <div class="status-negative-head">
-                  <span class="status-negative-title">负面状态</span>
-                  <span class="status-negative-count">{{ negativeStatusEntries.length }} 项</span>
+              <!-- Dice Range Row -->
+              <div class="flex items-center justify-between px-1 mb-2">
+                <div class="flex items-center gap-2 text-dungeon-paper/70">
+                  <Dices class="size-4 text-dungeon-gold-dim drop-shadow-sm" />
+                  <span class="font-ui text-sm tracking-wide">
+                    <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMinDice }}</span>
+                    <span class="text-gray-500">~</span>
+                    <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMaxDice }}</span>
+                  </span>
                 </div>
-                <div v-if="negativeStatusEntries.length === 0" class="status-negative-empty">当前没有负面状态</div>
-                <div v-else class="status-negative-list custom-scrollbar">
-                  <div
-                    v-for="entry in negativeStatusEntries"
-                    :key="`negative-status-${entry.name}`"
-                    class="status-negative-bar"
+                <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Dice</span>
+              </div>
+
+              <!-- Gold Row -->
+              <div class="flex items-center justify-between px-1">
+                <div class="flex items-center gap-2 text-dungeon-gold">
+                  <Coins class="size-4 drop-shadow-sm" />
+                  <span
+                    class="font-heading text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim drop-shadow-sm"
                   >
-                    <span class="status-negative-name">{{ entry.name }}</span>
-                    <span class="status-negative-desc">{{ entry.description }}</span>
-                  </div>
+                    {{ displayGold }}
+                  </span>
                 </div>
+                <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Gold</span>
               </div>
             </div>
           </Transition>
         </div>
 
+        <input
+          ref="playerPortraitUploadInputRef"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          class="hidden"
+          @change="handlePlayerPortraitUpload"
+        />
+
         <!-- Modals -->
+        <DungeonModal
+          title="详细状态栏"
+          :is-open="activeModal === 'statusDetails'"
+          panel-class="max-w-6xl"
+          @close="activeModal = null"
+        >
+          <div class="player-detail-modal">
+            <div class="player-detail-portrait-panel">
+              <div class="player-detail-portrait-shell">
+                <img
+                  v-if="playerStatusPortraitUrl && !playerStatusPortraitError"
+                  :src="playerStatusPortraitUrl"
+                  alt="主角立绘"
+                  class="player-detail-portrait-image"
+                  @error="playerStatusPortraitError = true"
+                />
+                <div v-else class="player-detail-portrait-fallback">{{ playerDisplayName.slice(0, 1) || '主' }}</div>
+              </div>
+              <div class="player-detail-nameplate">
+                <div class="player-detail-name">{{ playerDisplayName }}</div>
+                <div class="player-detail-subtitle">详细状态记录</div>
+              </div>
+              <div class="player-detail-upload-actions">
+                <button type="button" class="player-detail-upload-btn" @click="openPlayerPortraitUploadDialog">
+                  <Upload class="size-4" />
+                  上传自定义立绘
+                </button>
+                <button
+                  type="button"
+                  class="player-detail-upload-btn player-detail-upload-btn--ghost"
+                  :disabled="!playerCustomPortraitUrl"
+                  @click="resetCustomPlayerPortrait"
+                >
+                  <RotateCcw class="size-4" />
+                  恢复默认立绘
+                </button>
+              </div>
+              <div class="player-detail-upload-hint">请上传无背景、扣过图的纯立绘。</div>
+            </div>
+
+            <div class="player-detail-data-panel custom-scrollbar">
+              <section class="player-detail-section">
+                <div class="player-detail-section-title">基础数值</div>
+                <div class="player-detail-stat-grid">
+                  <div class="player-detail-stat-card">
+                    <span class="player-detail-stat-label">生命值</span>
+                    <span class="player-detail-stat-value player-detail-stat-value--hp"
+                      >{{ displayHp }}/{{ displayMaxHp }}</span
+                    >
+                  </div>
+                  <div class="player-detail-stat-card">
+                    <span class="player-detail-stat-label">魔量</span>
+                    <span class="player-detail-stat-value player-detail-stat-value--mp">{{ displayMp }}</span>
+                  </div>
+                  <div class="player-detail-stat-card">
+                    <span class="player-detail-stat-label">金币</span>
+                    <span class="player-detail-stat-value player-detail-stat-value--gold">{{ displayGold }}</span>
+                  </div>
+                  <div class="player-detail-stat-card">
+                    <span class="player-detail-stat-label">骰子范围</span>
+                    <span class="player-detail-stat-value"
+                      >{{ effectiveDisplayMinDice }} ~ {{ effectiveDisplayMaxDice }}</span
+                    >
+                  </div>
+                </div>
+              </section>
+
+              <section class="player-detail-section">
+                <div class="player-detail-section-head">
+                  <div class="player-detail-section-title">负面状态</div>
+                  <div class="player-detail-section-meta">{{ negativeStatusEntries.length }} 项</div>
+                </div>
+                <div v-if="negativeStatusEntries.length === 0" class="player-detail-empty">当前没有负面状态。</div>
+                <div v-else class="player-detail-negative-list">
+                  <div
+                    v-for="entry in negativeStatusEntries"
+                    :key="`detail-negative-${entry.name}`"
+                    class="player-detail-negative-item"
+                  >
+                    <div class="player-detail-negative-name">{{ entry.name }}</div>
+                    <div class="player-detail-negative-desc">{{ entry.description }}</div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="player-detail-section">
+                <div class="player-detail-section-title">主角信息</div>
+                <div class="player-detail-info-grid">
+                  <div
+                    v-for="entry in playerInfoEntries"
+                    :key="`player-info-${entry.label}`"
+                    class="player-detail-info-item"
+                    :class="{ 'player-detail-info-item--multiline': entry.multiline }"
+                  >
+                    <div class="player-detail-info-label">{{ entry.label }}</div>
+                    <div
+                      class="player-detail-info-value"
+                      :class="{ 'player-detail-info-value--multiline': entry.multiline }"
+                    >
+                      {{ entry.value }}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </DungeonModal>
+
         <DungeonModal
           title="地牢地图"
           :is-open="activeModal === 'map'"
@@ -902,11 +998,12 @@
                   :key="`starting-active-skill-${skill.id}`"
                   type="button"
                   class="relative w-[180px] h-[250px] rounded-xl border-2 shadow-xl overflow-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  :class="
+                  :class="[
+                    skill.rarity === '稀有' ? 'rare-active-skill-card' : '',
                     isSkillEquippedInStartingActive(skill.name)
                       ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.38)]'
-                      : 'border-dungeon-brown/60 hover:border-dungeon-gold/50'
-                  "
+                      : 'border-dungeon-brown/60 hover:border-dungeon-gold/50',
+                  ]"
                   :disabled="isUpdatingStartingActiveSkills"
                   @click="setStartingActiveSkill(skill)"
                 >
@@ -1501,10 +1598,12 @@
                   退出到标题
                 </button>
                 <button
-                  class="settings-action-btn settings-action-btn--accent sm:col-span-2"
-                  @click="openCombatTestBuilder"
+                  class="settings-action-btn sm:col-span-2"
+                  :class="isCombatTestUnlocked ? 'settings-action-btn--accent' : 'settings-action-btn--locked'"
+                  :title="isCombatTestUnlocked ? '进入战斗测试' : '作者测试用'"
+                  @click="handleCombatTestButtonClick"
                 >
-                  ⚔ 进入战斗测试
+                  {{ isCombatTestUnlocked ? '⚔ 进入战斗测试' : '作者测试用' }}
                 </button>
               </div>
             </div>
@@ -1654,6 +1753,54 @@
                     class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
                   >
                     当前分类暂无可选卡牌
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-4 rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
+                <div class="mb-2 flex items-center justify-between">
+                  <h4 class="font-heading text-dungeon-gold text-xs tracking-wider uppercase">测试主动技</h4>
+                  <span class="text-[11px] text-dungeon-paper/60">作者测试可选择全部主动技</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div
+                    v-for="entry in testActiveSkillEntries"
+                    :key="`test-active-slot-${entry.idx}`"
+                    class="rounded border border-dungeon-brown/50 bg-[#1a0f08]/70 p-3"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <div>
+                        <div class="text-xs font-heading text-dungeon-gold">槽位 {{ entry.idx + 1 }}</div>
+                        <div class="text-[11px] text-dungeon-paper/75">{{ entry.skill?.name ?? '未选择主动技' }}</div>
+                      </div>
+                      <button
+                        class="px-2 py-1 rounded border border-dungeon-brown/60 text-[11px] text-dungeon-paper/70 hover:border-dungeon-gold/45"
+                        @click="clearTestActiveSkill(entry.idx)"
+                      >
+                        清空
+                      </button>
+                    </div>
+                    <div class="mt-2 text-[10px] text-dungeon-paper/60 min-h-[30px]">
+                      {{ entry.skill?.description ?? '从下方列表选择一个主动技装入该槽位。' }}
+                    </div>
+                    <div class="mt-3 max-h-40 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
+                      <button
+                        v-for="skill in activeSkillsForBattle"
+                        :key="`test-active-pick-${entry.idx}-${skill.id}`"
+                        class="w-full text-left rounded border px-2 py-1.5 text-[11px] transition-colors"
+                        :class="
+                          entry.name === skill.name
+                            ? 'border-dungeon-gold/70 bg-dungeon-gold/10 text-dungeon-gold'
+                            : 'border-dungeon-brown/50 bg-[#110a06]/50 text-dungeon-paper/75 hover:border-dungeon-gold/45'
+                        "
+                        @click="setTestActiveSkill(entry.idx, skill)"
+                      >
+                        <div class="flex items-center justify-between gap-2">
+                          <span class="truncate">{{ skill.name }}</span>
+                          <span class="shrink-0 text-[10px] text-dungeon-paper/50">{{ skill.rarity }}</span>
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2152,6 +2299,7 @@
                         <div
                           v-else
                           class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                          :class="reward.rarity === '稀有' ? 'rare-active-skill-card rare-active-skill-card--light' : ''"
                         >
                           <div class="flex items-center justify-between text-[11px] font-semibold">
                             <span>{{ reward.name }}</span>
@@ -2194,6 +2342,11 @@
                       <div
                         v-else-if="selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)"
                         class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                        :class="
+                          selectedVictoryRewardCard.rarity === '稀有'
+                            ? 'rare-active-skill-card rare-active-skill-card--light'
+                            : ''
+                        "
                       >
                         <div class="flex items-center justify-between text-[11px] font-semibold">
                           <span>{{ selectedVictoryRewardCard.name }}</span>
@@ -2271,6 +2424,7 @@
                         <div
                           v-if="entry.skill"
                           class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
+                          :class="entry.skill.rarity === '稀有' ? 'rare-active-skill-card rare-active-skill-card--light' : ''"
                         >
                           <div class="flex items-center justify-between text-[11px] font-semibold">
                             <span>{{ entry.skill.name }}</span>
@@ -2315,6 +2469,7 @@
               :player-deck="resolvedDeck"
               :player-active-skills="resolvedActiveSkills"
               :player-relics="combatRelicMap"
+              :player-portrait-override-url="playerBattlePortraitUrl"
               :test-start-at-999="combatTestStartAt999CurrentBattle"
               :track-discovery="activeCombatContext !== 'combatTest'"
               :ui-font-family="textSettings.fontFamily"
@@ -2355,7 +2510,6 @@
 
 <script setup lang="ts">
 import {
-  Activity,
   Book,
   BookOpen,
   Box,
@@ -2366,11 +2520,14 @@ import {
   Lock,
   Map as MapIcon,
   Maximize,
+  RotateCcw,
   Scroll,
   Send,
   Settings as SettingsIcon,
+  Upload,
   Users,
 } from 'lucide-vue-next';
+import { hasAuthorTestAccess, unlockAuthorTestAccess, verifyAuthorTestPassword } from '../authorTestAccess';
 import { getAllActiveSkills, resolveActiveSkillNames } from '../battle/activeSkillRegistry';
 import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
@@ -2540,7 +2697,6 @@ const dismissLandscapeHint = () => {
 };
 const isVariableUpdateOpen = ref(false);
 const isStatusOpen = ref(true);
-const statusHudView = ref<'base' | 'negative'>('base');
 const showCombat = ref(false);
 const combatEnemyName = ref('');
 const showShopView = ref(false);
@@ -2581,6 +2737,7 @@ const idolDragPointerId = ref<number | null>(null);
 const idolDragStart = ref({ x: 0, y: 0 });
 const idolDragStartPos = ref({ x: 0, y: 0 });
 const combatTestStep = ref<'deck' | 'enemy'>('deck');
+const isCombatTestUnlocked = ref(hasAuthorTestAccess());
 const selectedTestDeck = ref<string[]>([]);
 const selectedTestEnemy = ref('');
 const selectedEnemyFloorForTest = ref('全部');
@@ -2617,6 +2774,7 @@ const relicTooltip = ref<{
 } | null>(null);
 const combatTestStartAt999 = ref(false);
 const combatTestStartAt999CurrentBattle = ref(false);
+const selectedTestActiveSkills = ref<string[]>(['', '']);
 let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let chestCloseLongPressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -2707,6 +2865,7 @@ interface PersistedOverlaySnapshot {
 }
 
 const OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v1';
+const PLAYER_CUSTOM_PORTRAIT_KEY = 'dungeon.player.custom_portrait.v1';
 const isRestoringOverlayState = ref(false);
 
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
@@ -2747,6 +2906,15 @@ const bondPortraitFallbackTried = ref<Record<string, boolean>>({});
 const bondPortraitLoadTasks = new Map<string, Promise<void>>();
 const bondPortraitPreview = ref<{ name: string; url: string } | null>(null);
 let bondPortraitLoaderDisposed = false;
+const playerPortraitUploadInputRef = ref<HTMLInputElement | null>(null);
+const defaultPlayerPortraitUrl = ref('');
+const playerCustomPortraitUrl = ref('');
+const playerStatusPortraitError = ref(false);
+
+const readStoredCustomPlayerPortrait = (): string => {
+  if (typeof localStorage === 'undefined') return '';
+  return localStorage.getItem(PLAYER_CUSTOM_PORTRAIT_KEY) ?? '';
+};
 
 const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 const encodeRepoPath = (path: string) =>
@@ -2824,6 +2992,111 @@ const resolveCharacterPortraitUrl = async (characterName: string): Promise<strin
   const folderImages = await fetchFolderImages(folderPath);
   const randomEnemy = pickRandom(folderImages);
   return randomEnemy ? toResolveUrl(randomEnemy) : toResolveUrl(fallbackPath);
+};
+
+const initPlayerPortraitPreviewUrl = async () => {
+  playerCustomPortraitUrl.value = readStoredCustomPlayerPortrait();
+  playerStatusPortraitError.value = false;
+  defaultPlayerPortraitUrl.value = await resolveCharacterPortraitUrl('玩家');
+};
+
+const playerBattlePortraitUrl = computed(() => playerCustomPortraitUrl.value || defaultPlayerPortraitUrl.value || '');
+const playerStatusPortraitUrl = computed(() => playerBattlePortraitUrl.value);
+const playerDisplayName = computed(() => {
+  const profile = gameStore.statData.主角信息;
+  const name = typeof profile?.姓名 === 'string' ? profile.姓名.trim() : '';
+  return name || '主角';
+});
+
+const normalizeProfileValue = (value: unknown) => {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || '未填写';
+  }
+  return '未填写';
+};
+
+const playerInfoEntries = computed(() => {
+  const profile = (gameStore.statData.主角信息 ?? {}) as Record<string, unknown>;
+  const orderedKeys = [
+    '种族',
+    '姓名',
+    '年龄',
+    '贞操',
+    '天赋',
+    '外貌',
+    '特征',
+    '身高',
+    '体重',
+    '胸围',
+    '臀部',
+    '小穴',
+    '屁穴',
+    '敏感点',
+    '背景故事',
+  ];
+  return orderedKeys.map(label => ({
+    label,
+    value:
+      label === '身高' && typeof profile[label] === 'number' && Number.isFinite(profile[label] as number)
+        ? `${profile[label]}cm`
+        : normalizeProfileValue(profile[label]),
+    multiline: label === '背景故事',
+  }));
+});
+
+const openPlayerPortraitUploadDialog = () => {
+  playerPortraitUploadInputRef.value?.click();
+};
+
+const handlePlayerPortraitUpload = (event: Event) => {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toastr.warning('请选择图片文件。');
+    input.value = '';
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    toastr.warning('图片请控制在 2MB 以内，以免无法保存到本地。');
+    input.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = typeof reader.result === 'string' ? reader.result : '';
+    if (!result) {
+      toastr.warning('立绘读取失败，请重试。');
+      input.value = '';
+      return;
+    }
+    try {
+      localStorage.setItem(PLAYER_CUSTOM_PORTRAIT_KEY, result);
+      playerCustomPortraitUrl.value = result;
+      playerStatusPortraitError.value = false;
+      toastr.success('自定义立绘已更新。');
+    } catch (error) {
+      console.warn('[GameView] Failed to persist custom portrait:', error);
+      toastr.error('立绘保存失败，可能是图片过大或浏览器存储空间不足。');
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.onerror = () => {
+    toastr.error('立绘读取失败，请重试。');
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+};
+
+const resetCustomPlayerPortrait = () => {
+  localStorage.removeItem(PLAYER_CUSTOM_PORTRAIT_KEY);
+  playerCustomPortraitUrl.value = '';
+  playerStatusPortraitError.value = false;
+  toastr.info('已恢复默认立绘。');
 };
 
 const clampBondAffection = (value: unknown): number => {
@@ -3266,8 +3539,16 @@ const activeSkillByNameMap = computed(() => {
   }
   return map;
 });
+const INITIAL_ACTIVE_SKILL_IDS = new Set<string>([
+  'active_basic_reroll_self',
+  'active_basic_reroll_enemy',
+  'active_basic_draw',
+  'active_basic_guard',
+  'active_basic_boost',
+  'active_basic_weaken',
+]);
 const startingActiveSkillOptions = computed<ActiveSkillData[]>(() =>
-  activeSkillsForBattle.value.filter(skill => skill.category === '基础'),
+  activeSkillsForBattle.value.filter(skill => INITIAL_ACTIVE_SKILL_IDS.has(skill.id)),
 );
 const startingActiveSkillEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
   const raw = Array.isArray(gameStore.statData.$主动) ? [...(gameStore.statData.$主动 as string[])].slice(0, 2) : [];
@@ -3362,6 +3643,33 @@ const rewardActiveReplaceEntries = computed<Array<{ idx: number; name: string; s
     skill: activeSkillByNameMap.value.get(name) ?? null,
   }));
 });
+const testActiveSkillEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
+  const raw = [...selectedTestActiveSkills.value].slice(0, 2);
+  while (raw.length < 2) raw.push('');
+  return raw.map((name, idx) => ({
+    idx,
+    name,
+    skill: activeSkillByNameMap.value.get(name) ?? null,
+  }));
+});
+const setTestActiveSkill = (slotIdx: number, skill: ActiveSkillData) => {
+  const slot = Math.max(0, Math.min(1, Math.floor(slotIdx)));
+  const next = [...selectedTestActiveSkills.value].slice(0, 2);
+  while (next.length < 2) next.push('');
+  const conflictSlot = next.findIndex((name, idx) => name === skill.name && idx !== slot);
+  if (conflictSlot >= 0) {
+    next[conflictSlot] = next[slot] ?? '';
+  }
+  next[slot] = skill.name;
+  selectedTestActiveSkills.value = next;
+};
+const clearTestActiveSkill = (slotIdx: number) => {
+  const slot = Math.max(0, Math.min(1, Math.floor(slotIdx)));
+  const next = [...selectedTestActiveSkills.value].slice(0, 2);
+  while (next.length < 2) next.push('');
+  next[slot] = '';
+  selectedTestActiveSkills.value = next;
+};
 const selectedTestDeckCards = computed(() =>
   selectedTestDeck.value
     .map((cardName, idx) => ({ idx, card: cardByNameForTest.value.get(cardName) }))
@@ -3580,7 +3888,9 @@ const resolvedDeck = computed<CardData[]>(() => {
   return resolveCardNames(skills.filter(s => s !== ''));
 });
 const resolvedActiveSkills = computed<ActiveSkillData[]>(() => {
-  const skills = Array.isArray(gameStore.statData.$主动) ? (gameStore.statData.$主动 as string[]) : [];
+  const skills = activeCombatContext.value === 'combatTest'
+    ? selectedTestActiveSkills.value
+    : (Array.isArray(gameStore.statData.$主动) ? (gameStore.statData.$主动 as string[]) : []);
   return resolveActiveSkillNames(skills.filter(s => s !== ''));
 });
 
@@ -4781,9 +5091,6 @@ const effectiveDisplayMaxDice = computed(() => {
   const withRelic = baseMax + relicMaxDiceBonus.value;
   return Math.max(effectiveDisplayMinDice.value, withRelic);
 });
-const toggleStatusHudView = () => {
-  statusHudView.value = statusHudView.value === 'base' ? 'negative' : 'base';
-};
 const normalizeNegativeStatusList = (value: unknown): string[] => {
   const normalizeArray = (arr: unknown[]) => {
     const seen = new Set<string>();
@@ -6296,6 +6603,7 @@ watch(
 
 onMounted(() => {
   restoreOverlaySnapshot();
+  void initPlayerPortraitPreviewUrl();
   nextTick(() => {
     updateViewportMetrics();
     if (typeof ResizeObserver !== 'undefined' && viewportRef.value) {
@@ -6932,6 +7240,27 @@ const buildSelectedRelicPayload = (): Record<string, number> => {
   return next;
 };
 
+const handleCombatTestButtonClick = async () => {
+  if (isCombatTestUnlocked.value) {
+    openCombatTestBuilder();
+    return;
+  }
+
+  const password = window.prompt('请输入作者测试密码');
+  if (password === null) return;
+
+  const verified = await verifyAuthorTestPassword(password);
+  if (!verified) {
+    toastr.error('密码错误。');
+    return;
+  }
+
+  unlockAuthorTestAccess();
+  isCombatTestUnlocked.value = true;
+  toastr.success('作者测试已解锁，魔女的收藏现已开放全图鉴。');
+  openCombatTestBuilder();
+};
+
 const openCombatTestBuilder = () => {
   gameStore.loadStatData();
   const availableCardNames = new Set(allCardsForTest.value.map(c => c.name));
@@ -6949,6 +7278,11 @@ const openCombatTestBuilder = () => {
   }
 
   selectedTestDeck.value = [...presetDeck];
+  const presetActives = Array.isArray(gameStore.statData.$主动)
+    ? [...(gameStore.statData.$主动 as string[])].filter(name => activeSkillByNameMap.value.has(name)).slice(0, 2)
+    : [];
+  while (presetActives.length < 2) presetActives.push('');
+  selectedTestActiveSkills.value = presetActives;
   selectedTestEnemy.value = '';
   selectedEnemyFloorForTest.value = '全部';
   selectedTestRelicCounts.value = presetRelics;
@@ -7531,6 +7865,322 @@ onBeforeUnmount(() => {
 }
 .stat-container-mana:hover {
   filter: drop-shadow(0 0 12px rgba(60, 60, 230, 0.7));
+}
+
+.player-detail-modal {
+  display: grid;
+  grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 34rem;
+}
+
+.player-detail-portrait-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.9rem;
+  height: 100%;
+  padding: 1rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(217, 119, 6, 0.22);
+  background:
+    radial-gradient(circle at 24% 18%, rgba(217, 119, 6, 0.24), transparent 42%),
+    linear-gradient(180deg, rgba(35, 23, 16, 0.96), rgba(12, 9, 8, 0.94));
+}
+
+.player-detail-portrait-shell {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  align-self: center;
+  width: min(100%, 19rem);
+  max-width: 100%;
+  aspect-ratio: 3 / 5;
+  max-height: min(56vh, 34rem);
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(251, 191, 36, 0.18), transparent 40%),
+    linear-gradient(180deg, rgba(27, 20, 17, 0.85), rgba(8, 6, 5, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.player-detail-portrait-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.player-detail-portrait-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 6rem;
+  font-family: var(--font-heading, inherit);
+  color: rgba(251, 191, 36, 0.22);
+}
+
+.player-detail-nameplate {
+  padding: 0.8rem 0.95rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  background: rgba(15, 10, 8, 0.72);
+}
+
+.player-detail-name {
+  font-family: var(--font-heading, inherit);
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
+  color: rgba(254, 243, 199, 0.96);
+}
+
+.player-detail-subtitle {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(245, 222, 179, 0.55);
+}
+
+.player-detail-upload-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.player-detail-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.42);
+  background: linear-gradient(180deg, rgba(91, 57, 23, 0.96), rgba(43, 26, 12, 0.98));
+  color: rgba(254, 243, 199, 0.96);
+  transition: all 0.18s ease;
+}
+
+.player-detail-upload-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(252, 211, 77, 0.78);
+  color: rgba(255, 251, 235, 0.98);
+}
+
+.player-detail-upload-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.player-detail-upload-btn--ghost {
+  background: rgba(20, 16, 13, 0.88);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: rgba(245, 222, 179, 0.82);
+}
+
+.player-detail-upload-hint {
+  margin-top: auto;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: rgba(214, 211, 209, 0.7);
+}
+
+.player-detail-data-panel {
+  max-height: 42rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-right: 0.35rem;
+}
+
+.player-detail-section {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(217, 119, 6, 0.18);
+  background: linear-gradient(180deg, rgba(26, 20, 18, 0.96), rgba(13, 11, 11, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.player-detail-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.player-detail-section-title {
+  font-family: var(--font-heading, inherit);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  color: rgba(253, 230, 138, 0.94);
+}
+
+.player-detail-section-meta {
+  font-size: 0.75rem;
+  color: rgba(245, 222, 179, 0.52);
+}
+
+.player-detail-stat-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.player-detail-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 10, 10, 0.32);
+}
+
+.player-detail-stat-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(212, 212, 216, 0.58);
+}
+
+.player-detail-stat-value {
+  font-family: var(--font-heading, inherit);
+  font-size: 1.3rem;
+  color: rgba(250, 245, 230, 0.96);
+}
+
+.player-detail-stat-value--hp {
+  color: rgba(252, 165, 165, 0.96);
+}
+
+.player-detail-stat-value--mp {
+  color: rgba(147, 197, 253, 0.98);
+}
+
+.player-detail-stat-value--gold {
+  color: rgba(253, 224, 71, 0.98);
+}
+
+.rare-active-skill-card {
+  position: relative;
+}
+
+.rare-active-skill-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid rgba(250, 204, 21, 0.56);
+  box-shadow:
+    0 0 8px rgba(250, 204, 21, 0.38),
+    0 0 18px rgba(245, 158, 11, 0.22);
+  pointer-events: none;
+}
+
+.rare-active-skill-card--light::after {
+  border-color: rgba(217, 119, 6, 0.58);
+  box-shadow:
+    0 0 8px rgba(245, 158, 11, 0.28),
+    0 0 18px rgba(234, 179, 8, 0.2);
+}
+
+.player-detail-empty {
+  margin-top: 0.8rem;
+  border-radius: 0.95rem;
+  border: 1px dashed rgba(251, 113, 133, 0.28);
+  padding: 0.95rem 1rem;
+  color: rgba(212, 212, 216, 0.72);
+  text-align: center;
+}
+
+.player-detail-negative-list {
+  margin-top: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.player-detail-negative-item {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(251, 113, 133, 0.25);
+  background: linear-gradient(120deg, rgba(69, 10, 10, 0.62), rgba(24, 24, 27, 0.58));
+  padding: 0.85rem 0.95rem;
+}
+
+.player-detail-negative-name {
+  color: rgba(253, 186, 116, 0.98);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.player-detail-negative-desc {
+  margin-top: 0.35rem;
+  color: rgba(228, 228, 231, 0.88);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.player-detail-info-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.player-detail-info-item {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.26);
+  padding: 0.85rem 0.95rem;
+}
+
+.player-detail-info-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(245, 222, 179, 0.54);
+}
+
+.player-detail-info-value {
+  margin-top: 0.4rem;
+  color: rgba(245, 245, 244, 0.95);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.player-detail-info-value--multiline {
+  white-space: pre-wrap;
+}
+
+.player-detail-info-item--multiline {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 960px) {
+  .player-detail-modal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .player-detail-portrait-shell {
+    width: min(100%, 22rem);
+    max-height: min(48vh, 28rem);
+  }
+
+  .player-detail-stat-grid,
+  .player-detail-info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Combat overlay transition */
@@ -8733,6 +9383,20 @@ onBeforeUnmount(() => {
   background: rgba(120, 53, 15, 0.45);
   color: rgba(254, 243, 199, 0.98);
   box-shadow: 0 0 16px rgba(251, 146, 60, 0.18);
+}
+
+.settings-action-btn--locked {
+  border-color: rgba(115, 115, 115, 0.5);
+  background: rgba(38, 38, 38, 0.72);
+  color: rgba(212, 212, 212, 0.9);
+}
+
+.settings-action-btn--locked:hover,
+.settings-action-btn--locked:focus-visible {
+  border-color: rgba(163, 163, 163, 0.7);
+  background: rgba(64, 64, 64, 0.82);
+  color: rgba(245, 245, 245, 0.98);
+  box-shadow: 0 0 14px rgba(163, 163, 163, 0.12);
 }
 
 .settings-help {

@@ -1789,7 +1789,7 @@ const 罗丝: EnemyDefinition = {
     mp: 0,
     minDice: 1,
     maxDice: 6,
-    effects: [{ type: EffectType.THORNS, stacks: 1, polarity: 'buff' }],
+    effects: [{ type: EffectType.THORNS, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
     ROSE_CARD.PLANT_DOMINION,

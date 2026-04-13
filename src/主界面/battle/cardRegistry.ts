@@ -911,10 +911,10 @@ const 寒域校准: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.8 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1 },
     { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '为自身提供0.8倍点数护甲，并为敌方施加2层寒冷',
+  description: '为自身提供1倍点数护甲，并为敌方施加2层寒冷',
 };
 
 /** 折光回避：闪避成功时施加寒冷 */
@@ -5663,7 +5663,415 @@ const 设下埋伏: CardData = {
  * 全部卡牌以 name 为键存储。
  * 后续新增卡牌只需在此处添加并注册即可。
  */
+/** 空白：连击，过牌 */
+const 空白: CardData = {
+  id: 'basic_blank',
+  name: '空白',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [],
+  description: '连击，过牌',
+};
+
+/** 法力涌动：回复1倍点数的魔力，获得2层坚固 */
+const 法力涌动: CardData = {
+  id: 'basic_mana_surge',
+  name: '法力涌动',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '回复1倍点数的魔力，获得2层坚固',
+};
+
+/** 蓄力：点数+1，获得1倍点数的蓄力 */
+const 蓄力: CardData = {
+  id: 'basic_charge',
+  name: '蓄力',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+1，获得1倍点数的蓄力',
+};
+
+/** 守护：获得1倍点数护甲，本轮护甲不触发减半 */
+const 守护: CardData = {
+  id: 'basic_guard',
+  name: '守护',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1倍点数护甲，本轮护甲不触发减半',
+};
+
+/** 魔力扩容：点数-1，本场战斗最大骰子点数+1，获得1倍点数护甲 */
+const 魔力扩容: CardData = {
+  id: 'basic_mana_expand',
+  name: '魔力扩容',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数-1，本场战斗最大骰子点数+1，获得1倍点数护甲',
+};
+
+/** 驱散：回复2点生命，清除自身元素负面状态 */
+const 驱散: CardData = {
+  id: 'basic_dispel',
+  name: '驱散',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    {
+      kind: 'cleanse',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      cleanseTypes: [EffectType.COLD, EffectType.BURN, EffectType.POISON, EffectType.BLEED, EffectType.SHOCK],
+    },
+  ],
+  description: '回复2点生命，清除自身元素负面状态',
+};
+
+/** 元素攻击：造成1点伤害，施加1倍点数的随机元素负面状态 */
+const 元素攻击: CardData = {
+  id: 'basic_element_attack',
+  name: '元素攻击',
+  type: CardType.MAGIC,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1点伤害，施加1倍点数的随机元素负面状态',
+};
+
+/** 闪光术：造成1倍点数伤害，无视闪避，群攻 */
+const 闪光术: CardData = {
+  id: 'basic_flash_spell',
+  name: '闪光术',
+  type: CardType.MAGIC,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，无视闪避，群攻',
+  ignoreDodge: true,
+  swarmAttack: true,
+};
+
+/** 尖锐攻击：若自身为卡组中仅有的物理卡牌，则点数+3。造成1倍点数伤害。 */
+const 尖锐攻击: CardData = {
+  id: 'basic_sharp_attack',
+  name: '尖锐攻击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若自身为卡组中仅有的物理卡牌，则点数+3。造成1倍点数伤害。',
+};
+
+/** 锯齿攻击：造成1倍点数伤害，每次使用后锯齿攻击在本场战斗的点数+2，上限+4 */
+const 锯齿攻击: CardData = {
+  id: 'basic_jagged_attack',
+  name: '锯齿攻击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，每次使用后锯齿攻击在本场战斗的点数+2，上限+4',
+};
+
+/** 袭击：若这是本场战斗首次使用该卡牌，则点数+4。造成1倍点数伤害。 */
+const 袭击: CardData = {
+  id: 'basic_raid_attack',
+  name: '袭击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若这是本场战斗首次使用该卡牌，则点数+4。造成1倍点数伤害。',
+};
+
+/** 柔劲：点数-10后再*-1，造成1倍点数伤害 */
+const 柔劲: CardData = {
+  id: 'basic_soft_force',
+  name: '柔劲',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: -1, addition: 10 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-10后再*-1，造成1倍点数伤害',
+};
+
+/** 针对性斩击：若对方为领主，则点数+4。造成1倍点数伤害。 */
+const 针对性斩击: CardData = {
+  id: 'basic_targeted_slash',
+  name: '针对性斩击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若对方为领主，则点数+4。造成1倍点数伤害。',
+};
+
+/** 潜行：若手牌中没有物理或魔法卡牌，则点数-3。闪避。 */
+const 潜行: CardData = {
+  id: 'basic_stealth',
+  name: '潜行',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若手牌中没有物理或魔法卡牌，则点数-3。闪避。',
+};
+
+/** 虚弱魔法：点数-1，根据我方点数减少对方等量点数，连击 */
+const 虚弱魔法: CardData = {
+  id: 'basic_weak_magic',
+  name: '虚弱魔法',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，根据我方点数减少对方等量点数，连击',
+};
+
+/** 瞬发盾：获得1倍点数护甲，连击，重掷 */
+const 瞬发盾: CardData = {
+  id: 'basic_instant_shield',
+  name: '瞬发盾',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'self', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1倍点数护甲，连击，重掷',
+};
+
+/** 浓缩精华：获得1倍点数蓄力，连击，重掷 */
+const 浓缩精华: CardData = {
+  id: 'basic_condensed_essence',
+  name: '浓缩精华',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'self', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1倍点数蓄力，连击，重掷',
+};
+
+/** 空白的空白：点数+1，连击，过牌。本回合内每出1张牌，点数+1 */
+const 空白的空白: CardData = {
+  id: 'basic_blank_of_blank',
+  name: '空白的空白',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [],
+  description: '点数+1，连击，过牌。本回合内每出1张牌，点数+1',
+};
+
+/** 巨石魔法：点数*2.5，造成0.6倍点数伤害，群攻 */
+const 巨石魔法: CardData = {
+  id: 'basic_boulder_magic',
+  name: '巨石魔法',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 2.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*2.5，造成0.6倍点数伤害，群攻',
+  swarmAttack: true,
+};
+
+/** 粘液斧：增加点数直至超过对方最终点数，造成1倍点数伤害 */
+const 粘液斧: CardData = {
+  id: 'basic_slime_axe',
+  name: '粘液斧',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '增加点数直至超过对方最终点数，造成1倍点数伤害',
+};
+
+/** 生死决断：若投掷点数为4，则点数*4，造成1倍点数伤害 */
+const 生死决断: CardData = {
+  id: 'basic_life_death_judgement',
+  name: '生死决断',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若投掷点数为4，则点数*4，造成1倍点数伤害',
+};
+
+/** 猩红镰刀：本场战斗中第一次使用时，点数*2。造成1倍点数伤害，施加4层流血 */
+const 猩红镰刀: CardData = {
+  id: 'basic_scarlet_scythe',
+  name: '猩红镰刀',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '本场战斗中第一次使用时，点数*2。造成1倍点数伤害，施加4层流血',
+};
+
+/** 认知互换：首次使用时，将自身所有负面状态转移给对方。点数+3，获得1倍点数护甲。 */
+const 认知互换: CardData = {
+  id: 'basic_cognitive_swap',
+  name: '认知互换',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '本场战斗中第一次使用时，将自身所有负面状态转移给对方。点数+3，获得1倍点数护甲。',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
+  [空白.name, 空白],
+  [法力涌动.name, 法力涌动],
+  [蓄力.name, 蓄力],
+  [守护.name, 守护],
+  [魔力扩容.name, 魔力扩容],
+  [驱散.name, 驱散],
+  [元素攻击.name, 元素攻击],
+  [闪光术.name, 闪光术],
+  [尖锐攻击.name, 尖锐攻击],
+  [锯齿攻击.name, 锯齿攻击],
+  [袭击.name, 袭击],
+  [柔劲.name, 柔劲],
+  [针对性斩击.name, 针对性斩击],
+  [潜行.name, 潜行],
+  [虚弱魔法.name, 虚弱魔法],
+  [瞬发盾.name, 瞬发盾],
+  [浓缩精华.name, 浓缩精华],
+  [空白的空白.name, 空白的空白],
+  [巨石魔法.name, 巨石魔法],
+  [粘液斧.name, 粘液斧],
+  [生死决断.name, 生死决断],
+  [猩红镰刀.name, 猩红镰刀],
+  [认知互换.name, 认知互换],
   [普通物理攻击.name, 普通物理攻击],
   [普通物理攻击加1.name, 普通物理攻击加1],
   [普通物理攻击加2.name, 普通物理攻击加2],

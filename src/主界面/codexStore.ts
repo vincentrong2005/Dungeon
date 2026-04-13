@@ -1,3 +1,7 @@
+import { getAllCards } from './battle/cardRegistry';
+import { EFFECT_REGISTRY } from './battle/effects';
+import { getAllEnemyNames } from './battle/enemyRegistry';
+import { getAllRelics } from './battle/relicRegistry';
 import type { CardData, EffectType } from './types';
 
 export interface CodexEnemyEncounter {
@@ -124,9 +128,7 @@ const normalizeEffectType = (input: string | EffectType | null | undefined): str
 };
 
 export function recordEncounteredCards(cards: Array<string | Pick<CardData, 'id'> | null | undefined>) {
-  const normalized = cards
-    .map((item) => normalizeCardId(item))
-    .filter((item) => item.length > 0);
+  const normalized = cards.map(item => normalizeCardId(item)).filter(item => item.length > 0);
   if (normalized.length === 0) return;
 
   const state = loadCodexState();
@@ -147,9 +149,7 @@ const normalizeRelicId = (input: string | RelicIdentity | null | undefined): str
 };
 
 export function recordEncounteredRelics(relics: Array<string | RelicIdentity | null | undefined>) {
-  const normalized = relics
-    .map((item) => normalizeRelicId(item))
-    .filter((item) => item.length > 0);
+  const normalized = relics.map(item => normalizeRelicId(item)).filter(item => item.length > 0);
   if (normalized.length === 0) return;
 
   const state = loadCodexState();
@@ -162,9 +162,7 @@ export function recordEncounteredRelics(relics: Array<string | RelicIdentity | n
 }
 
 export function recordEncounteredEffects(effectTypes: Array<string | EffectType | null | undefined>) {
-  const normalized = effectTypes
-    .map((item) => normalizeEffectType(item))
-    .filter((item) => item.length > 0);
+  const normalized = effectTypes.map(item => normalizeEffectType(item)).filter(item => item.length > 0);
   if (normalized.length === 0) return;
 
   const state = loadCodexState();
@@ -185,7 +183,7 @@ export function recordEncounteredEnemy(payload: { name: string; floor?: number; 
   const key = `${name}@@${floor}@@${area}`;
 
   const state = loadCodexState();
-  const index = state.enemies.findIndex((entry) => `${entry.name}@@${entry.floor}@@${entry.area}` === key);
+  const index = state.enemies.findIndex(entry => `${entry.name}@@${entry.floor}@@${entry.area}` === key);
   if (index >= 0) {
     const found = state.enemies[index]!;
     found.lastSeenAt = now;
@@ -202,5 +200,29 @@ export function recordEncounteredEnemy(payload: { name: string; floor?: number; 
     lastSeenAt: now,
     times: 1,
   });
+  saveCodexState(state);
+}
+
+export function unlockFullCodex() {
+  const state = loadCodexState();
+
+  state.cards = Array.from(new Set([...state.cards, ...getAllCards().map(card => card.id)]));
+  state.relics = Array.from(new Set([...state.relics, ...getAllRelics().map(relic => relic.id)]));
+  state.effects = Array.from(new Set([...state.effects, ...Object.keys(EFFECT_REGISTRY)]));
+
+  const existingEnemyNames = new Set(state.enemies.map(enemy => enemy.name));
+  const now = Date.now();
+  for (const name of getAllEnemyNames()) {
+    if (existingEnemyNames.has(name)) continue;
+    state.enemies.push({
+      name,
+      floor: 1,
+      area: '作者测试',
+      firstSeenAt: now,
+      lastSeenAt: now,
+      times: 1,
+    });
+  }
+
   saveCodexState(state);
 }
