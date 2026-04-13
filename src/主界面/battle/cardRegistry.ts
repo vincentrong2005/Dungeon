@@ -4953,7 +4953,7 @@ const 无声渗入: CardData = {
   description: '闪避，闪避成功后为对手增加2层侵蚀',
 };
 
-/** 大地精华：诅咒，打出后自身增加2点侵蚀，连击，抽牌，移除 */
+/** 大地精华：诅咒，打出后自身增加2点侵蚀，连击，过牌，移除 */
 const 大地精华: CardData = {
   id: 'enemy_undine_earth_essence',
   name: '大地精华',
@@ -4967,7 +4967,7 @@ const 大地精华: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'self', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '打出后自身增加2点侵蚀，连击，抽牌，移除',
+  description: '打出后自身增加2点侵蚀，连击，过牌，移除',
 };
 
 /** 慈爱之鞭：造成0.5倍点数伤害并施加3层侵蚀 */
@@ -5507,7 +5507,7 @@ const 炼金废料: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: true },
   cardEffects: [],
-  description: '点数-2，连击，抽1张牌',
+  description: '点数-2，连击，过牌',
 };
 
 /** 惑心咒：开局仅使用一次，为对手施加虚实不明与敌意隐藏（结算逻辑在 CombatView） */
@@ -6048,6 +6048,198 @@ const 认知互换: CardData = {
   description: '本场战斗中第一次使用时，将自身所有负面状态转移给对方。点数+3，获得1倍点数护甲。',
 };
 
+/** 杖击：最终点数不会低于原始点数，造成1倍点数伤害，回复2点魔力 */
+const 杖击: CardData = {
+  id: 'modao_staff_strike',
+  name: '杖击',
+  type: CardType.PHYSICAL,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [{ kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 2 }],
+  description: '最终点数不会低于原始点数，造成1倍点数伤害，回复2点魔力',
+};
+
+/** 魔差：造成1倍点数伤害，伤害额外增加本回合魔力与上回合魔力之差的绝对值 */
+const 魔差: CardData = {
+  id: 'modao_magic_delta',
+  name: '魔差',
+  type: CardType.PHYSICAL,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，伤害额外增加本回合魔力与上回合魔力之差的绝对值',
+};
+
+/** 魔力球：消耗6MP，点数*2，造成1倍点数伤害。若拼点成功则返还6点魔力 */
+const 魔力球: CardData = {
+  id: 'modao_mana_orb',
+  name: '魔力球',
+  type: CardType.MAGIC,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗6MP，点数*2，造成1倍点数伤害。若拼点成功则返还6点魔力',
+};
+
+/** 法力汲取：法力汲取1倍点数 */
+const 法力汲取: CardData = {
+  id: 'modao_mana_drain',
+  name: '法力汲取',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  manaDrain: { mode: 'point_scale', scale: 1.0 },
+  description: '法力汲取1倍点数',
+};
+
+/** 魔力亲和：获得0.5倍点数护甲，1层增伤与1层魔力源泉 */
+const 魔力亲和: CardData = {
+  id: 'modao_mana_affinity',
+  name: '魔力亲和',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.MANA_SPRING, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '获得0.5倍点数护甲，1层增伤与1层魔力源泉',
+};
+
+/** 注能：获得2层增伤1回合，连击 */
+const 注能: CardData = {
+  id: 'modao_note_energy',
+  name: '注能',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '获得2层增伤1回合，连击',
+};
+
+/** 风筝：闪避，下回合使用法术牌时点数+2 */
+const 风筝: CardData = {
+  id: 'modao_kite',
+  name: '风筝',
+  type: CardType.DODGE,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，下回合使用法术牌时点数+2',
+};
+
+/** 符文大剑：牌库中每有1张法术牌点数+2，造成1倍点数伤害 */
+const 符文大剑: CardData = {
+  id: 'modao_rune_greatsword',
+  name: '符文大剑',
+  type: CardType.PHYSICAL,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '牌库中每有1张法术牌点数+2，造成1倍点数伤害',
+};
+
+/** 大狂风：消耗2MP，点数*0.5，造成（7-点数）伤害，额外消耗自身至多16MP，每消耗2MP追加1次伤害 */
+const 大狂风: CardData = {
+  id: 'modao_great_gale',
+  name: '大狂风',
+  type: CardType.MAGIC,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 2,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗2MP，点数*0.5，造成（7-点数）伤害，额外消耗自身至多16MP，每消耗2MP追加1次伤害',
+};
+
+/** 大毁灭魔法：消耗12MP，点数*3，增伤具有五倍效果，造成1倍点数伤害，群攻 */
+const 大毁灭魔法: CardData = {
+  id: 'modao_big_destruction',
+  name: '大毁灭魔法',
+  type: CardType.MAGIC,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 12,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  swarmAttack: true,
+  description: '消耗12MP，点数*3，增伤具有五倍效果，造成1倍点数伤害，群攻',
+};
+
+/** 深海之约：回复1倍点数魔力，连击，过牌 */
+const 深海之约: CardData = {
+  id: 'modao_deep_sea_pact',
+  name: '深海之约',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [{ kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 }],
+  description: '回复1倍点数魔力，连击，过牌',
+};
+
+/** 棱镜魔法：回复1.5倍点数魔力，本回合被法术牌击中时免疫此伤害并反弹 */
+const 棱镜魔法: CardData = {
+  id: 'modao_prism_magic',
+  name: '棱镜魔法',
+  type: CardType.FUNCTION,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [{ kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.5 }],
+  description: '回复1.5倍点数魔力，本回合被法术牌击中时免疫此伤害并反弹',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -6072,6 +6264,18 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [生死决断.name, 生死决断],
   [猩红镰刀.name, 猩红镰刀],
   [认知互换.name, 认知互换],
+  [杖击.name, 杖击],
+  [魔差.name, 魔差],
+  [魔力球.name, 魔力球],
+  [法力汲取.name, 法力汲取],
+  [魔力亲和.name, 魔力亲和],
+  [注能.name, 注能],
+  [风筝.name, 风筝],
+  [符文大剑.name, 符文大剑],
+  [大狂风.name, 大狂风],
+  [大毁灭魔法.name, 大毁灭魔法],
+  [深海之约.name, 深海之约],
+  [棱镜魔法.name, 棱镜魔法],
   [普通物理攻击.name, 普通物理攻击],
   [普通物理攻击加1.name, 普通物理攻击加1],
   [普通物理攻击加2.name, 普通物理攻击加2],

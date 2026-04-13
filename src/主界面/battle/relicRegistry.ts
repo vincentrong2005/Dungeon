@@ -137,9 +137,8 @@ export interface ResolvedRelicEntry {
   count: number;
 }
 
-const getStacks = (entity: EntityStats, effectType: EffectType) => (
-  entity.effects.find((eff) => eff.type === effectType)?.stacks ?? 0
-);
+const getStacks = (entity: EntityStats, effectType: EffectType) =>
+  entity.effects.find(eff => eff.type === effectType)?.stacks ?? 0;
 
 const RELIC_LIST: readonly RelicData[] = [
   {
@@ -201,7 +200,7 @@ const RELIC_LIST: readonly RelicData[] = [
   {
     id: 'yellow_notebook',
     name: '黄色笔记',
-    rarity: '普通',
+    rarity: '稀有',
     category: '基础',
     effect: '打出功能卡牌时最终点数 +1',
     description: '每次打出功能卡牌时，最终点数 +1。',
@@ -434,7 +433,7 @@ const RELIC_LIST: readonly RelicData[] = [
     effect: '自己收到的燃烧伤害恒定为 2（优先于烈阳护符）',
     description: '自身受到燃烧伤害时，伤害固定为 2，并覆盖烈阳护符对自身的下限。',
     hooks: {
-      onBeforeBurnDamage: (ctx) => {
+      onBeforeBurnDamage: ctx => {
         if (ctx.targetSide !== ctx.side) return;
         if (ctx.damage === 2) return;
         ctx.damage = 2;
@@ -539,7 +538,7 @@ const RELIC_LIST: readonly RelicData[] = [
     effect: '结算燃烧伤害时，改为造成等量真实伤害',
     description: '燃烧伤害改为真实伤害（无视护甲与结界）。',
     hooks: {
-      onBeforeBurnDamage: (ctx) => {
+      onBeforeBurnDamage: ctx => {
         if (ctx.damage <= 0) return;
         ctx.isTrueDamage = true;
       },
@@ -553,7 +552,7 @@ const RELIC_LIST: readonly RelicData[] = [
     effect: '双方收到的燃烧伤害最少为当前回合数',
     description: '双方受到燃烧伤害时，伤害至少为护符数量*当前回合数。',
     hooks: {
-      onBeforeBurnDamage: (ctx) => {
+      onBeforeBurnDamage: ctx => {
         if (ctx.targetSide === ctx.side && ctx.hasRelic('fire_slime')) {
           return;
         }
@@ -659,7 +658,7 @@ const RELIC_LIST: readonly RelicData[] = [
       modifyFinalPoint: ({ card, currentPoint, state, count }) => {
         if (card.type !== CardType.MAGIC) return currentPoint;
         if (!state['enabledThisTurn']) return currentPoint;
-        return currentPoint + (2 * count);
+        return currentPoint + 2 * count;
       },
     },
   },
@@ -689,10 +688,10 @@ const RELIC_LIST: readonly RelicData[] = [
     hooks: {
       modifyFinalPoint: ({ card, currentPoint, count }) => {
         if (card.type === CardType.MAGIC) {
-          return currentPoint * (1.5 ** Math.max(1, count));
+          return currentPoint * 1.5 ** Math.max(1, count);
         }
         if (card.type === CardType.PHYSICAL) {
-          return currentPoint * (0.5 ** Math.max(1, count));
+          return currentPoint * 0.5 ** Math.max(1, count);
         }
         return currentPoint;
       },
@@ -946,8 +945,8 @@ const RELIC_LIST: readonly RelicData[] = [
   },
 ];
 
-const RELIC_BY_ID = new Map(RELIC_LIST.map((relic) => [relic.id, relic]));
-const RELIC_BY_NAME = new Map(RELIC_LIST.map((relic) => [relic.name, relic]));
+const RELIC_BY_ID = new Map(RELIC_LIST.map(relic => [relic.id, relic]));
+const RELIC_BY_NAME = new Map(RELIC_LIST.map(relic => [relic.name, relic]));
 
 export function getAllRelics(): readonly RelicData[] {
   return RELIC_LIST;
@@ -962,7 +961,7 @@ export function getRelicByName(name: string): RelicData | undefined {
 }
 
 export function getRelicsByCategory(category: RelicCategory): readonly RelicData[] {
-  return RELIC_LIST.filter((relic) => relic.category === category);
+  return RELIC_LIST.filter(relic => relic.category === category);
 }
 
 export function resolveRelicMap(raw: Record<string, number> | null | undefined): ResolvedRelicEntry[] {

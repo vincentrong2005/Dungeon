@@ -108,7 +108,7 @@ const 疾跑: ActiveSkillData = {
   manaCost: 0,
   Cooldown: 0,
   maxUses: 4,
-  description: '抽一张牌，若手牌满三张则随机替换一张。每场战斗仅限4次。',
+  description: '抽一张牌，若手牌满三张则随机替换一张。场限4次。',
 };
 
 const 洗牌魔法: ActiveSkillData = {
@@ -130,7 +130,7 @@ const 无限增幅魔法: ActiveSkillData = {
   rarity: '稀有',
   manaCost: 1,
   Cooldown: 0,
-  description: '点数+1，每使用一次本主动技，本主动技本回合法力消耗+1',
+  description: '点数+1，每使用一次该卡牌，其本回合法力消耗+1',
 };
 
 const 老虎机: ActiveSkillData = {
@@ -141,7 +141,7 @@ const 老虎机: ActiveSkillData = {
   rarity: '稀有',
   manaCost: 1,
   Cooldown: 0,
-  description: '重掷双方骰子，每使用一次本主动技，本主动技本回合法力消耗+1',
+  description: '重掷双方骰子，每使用一次该卡牌，其本回合法力消耗+1',
 };
 
 const 和平: ActiveSkillData = {

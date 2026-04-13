@@ -872,7 +872,7 @@ import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
-import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
+import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 
@@ -1231,6 +1231,9 @@ const cloneCardForBattle = (card: CardData): CardData => ({
   calculation: { ...card.calculation },
   damageLogic: { ...card.damageLogic },
   traits: { ...card.traits },
+  manaDrain: typeof card.manaDrain === 'object' && card.manaDrain !== null
+    ? { ...(card.manaDrain as CardManaDrainConfig) }
+    : card.manaDrain,
   selfDamage: typeof card.selfDamage === 'object' && card.selfDamage !== null
     ? { ...(card.selfDamage as CardSelfDamageConfig) }
     : card.selfDamage,
@@ -1680,6 +1683,26 @@ const nextTurnMagicCostFree = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
+const nextTurnMagicPointBonus = ref<Record<BattleSide, { turn: number; amount: number }>>({
+  player: { turn: 0, amount: 0 },
+  enemy: { turn: 0, amount: 0 },
+});
+const currentTurnMagicReflect = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
+const temporaryDamageBoostToRemoveAtTurnEnd = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
+const currentTurnManaSnapshot = ref<Record<BattleSide, number>>({
+  player: Math.max(0, Math.floor(playerStats.value.mp)),
+  enemy: Math.max(0, Math.floor(enemyStats.value.mp)),
+});
+const previousTurnManaSnapshot = ref<Record<BattleSide, number>>({
+  player: Math.max(0, Math.floor(playerStats.value.mp)),
+  enemy: Math.max(0, Math.floor(enemyStats.value.mp)),
+});
 
 const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
 
@@ -1853,6 +1876,45 @@ const applyDamageToSideWithRelics = (
   const adjusted = side === 'player'
     ? applyPlayerHemostaticValveDamageCap(incoming, reason)
     : incoming;
+  if (
+    options?.isDirectDamage
+    && options.card?.type === CardType.MAGIC
+    && hasCurrentTurnMagicReflect(side)
+  ) {
+    const sourceSide = options.sourceSide;
+    const sourceLabel = sourceSide === 'player' ? '我方' : sourceSide === 'enemy' ? '敌方' : '对手';
+    const targetLabel = side === 'player' ? '我方' : '敌方';
+    let reflectedDamage = adjusted;
+    if (sourceSide === 'player') {
+      reflectedDamage = applyPlayerSkinMarkDamageReduction(reflectedDamage, '棱镜魔法反弹');
+    }
+    log(`<span class="text-cyan-300">${targetLabel}[棱镜魔法] 免疫了来自${sourceLabel}【${options.card.name}】的法术伤害</span>`);
+    if (sourceSide && reflectedDamage > 0) {
+      const reflectedSide = oppositeSide(side);
+      const reflectedTarget = getEntityBySide(reflectedSide);
+      const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(
+        reflectedSide,
+        reflectedTarget,
+        reflectedDamage,
+        isTrueDamage,
+        '棱镜魔法反弹',
+        { sourceSide: side, isDirectDamage: true },
+      );
+      if (actualReflectedDamage > 0) {
+        pushFloatingNumber(reflectedSide, actualReflectedDamage, isTrueDamage ? 'true' : 'magic', '-');
+      }
+      log(`<span class="text-cyan-300">${targetLabel}[棱镜魔法] 反弹了 ${actualReflectedDamage} 点伤害给${sourceLabel}</span>`);
+      for (const reflectedLog of reflectedLogs) {
+        const normalized = reflectedLog.startsWith('受到') ? `${sourceLabel}${reflectedLog}` : reflectedLog;
+        log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+      }
+      const reviveResult = triggerSwarmReviveIfNeeded(reflectedTarget, reflectedSide);
+      for (const reviveLog of reviveResult.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+    }
+    return { actualDamage: 0, logs: [] };
+  }
   const result = applyDamageToEntity(target, adjusted, isTrueDamage, {
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!options?.card?.swarmAttack,
@@ -2557,6 +2619,50 @@ const grantNextTurnMagicCostFree = (side: BattleSide, card: CardData) => {
   log(`<span class="text-sky-300">${sideLabel}【${card.name}】触发：下回合魔法牌消耗为0</span>`);
 };
 
+const getCurrentTurnMagicPointBonus = (side: BattleSide): number => (
+  nextTurnMagicPointBonus.value[side].turn === combatState.value.turn
+    ? Math.max(0, Math.floor(nextTurnMagicPointBonus.value[side].amount))
+    : 0
+);
+
+const grantNextTurnMagicPointBonus = (side: BattleSide, amount: number, card: CardData) => {
+  const targetTurn = combatState.value.turn + 1;
+  const next = nextTurnMagicPointBonus.value[side];
+  const normalizedAmount = Math.max(0, Math.floor(amount));
+  if (next.turn !== targetTurn) {
+    nextTurnMagicPointBonus.value[side] = { turn: targetTurn, amount: normalizedAmount };
+  } else {
+    nextTurnMagicPointBonus.value[side] = {
+      turn: targetTurn,
+      amount: Math.max(0, Math.floor(next.amount + normalizedAmount)),
+    };
+  }
+  const sideLabel = side === 'player' ? '我方' : '敌方';
+  log(`<span class="text-sky-300">${sideLabel}【${card.name}】触发：下回合使用魔法牌时点数 +${normalizedAmount}</span>`);
+};
+
+const grantCurrentTurnMagicReflect = (side: BattleSide, card: CardData) => {
+  currentTurnMagicReflect.value[side] = combatState.value.turn;
+  const sideLabel = side === 'player' ? '我方' : '敌方';
+  log(`<span class="text-cyan-300">${sideLabel}【${card.name}】生效：本回合被魔法牌命中时免疫并反弹</span>`);
+};
+
+const hasCurrentTurnMagicReflect = (side: BattleSide): boolean => (
+  currentTurnMagicReflect.value[side] === combatState.value.turn
+);
+
+const resolveCardManaDrain = (card: CardData, finalPoint: number): number => {
+  const raw = card.manaDrain;
+  if (typeof raw === 'number') {
+    return Math.max(0, Math.floor(raw));
+  }
+  if (!raw) return 0;
+  if (raw.mode === 'point_scale') {
+    return Math.max(0, Math.floor(finalPoint * (raw.scale ?? 1)));
+  }
+  return Math.max(0, Math.floor(raw.value ?? 0));
+};
+
 const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   const base = Math.max(0, Math.floor(card.manaCost ?? 0));
   if (card.type !== CardType.MAGIC) return base;
@@ -3058,6 +3164,11 @@ const collectCardsForSide = (side: BattleSide, currentCard?: CardData): CardData
   return cards;
 };
 
+const countMagicCardsInDeckForSide = (side: BattleSide): number => {
+  const deck = side === 'player' ? combatState.value.playerDeck : combatState.value.enemyDeck;
+  return deck.filter(card => card.type === CardType.MAGIC).length;
+};
+
 const isOnlyPhysicalCardForSide = (side: BattleSide, card: CardData): boolean => {
   if (card.type !== CardType.PHYSICAL) return false;
   const physicalIds = new Set(
@@ -3365,8 +3476,17 @@ const getCardFinalPoint = (
       }
     }
   }
+  if (card.id === 'modao_staff_strike') {
+    finalPoint = Math.max(finalPoint, baseDice);
+  }
+  if (card.id === 'modao_rune_greatsword') {
+    finalPoint += countMagicCardsInDeckForSide(source) * 2;
+  }
   finalPoint += Math.max(0, blankOfBlankBonusThisTurn.value);
   finalPoint += Math.floor(turnPointModifier.value[source] ?? 0);
+  if (card.type === CardType.MAGIC) {
+    finalPoint += getCurrentTurnMagicPointBonus(source);
+  }
   if (card.type === CardType.DODGE) {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
   }
@@ -3515,6 +3635,18 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       }
     }
   }
+  if (card.id === 'modao_staff_strike' && finalPoint < baseDice) {
+    finalPoint = baseDice;
+    lines.push(`杖击（最终点数不低于原始点数）=> ${finalPoint}`);
+  }
+  if (card.id === 'modao_rune_greatsword') {
+    const magicCardCount = countMagicCardsInDeckForSide(source);
+    if (magicCardCount > 0) {
+      const bonus = magicCardCount * 2;
+      finalPoint += bonus;
+      lines.push(`符文大剑（牌库法术 ${magicCardCount}）+${bonus} => ${finalPoint}`);
+    }
+  }
   if (blankOfBlankBonusThisTurn.value > 0) {
     finalPoint += blankOfBlankBonusThisTurn.value;
     lines.push(`空白的空白（本回合累计）+${blankOfBlankBonusThisTurn.value} => ${finalPoint}`);
@@ -3524,7 +3656,13 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     finalPoint += delta;
     lines.push(`本回合点数修正 ${delta >= 0 ? '+' : ''}${delta} => ${finalPoint}`);
   }
-
+  if (card.type === CardType.MAGIC) {
+    const magicPointBonus = getCurrentTurnMagicPointBonus(source);
+    if (magicPointBonus > 0) {
+      finalPoint += magicPointBonus;
+      lines.push(`风筝（本回合法术点数加成）+${magicPointBonus} => ${finalPoint}`);
+    }
+  }
 
   if (card.type === CardType.DODGE) {
     const scalePowderStacks = Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
@@ -4476,12 +4614,26 @@ watch(
         blankOfBlankBonusThisTurn.value = 0;
         armorDecaySkippedThisTurn.value = { player: false, enemy: false };
         temporaryBarrierToRemoveAtTurnEnd.value = 0;
+        temporaryDamageBoostToRemoveAtTurnEnd.value = { player: 0, enemy: 0 };
         playerStats.value.swarmHealReduction = 0;
         enemyStats.value.swarmHealReduction = 0;
         nextMagicDoubleCast.value.player = 0;
         nextMagicDoubleCast.value.enemy = 0;
         nextTurnMagicCostFree.value.player = 0;
         nextTurnMagicCostFree.value.enemy = 0;
+        nextTurnMagicPointBonus.value = {
+          player: { turn: 0, amount: 0 },
+          enemy: { turn: 0, amount: 0 },
+        };
+        currentTurnMagicReflect.value = { player: 0, enemy: 0 };
+        currentTurnManaSnapshot.value = {
+          player: Math.max(0, Math.floor(playerStats.value.mp)),
+          enemy: Math.max(0, Math.floor(enemyStats.value.mp)),
+        };
+        previousTurnManaSnapshot.value = {
+          player: Math.max(0, Math.floor(playerStats.value.mp)),
+          enemy: Math.max(0, Math.floor(enemyStats.value.mp)),
+        };
       }
       const defeatedByFatigueDegree = applyFatigueDegreePenaltyOnTurnStart();
       if (defeatedByFatigueDegree) {
@@ -4694,6 +4846,16 @@ watch(
             log(`<span class="text-gray-400 text-[9px]">${label}: ${l}</span>`);
           }
         }
+      }
+      if (combatState.value.turn > 1) {
+        previousTurnManaSnapshot.value = { ...currentTurnManaSnapshot.value };
+      }
+      currentTurnManaSnapshot.value = {
+        player: Math.max(0, Math.floor(playerStats.value.mp)),
+        enemy: Math.max(0, Math.floor(enemyStats.value.mp)),
+      };
+      if (combatState.value.turn === 1) {
+        previousTurnManaSnapshot.value = { ...currentTurnManaSnapshot.value };
       }
       setTimeout(() => {
         if (endCombatPending.value) return;
@@ -5045,6 +5207,14 @@ const resolveCombat = async (
       }
     }
 
+    if (clashWinner === 'player' && resolvedPlayerCard.id === 'modao_mana_orb') {
+      changeManaWithShock('player', 6, '魔力球拼点成功', { showPositiveFloating: true });
+      log('<span class="text-blue-300">我方【魔力球】拼点成功：返还 6 点魔力</span>');
+    } else if (clashWinner === 'enemy' && resolvedEnemyCard.id === 'modao_mana_orb') {
+      changeManaWithShock('enemy', 6, '魔力球拼点成功');
+      log('<span class="text-blue-300">敌方【魔力球】拼点成功：返还 6 点魔力</span>');
+    }
+
     if (successfulDodger === 'player') {
       applyLightningAttachOnDodge('player', 'enemy');
       applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
@@ -5057,6 +5227,9 @@ const resolveCombat = async (
       if (resolvedPlayerCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('player', resolvedPlayerCard);
       }
+      if (resolvedPlayerCard.id === 'modao_kite') {
+        grantNextTurnMagicPointBonus('player', 2, resolvedPlayerCard);
+      }
     } else if (successfulDodger === 'enemy') {
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
@@ -5068,6 +5241,9 @@ const resolveCombat = async (
       }
       if (resolvedEnemyCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('enemy', resolvedEnemyCard);
+      }
+      if (resolvedEnemyCard.id === 'modao_kite') {
+        grantNextTurnMagicPointBonus('enemy', 2, resolvedEnemyCard);
       }
     }
 
@@ -5175,7 +5351,7 @@ const resolveCombat = async (
         }
       }
 
-      const manaDrain = Math.max(0, Math.floor(card.manaDrain ?? 0));
+      const manaDrain = resolveCardManaDrain(card, finalPoint);
       if (manaDrain > 0) {
         const drainResult = changeManaWithShock(
           defenderSide,
@@ -5311,7 +5487,7 @@ const resolveCombat = async (
     };
 
     const syncCurrentPointForUi = () => {
-      if (card.type !== CardType.FUNCTION || card.id === PASS_CARD.id) return;
+      if ((card.type !== CardType.FUNCTION && card.type !== CardType.CURSE) || card.id === PASS_CARD.id) return;
       const nextPoint = Math.max(0, Math.floor(finalPoint));
       if (source === 'player') {
         if (combatState.value.playerBaseDice !== nextPoint) {
@@ -5678,7 +5854,7 @@ const resolveCombat = async (
       return;
     }
 
-    if (card.type === CardType.FUNCTION) {
+    if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
       if (card.id === 'burn_char_convert') {
         const burned = getEffectStacks(attacker, ET.BURN);
         syncCurrentPointForUi();
@@ -5800,6 +5976,23 @@ const resolveCombat = async (
         applyStatusEffectWithRelics(source, ET.DAMAGE_BOOST, wagerCost, { source: card.id });
         const actualBoostGain = Math.max(0, getEffectStacks(attacker, ET.DAMAGE_BOOST) - beforeBoost);
         log(`<span class="text-rose-300">${label}【${card.name}】消耗 ${wagerCost} 点魔力，获得 ${actualBoostGain} 层增伤</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'modao_note_energy') {
+        syncCurrentPointForUi();
+        const beforeBoost = Math.max(0, getEffectStacks(attacker, ET.DAMAGE_BOOST));
+        applyStatusEffectWithRelics(source, ET.DAMAGE_BOOST, 2, { source: card.id });
+        const actualBoostGain = Math.max(0, getEffectStacks(attacker, ET.DAMAGE_BOOST) - beforeBoost);
+        temporaryDamageBoostToRemoveAtTurnEnd.value[source] += actualBoostGain;
+        log(`<span class="text-rose-300">${label}【${card.name}】获得 ${actualBoostGain} 层增伤，持续至本回合结束</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'modao_prism_magic') {
+        syncCurrentPointForUi();
+        applyCardEffects();
+        grantCurrentTurnMagicReflect(source, card);
         finalizeAndTrack();
         return;
       }
@@ -6013,6 +6206,16 @@ const resolveCombat = async (
         extraHitCount += bonusHits;
         log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
       }
+      if (card.id === 'modao_great_gale') {
+        const availableMp = Math.min(16, Math.max(0, Math.floor(attacker.mp)));
+        const consumedMp = Math.floor(availableMp / 2) * 2;
+        const bonusHits = Math.floor(consumedMp / 2);
+        if (consumedMp > 0) {
+          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+        }
+        extraHitCount += bonusHits;
+        log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
+      }
       if (card.id === 'modao_arcane_lance' && attacker.mp >= 8) {
         const canConsume = spendManaWithShock(source, 4, `法力变化（${label}【${card.name}】额外结算）`);
         if (canConsume) {
@@ -6048,17 +6251,26 @@ const resolveCombat = async (
       for (let hit = 0; hit < totalHitCount; hit++) {
         // Attack card: calculate damage through the full pipeline
         let cardForCalculation = card;
+        const manaDeltaBonus = card.id === 'modao_magic_delta'
+          ? Math.abs(Math.max(0, Math.floor(attacker.mp)) - Math.max(0, Math.floor(previousTurnManaSnapshot.value[source] ?? 0)))
+          : 0;
         const customDamage =
           card.id === 'burn_scorch_wind'
             ? Math.floor(finalPoint * 0.5) + burnStacksOnDefender
             : card.id === 'burn_detonation'
               ? Math.floor(burnStacksOnDefender)
-              : card.id === 'yanhan_frost_burst'
+            : card.id === 'yanhan_frost_burst'
                 ? Math.max(0, getEffectStacks(defender, ET.COLD))
               : card.id === 'modao_mana_hurricane'
                 ? Math.max(0, 12 - Math.floor(finalPoint))
+                : card.id === 'modao_great_gale'
+                  ? Math.max(0, 7 - Math.floor(finalPoint))
                 : card.id === 'modao_prism_flow'
                   ? Math.floor(finalPoint * (0.9 + Math.min(2.1, Math.floor(Math.max(0, attacker.mp) / 2) * 0.3)))
+                  : card.id === 'modao_magic_delta'
+                    ? Math.max(0, Math.floor(finalPoint) + manaDeltaBonus)
+                  : card.id === 'modao_big_destruction'
+                    ? Math.max(0, Math.floor(finalPoint) + Math.max(0, getEffectStacks(attacker, ET.DAMAGE_BOOST)) * 5)
                   : card.id === 'modao_arcane_lance' && arcaneLanceBonusHit && hit === totalHitCount - 1
                     ? Math.floor(finalPoint * 2)
                   : card.id === 'bloodpool_pain_feedback'
@@ -6076,11 +6288,14 @@ const resolveCombat = async (
           };
         }
         const forceTrueDamage = card.id === 'enemy_elizabeth_boiling_blood_pulse';
+        const attackerEffectsForDamage = card.id === 'modao_big_destruction'
+          ? attacker.effects.filter(effect => effect.type !== ET.DAMAGE_BOOST)
+          : attacker.effects;
 
         const { damage, isTrueDamage, logs: dmgLogs } = calculateFinalDamage({
           finalPoint,
           card: cardForCalculation,
-          attackerEffects: attacker.effects,
+          attackerEffects: attackerEffectsForDamage,
           defenderEffects: defender.effects,
           relicModifiers: NO_RELIC_MOD,
           isTrueDamage: forceTrueDamage,
@@ -6712,6 +6927,22 @@ const resolveCombat = async (
     }
     temporaryBarrierToRemoveAtTurnEnd.value = 0;
   }
+  const playerTempBoostToRemove = Math.min(
+    Math.max(0, getEffectStacks(playerStats.value, ET.DAMAGE_BOOST)),
+    Math.max(0, Math.floor(temporaryDamageBoostToRemoveAtTurnEnd.value.player)),
+  );
+  if (playerTempBoostToRemove > 0) {
+    reduceEffectStacks(playerStats.value, ET.DAMAGE_BOOST, playerTempBoostToRemove);
+    log(`<span class="text-zinc-300">我方【注能】提供的 ${playerTempBoostToRemove} 层增伤在回合结束时消失了。</span>`);
+  }
+  const enemyTempBoostToRemove = Math.min(
+    Math.max(0, getEffectStacks(enemyStats.value, ET.DAMAGE_BOOST)),
+    Math.max(0, Math.floor(temporaryDamageBoostToRemoveAtTurnEnd.value.enemy)),
+  );
+  if (enemyTempBoostToRemove > 0) {
+    reduceEffectStacks(enemyStats.value, ET.DAMAGE_BOOST, enemyTempBoostToRemove);
+  }
+  temporaryDamageBoostToRemoveAtTurnEnd.value = { player: 0, enemy: 0 };
   const playerArmorAfterEnd = getEffectStacks(playerStats.value, ET.ARMOR);
   const armorLostOnDecay = Math.max(0, playerArmorBeforeEnd - playerArmorAfterEnd);
 

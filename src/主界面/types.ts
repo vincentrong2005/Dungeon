@@ -104,6 +104,15 @@ export interface CardEffect {
   cleanseTypes?: EffectType[];
 }
 
+export interface CardManaDrainConfig {
+  /** fixed = 固定值；point_scale = FinalPoint * scale */
+  mode: 'fixed' | 'point_scale';
+  /** fixed 模式下的固定值 */
+  value?: number;
+  /** point_scale 模式下的系数 */
+  scale?: number;
+}
+
 // ── 卡牌数据 ──────────────────────────────────────────────────
 export interface CardData {
   id: string;
@@ -130,7 +139,7 @@ export interface CardData {
   /** 负面效果：卡牌生效后记录到战斗后写入的 $负面状态（仅对玩家结算） */
   negativeEffect?: string;
   /** 法力汲取：卡牌生效后吸收对方对应数值法力并恢复自身；不足部分改为扣除对方生命 */
-  manaDrain?: number;
+  manaDrain?: number | CardManaDrainConfig;
   /** 无视闪避：对闪避牌时不进入闪避拼点，直接生效 */
   ignoreDodge?: boolean;
   /** 群攻：对目标造成伤害时，永久减少其本场战斗中“群集”可恢复的生命值 */
