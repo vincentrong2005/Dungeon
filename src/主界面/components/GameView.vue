@@ -44,10 +44,10 @@
           />
           <SidebarIcon
             :icon="Box"
-            label="物品"
+            label="背包"
             tooltip-side="right"
-            :active="activeModal === 'relics'"
-            @click="activeModal = 'relics'"
+            :active="activeModal === 'statusDetails' && playerDetailTab === 'inventory'"
+            @click="openInventoryModal('items')"
           />
           <SidebarIcon
             :icon="Users"
@@ -409,7 +409,7 @@
             <button
               class="w-10 h-10 rounded-lg flex items-center justify-center bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300 shadow-lg backdrop-blur-md"
               title="打开详细状态栏"
-              @click="activeModal = 'statusDetails'"
+              @click="openStatusDetailsModal()"
             >
               <FileText class="size-5" />
             </button>
@@ -617,69 +617,239 @@
             </div>
 
             <div class="player-detail-data-panel custom-scrollbar">
-              <section class="player-detail-section">
-                <div class="player-detail-section-title">基础数值</div>
-                <div class="player-detail-stat-grid">
-                  <div class="player-detail-stat-card">
-                    <span class="player-detail-stat-label">生命值</span>
-                    <span class="player-detail-stat-value player-detail-stat-value--hp"
-                      >{{ displayHp }}/{{ displayMaxHp }}</span
-                    >
-                  </div>
-                  <div class="player-detail-stat-card">
-                    <span class="player-detail-stat-label">魔量</span>
-                    <span class="player-detail-stat-value player-detail-stat-value--mp">{{ displayMp }}</span>
-                  </div>
-                  <div class="player-detail-stat-card">
-                    <span class="player-detail-stat-label">金币</span>
-                    <span class="player-detail-stat-value player-detail-stat-value--gold">{{ displayGold }}</span>
-                  </div>
-                  <div class="player-detail-stat-card">
-                    <span class="player-detail-stat-label">骰子范围</span>
-                    <span class="player-detail-stat-value"
-                      >{{ effectiveDisplayMinDice }} ~ {{ effectiveDisplayMaxDice }}</span
-                    >
-                  </div>
-                </div>
-              </section>
+              <div class="player-detail-tabbar">
+                <button
+                  type="button"
+                  class="player-detail-tab"
+                  :class="{ 'player-detail-tab--active': playerDetailTab === 'status' }"
+                  @click="playerDetailTab = 'status'"
+                >
+                  状态
+                </button>
+                <button
+                  type="button"
+                  class="player-detail-tab"
+                  :class="{ 'player-detail-tab--active': playerDetailTab === 'inventory' }"
+                  @click="playerDetailTab = 'inventory'"
+                >
+                  背包
+                </button>
+              </div>
 
-              <section class="player-detail-section">
-                <div class="player-detail-section-head">
-                  <div class="player-detail-section-title">负面状态</div>
-                  <div class="player-detail-section-meta">{{ negativeStatusEntries.length }} 项</div>
-                </div>
-                <div v-if="negativeStatusEntries.length === 0" class="player-detail-empty">当前没有负面状态。</div>
-                <div v-else class="player-detail-negative-list">
-                  <div
-                    v-for="entry in negativeStatusEntries"
-                    :key="`detail-negative-${entry.name}`"
-                    class="player-detail-negative-item"
-                  >
-                    <div class="player-detail-negative-name">{{ entry.name }}</div>
-                    <div class="player-detail-negative-desc">{{ entry.description }}</div>
-                  </div>
-                </div>
-              </section>
-
-              <section class="player-detail-section">
-                <div class="player-detail-section-title">主角信息</div>
-                <div class="player-detail-info-grid">
-                  <div
-                    v-for="entry in playerInfoEntries"
-                    :key="`player-info-${entry.label}`"
-                    class="player-detail-info-item"
-                    :class="{ 'player-detail-info-item--multiline': entry.multiline }"
-                  >
-                    <div class="player-detail-info-label">{{ entry.label }}</div>
-                    <div
-                      class="player-detail-info-value"
-                      :class="{ 'player-detail-info-value--multiline': entry.multiline }"
-                    >
-                      {{ entry.value }}
+              <template v-if="playerDetailTab === 'status'">
+                <section class="player-detail-section">
+                  <div class="player-detail-section-title">基础数值</div>
+                  <div class="player-detail-stat-grid">
+                    <div class="player-detail-stat-card">
+                      <span class="player-detail-stat-label">生命值</span>
+                      <span class="player-detail-stat-value player-detail-stat-value--hp"
+                        >{{ displayHp }}/{{ displayMaxHp }}</span
+                      >
+                    </div>
+                    <div class="player-detail-stat-card">
+                      <span class="player-detail-stat-label">魔量</span>
+                      <span class="player-detail-stat-value player-detail-stat-value--mp">{{ displayMp }}</span>
+                    </div>
+                    <div class="player-detail-stat-card">
+                      <span class="player-detail-stat-label">金币</span>
+                      <span class="player-detail-stat-value player-detail-stat-value--gold">{{ displayGold }}</span>
+                    </div>
+                    <div class="player-detail-stat-card">
+                      <span class="player-detail-stat-label">骰子范围</span>
+                      <span class="player-detail-stat-value"
+                        >{{ effectiveDisplayMinDice }} ~ {{ effectiveDisplayMaxDice }}</span
+                      >
                     </div>
                   </div>
-                </div>
-              </section>
+                </section>
+
+                <section class="player-detail-section">
+                  <div class="player-detail-section-head">
+                    <div class="player-detail-section-title">负面状态</div>
+                    <div class="player-detail-section-meta">{{ negativeStatusEntries.length }} 项</div>
+                  </div>
+                  <div v-if="negativeStatusEntries.length === 0" class="player-detail-empty">当前没有负面状态。</div>
+                  <div v-else class="player-detail-negative-list">
+                    <div
+                      v-for="entry in negativeStatusEntries"
+                      :key="`detail-negative-${entry.name}`"
+                      class="player-detail-negative-item"
+                    >
+                      <div class="player-detail-negative-name">{{ entry.name }}</div>
+                      <div class="player-detail-negative-desc">{{ entry.description }}</div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="player-detail-section">
+                  <div class="player-detail-section-title">主角信息</div>
+                  <div class="player-detail-info-grid">
+                    <div
+                      v-for="entry in playerInfoEntries"
+                      :key="`player-info-${entry.label}`"
+                      class="player-detail-info-item"
+                      :class="{ 'player-detail-info-item--multiline': entry.multiline }"
+                    >
+                      <div class="player-detail-info-label">{{ entry.label }}</div>
+                      <div
+                        class="player-detail-info-value"
+                        :class="{ 'player-detail-info-value--multiline': entry.multiline }"
+                      >
+                        {{ entry.value }}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </template>
+
+              <template v-else>
+                <section class="player-detail-section">
+                  <div class="player-detail-section-head">
+                    <div class="player-detail-section-title">背包</div>
+                    <div class="player-detail-section-meta">共 {{ totalInventoryEntryCount }} 项</div>
+                  </div>
+
+                  <div class="player-detail-subtabbar">
+                    <button
+                      type="button"
+                      class="player-detail-subtab"
+                      :class="{ 'player-detail-subtab--active': playerDetailInventoryTab === 'items' }"
+                      @click="playerDetailInventoryTab = 'items'"
+                    >
+                      物品（{{ inventoryItems.length }}）
+                    </button>
+                    <button
+                      type="button"
+                      class="player-detail-subtab"
+                      :class="{ 'player-detail-subtab--active': playerDetailInventoryTab === 'relics' }"
+                      @click="playerDetailInventoryTab = 'relics'"
+                    >
+                      圣遗物（{{ relicEntries.length }}）
+                    </button>
+                    <button
+                      type="button"
+                      class="player-detail-subtab"
+                      :class="{ 'player-detail-subtab--active': playerDetailInventoryTab === 'consumables' }"
+                      @click="playerDetailInventoryTab = 'consumables'"
+                    >
+                      消耗品（{{ inventoryConsumables.length }}）
+                    </button>
+                  </div>
+
+                  <template v-if="playerDetailInventoryTab === 'items'">
+                    <div v-if="inventoryItems.length === 0" class="player-detail-empty">当前没有携带任何物品。</div>
+                    <div v-else class="player-detail-bag-list">
+                      <article
+                        v-for="(item, index) in inventoryItems"
+                        :key="`inventory-item-${item.名字}-${index}`"
+                        class="player-detail-bag-card"
+                      >
+                        <div class="player-detail-bag-copy">
+                          <div class="player-detail-bag-name">{{ item.名字 }}</div>
+                          <div class="player-detail-bag-desc">{{ item.描述 || '暂无描述。' }}</div>
+                        </div>
+                        <div class="player-detail-bag-actions">
+                          <button
+                            type="button"
+                            class="player-detail-bag-btn player-detail-bag-btn--danger"
+                            :disabled="inventoryActionDisabled"
+                            @click="discardInventoryItem(index)"
+                          >
+                            丢弃
+                          </button>
+                        </div>
+                      </article>
+                    </div>
+                  </template>
+
+                  <template v-else-if="playerDetailInventoryTab === 'relics'">
+                    <div
+                      v-if="relicEntries.length > 0"
+                      class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-6 gap-y-6 mt-4"
+                    >
+                      <button
+                        v-for="relic in relicEntries"
+                        :key="relic.name"
+                        type="button"
+                        class="relative flex flex-col items-center p-1.5 rounded border border-dungeon-brown/30 bg-[#1a0f08]/35 hover:border-dungeon-gold/40 transition-colors focus:outline-none focus:border-dungeon-gold/60"
+                        @mouseenter="showRelicTooltip($event, relic)"
+                        @mouseleave="hideRelicTooltip"
+                        @focus="showRelicTooltip($event, relic)"
+                        @blur="hideRelicTooltip"
+                        @touchstart.passive="handleRelicTouchStart($event, relic)"
+                        @touchend="handleRelicTouchEnd"
+                        @touchcancel="handleRelicTouchEnd"
+                      >
+                        <div class="relative">
+                          <Box class="size-9 text-dungeon-gold/75" />
+                          <span
+                            class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded px-0.5 leading-tight"
+                            >x{{ relic.count }}</span
+                          >
+                        </div>
+                        <span
+                          class="font-heading text-dungeon-gold text-[11px] text-center mt-1 leading-relaxed truncate w-full"
+                          >{{ relic.name }}</span
+                        >
+                      </button>
+                    </div>
+                    <div v-else class="player-detail-empty">尚未获得圣遗物。</div>
+                  </template>
+
+                  <template v-else>
+                    <div v-if="inventoryConsumables.length === 0" class="player-detail-empty">
+                      当前没有携带任何消耗品。
+                    </div>
+                    <div v-else class="player-detail-bag-list">
+                      <article
+                        v-for="(consumable, index) in inventoryConsumables"
+                        :key="`inventory-consumable-${consumable.名字}-${index}`"
+                        class="player-detail-bag-card player-detail-bag-card--consumable"
+                      >
+                        <div class="player-detail-bag-copy">
+                          <div class="player-detail-bag-head">
+                            <div class="player-detail-bag-name">{{ consumable.名字 }}</div>
+                            <div class="player-detail-bag-tags">
+                              <span
+                                v-if="typeof consumable.回复 === 'number'"
+                                class="player-detail-bag-tag player-detail-bag-tag--heal"
+                              >
+                                回复 {{ formatSignedNumber(consumable.回复) }}
+                              </span>
+                              <span
+                                v-if="consumable.净化"
+                                class="player-detail-bag-tag player-detail-bag-tag--cleanse"
+                              >
+                                净化 {{ consumable.净化 }}
+                              </span>
+                            </div>
+                          </div>
+                          <div class="player-detail-bag-desc">{{ consumable.描述 || '暂无描述。' }}</div>
+                        </div>
+                        <div class="player-detail-bag-actions">
+                          <button
+                            v-if="canUseConsumable(consumable)"
+                            type="button"
+                            class="player-detail-bag-btn"
+                            :disabled="inventoryActionDisabled"
+                            @click="useConsumable(index)"
+                          >
+                            使用
+                          </button>
+                          <button
+                            type="button"
+                            class="player-detail-bag-btn player-detail-bag-btn--danger"
+                            :disabled="inventoryActionDisabled"
+                            @click="discardConsumable(index)"
+                          >
+                            丢弃
+                          </button>
+                        </div>
+                      </article>
+                    </div>
+                  </template>
+                </section>
+              </template>
             </div>
           </div>
         </DungeonModal>
@@ -1110,42 +1280,6 @@
           </div>
         </DungeonModal>
 
-        <DungeonModal title="圣遗物" :is-open="activeModal === 'relics'" @close="activeModal = null">
-          <div
-            v-if="relicEntries.length > 0"
-            class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-6 gap-y-6 p-4 overflow-y-auto max-h-[60%]"
-          >
-            <button
-              v-for="relic in relicEntries"
-              :key="relic.name"
-              type="button"
-              class="relative flex flex-col items-center p-1.5 rounded border border-dungeon-brown/30 bg-[#1a0f08]/35 hover:border-dungeon-gold/40 transition-colors focus:outline-none focus:border-dungeon-gold/60"
-              @mouseenter="showRelicTooltip($event, relic)"
-              @mouseleave="hideRelicTooltip"
-              @focus="showRelicTooltip($event, relic)"
-              @blur="hideRelicTooltip"
-              @touchstart.passive="handleRelicTouchStart($event, relic)"
-              @touchend="handleRelicTouchEnd"
-              @touchcancel="handleRelicTouchEnd"
-            >
-              <div class="relative">
-                <Box class="size-9 text-dungeon-gold/75" />
-                <span
-                  class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded px-0.5 leading-tight"
-                  >x{{ relic.count }}</span
-                >
-              </div>
-              <span
-                class="font-heading text-dungeon-gold text-[11px] text-center mt-1 leading-relaxed truncate w-full"
-                >{{ relic.name }}</span
-              >
-            </button>
-          </div>
-          <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
-            <Box class="size-12 text-dungeon-gold/20" />
-            <span class="font-ui text-dungeon-paper/40 text-sm">尚未获得圣遗物</span>
-          </div>
-        </DungeonModal>
         <Teleport to="body">
           <div
             v-if="relicTooltip"
@@ -1879,7 +2013,7 @@
               <div class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
                 <div class="mb-2 flex items-center justify-between">
                   <h4 class="font-heading text-dungeon-gold text-xs tracking-wider uppercase">圣遗物自选</h4>
-                  <span class="text-[11px] text-dungeon-paper/60">将同步写入 MVU `_圣遗物`</span>
+                  <span class="text-[11px] text-dungeon-paper/60">将同步写入 MVU `携带的物品._圣遗物`</span>
                 </div>
                 <div class="max-h-[28vh] overflow-y-auto custom-scrollbar pr-1">
                   <div class="space-y-2">
@@ -2483,7 +2617,7 @@
               }"
               @end-combat="handleCombatEnd"
               @open-deck="activeModal = 'deck'"
-              @open-relics="activeModal = 'relics'"
+              @open-relics="openInventoryModal('relics')"
             />
             <!-- Exit combat button -->
             <button
@@ -2686,6 +2820,11 @@ const showLandscapeHint = computed(
   () => isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value,
 );
 const activeModal = ref<string | null>(null);
+type PlayerDetailTab = 'status' | 'inventory';
+type PlayerDetailInventoryTab = 'items' | 'relics' | 'consumables';
+const playerDetailTab = ref<PlayerDetailTab>('status');
+const playerDetailInventoryTab = ref<PlayerDetailInventoryTab>('items');
+const isUpdatingInventory = ref(false);
 const inputText = ref('');
 const inputWaitingDotsStep = ref(1);
 let inputWaitingDotsTimer: number | null = null;
@@ -2791,6 +2930,22 @@ interface ShopProduct {
   basePrice: number;
   finalPrice: number;
   sold: boolean;
+}
+
+interface InventoryItemEntry {
+  名字: string;
+  描述: string;
+}
+
+interface InventoryConsumableEntry extends InventoryItemEntry {
+  回复?: number;
+  净化?: string;
+}
+
+interface CarriedInventoryPayload {
+  物品: InventoryItemEntry[];
+  _圣遗物: Record<string, number>;
+  消耗品: InventoryConsumableEntry[];
 }
 
 type CombatContext = 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
@@ -3044,6 +3199,106 @@ const playerInfoEntries = computed(() => {
         : normalizeProfileValue(profile[label]),
     multiline: label === '背景故事',
   }));
+});
+
+const normalizeInventoryText = (value: unknown): string => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
+
+const normalizeInventoryItems = (value: unknown): InventoryItemEntry[] => {
+  if (!Array.isArray(value)) return [];
+  const result: InventoryItemEntry[] = [];
+  for (const rawEntry of value) {
+    if (!rawEntry || typeof rawEntry !== 'object') continue;
+    const entry = rawEntry as Record<string, unknown>;
+    const 名字 = normalizeInventoryText(entry.名字);
+    if (!名字) continue;
+    result.push({
+      名字,
+      描述: normalizeInventoryText(entry.描述),
+    });
+  }
+  return result;
+};
+
+const normalizeInventoryConsumables = (value: unknown): InventoryConsumableEntry[] => {
+  if (!Array.isArray(value)) return [];
+  const result: InventoryConsumableEntry[] = [];
+  for (const rawEntry of value) {
+    if (!rawEntry || typeof rawEntry !== 'object') continue;
+    const entry = rawEntry as Record<string, unknown>;
+    const 名字 = normalizeInventoryText(entry.名字);
+    if (!名字) continue;
+
+    const 回复原值 = Number(entry.回复);
+    const 净化 = normalizeInventoryText(entry.净化);
+    const nextEntry: InventoryConsumableEntry = {
+      名字,
+      描述: normalizeInventoryText(entry.描述),
+    };
+
+    if (Number.isFinite(回复原值)) {
+      nextEntry.回复 = 回复原值;
+    }
+    if (净化) {
+      nextEntry.净化 = 净化;
+    }
+
+    result.push(nextEntry);
+  }
+  return result;
+};
+
+const normalizeRelicInventoryMap = (value: unknown): Record<string, number> => {
+  if (!value || typeof value !== 'object') return {};
+  const result: Record<string, number> = {};
+  for (const [name, rawCount] of Object.entries(value as Record<string, unknown>)) {
+    const normalizedName = normalizeInventoryText(name);
+    const count = Math.max(0, Math.floor(Number(rawCount ?? 0)));
+    if (!normalizedName || count <= 0) continue;
+    result[normalizedName] = count;
+  }
+  return result;
+};
+
+const cloneInventoryItemEntry = (entry: InventoryItemEntry): InventoryItemEntry => ({
+  名字: entry.名字,
+  描述: entry.描述,
+});
+
+const cloneInventoryConsumableEntry = (entry: InventoryConsumableEntry): InventoryConsumableEntry => ({
+  名字: entry.名字,
+  描述: entry.描述,
+  ...(typeof entry.回复 === 'number' ? { 回复: entry.回复 } : {}),
+  ...(entry.净化 ? { 净化: entry.净化 } : {}),
+});
+
+const carriedInventory = computed<CarriedInventoryPayload>(() => {
+  const rawInventory =
+    gameStore.statData.携带的物品 && typeof gameStore.statData.携带的物品 === 'object'
+      ? (gameStore.statData.携带的物品 as Record<string, unknown>)
+      : {};
+
+  return {
+    物品: normalizeInventoryItems(rawInventory.物品),
+    _圣遗物: normalizeRelicInventoryMap(rawInventory._圣遗物),
+    消耗品: normalizeInventoryConsumables(rawInventory.消耗品),
+  };
+});
+
+const inventoryItems = computed(() => carriedInventory.value.物品);
+const inventoryConsumables = computed(() => carriedInventory.value.消耗品);
+const inventoryRelicMap = computed(() => carriedInventory.value._圣遗物);
+
+const buildCarriedInventoryPayload = (overrides: Partial<CarriedInventoryPayload> = {}): CarriedInventoryPayload => ({
+  物品: (overrides.物品 ?? inventoryItems.value).map(cloneInventoryItemEntry),
+  _圣遗物: { ...(overrides._圣遗物 ?? inventoryRelicMap.value) },
+  消耗品: (overrides.消耗品 ?? inventoryConsumables.value).map(cloneInventoryConsumableEntry),
+});
+
+const buildInventoryUpdateFields = (overrides: Partial<CarriedInventoryPayload> = {}): Record<string, any> => ({
+  携带的物品: buildCarriedInventoryPayload(overrides),
 });
 
 const openPlayerPortraitUploadDialog = () => {
@@ -3331,7 +3586,7 @@ const carriedMagicBooks = computed<string[]>(() => {
 });
 const carriedMagicBookSet = computed(() => new Set(carriedMagicBooks.value));
 const ownedLegendaryRelicNameSet = computed<Set<string>>(() => {
-  const rawInventory = (gameStore.statData._圣遗物 ?? {}) as Record<string, number>;
+  const rawInventory = inventoryRelicMap.value;
   const owned = new Set<string>();
   for (const relic of getAllRelics()) {
     if (relic.rarity !== '传奇') continue;
@@ -3398,6 +3653,21 @@ const getSafeInt = (value: unknown, fallback: number) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(0, Math.floor(parsed));
+};
+const inventoryActionDisabled = computed(() => isUpdatingInventory.value || gameStore.isGenerating);
+const totalInventoryEntryCount = computed(
+  () => inventoryItems.value.length + relicEntries.value.length + inventoryConsumables.value.length,
+);
+const openStatusDetailsModal = () => {
+  gameStore.loadStatData();
+  playerDetailTab.value = 'status';
+  activeModal.value = 'statusDetails';
+};
+const openInventoryModal = (tab: PlayerDetailInventoryTab = 'items') => {
+  gameStore.loadStatData();
+  playerDetailTab.value = 'inventory';
+  playerDetailInventoryTab.value = tab;
+  activeModal.value = 'statusDetails';
 };
 const readInitialMaxHpForUpgrade = () => {
   return Math.max(1, getSafeInt(gameStore.statData.$初始血量上限, 20));
@@ -3478,6 +3748,93 @@ const toggleMagicBook = async (bookName: string) => {
     _携带的魔法书: Array.from(new Set(nextBooks)),
   });
   isUpdatingMagicBooks.value = false;
+};
+const formatSignedNumber = (value: number) => (value > 0 ? `+${value}` : String(value));
+const canUseConsumable = (entry: InventoryConsumableEntry): boolean =>
+  typeof entry.回复 === 'number' || Boolean(entry.净化);
+const normalizeNegativeStatusMatchKey = (value: unknown): string => {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/^\[/, '').replace(/\]$/, '');
+};
+const discardInventoryItem = async (index: number) => {
+  if (inventoryActionDisabled.value) return;
+  const item = inventoryItems.value[index];
+  if (!item) return;
+
+  isUpdatingInventory.value = true;
+  const ok = await gameStore.updateStatDataFields(
+    buildInventoryUpdateFields({
+      物品: inventoryItems.value.filter((_, idx) => idx !== index),
+    }),
+  );
+  isUpdatingInventory.value = false;
+  if (!ok) {
+    toastr.warning('丢弃物品失败，请稍后重试。');
+    return;
+  }
+  toastr.info(`已丢弃物品【${item.名字}】。`);
+};
+const discardConsumable = async (index: number) => {
+  if (inventoryActionDisabled.value) return;
+  const consumable = inventoryConsumables.value[index];
+  if (!consumable) return;
+
+  isUpdatingInventory.value = true;
+  const ok = await gameStore.updateStatDataFields(
+    buildInventoryUpdateFields({
+      消耗品: inventoryConsumables.value.filter((_, idx) => idx !== index),
+    }),
+  );
+  isUpdatingInventory.value = false;
+  if (!ok) {
+    toastr.warning('丢弃消耗品失败，请稍后重试。');
+    return;
+  }
+  toastr.info(`已丢弃消耗品【${consumable.名字}】。`);
+};
+const useConsumable = async (index: number) => {
+  if (inventoryActionDisabled.value) return;
+  const consumable = inventoryConsumables.value[index];
+  if (!consumable || !canUseConsumable(consumable)) return;
+
+  const nextConsumables = inventoryConsumables.value.filter((_, idx) => idx !== index);
+  const updates: Record<string, any> = buildInventoryUpdateFields({ 消耗品: nextConsumables });
+  const effectTexts: string[] = [];
+
+  if (typeof consumable.回复 === 'number') {
+    const maxHp = Math.max(1, Math.floor(Number(gameStore.statData._血量上限 ?? 1)) || 1);
+    const currentHpRaw = Number(gameStore.statData._血量 ?? maxHp);
+    const currentHp = Number.isFinite(currentHpRaw)
+      ? Math.min(maxHp, Math.max(1, Math.floor(currentHpRaw)))
+      : maxHp;
+    const nextHp = Math.max(1, Math.min(maxHp, currentHp + Math.trunc(consumable.回复)));
+    updates._血量 = nextHp;
+    effectTexts.push(`生命 ${currentHp} → ${nextHp}`);
+  }
+
+  if (consumable.净化) {
+    const targetStatus = normalizeNegativeStatusMatchKey(consumable.净化);
+    const currentStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
+    const nextStatuses = currentStatuses.filter(status => normalizeNegativeStatusMatchKey(status) !== targetStatus);
+    updates.$负面状态 = nextStatuses;
+    effectTexts.push(
+      nextStatuses.length === currentStatuses.length
+        ? `未找到负面状态 ${consumable.净化}`
+        : `移除了负面状态 ${consumable.净化}`,
+    );
+  }
+
+  isUpdatingInventory.value = true;
+  const ok = await gameStore.updateStatDataFields(updates);
+  isUpdatingInventory.value = false;
+  if (!ok) {
+    toastr.warning('使用消耗品失败，请稍后重试。');
+    return;
+  }
+
+  toastr.success(
+    effectTexts.length > 0 ? `已使用【${consumable.名字}】：${effectTexts.join('，')}。` : `已使用【${consumable.名字}】。`,
+  );
 };
 const upgradeMagicHatStat = async (id: MagicHatUpgradeType) => {
   if (!canEditMagicBooks.value) return;
@@ -3894,10 +4251,10 @@ const resolvedActiveSkills = computed<ActiveSkillData[]>(() => {
   return resolveActiveSkillNames(skills.filter(s => s !== ''));
 });
 
-// ── Resolved relics from MVU _圣遗物 ──
+// ── Resolved relics from MVU 携带的物品._圣遗物 ──
 // Format: { relicName: count } e.g. { "圣杯": 2, "毒药": 3 }
 const relicEntries = computed(() => {
-  const raw: Record<string, number> = gameStore.statData._圣遗物 ?? {};
+  const raw = inventoryRelicMap.value;
   return Object.entries(raw)
     .filter(([name, count]) => name && count > 0)
     .map(([name, count]) => {
@@ -3918,9 +4275,9 @@ type RelicEntryView = (typeof relicEntries.value)[number];
 const getOwnedRelicCountById = (id: string): number => {
   const relic = getAllRelics().find(entry => entry.id === id);
   if (!relic) return 0;
-  const raw = gameStore.statData._圣遗物 ?? {};
-  const byName = Number((raw as Record<string, number>)[relic.name] ?? 0);
-  const byId = Number((raw as Record<string, number>)[id] ?? 0);
+  const raw = inventoryRelicMap.value;
+  const byName = Number(raw[relic.name] ?? 0);
+  const byId = Number(raw[id] ?? 0);
   const safeByName = Number.isFinite(byName) ? byName : 0;
   const safeById = Number.isFinite(byId) ? byId : 0;
   return Math.max(0, Math.floor(Math.max(safeByName, safeById)));
@@ -4034,16 +4391,7 @@ const handleChestRewardTouchStart = (event: TouchEvent, index: number) => {
   handleRelicTouchStart(event, entry);
 };
 
-const combatRelicMap = computed<Record<string, number>>(() => {
-  const raw: Record<string, number> = gameStore.statData._圣遗物 ?? {};
-  const normalized: Record<string, number> = {};
-  for (const [name, value] of Object.entries(raw)) {
-    const count = Math.max(0, Math.floor(Number(value ?? 0)));
-    if (!name || count <= 0) continue;
-    normalized[name] = count;
-  }
-  return normalized;
-});
+const combatRelicMap = computed<Record<string, number>>(() => ({ ...inventoryRelicMap.value }));
 
 watch(
   resolvedDeck,
@@ -4105,12 +4453,17 @@ watch(activeModal, modal => {
   if (modal !== 'bonds') {
     closeBondPortraitPreview();
   }
-  if (modal !== 'relics') {
+  if (modal !== 'statusDetails') {
     hideRelicTooltip();
   }
   if (modal !== 'settings') {
     closeSettingsHelp();
     closeBigSummaryDraft();
+  }
+});
+watch([playerDetailTab, playerDetailInventoryTab], ([tab, inventoryTab]) => {
+  if (tab !== 'inventory' || inventoryTab !== 'relics') {
+    hideRelicTooltip();
   }
 });
 watch(canEditMagicBooks, editable => {
@@ -5233,7 +5586,11 @@ const buildRebirthResetFields = (): Record<string, any> => {
     $负面状态: retainedNegativeStatuses,
     $被动: '',
     $主动: ['', ''],
-    _圣遗物: {},
+    携带的物品: {
+      物品: [],
+      _圣遗物: {},
+      消耗品: [],
+    },
     $最大点数: 6,
     $最小点数: 1,
     _楼层数: 1,
@@ -5259,6 +5616,8 @@ const buildRebirthResetFields = (): Record<string, any> => {
 
 const resetTransientUiState = () => {
   activeModal.value = null;
+  playerDetailTab.value = 'status';
+  playerDetailInventoryTab.value = 'items';
   isVariableUpdateOpen.value = false;
   showCombat.value = false;
   showVictoryRewardView.value = false;
@@ -5712,7 +6071,7 @@ const buildNextRelicInventory = (
   pickedRelic: RelicData,
   baseInventory?: Record<string, number>,
 ): Record<string, number> => {
-  const rawRelics = baseInventory ?? gameStore.statData._圣遗物 ?? {};
+  const rawRelics = baseInventory ?? inventoryRelicMap.value;
   const nextRelics: Record<string, number> = {};
   for (const [name, value] of Object.entries(rawRelics as Record<string, number>)) {
     const count = Math.max(0, Math.floor(Number(value ?? 0)));
@@ -5758,7 +6117,7 @@ const exitShop = () => {
   if (purchased.length > 0) {
     const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
     const nextGold = Math.max(0, baseGold - total);
-    let nextRelics: Record<string, number> = gameStore.statData._圣遗物 ?? {};
+    let nextRelics: Record<string, number> = inventoryRelicMap.value;
     for (const item of purchased) {
       const relic = getRelicByName(item.name);
       if (relic) {
@@ -5776,7 +6135,7 @@ const exitShop = () => {
     }
     gameStore.mergePendingStatDataChanges({
       _金币: nextGold,
-      _圣遗物: nextRelics,
+      ...buildInventoryUpdateFields({ _圣遗物: nextRelics }),
     });
   }
   const narrative = pendingCombatNarrative.value;
@@ -7175,11 +7534,11 @@ const handleChestPortalClick = async (portal: PortalChoice) => {
   };
   if (collectedRelics.length > 0) {
     // 宝箱奖励遵循与传送门一致的“延迟写入”策略：仅在点击传送门时排队到下一层 user 楼层
-    let nextRelics: Record<string, number> = gameStore.statData._圣遗物 ?? {};
+    let nextRelics: Record<string, number> = inventoryRelicMap.value;
     for (const relic of collectedRelics) {
       nextRelics = buildNextRelicInventory(relic, nextRelics);
     }
-    mergedPendingStatDataFields._圣遗物 = nextRelics;
+    Object.assign(mergedPendingStatDataFields, buildInventoryUpdateFields({ _圣遗物: nextRelics }));
   }
   gameStore.setPendingStatDataChanges(
     Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null,
@@ -7268,7 +7627,7 @@ const openCombatTestBuilder = () => {
   const presetDeck = Array.isArray(gameStore.statData._技能)
     ? (gameStore.statData._技能 as string[]).filter(name => availableCardNames.has(name)).slice(0, 9)
     : [];
-  const presetRelicsRaw: Record<string, number> = gameStore.statData._圣遗物 ?? {};
+  const presetRelicsRaw = inventoryRelicMap.value;
   const presetRelics: Record<string, number> = {};
   for (const [name, value] of Object.entries(presetRelicsRaw)) {
     if (!availableRelicNames.has(name)) continue;
@@ -7341,7 +7700,7 @@ const confirmCombatTestEnemyAndStart = async () => {
   }
   const ok = await gameStore.updateStatDataFields({
     _对手名称: selectedTestEnemy.value,
-    _圣遗物: buildSelectedRelicPayload(),
+    ...buildInventoryUpdateFields({ _圣遗物: buildSelectedRelicPayload() }),
   });
   if (!ok) return;
 
@@ -8002,6 +8361,48 @@ onBeforeUnmount(() => {
   padding-right: 0.35rem;
 }
 
+.player-detail-tabbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.player-detail-tab,
+.player-detail-subtab {
+  border-radius: 999px;
+  border: 1px solid rgba(180, 83, 9, 0.35);
+  background: rgba(18, 12, 10, 0.9);
+  color: rgba(231, 229, 228, 0.78);
+  transition: all 0.18s ease;
+}
+
+.player-detail-tab {
+  min-height: 2.4rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.player-detail-subtab {
+  min-height: 2.15rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.76rem;
+}
+
+.player-detail-tab:hover,
+.player-detail-subtab:hover {
+  border-color: rgba(245, 158, 11, 0.62);
+  color: rgba(255, 251, 235, 0.94);
+}
+
+.player-detail-tab--active,
+.player-detail-subtab--active {
+  border-color: rgba(245, 158, 11, 0.75);
+  background: linear-gradient(180deg, rgba(120, 53, 15, 0.92), rgba(69, 26, 3, 0.96));
+  color: rgba(254, 243, 199, 0.98);
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.14);
+}
+
 .player-detail-section {
   padding: 1rem;
   border-radius: 1.1rem;
@@ -8027,6 +8428,13 @@ onBeforeUnmount(() => {
 .player-detail-section-meta {
   font-size: 0.75rem;
   color: rgba(245, 222, 179, 0.52);
+}
+
+.player-detail-subtabbar {
+  margin-top: 0.95rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .player-detail-stat-grid {
@@ -8130,6 +8538,123 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
+.player-detail-bag-list {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.player-detail-bag-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(135deg, rgba(26, 16, 10, 0.92), rgba(12, 10, 9, 0.96));
+  padding: 0.95rem 1rem;
+}
+
+.player-detail-bag-card--consumable {
+  border-color: rgba(59, 130, 246, 0.22);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.78), rgba(28, 25, 23, 0.94));
+}
+
+.player-detail-bag-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.player-detail-bag-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.player-detail-bag-name {
+  color: rgba(253, 230, 138, 0.96);
+  font-family: var(--font-heading, inherit);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.player-detail-bag-desc {
+  margin-top: 0.4rem;
+  color: rgba(231, 229, 228, 0.84);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.player-detail-bag-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.player-detail-bag-tag {
+  border-radius: 999px;
+  padding: 0.24rem 0.58rem;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.player-detail-bag-tag--heal {
+  border-color: rgba(16, 185, 129, 0.38);
+  background: rgba(6, 78, 59, 0.34);
+  color: rgba(167, 243, 208, 0.96);
+}
+
+.player-detail-bag-tag--cleanse {
+  border-color: rgba(96, 165, 250, 0.38);
+  background: rgba(30, 41, 59, 0.54);
+  color: rgba(191, 219, 254, 0.96);
+}
+
+.player-detail-bag-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.player-detail-bag-btn {
+  min-width: 4.5rem;
+  min-height: 2.15rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  background: rgba(18, 12, 10, 0.92);
+  color: rgba(254, 243, 199, 0.92);
+  font-size: 0.76rem;
+  transition: all 0.18s ease;
+}
+
+.player-detail-bag-btn:hover:not(:disabled) {
+  border-color: rgba(252, 211, 77, 0.72);
+  color: rgba(255, 251, 235, 0.98);
+}
+
+.player-detail-bag-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.player-detail-bag-btn--danger {
+  border-color: rgba(248, 113, 113, 0.32);
+  color: rgba(254, 202, 202, 0.92);
+}
+
+.player-detail-bag-btn--danger:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.64);
+}
+
 .player-detail-info-grid {
   margin-top: 0.8rem;
   display: grid;
@@ -8180,6 +8705,16 @@ onBeforeUnmount(() => {
   .player-detail-stat-grid,
   .player-detail-info-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .player-detail-bag-card,
+  .player-detail-bag-head {
+    flex-direction: column;
+  }
+
+  .player-detail-bag-actions,
+  .player-detail-bag-tags {
+    justify-content: flex-start;
   }
 }
 

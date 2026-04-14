@@ -58,11 +58,11 @@
       }
     },
     "_血量": {
-      "default": 10,
+      "default": 20,
       "type": "number"
     },
     "_血量上限": {
-      "default": 10,
+      "default": 20,
       "type": "number"
     },
     "$魔量": {
@@ -73,7 +73,7 @@
       "type": "number"
     },
     "$初始血量上限": {
-      "default": 10,
+      "default": 20,
       "type": "number"
     },
     "$初始魔量": {
@@ -127,23 +127,67 @@
         "$ref": "#/$defs/__schema1"
       }
     },
-    "_圣遗物": {
-      "default": {},
-      "type": "object",
-      "propertyNames": {
-        "type": "string",
-        "description": "圣遗物名"
-      },
-      "additionalProperties": {
-        "type": "number",
-        "description": "数量"
-      }
-    },
     "_携带的魔法书": {
       "default": [],
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "携带的物品": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "物品": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "default": {},
+            "type": "object",
+            "properties": {
+              "名字": {
+                "type": "string"
+              },
+              "描述": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "_圣遗物": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "description": "圣遗物名"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "description": "数量"
+          }
+        },
+        "消耗品": {
+          "default": [],
+          "type": "array",
+          "items": {
+            "default": {},
+            "type": "object",
+            "properties": {
+              "名字": {
+                "type": "string"
+              },
+              "描述": {
+                "type": "string"
+              },
+              "回复": {
+                "type": "number"
+              },
+              "净化": {
+                "type": "string"
+              }
+            }
+          }
+        }
       }
     },
     "$最大点数": {
