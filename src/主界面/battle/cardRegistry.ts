@@ -5981,10 +5981,10 @@ const 巨石魔法: CardData = {
   swarmAttack: true,
 };
 
-/** 粘液斧：增加点数直至超过对方最终点数，造成1倍点数伤害 */
-const 粘液斧: CardData = {
+/** 粘液斩击：增加点数直至超过对方最终点数，造成1倍点数伤害 */
+const 粘液斩击: CardData = {
   id: 'basic_slime_axe',
-  name: '粘液斧',
+  name: '粘液斩击',
   type: CardType.PHYSICAL,
   category: '基础',
   rarity: '稀有',
@@ -6260,7 +6260,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [浓缩精华.name, 浓缩精华],
   [空白的空白.name, 空白的空白],
   [巨石魔法.name, 巨石魔法],
-  [粘液斧.name, 粘液斧],
+  [粘液斩击.name, 粘液斩击],
   [生死决断.name, 生死决断],
   [猩红镰刀.name, 猩红镰刀],
   [认知互换.name, 认知互换],
