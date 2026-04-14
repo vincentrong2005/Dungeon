@@ -1,6 +1,6 @@
 <template>
   <div
-    class="relative w-full flex flex-col items-center justify-center bg-[#050505] text-dungeon-paper overflow-hidden transition-opacity duration-1000"
+    class="relative flex w-full flex-col items-center justify-center overflow-hidden bg-[#050505] text-dungeon-paper transition-opacity duration-1000"
     :class="isVisible ? 'opacity-100' : 'opacity-0'"
     :style="{ aspectRatio: '16/9' }"
   >
@@ -23,83 +23,148 @@
 
     <button
       type="button"
-      class="absolute inset-0 z-[1] bg-transparent cursor-pointer focus:outline-none"
+      class="absolute inset-0 z-[1] cursor-pointer bg-transparent focus:outline-none"
       aria-label="点击切换背景"
       @click="switchBackground"
     ></button>
 
-    <!-- Dynamic Background -->
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,_rgba(60,40,30,0.3),_#000000_90%)] z-0"></div>
+    <div class="absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_30%,_rgba(60,40,30,0.3),_#000000_90%)]"></div>
     <div
-      class="absolute inset-0 opacity-30 z-0 mix-blend-overlay animate-pulse-slow bg-[length:200px] bg-repeat"
+      class="absolute inset-0 z-0 animate-pulse-slow bg-[length:200px] bg-repeat opacity-30 mix-blend-overlay"
       style="background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png')"
     ></div>
 
-    <!-- Ornamental Frame -->
-    <div class="absolute top-8 left-8 w-64 h-64 border-t-2 border-l-2 border-dungeon-brown opacity-50"></div>
-    <div class="absolute bottom-8 right-8 w-64 h-64 border-b-2 border-r-2 border-dungeon-brown opacity-50"></div>
+    <div class="absolute left-8 top-8 h-64 w-64 border-l-2 border-t-2 border-dungeon-brown opacity-50"></div>
+    <div class="absolute bottom-8 right-8 h-64 w-64 border-b-2 border-r-2 border-dungeon-brown opacity-50"></div>
 
-    <!-- Fullscreen Button (Top Right, Small) -->
     <button
-      class="absolute top-4 right-4 z-50 w-8 h-8 rounded flex items-center justify-center bg-dungeon-dark/60 border border-dungeon-brown/50 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300"
+      class="absolute right-4 top-4 z-50 flex h-8 w-8 items-center justify-center rounded border border-dungeon-brown/50 bg-dungeon-dark/60 text-dungeon-gold-dim transition-all duration-300 hover:border-dungeon-gold/50 hover:bg-dungeon-brown hover:text-dungeon-gold"
       @click="$emit('toggleFullscreen')"
     >
       <Maximize class="size-4" />
     </button>
 
-    <!-- Main Content -->
-    <div class="z-10 flex flex-col items-center space-y-12">
-      <!-- Title Section -->
-      <div class="text-center space-y-4 relative">
+    <div class="z-10 flex flex-col items-center space-y-10 px-6 py-10">
+      <div class="relative space-y-4 text-center">
         <div
-          class="w-1 h-24 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent absolute -left-12 top-0 opacity-50"
+          class="absolute -left-12 top-0 h-24 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50"
         ></div>
         <div
-          class="w-1 h-24 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent absolute -right-12 top-0 opacity-50"
+          class="absolute -right-12 top-0 h-24 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50"
         ></div>
 
         <h1
-          class="text-6xl md:text-8xl font-heading text-transparent bg-clip-text bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] tracking-wide"
+          class="bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim bg-clip-text font-heading text-6xl tracking-wide text-transparent drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] md:text-8xl"
         >
           欲望地牢
         </h1>
-        <h2
-          class="text-xl md:text-2xl font-body text-[#f9e6a0] tracking-[0.35em] uppercase border-t border-dungeon-brown pt-4 mt-2"
-        >
+        <h2 class="mt-2 border-t border-dungeon-brown pt-4 font-body text-xl uppercase tracking-[0.35em] text-[#f9e6a0] md:text-2xl">
           Created by Vin
         </h2>
       </div>
 
-      <!-- Menu Actions -->
-      <div class="flex flex-col space-y-4 w-64">
+      <div class="flex w-72 flex-col space-y-4">
         <button
-          class="group relative px-8 py-4 bg-[#1a0f08] hover:bg-dungeon-brown border border-dungeon-gold/30 hover:border-dungeon-gold transition-all duration-300 flex items-center justify-center space-x-3 overflow-hidden"
+          class="group relative flex items-center justify-center space-x-3 overflow-hidden border border-dungeon-gold/30 bg-[#1a0f08] px-8 py-4 transition-all duration-300 hover:border-dungeon-gold hover:bg-dungeon-brown disabled:cursor-wait disabled:opacity-75"
+          :disabled="environmentChecking"
           @click="$emit('start')"
         >
           <div class="absolute inset-0 w-0 bg-dungeon-gold/10 transition-all duration-300 group-hover:w-full"></div>
-          <Play class="size-5 text-dungeon-gold group-hover:scale-110 transition-transform" />
-          <span class="font-heading text-lg tracking-widest text-dungeon-paper group-hover:text-dungeon-gold">
-            进入深渊
+          <LoaderCircle v-if="environmentChecking" class="size-5 animate-spin text-dungeon-gold" />
+          <Play v-else class="size-5 text-dungeon-gold transition-transform group-hover:scale-110" />
+          <span class="font-heading text-lg tracking-widest text-dungeon-paper transition-colors group-hover:text-dungeon-gold">
+            {{ environmentChecking ? '检测环境中' : '进入地牢' }}
           </span>
         </button>
 
         <button
-          class="group relative px-8 py-3 bg-[#120b08] hover:bg-dungeon-brown/80 border border-dungeon-brown/80 hover:border-dungeon-gold/60 text-dungeon-paper/85 font-heading tracking-widest flex items-center justify-center space-x-2 transition-all duration-300"
+          class="group relative flex items-center justify-center space-x-2 border border-dungeon-gold/20 bg-[#120b08] px-8 py-3 font-heading tracking-[0.28em] text-dungeon-paper/90 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-[#26150d] disabled:cursor-wait disabled:opacity-75"
+          :disabled="environmentChecking"
+          @click="$emit('checkEnvironment')"
+        >
+          <LoaderCircle v-if="environmentChecking" class="size-4 animate-spin text-dungeon-gold" />
+          <ShieldCheck v-else class="size-4 text-dungeon-gold" />
+          <span>{{ environmentChecking ? '检测中' : '环境检测' }}</span>
+        </button>
+
+        <button
+          class="group relative flex items-center justify-center space-x-2 border border-dungeon-brown/80 bg-[#120b08] px-8 py-3 font-heading tracking-widest text-dungeon-paper/85 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-dungeon-brown/80"
           @click="$emit('openCollection')"
         >
           <Star class="size-4" />
           <span>魔女的收藏</span>
         </button>
       </div>
+
+      <Transition name="panel-fade">
+        <section
+          v-if="shouldShowPanel"
+          class="w-[min(92vw,42rem)] overflow-hidden rounded-2xl border border-dungeon-gold/30 bg-[#120b08]/88 shadow-[0_18px_45px_rgba(0,0,0,0.38)] backdrop-blur-md"
+        >
+          <div class="flex items-start justify-between gap-4 border-b border-dungeon-gold/15 px-5 py-4">
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 text-dungeon-gold">
+                <ShieldCheck class="size-4" />
+                <span class="font-heading text-sm tracking-[0.28em]">环境监测</span>
+              </div>
+              <p class="text-sm text-dungeon-paper/90">
+                {{ environmentChecking ? '正在检查酒馆助手、提示词模板与 MVU 脚本...' : environmentSummary }}
+              </p>
+            </div>
+            <div class="flex items-start gap-2">
+              <span v-if="lastCheckedLabel" class="pt-1 text-[11px] tracking-[0.18em] text-dungeon-paper/45">
+                {{ lastCheckedLabel }}
+              </span>
+              <button
+                type="button"
+                class="rounded-full border border-dungeon-gold/15 p-1 text-dungeon-paper/55 transition hover:border-dungeon-gold/40 hover:text-dungeon-paper disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="environmentChecking"
+                aria-label="关闭环境监测弹窗"
+                @click="dismissPanel"
+              >
+                <X class="size-4" />
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-3 px-5 py-4">
+            <article
+              v-for="item in environmentItems"
+              :key="item.key"
+              class="rounded-xl border px-4 py-3"
+              :class="statusCardClass(item.status)"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <component :is="statusIcon(item.status)" class="size-4 shrink-0" />
+                  <h3 class="font-heading text-sm tracking-[0.18em]">{{ item.label }}</h3>
+                </div>
+                <span class="text-xs uppercase tracking-[0.22em]">{{ statusLabel(item.status) }}</span>
+              </div>
+              <p class="mt-2 text-sm leading-6 text-dungeon-paper/90">{{ item.detail }}</p>
+              <p v-if="item.status !== 'ok'" class="mt-2 text-xs leading-5 text-dungeon-paper/65">
+                {{ item.hint }}
+              </p>
+            </article>
+          </div>
+        </section>
+      </Transition>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Maximize, Play, Star } from 'lucide-vue-next';
+import { AlertTriangle, LoaderCircle, Maximize, Play, ShieldCheck, Star, X } from 'lucide-vue-next';
+import type { EnvironmentCheckReport, EnvironmentDependencyStatus } from '../environmentCheck';
+
+const props = defineProps<{
+  environmentReport: EnvironmentCheckReport | null;
+  environmentChecking: boolean;
+}>();
 
 const emit = defineEmits<{
   start: [];
+  checkEnvironment: [];
   toggleFullscreen: [];
   openCollection: [];
   backgroundChange: [url: string];
@@ -121,6 +186,55 @@ const isBackgroundTransitioning = ref(false);
 const BACKGROUND_FADE_MS = 700;
 let backgroundFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let backgroundTransitionToken = 0;
+const isPanelDismissed = ref(false);
+
+const shouldShowPanel = computed(() => props.environmentChecking || (!!props.environmentReport && !isPanelDismissed.value));
+const environmentItems = computed(() => props.environmentReport?.items ?? []);
+const environmentSummary = computed(() => props.environmentReport?.summary ?? '点击按钮后会显示检测结果。');
+const lastCheckedLabel = computed(() => {
+  if (!props.environmentReport?.checkedAt) return '';
+  return `上次检测 ${new Date(props.environmentReport.checkedAt).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })}`;
+});
+
+const statusLabelMap: Record<EnvironmentDependencyStatus, string> = {
+  ok: '正常',
+  missing: '缺失',
+  disabled: '未启用',
+  not_ready: '未就绪',
+  error: '异常',
+};
+
+function statusLabel(status: EnvironmentDependencyStatus) {
+  return statusLabelMap[status];
+}
+
+function statusCardClass(status: EnvironmentDependencyStatus) {
+  switch (status) {
+    case 'ok':
+      return 'border-emerald-500/35 bg-emerald-900/20 text-emerald-100';
+    case 'missing':
+      return 'border-rose-500/35 bg-rose-950/25 text-rose-100';
+    case 'disabled':
+      return 'border-amber-500/35 bg-amber-950/20 text-amber-100';
+    case 'not_ready':
+      return 'border-sky-500/35 bg-sky-950/20 text-sky-100';
+    case 'error':
+      return 'border-fuchsia-500/35 bg-fuchsia-950/20 text-fuchsia-100';
+  }
+}
+
+function statusIcon(status: EnvironmentDependencyStatus) {
+  return status === 'ok' ? ShieldCheck : AlertTriangle;
+}
+
+function dismissPanel() {
+  if (props.environmentChecking) return;
+  isPanelDismissed.value = true;
+}
 
 const pickRandomBackground = (exclude?: string) => {
   const candidates = exclude ? splashBackgrounds.filter(url => url !== exclude) : splashBackgrounds;
@@ -184,6 +298,24 @@ onMounted(() => {
   isVisible.value = true;
 });
 
+watch(
+  () => props.environmentChecking,
+  checking => {
+    if (checking) {
+      isPanelDismissed.value = false;
+    }
+  },
+);
+
+watch(
+  () => props.environmentReport?.checkedAt,
+  checkedAt => {
+    if (checkedAt) {
+      isPanelDismissed.value = false;
+    }
+  },
+);
+
 onBeforeUnmount(() => {
   backgroundTransitionToken += 1;
   if (backgroundFadeTimer) {
@@ -192,3 +324,18 @@ onBeforeUnmount(() => {
   }
 });
 </script>
+
+<style scoped>
+.panel-fade-enter-active,
+.panel-fade-leave-active {
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
+}
+
+.panel-fade-enter-from,
+.panel-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+</style>

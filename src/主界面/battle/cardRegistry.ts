@@ -700,7 +700,7 @@ const 烧伤: CardData = {
   description: '点数-2，造成1倍最终点数伤害并施加易伤+1',
 };
 
-/** 烈焰打击：0.5倍最终点数伤害并附加燃烧+1 */
+/** 烈焰打击：1倍最终点数伤害并附加燃烧+1 */
 const 烈焰打击: CardData = {
   id: 'burn_flame_strike',
   name: '烈焰打击',
@@ -709,13 +709,13 @@ const 烈焰打击: CardData = {
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 1, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '造成0.5倍最终点数伤害并附加燃烧+1',
+  description: '造成1倍最终点数伤害并附加燃烧+1',
 };
 
 /** 灼魂飞弹：1倍最终点数伤害并附加燃烧+2 */
@@ -736,7 +736,7 @@ const 灼魂飞弹: CardData = {
   description: '造成1倍最终点数伤害并附加燃烧+2',
 };
 
-/** 焚身突刺：点数*2，造成0.6倍最终点数伤害并附加燃烧+1 */
+/** 焚身突刺：点数*2，造成0.6倍最终点数伤害并附加燃烧+2 */
 const 焚身突刺: CardData = {
   id: 'burn_body_lunge',
   name: '焚身突刺',
@@ -749,9 +749,9 @@ const 焚身突刺: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '点数*2，造成0.6倍最终点数伤害并附加燃烧+1',
+  description: '点数*2，造成0.6倍最终点数伤害并附加燃烧+2',
 };
 
 /** 爆燃术：点数*0.8，造成目标燃烧层数伤害并施加1倍最终点数燃烧 */

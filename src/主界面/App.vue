@@ -5,7 +5,10 @@
       <SplashScreen
         v-if="appState === 'SPLASH'"
         key="splash"
+        :environment-report="environmentReport"
+        :environment-checking="isEnvironmentChecking"
         @start="startGame"
+        @check-environment="checkEnvironment()"
         @toggle-fullscreen="toggleFullScreen"
         @open-collection="isCollectionOpen = true"
         @background-change="splashBackgroundUrl = $event"
@@ -33,6 +36,7 @@ import GameView from './components/GameView.vue';
 import SplashScreen from './components/SplashScreen.vue';
 import WitchCollectionModal from './components/WitchCollectionModal.vue';
 import { disposeBgm, initializeBgm } from './bgm';
+import { runEnvironmentCheck, type EnvironmentCheckReport } from './environmentCheck';
 import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
 import { buildOpeningPrompt, type OpeningInfoSubmission } from './openingProfile';
@@ -41,8 +45,10 @@ const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
 const isCollectionOpen = ref(false);
 const isOpeningEntryOpen = ref(false);
 const isOpeningEntrySubmitting = ref(false);
+const isEnvironmentChecking = ref(false);
 const openingEntryError = ref<string | null>(null);
 const splashBackgroundUrl = ref('');
+const environmentReport = ref<EnvironmentCheckReport | null>(null);
 const gameStore = useGameStore();
 
 onMounted(() => {
@@ -58,6 +64,13 @@ onUnmounted(() => {
  * 开始游戏：初始化 gameStore（加载最新楼层状态、MVU）
  */
 async function startGame() {
+  if (isEnvironmentChecking.value) return;
+
+  const report = await checkEnvironment({ notifyFailure: true });
+  if (!report.ready) {
+    return;
+  }
+
   appState.value = 'GAME';
   isOpeningEntryOpen.value = false;
   isOpeningEntrySubmitting.value = false;
@@ -72,6 +85,24 @@ function handleBackToSplash() {
   isOpeningEntrySubmitting.value = false;
   openingEntryError.value = null;
   appState.value = 'SPLASH';
+}
+
+async function checkEnvironment(options: { notifyFailure?: boolean } = {}) {
+  if (isEnvironmentChecking.value && environmentReport.value) {
+    return environmentReport.value;
+  }
+
+  isEnvironmentChecking.value = true;
+  try {
+    const report = await runEnvironmentCheck();
+    environmentReport.value = report;
+    if (!report.ready && options.notifyFailure) {
+      toastr.error(report.summary, '环境未就绪');
+    }
+    return report;
+  } finally {
+    isEnvironmentChecking.value = false;
+  }
 }
 
 async function handleOpeningEntrySubmit(payload: OpeningInfoSubmission) {
