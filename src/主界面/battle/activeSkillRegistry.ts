@@ -161,8 +161,8 @@ const 黄金宝箱: ActiveSkillData = {
   type: CardType.ACTIVE,
   category: '基础',
   rarity: '稀有',
-  manaCost: 1,
-  Cooldown: 2,
+  manaCost: 2,
+  Cooldown: 6,
   description: '将手牌在本场战斗中替换为牌库中的随机稀有卡牌',
 };
 
@@ -184,15 +184,11 @@ const ACTIVE_SKILL_REGISTRY: readonly ActiveSkillData[] = [
   黄金宝箱,
 ];
 
-const ACTIVE_SKILL_BY_NAME = new Map<string, ActiveSkillData>(
-  ACTIVE_SKILL_REGISTRY.map((skill) => [skill.name, skill]),
-);
+const ACTIVE_SKILL_BY_NAME = new Map<string, ActiveSkillData>(ACTIVE_SKILL_REGISTRY.map(skill => [skill.name, skill]));
 
-const ACTIVE_SKILL_BY_ID = new Map<string, ActiveSkillData>(
-  ACTIVE_SKILL_REGISTRY.map((skill) => [skill.id, skill]),
-);
+const ACTIVE_SKILL_BY_ID = new Map<string, ActiveSkillData>(ACTIVE_SKILL_REGISTRY.map(skill => [skill.id, skill]));
 
-export const getAllActiveSkills = (): ActiveSkillData[] => ACTIVE_SKILL_REGISTRY.map((skill) => ({ ...skill }));
+export const getAllActiveSkills = (): ActiveSkillData[] => ACTIVE_SKILL_REGISTRY.map(skill => ({ ...skill }));
 
 export const getActiveSkillByName = (name: string): ActiveSkillData | null => {
   const skill = ACTIVE_SKILL_BY_NAME.get(name);
@@ -204,6 +200,5 @@ export const getActiveSkillById = (id: string): ActiveSkillData | null => {
   return skill ? { ...skill } : null;
 };
 
-export const resolveActiveSkillNames = (names: string[]): ActiveSkillData[] => names
-  .map((name) => getActiveSkillByName(name))
-  .filter((skill): skill is ActiveSkillData => Boolean(skill));
+export const resolveActiveSkillNames = (names: string[]): ActiveSkillData[] =>
+  names.map(name => getActiveSkillByName(name)).filter((skill): skill is ActiveSkillData => Boolean(skill));

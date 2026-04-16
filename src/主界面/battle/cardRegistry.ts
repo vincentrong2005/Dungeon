@@ -1058,7 +1058,7 @@ const 霜爆: CardData = {
   description: '增加1倍点数的寒冷，并造成对方当前寒冷层数的伤害',
 };
 
-/** 复咒：下一张魔法牌结算两次（结算逻辑在 CombatView） */
+/** 复咒：下一张魔法牌结算两次，连击（结算逻辑在 CombatView） */
 const 复咒: CardData = {
   id: 'yanhan_spell_echo',
   name: '复咒',
@@ -1068,9 +1068,9 @@ const 复咒: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
+  traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '下一张魔法牌结算两次',
+  description: '下一张魔法牌结算两次，连击',
 };
 
 // ── 血池体系卡牌 ────────────────────────────────────────────────
