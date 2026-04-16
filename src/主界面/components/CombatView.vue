@@ -615,12 +615,8 @@
               v-for="slot in playerActiveSkillSlots"
               :key="`active-skill-slot-${slot.idx}`"
               type="button"
-              class="relative w-30 h-44 rounded-xl border-2 shadow-xl overflow-hidden transition-all"
+              class="rounded-xl transition-all"
               :class="[
-                slot.skill?.rarity === '稀有' ? 'rare-active-skill-card' : '',
-                slot.skill
-                  ? 'border-zinc-100/85 bg-[#1b1722] text-dungeon-paper'
-                  : 'border-white/20 bg-[#15131c]/95 text-white/45',
                 activeSkillDisabledReason(slot.idx)
                   ? 'opacity-80 cursor-not-allowed grayscale-[0.2]'
                   : 'hover:-translate-y-1 hover:shadow-[0_0_24px_rgba(255,255,255,0.16)] active:scale-[0.98]',
@@ -628,52 +624,13 @@
               :disabled="Boolean(activeSkillDisabledReason(slot.idx))"
               @click="useActiveSkill(slot.idx)"
             >
-              <div
-                class="absolute inset-0"
-                :class="slot.skill
-                  ? 'bg-[radial-gradient(circle_at_32%_18%,rgba(255,255,255,0.2),rgba(20,18,28,0.95)_66%)]'
-                  : 'bg-[radial-gradient(circle_at_32%_18%,rgba(255,255,255,0.08),rgba(16,14,22,0.96)_66%)]'"
-              ></div>
-              <template v-if="slot.skill">
-                <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
-                  <div
-                    class="w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center border shadow-md"
-                    :class="slot.manaCost > 0
-                      ? 'bg-purple-700/80 text-white border-purple-300/40'
-                      : 'bg-zinc-700/60 text-zinc-100 border-zinc-300/35'"
-                  >
-                    {{ slot.manaCost }}
-                  </div>
-                  <div class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none">
-                    主动
-                  </div>
-                </div>
-
-                <div class="absolute top-8 left-2 right-2 h-16 rounded-lg border border-white/10 bg-black/45 overflow-hidden flex items-center justify-center">
-                  <div class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.35),rgba(140,140,160,0.08)_60%,rgba(12,10,18,0.82))]"></div>
-                  <span class="relative font-heading text-2xl text-white/25 select-none">{{ slot.skill.name[0] || '?' }}</span>
-                </div>
-
-                <div class="absolute bottom-0 left-0 w-full p-1.5 z-10">
-                  <div class="text-dungeon-paper font-heading font-bold text-[11px] tracking-wide mb-1 text-center drop-shadow-md">
-                    {{ slot.skill.name }}
-                  </div>
-                  <div class="bg-[#0d0d10]/85 border border-white/10 p-1.5 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[34px] flex items-center justify-center text-center">
-                    {{ slot.skill.description }}
-                  </div>
-                  <div class="mt-1 flex items-center justify-between text-[10px]">
-                    <span class="text-zinc-200/85">CD {{ slot.skill.Cooldown }}</span>
-                    <span
-                      :class="activeSkillDisabledReason(slot.idx) ? 'text-amber-200/90' : 'text-emerald-300/90'"
-                    >
-                      {{ getActiveSkillStatusText(slot) }}
-                    </span>
-                  </div>
-                </div>
-              </template>
-              <template v-else>
-                <div class="absolute inset-0 flex items-center justify-center text-xs tracking-wider">空主动槽位</div>
-              </template>
+              <ActiveSkillCard
+                :skill="slot.skill"
+                :mana-cost="slot.manaCost"
+                size="compact"
+                :footer-right-text="slot.skill ? getActiveSkillStatusText(slot) : ''"
+                :footer-right-tone="activeSkillDisabledReason(slot.idx) ? 'warning' : 'success'"
+              />
             </button>
           </div>
         </div>
@@ -873,6 +830,7 @@ import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
+import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 
@@ -7207,22 +7165,6 @@ watch(
   transform: scale(1);
   will-change: transform, opacity, filter;
   filter: drop-shadow(0 0 18px rgba(0, 0, 0, 0.45));
-}
-
-.rare-active-skill-card {
-  position: relative;
-}
-
-.rare-active-skill-card::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  border: 1px solid rgba(250, 204, 21, 0.52);
-  box-shadow:
-    0 0 8px rgba(250, 204, 21, 0.34),
-    0 0 18px rgba(245, 158, 11, 0.2);
-  pointer-events: none;
 }
 
 .combat-card-visual-scale {

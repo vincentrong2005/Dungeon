@@ -2480,12 +2480,12 @@
                 </div>
 
                 <template v-if="victoryRewardStage === 'pick'">
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div class="flex flex-wrap justify-center gap-5">
                     <button
                       v-for="reward in victoryRewardOptions"
                       :key="`reward-option-${reward.id}`"
                       type="button"
-                      class="rounded-lg border border-dungeon-brown/50 bg-[#160d08]/75 p-3 transition-all hover:border-dungeon-gold/60 hover:scale-[1.01]"
+                      class="w-[220px] rounded-lg border border-dungeon-brown/50 bg-[#160d08]/75 p-3 transition-all hover:border-dungeon-gold/60 hover:scale-[1.01]"
                       @click="pickVictoryRewardCard(reward)"
                     >
                       <div class="mb-2 text-center text-[11px] text-dungeon-paper/75">
@@ -2493,28 +2493,12 @@
                       </div>
                       <div class="flex justify-center">
                         <DungeonCard v-if="!isActiveSkillReward(reward)" :card="reward" disabled />
-                        <div
+                        <ActiveSkillCard
                           v-else
-                          class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
-                          :class="reward.rarity === '稀有' ? 'rare-active-skill-card rare-active-skill-card--light' : ''"
-                        >
-                          <div class="flex items-center justify-between text-[11px] font-semibold">
-                            <span>{{ reward.name }}</span>
-                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
-                          </div>
-                          <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
-                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
-                              >MP {{ reward.manaCost }}</span
-                            >
-                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
-                              >CD {{ reward.Cooldown }}</span
-                            >
-                          </div>
-                          <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
-                            {{ reward.description }}
-                          </div>
-                          <div class="text-[11px] text-zinc-500">类别：{{ reward.category }} · {{ reward.rarity }}</div>
-                        </div>
+                          :skill="reward"
+                          :footer-right-text="`${reward.category} · ${reward.rarity}`"
+                          footer-right-tone="default"
+                        />
                       </div>
                       <div class="mt-2 text-center text-xs text-dungeon-gold/90">选择此卡</div>
                     </button>
@@ -2536,34 +2520,12 @@
                         :card="selectedVictoryRewardCard"
                         disabled
                       />
-                      <div
+                      <ActiveSkillCard
                         v-else-if="selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)"
-                        class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
-                        :class="
-                          selectedVictoryRewardCard.rarity === '稀有'
-                            ? 'rare-active-skill-card rare-active-skill-card--light'
-                            : ''
-                        "
-                      >
-                        <div class="flex items-center justify-between text-[11px] font-semibold">
-                          <span>{{ selectedVictoryRewardCard.name }}</span>
-                          <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
-                        </div>
-                        <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
-                          <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
-                            >MP {{ selectedVictoryRewardCard.manaCost }}</span
-                          >
-                          <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
-                            >CD {{ selectedVictoryRewardCard.Cooldown }}</span
-                          >
-                        </div>
-                        <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
-                          {{ selectedVictoryRewardCard.description }}
-                        </div>
-                        <div class="text-[11px] text-zinc-500">
-                          类别：{{ selectedVictoryRewardCard.category }} · {{ selectedVictoryRewardCard.rarity }}
-                        </div>
-                      </div>
+                        :skill="selectedVictoryRewardCard"
+                        :footer-right-text="`${selectedVictoryRewardCard.category} · ${selectedVictoryRewardCard.rarity}`"
+                        footer-right-tone="default"
+                      />
                     </div>
                   </div>
 
@@ -2618,36 +2580,17 @@
                     >
                       <div class="text-[11px] text-dungeon-paper/65 mb-2">主动槽位 {{ entry.idx + 1 }}</div>
                       <div class="flex justify-center">
-                        <div
+                        <ActiveSkillCard
                           v-if="entry.skill"
-                          class="w-[180px] h-[250px] rounded-xl border border-zinc-300/80 bg-white text-zinc-900 p-3 flex flex-col"
-                          :class="entry.skill.rarity === '稀有' ? 'rare-active-skill-card rare-active-skill-card--light' : ''"
-                        >
-                          <div class="flex items-center justify-between text-[11px] font-semibold">
-                            <span>{{ entry.skill.name }}</span>
-                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5">主动</span>
-                          </div>
-                          <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-700">
-                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
-                              >MP {{ entry.skill.manaCost }}</span
-                            >
-                            <span class="rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5"
-                              >CD {{ entry.skill.Cooldown }}</span
-                            >
-                          </div>
-                          <div class="mt-3 text-xs leading-relaxed text-zinc-700 flex-1">
-                            {{ entry.skill.description }}
-                          </div>
-                          <div class="text-[11px] text-zinc-500">
-                            类别：{{ entry.skill.category }} · {{ entry.skill.rarity }}
-                          </div>
-                        </div>
-                        <div
+                          :skill="entry.skill"
+                          :footer-right-text="`${entry.skill.category} · ${entry.skill.rarity}`"
+                          footer-right-tone="default"
+                        />
+                        <ActiveSkillCard
                           v-else
-                          class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
-                        >
-                          {{ entry.name || '空主动槽位' }}
-                        </div>
+                          :skill="null"
+                          :empty-label="entry.name || '空主动槽位'"
+                        />
                       </div>
                     </button>
                   </div>
@@ -2737,6 +2680,7 @@ import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import type { OpeningInfoSubmission } from '../openingProfile';
 import { CardType, EffectType, type ActiveSkillData, type CardData } from '../types';
+import ActiveSkillCard from './ActiveSkillCard.vue';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
@@ -8568,13 +8512,6 @@ onBeforeUnmount(() => {
     0 0 8px rgba(250, 204, 21, 0.38),
     0 0 18px rgba(245, 158, 11, 0.22);
   pointer-events: none;
-}
-
-.rare-active-skill-card--light::after {
-  border-color: rgba(217, 119, 6, 0.58);
-  box-shadow:
-    0 0 8px rgba(245, 158, 11, 0.28),
-    0 0 18px rgba(234, 179, 8, 0.2);
 }
 
 .player-detail-empty {
