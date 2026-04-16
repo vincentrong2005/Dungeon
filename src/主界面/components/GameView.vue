@@ -1643,7 +1643,28 @@
                 <h4 class="settings-subsection-title">大总结设定</h4>
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">总结范围设置</label>
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>总结范围设置</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('bigSummaryRange')"
+                      @mouseleave="closeSettingsHelp('bigSummaryRange')"
+                      @focus="openSettingsHelp('bigSummaryRange')"
+                      @blur="closeSettingsHelp('bigSummaryRange')"
+                      @touchstart.passive="startSettingsHelpTouch('bigSummaryRange')"
+                      @touchend="endSettingsHelpTouch('bigSummaryRange')"
+                      @touchcancel="endSettingsHelpTouch('bigSummaryRange')"
+                      @click.stop.prevent="toggleSettingsHelp('bigSummaryRange')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'bigSummaryRange'" class="settings-help-popover">
+                        {{ settingsHelpText.bigSummaryRange }}
+                      </div>
+                    </Transition>
+                  </div>
                   <div class="flex items-center gap-2 sm:shrink-0">
                     <input
                       v-model.lazy.number="bigSummaryRangeStart"
@@ -1662,7 +1683,28 @@
                 </div>
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">大总结字数</label>
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>大总结字数</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('bigSummaryWords')"
+                      @mouseleave="closeSettingsHelp('bigSummaryWords')"
+                      @focus="openSettingsHelp('bigSummaryWords')"
+                      @blur="closeSettingsHelp('bigSummaryWords')"
+                      @touchstart.passive="startSettingsHelpTouch('bigSummaryWords')"
+                      @touchend="endSettingsHelpTouch('bigSummaryWords')"
+                      @touchcancel="endSettingsHelpTouch('bigSummaryWords')"
+                      @click.stop.prevent="toggleSettingsHelp('bigSummaryWords')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'bigSummaryWords'" class="settings-help-popover">
+                        {{ settingsHelpText.bigSummaryWords }}
+                      </div>
+                    </Transition>
+                  </div>
                   <div class="flex items-center gap-2 sm:shrink-0">
                     <input
                       v-model.lazy.number="bigSummaryMinWords"
@@ -1686,7 +1728,28 @@
 
                 <div class="space-y-2">
                   <div class="flex items-center justify-between">
-                    <span class="text-dungeon-paper/70 text-sm font-ui">当前可总结条目</span>
+                    <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                      <span>当前可总结条目</span>
+                      <button
+                        type="button"
+                        class="settings-help-trigger"
+                        @mouseenter="openSettingsHelp('bigSummaryEntries')"
+                        @mouseleave="closeSettingsHelp('bigSummaryEntries')"
+                        @focus="openSettingsHelp('bigSummaryEntries')"
+                        @blur="closeSettingsHelp('bigSummaryEntries')"
+                        @touchstart.passive="startSettingsHelpTouch('bigSummaryEntries')"
+                        @touchend="endSettingsHelpTouch('bigSummaryEntries')"
+                        @touchcancel="endSettingsHelpTouch('bigSummaryEntries')"
+                        @click.stop.prevent="toggleSettingsHelp('bigSummaryEntries')"
+                      >
+                        ?
+                      </button>
+                      <Transition name="settings-help-fade">
+                        <div v-if="activeSettingsHelp === 'bigSummaryEntries'" class="settings-help-popover">
+                          {{ settingsHelpText.bigSummaryEntries }}
+                        </div>
+                      </Transition>
+                    </div>
                     <span class="text-dungeon-paper/55 text-xs font-ui"
                       >当前选中 {{ selectedBigSummaryEntryCount }} 条</span
                     >
@@ -4485,7 +4548,13 @@ type TextSettingsState = {
 };
 
 type SettingsNavTab = 'text' | 'music' | 'ai' | 'summary';
-type SettingsHelpKey = 'autoSummaryEnabled' | 'summaryVisibleWindow' | 'manualSummary';
+type SettingsHelpKey =
+  | 'autoSummaryEnabled'
+  | 'summaryVisibleWindow'
+  | 'manualSummary'
+  | 'bigSummaryRange'
+  | 'bigSummaryWords'
+  | 'bigSummaryEntries';
 
 const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
 const AUTO_SCROLL_TOP_ON_REPLY_KEY = 'dungeon.auto_scroll_top_on_reply.v1';
@@ -4737,6 +4806,12 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
     '该项参数为会将正文完整发送给AI的楼层层数：设置越高，AI对于过往记忆细节越清晰，token数也会增加；设置越低，会降低AI对于过往记忆细节回想，但token数会显著下降。',
   manualSummary:
     '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用（注意！会覆盖大总结内容且不可逆！没事别点。）。',
+  bigSummaryRange:
+    '决定本次会抽取哪些小总结条目来合并。起始和结束编号都会包含在内，建议每次总结条目在50以内',
+  bigSummaryWords:
+    '用于约束大总结的目标篇幅。',
+  bigSummaryEntries:
+    '这里展示自动总结条目中当前可用于合并的所有小总结，并高亮你选中范围内的条目，方便确认本次大总结到底会覆盖哪些内容。',
 };
 
 const openSettingsHelp = (key: SettingsHelpKey) => {
