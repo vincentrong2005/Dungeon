@@ -6,6 +6,7 @@
       @click.self="$emit('close')"
     >
       <div
+        data-card-tooltip-boundary
         :class="[
           'relative mx-4 flex max-h-[90%] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-amber-300/35 bg-[#100b09]/95 shadow-[0_24px_60px_rgba(0,0,0,0.65),0_0_50px_rgba(217,119,6,0.22)]',
           panelClass,

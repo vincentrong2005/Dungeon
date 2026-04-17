@@ -53,11 +53,18 @@
       >
         {{ displayName }}
       </h3>
-      <div
-        class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
-      >
-        {{ displayDescription }}
-      </div>
+      <CardRulesPanel
+        :title="displayName"
+        :description="displayDescription"
+        :traits="maskLevel === 'none' ? card.traits : null"
+        :negative-effect="maskLevel === 'none' ? card.negativeEffect ?? null : null"
+        :mana-drain="maskLevel === 'none' ? card.manaDrain ?? null : null"
+        :swarm-attack="maskLevel === 'none' ? card.swarmAttack === true : false"
+        :excape="maskLevel === 'none' ? card.excape === true : false"
+        :self-damage="maskLevel === 'none' ? card.selfDamage ?? null : null"
+        surface-class="border border-white/10 bg-[#0d0d10]/85 text-gray-300 font-ui leading-tight"
+        desc-class="text-center"
+      />
       <div class="mt-1 text-center text-white/50 font-bold text-[10px] font-ui tracking-wider">
         {{ displayTypeText }}
       </div>
@@ -68,6 +75,7 @@
 <script setup lang="ts">
 import { CircleHelp, Footprints, RefreshCcw, Skull, Sparkles, Sword, Zap } from 'lucide-vue-next';
 import { type CardData, CardType } from '../types';
+import CardRulesPanel from './CardRulesPanel.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -156,16 +164,6 @@ const typeIconColor = computed(() => {
       return 'text-zinc-300';
     default:
       return 'text-gray-400';
-  }
-});
-
-const cardStrengthLabel = computed(() => {
-  const dl = props.card.damageLogic;
-  switch (dl.mode) {
-    case 'relative': return `倍率 ${dl.scale ?? 1}x`;
-    case 'fixed':    return dl.value ? `固伤 ${dl.value}` : '特殊';
-    case 'mixed':    return `${dl.baseValue ?? 0}+${dl.scale ?? 1}x`;
-    default:         return '特殊';
   }
 });
 

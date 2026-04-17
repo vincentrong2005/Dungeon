@@ -1075,7 +1075,7 @@ const 复咒: CardData = {
 
 // ── 血池体系卡牌 ────────────────────────────────────────────────
 
-/** 刺络放血：造成0.6倍点数伤害，敌方流血+1 */
+/** 刺络放血：造成1倍点数伤害，敌方流血+1 */
 const 刺络放血: CardData = {
   id: 'bloodpool_venesection',
   name: '刺络放血',
@@ -1084,13 +1084,13 @@ const 刺络放血: CardData = {
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 1, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '造成0.6倍点数伤害，敌方流血+1',
+  description: '造成1倍点数伤害，敌方流血+1',
 };
 
 /** 赤潮压制：造成1倍点数伤害，敌方流血+2 */
@@ -1191,6 +1191,126 @@ const 活性血池: CardData = {
     { kind: 'apply_buff', effectType: EffectType.TEMP_MAX_HP, target: 'self', valueMode: 'point_scale', scale: 0.6 },
   ],
   description: '回复0.6倍点数的生命和0.6倍点数的临时生命上限',
+};
+
+/** 裂伤：点数x1.5，造成1倍点数伤害，自伤3 */
+const 裂伤: CardData = {
+  id: 'bloodpool_laceration',
+  name: '裂伤',
+  type: CardType.PHYSICAL,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  selfDamage: 3,
+  description: '点数x1.5，造成1倍点数伤害，自伤3',
+};
+
+/** 脉搏拳：生命为双数时点数-4，单数时点数+4 */
+const 脉搏拳: CardData = {
+  id: 'bloodpool_pulse_fist',
+  name: '脉搏拳',
+  type: CardType.PHYSICAL,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '生命为双数时点数-4，单数时点数+4，造成1倍最终点数伤害',
+};
+
+/** 生命汲取：低血量时点数+2，造成真实伤害并回复等量生命 */
+const 生命汲取: CardData = {
+  id: 'bloodpool_life_drain',
+  name: '生命汲取',
+  type: CardType.MAGIC,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗6MP，自身血量低于50%时点数+2，造成1倍点数真实伤害并恢复等量生命值',
+};
+
+/** 驭血术：先给自身施加4层流血，再按流血层数提升点数 */
+const 驭血术: CardData = {
+  id: 'bloodpool_blood_control',
+  name: '驭血术',
+  type: CardType.MAGIC,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '消耗2MP，为自身施加4层流血。每拥有1层流血点数+1，造成1倍最终点数伤害',
+};
+
+/** 回升：恢复生命、获得流血，连击并过牌 */
+const 回升: CardData = {
+  id: 'bloodpool_recover',
+  name: '回升',
+  type: CardType.FUNCTION,
+  category: '血池',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '恢复1点生命，获得1层流血，连击，过牌',
+};
+
+/** 血之刃：自身流血+2，按已损生命额外加伤 */
+const 血之刃: CardData = {
+  id: 'bloodpool_blood_blade',
+  name: '血之刃',
+  type: CardType.PHYSICAL,
+  category: '血池',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '为自身施加2层流血，造成1倍点数伤害，自身每损失1点生命值伤害+1',
+};
+
+/** 逆刃：获得坚固，并在本回合受击时施加流血 */
+const 逆刃: CardData = {
+  id: 'bloodpool_reverse_edge',
+  name: '逆刃',
+  type: CardType.FUNCTION,
+  category: '血池',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '自身获得1倍点数的坚固，本回合被击中时施加对方4层流血',
 };
 
 /** 血筑：增加临时生命上限并按已损失生命获得护甲（护甲逻辑在 CombatView） */
@@ -5194,10 +5314,10 @@ const 王志鞭挞: CardData = {
   description: '造成1倍点数的伤害，若目标有束缚，则伤害+2',
 };
 
-/** 生命汲取：造成1倍点数伤害，若目标有束缚则回复1倍点数生命（结算逻辑在 CombatView） */
-const 生命汲取: CardData = {
+/** 血染：造成1倍点数伤害，若目标有束缚则回复1倍点数生命（结算逻辑在 CombatView） */
+const 血染: CardData = {
   id: 'enemy_rose_life_drain',
-  name: '生命汲取',
+  name: '血染',
   type: CardType.PHYSICAL,
   category: '敌人',
   rarity: '普通',
@@ -6240,6 +6360,31 @@ const 棱镜魔法: CardData = {
   description: '回复1.5倍点数魔力，本回合被法术牌击中时免疫此伤害并反弹',
 };
 
+Object.assign(炎狱判决, {
+  rarity: '稀有',
+  manaCost: 2,
+  description: '敌方每有1层燃烧点数额外+1，造成1倍最终点数伤害',
+});
+
+Object.assign(临界沸腾, {
+  description: '以2:1比例消耗目标寒冷/燃烧，并造成8倍所消耗燃烧层数的真实伤害',
+});
+
+const 冰锥: CardData = {
+  id: 'yanhan_ice_spike',
+  name: '冰锥',
+  type: CardType.PHYSICAL,
+  category: '严寒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '对方每有2点寒冷点数额外+1，清除对方的寒冷，造成1倍最终点数伤害',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -6343,6 +6488,13 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [噬血劈斩.name, 噬血劈斩],
   [血池扩容.name, 血池扩容],
   [活性血池.name, 活性血池],
+  [裂伤.name, 裂伤],
+  [脉搏拳.name, 脉搏拳],
+  [生命汲取.name, 生命汲取],
+  [驭血术.name, 驭血术],
+  [回升.name, 回升],
+  [血之刃.name, 血之刃],
+  [逆刃.name, 逆刃],
   [血筑.name, 血筑],
   [血债重击.name, 血债重击],
   [赤痕爆裂.name, 赤痕爆裂],
@@ -6514,7 +6666,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [虚伪笑容.name, 虚伪笑容],
   [植物统御.name, 植物统御],
   [王志鞭挞.name, 王志鞭挞],
-  [生命汲取.name, 生命汲取],
+  [血染.name, 血染],
   [花蜜调教.name, 花蜜调教],
   [禁言术.name, 禁言术],
   [淫纹拓印.name, 淫纹拓印],
@@ -6576,6 +6728,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [THORN_CRAWLER_BARBED_GRASP.name, THORN_CRAWLER_BARBED_GRASP],
   [THORN_CRAWLER_NEURAL_PIERCE.name, THORN_CRAWLER_NEURAL_PIERCE],
   [THORN_CRAWLER_TOXIN_PULSE.name, THORN_CRAWLER_TOXIN_PULSE],
+  [冰锥.name, 冰锥],
 ]);
 
 // ── 公共 API ────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="active-skill-card relative rounded-xl border-2 shadow-xl overflow-hidden"
+    class="active-skill-card relative rounded-xl border-2 shadow-xl overflow-visible"
     :class="[
       skill ? 'border-zinc-100/85 bg-[#1b1722] text-dungeon-paper' : 'border-white/20 bg-[#15131c]/95 text-white/45',
       isCompact ? 'w-30 h-44' : 'w-[180px] h-[250px]',
@@ -14,6 +14,7 @@
           ? 'bg-[radial-gradient(circle_at_32%_18%,rgba(255,255,255,0.2),rgba(20,18,28,0.95)_66%)]'
           : 'bg-[radial-gradient(circle_at_32%_18%,rgba(255,255,255,0.08),rgba(16,14,22,0.96)_66%)]'
       "
+      style="border-radius: inherit"
     ></div>
 
     <template v-if="skill">
@@ -58,12 +59,13 @@
         >
           {{ skill.name }}
         </div>
-        <div
-          class="flex items-center justify-center rounded-lg border border-white/10 bg-[#0d0d10]/85 text-center font-ui leading-tight text-gray-300"
-          :class="[isCompact ? 'min-h-[34px] p-1.5 text-[10px]' : 'min-h-[50px] p-2 text-[10px]']"
-        >
-          {{ skill.description }}
-        </div>
+        <CardRulesPanel
+          :title="skill.name"
+          :description="skill.description"
+          :compact="isCompact"
+          :show-trait-tags="false"
+          surface-class="border border-white/10 bg-[#0d0d10]/85 text-center font-ui leading-tight text-gray-300"
+        />
         <div class="mt-1 flex items-center justify-between text-[10px]">
           <span class="text-zinc-200/85">CD {{ skill.Cooldown }}</span>
           <span v-if="footerRightText" :class="footerToneClass">{{ footerRightText }}</span>
@@ -80,6 +82,7 @@
 </template>
 
 <script setup lang="ts">
+import CardRulesPanel from './CardRulesPanel.vue';
 import type { ActiveSkillData } from '../types';
 
 type FooterTone = 'default' | 'success' | 'warning' | 'muted';

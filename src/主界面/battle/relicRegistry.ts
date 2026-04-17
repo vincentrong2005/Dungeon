@@ -427,16 +427,16 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'fire_slime',
-    name: '火焰史莱姆',
+    name: '火焰护符',
     rarity: '稀有',
     category: '燃烧',
-    effect: '自己收到的燃烧伤害恒定为 2（优先于烈阳护符）',
-    description: '自身受到燃烧伤害时，伤害固定为 2，并覆盖烈阳护符对自身的下限。',
+    effect: '自己受到的燃烧伤害恒定为 1（优先于烈阳护符）',
+    description: '自身受到燃烧伤害时，伤害固定为 1，并覆盖烈阳护符对自身的下限。',
     hooks: {
       onBeforeBurnDamage: ctx => {
         if (ctx.targetSide !== ctx.side) return;
-        if (ctx.damage === 2) return;
-        ctx.damage = 2;
+        if (ctx.damage === 1) return;
+        ctx.damage = 1;
       },
     },
   },
@@ -947,6 +947,9 @@ const RELIC_LIST: readonly RelicData[] = [
 
 const RELIC_BY_ID = new Map(RELIC_LIST.map(relic => [relic.id, relic]));
 const RELIC_BY_NAME = new Map(RELIC_LIST.map(relic => [relic.name, relic]));
+const RELIC_NAME_ALIASES = new Map<string, string>([
+  ['火焰史莱姆', '火焰护符'],
+]);
 
 export function getAllRelics(): readonly RelicData[] {
   return RELIC_LIST;
@@ -957,7 +960,8 @@ export function getRelicById(id: string): RelicData | undefined {
 }
 
 export function getRelicByName(name: string): RelicData | undefined {
-  return RELIC_BY_NAME.get(name);
+  const normalizedName = RELIC_NAME_ALIASES.get(name) ?? name;
+  return RELIC_BY_NAME.get(normalizedName);
 }
 
 export function getRelicsByCategory(category: RelicCategory): readonly RelicData[] {
@@ -973,7 +977,8 @@ export function resolveRelicMap(raw: Record<string, number> | null | undefined):
     const count = Math.max(0, Math.floor(Number(value ?? 0)));
     if (!key || count <= 0) continue;
 
-    const relic = RELIC_BY_ID.get(key) ?? RELIC_BY_NAME.get(key);
+    const normalizedKey = RELIC_NAME_ALIASES.get(key) ?? key;
+    const relic = RELIC_BY_ID.get(key) ?? RELIC_BY_NAME.get(normalizedKey);
     if (!relic) continue;
 
     const existing = aggregated.get(relic.id);

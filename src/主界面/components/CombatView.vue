@@ -1,6 +1,7 @@
 <template>
   <div
     ref="combatRootEl"
+    data-card-tooltip-boundary
     class="combat-root w-full h-full bg-[#1a1a22] text-dungeon-paper font-ui relative overflow-hidden select-none"
     :class="[screenShake ? 'animate-shake' : '', impactShake ? 'animate-impact-shake' : '']"
     :style="combatRootStyle"
@@ -1458,6 +1459,16 @@ const armorDecaySkippedThisTurn = ref<Record<BattleSide, boolean>>({
   enemy: false,
 });
 const temporaryBarrierToRemoveAtTurnEnd = ref(0);
+const instantFreezeClearColdAtTurnEnd = ref(false);
+const reverseBladeBleedOnHit = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
+const tragicomedyUsage = ref<{ above: boolean; below: boolean }>({
+  above: false,
+  below: false,
+});
+const vitalStorageHp = ref(0);
 const previewPlayerDice = ref<number | null>(null);
 const previewEnemyDice = ref<number | null>(null);
 const playerDicePreviewLines = ref<string[]>([]);
@@ -2621,6 +2632,16 @@ const resolveCardManaDrain = (card: CardData, finalPoint: number): number => {
   return Math.max(0, Math.floor(raw.value ?? 0));
 };
 
+const getLostHp = (entity: EntityStats): number => Math.max(0, Math.floor(entity.maxHp - entity.hp));
+
+const isBelowHalfHp = (entity: EntityStats): boolean => (
+  entity.maxHp > 0 && (entity.hp * 2) < entity.maxHp
+);
+
+const isAboveHalfHp = (entity: EntityStats): boolean => (
+  entity.maxHp > 0 && (entity.hp * 2) > entity.maxHp
+);
+
 const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   const base = Math.max(0, Math.floor(card.manaCost ?? 0));
   if (card.type !== CardType.MAGIC) return base;
@@ -3362,7 +3383,20 @@ const getCardFinalPoint = (
 
   // 卡牌专属点数修正：敌方每有2层燃烧，点数+1
   if (card.id === 'burn_inferno_judgement') {
-    finalPoint += Math.floor(getEffectStacks(defender, ET.BURN) / 2);
+    finalPoint += Math.floor(getEffectStacks(defender, ET.BURN));
+  }
+  if (card.id === 'yanhan_ice_spike') {
+    finalPoint += Math.floor(getEffectStacks(defender, ET.COLD) / 2);
+  }
+  if (card.id === 'bloodpool_pulse_fist') {
+    const hpValue = Math.max(0, Math.floor(attacker.hp));
+    finalPoint += hpValue % 2 === 0 ? -4 : 4;
+  }
+  if (card.id === 'bloodpool_life_drain' && isBelowHalfHp(attacker)) {
+    finalPoint += 2;
+  }
+  if (card.id === 'bloodpool_blood_control') {
+    finalPoint += Math.max(0, getEffectStacks(attacker, ET.BLEED) + 4);
   }
   if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
     if (executionerPuppetPointModifier.value !== null) {
@@ -3511,10 +3545,34 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
   lines.push(`卡牌修正 x${multiplierText} ${additionText} => ${finalPoint}`);
 
   if (card.id === 'burn_inferno_judgement') {
-    const bonus = Math.floor(getEffectStacks(defender, ET.BURN) / 2);
+    const bonus = Math.floor(getEffectStacks(defender, ET.BURN));
     if (bonus > 0) {
       finalPoint += bonus;
       lines.push(`炎狱判决 +${bonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'yanhan_ice_spike') {
+    const bonus = Math.floor(getEffectStacks(defender, ET.COLD) / 2);
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`冰锥 +${bonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'bloodpool_pulse_fist') {
+    const hpValue = Math.max(0, Math.floor(attacker.hp));
+    const bonus = hpValue % 2 === 0 ? -4 : 4;
+    finalPoint += bonus;
+    lines.push(`脉搏拳（生命${hpValue}为${hpValue % 2 === 0 ? '双' : '单'}数）${bonus >= 0 ? '+' : ''}${bonus} => ${finalPoint}`);
+  }
+  if (card.id === 'bloodpool_life_drain' && isBelowHalfHp(attacker)) {
+    finalPoint += 2;
+    lines.push(`生命汲取（生命低于50%）+2 => ${finalPoint}`);
+  }
+  if (card.id === 'bloodpool_blood_control') {
+    const bonus = Math.max(0, getEffectStacks(attacker, ET.BLEED) + 4);
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`驭血术（含新施加4层流血）+${bonus} => ${finalPoint}`);
     }
   }
   if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
@@ -4103,6 +4161,7 @@ const activeSkillRuntime = ref<ActiveSkillRuntimeState[]>([
   { nextAvailableTurn: 1, usedCount: 0, manaTaxThisTurn: 0 },
   { nextAvailableTurn: 1, usedCount: 0, manaTaxThisTurn: 0 },
 ]);
+const activeSkillTurnUseCount = ref<Record<string, number>>({});
 
 const resetActiveSkillRuntime = () => {
   activeSkillRuntime.value = normalizedPlayerActiveSkills.value.map(() => ({
@@ -4110,6 +4169,11 @@ const resetActiveSkillRuntime = () => {
     usedCount: 0,
     manaTaxThisTurn: 0,
   }));
+  activeSkillTurnUseCount.value = {};
+  tragicomedyUsage.value = { above: false, below: false };
+  vitalStorageHp.value = 0;
+  reverseBladeBleedOnHit.value = { player: 0, enemy: 0 };
+  instantFreezeClearColdAtTurnEnd.value = false;
 };
 
 watch(
@@ -4142,6 +4206,25 @@ const activeSkillDisabledReason = (idx: number): string | null => {
     return `本场已达到最大使用次数（${maxUses}）`;
   }
 
+  if (skill.id === 'active_bloodpool_tragicomedy') {
+    if (!isAboveHalfHp(playerStats.value) && !isBelowHalfHp(playerStats.value)) {
+      return '当前生命正好为50%，无法使用';
+    }
+    if (isAboveHalfHp(playerStats.value) && tragicomedyUsage.value.above) {
+      return '高于50%生命时本场已使用过';
+    }
+    if (isBelowHalfHp(playerStats.value) && tragicomedyUsage.value.below) {
+      return '低于50%生命时本场已使用过';
+    }
+  }
+
+  if (skill.id === 'active_bloodpool_demon_contract') {
+    const usedThisTurn = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0));
+    if (usedThisTurn >= 2) {
+      return '本回合已达到最大使用次数（2）';
+    }
+  }
+
   if (playerStats.value.mp < getActiveSkillManaCost(idx)) {
     return '魔力不足';
   }
@@ -4161,6 +4244,7 @@ const playerActiveSkillSlots = computed<ActiveSkillSlotView[]>(() => normalizedP
 const getActiveSkillStatusText = (slot: ActiveSkillSlotView): string => {
   const reason = activeSkillDisabledReason(slot.idx);
   if (reason?.startsWith('冷却中')) return `冷${slot.cooldownRemaining}`;
+  if (reason?.startsWith('本回合已达到最大使用次数')) return '回合上限';
   if (slot.maxUses) return `${slot.usedCount}/${slot.maxUses}`;
   if (reason === '魔力不足') return '缺蓝';
   if (!slot.skill) return '未装备';
@@ -4335,6 +4419,125 @@ const useActiveSkill = (idx: number) => {
       log(`<span class="text-zinc-200">主动【${skill.name}】：将手牌替换为 ${nextHand.length} 张随机稀有卡牌。</span>`);
       break;
     }
+    case 'active_yanhan_flash_freeze': {
+      const coldStacks = Math.max(0, Math.floor(combatState.value.playerBaseDice));
+      if (coldStacks > 0) {
+        applyStatusEffectWithRelics('enemy', ET.COLD, coldStacks, { source: skill.id });
+        log(`<span class="text-sky-300">主动【${skill.name}】：对敌方施加 ${coldStacks} 层寒冷，并将在回合结束时清除其所有寒冷。</span>`);
+      } else {
+        log(`<span class="text-zinc-200">主动【${skill.name}】：当前点数为 0，本次未施加寒冷，但仍会在回合结束时清除敌方寒冷。</span>`);
+      }
+      instantFreezeClearColdAtTurnEnd.value = true;
+      break;
+    }
+    case 'active_burn_equivalent_exchange': {
+      const beforeHp = Math.max(0, Math.floor(playerStats.value.hp));
+      const beforeMp = Math.max(0, Math.floor(playerStats.value.mp));
+      const afterHp = Math.min(playerStats.value.maxHp, beforeMp);
+      const hpDelta = afterHp - beforeHp;
+
+      playerStats.value.hp = afterHp;
+      if (hpDelta > 0) {
+        pushFloatingNumber('player', hpDelta, 'heal', '+');
+      } else if (hpDelta < 0) {
+        pushFloatingNumber('player', Math.abs(hpDelta), 'true', '-');
+      }
+
+      changeManaWithShock('player', beforeHp - beforeMp, `主动【${skill.name}】`, {
+        showPositiveFloating: true,
+      });
+
+      log(`<span class="text-orange-300">主动【${skill.name}】：生命 ${beforeHp} → ${playerStats.value.hp}，魔力 ${beforeMp} → ${playerStats.value.mp}</span>`);
+
+      const reviveResult = triggerSwarmReviveIfNeeded(playerStats.value);
+      for (const reviveLog of reviveResult.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+      break;
+    }
+    case 'active_bloodpool_sacrifice': {
+      const bleedStacks = applyStatusEffectWithRelics('player', ET.BLEED, 3, {
+        source: skill.id,
+        lockDecayThisTurn: true,
+      }) ? 3 : 0;
+      const armorGained = addArmorForSide('player', 2);
+      const manaRestored = restoreManaForSide('player', 2);
+      log(`<span class="text-rose-300">主动【${skill.name}】：获得 ${bleedStacks} 层流血、${armorGained} 点护甲，回复 ${manaRestored} 点魔力。</span>`);
+      break;
+    }
+    case 'active_bloodpool_self_rescue': {
+      const healAmount = isBelowHalfHp(playerStats.value) ? 4 : 2;
+      const { healed } = healForSide('player', healAmount, {
+        reason: `主动【${skill.name}】治疗`,
+      });
+      log(`<span class="text-green-300">主动【${skill.name}】：回复了 ${healed} 点生命。</span>`);
+      break;
+    }
+    case 'active_bloodpool_tragicomedy': {
+      const beforeHp = Math.max(0, Math.floor(playerStats.value.hp));
+      const afterHp = Math.max(0, Math.min(playerStats.value.maxHp, playerStats.value.maxHp - beforeHp));
+      const delta = afterHp - beforeHp;
+      const wasAboveHalf = isAboveHalfHp(playerStats.value);
+
+      playerStats.value.hp = afterHp;
+      if (delta > 0) {
+        pushFloatingNumber('player', delta, 'heal', '+');
+      } else if (delta < 0) {
+        pushFloatingNumber('player', Math.abs(delta), 'true', '-');
+      }
+      if (wasAboveHalf) {
+        tragicomedyUsage.value.above = true;
+      } else {
+        tragicomedyUsage.value.below = true;
+      }
+      log(`<span class="text-rose-300">主动【${skill.name}】：生命 ${beforeHp} → ${afterHp}，已损生命同步互换。</span>`);
+      break;
+    }
+    case 'active_bloodpool_demon_contract': {
+      const actualSelfDamage = applyDirectHpLossWithRelics('player', playerStats.value, 3, `主动【${skill.name}】自伤`);
+      if (actualSelfDamage > 0) {
+        pushFloatingNumber('player', actualSelfDamage, 'true', '-');
+      }
+      const reviveResult = triggerSwarmReviveIfNeeded(playerStats.value);
+      for (const reviveLog of reviveResult.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+      if (playerStats.value.hp <= 0) {
+        log(`<span class="text-rose-300">主动【${skill.name}】：自伤了 ${actualSelfDamage} 点生命。</span>`);
+        break;
+      }
+      const before = combatState.value.playerBaseDice;
+      combatState.value.playerBaseDice = Math.max(0, combatState.value.playerBaseDice + 2);
+      playerTurnRawDice.value = Math.max(0, playerTurnRawDice.value + 2);
+      log(`<span class="text-rose-300">主动【${skill.name}】：自伤了 ${actualSelfDamage} 点生命，原始点数 ${before} → ${combatState.value.playerBaseDice}</span>`);
+      break;
+    }
+    case 'active_bloodpool_vital_storage': {
+      if (vitalStorageHp.value > 0) {
+        const stored = vitalStorageHp.value;
+        vitalStorageHp.value = 0;
+        const { healed } = healForSide('player', stored, {
+          reason: `主动【${skill.name}】返还生命`,
+        });
+        log(`<span class="text-green-300">主动【${skill.name}】：返还并回复了 ${healed} 点生命。</span>`);
+        break;
+      }
+
+      const rawStored = Math.max(0, Math.floor(playerStats.value.hp * 0.5));
+      const actualSelfDamage = rawStored > 0
+        ? applyDirectHpLossWithRelics('player', playerStats.value, rawStored, `主动【${skill.name}】储存生命`)
+        : 0;
+      vitalStorageHp.value = Math.max(0, actualSelfDamage);
+      if (actualSelfDamage > 0) {
+        pushFloatingNumber('player', actualSelfDamage, 'true', '-');
+      }
+      const reviveResult = triggerSwarmReviveIfNeeded(playerStats.value);
+      for (const reviveLog of reviveResult.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+      log(`<span class="text-rose-300">主动【${skill.name}】：储存了 ${vitalStorageHp.value} 点生命。</span>`);
+      break;
+    }
     default:
       log(`<span class="text-gray-400">主动【${skill.name}】尚未实现效果。</span>`);
       break;
@@ -4343,6 +4546,7 @@ const useActiveSkill = (idx: number) => {
   const runtime = activeSkillRuntime.value[idx];
   if (runtime) {
     runtime.usedCount += 1;
+    activeSkillTurnUseCount.value[skill.id] = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0)) + 1;
     if (skill.id === 'active_basic_infinite_amp_magic' || skill.id === 'active_basic_slot_machine') {
       runtime.manaTaxThisTurn += 1;
     }
@@ -4461,6 +4665,8 @@ const startTurn = () => {
   blankOfBlankActiveThisTurn.value = false;
   blankOfBlankBonusThisTurn.value = 0;
   temporaryBarrierToRemoveAtTurnEnd.value = 0;
+  reverseBladeBleedOnHit.value = { player: 0, enemy: 0 };
+  activeSkillTurnUseCount.value = {};
   activeSkillRuntime.value.forEach((runtime) => {
     runtime.manaTaxThisTurn = 0;
   });
@@ -4572,7 +4778,12 @@ watch(
         blankOfBlankBonusThisTurn.value = 0;
         armorDecaySkippedThisTurn.value = { player: false, enemy: false };
         temporaryBarrierToRemoveAtTurnEnd.value = 0;
+        reverseBladeBleedOnHit.value = { player: 0, enemy: 0 };
         temporaryDamageBoostToRemoveAtTurnEnd.value = { player: 0, enemy: 0 };
+        activeSkillTurnUseCount.value = {};
+        tragicomedyUsage.value = { above: false, below: false };
+        vitalStorageHp.value = 0;
+        instantFreezeClearColdAtTurnEnd.value = false;
         playerStats.value.swarmHealReduction = 0;
         enemyStats.value.swarmHealReduction = 0;
         nextMagicDoubleCast.value.player = 0;
@@ -5550,6 +5761,14 @@ const resolveCombat = async (
       return;
     }
 
+    if (card.id === 'bloodpool_reverse_edge') {
+      applyCardEffects();
+      reverseBladeBleedOnHit.value[source] += 4;
+      log(`<span class="text-rose-300">${label}【${card.name}】生效：本回合每次被击中时对攻击者施加 ${reverseBladeBleedOnHit.value[source]} 层流血</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
     if (card.id === 'enemy_muxinlan_liquidation') {
       const cleanseTargets: EffectType[] = [...ELEMENTAL_DEBUFF_TYPES];
       let removedStacks = 0;
@@ -6089,7 +6308,7 @@ const resolveCombat = async (
         const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
         const consumedBurn = Math.max(0, Math.min(burnStacks, Math.floor(coldStacks / 2)));
         const consumedCold = consumedBurn * 2;
-        const trueDamage = consumedBurn * 4;
+        const trueDamage = consumedBurn * 8;
 
         if (consumedBurn > 0) {
           reduceEffectStacks(defender, ET.COLD, consumedCold);
@@ -6140,7 +6359,7 @@ const resolveCombat = async (
         return;
       }
 
-      const applyEffectsBeforeAttack = card.id === 'yanhan_frost_burst';
+      const applyEffectsBeforeAttack = card.id === 'yanhan_frost_burst' || card.id === 'bloodpool_blood_control';
       if (applyEffectsBeforeAttack) {
         applyCardEffects();
       }
@@ -6189,6 +6408,12 @@ const resolveCombat = async (
       if (card.id === 'bloodpool_pain_feedback' && painFeedbackBonus > 0) {
         log(`<span class="text-rose-300">${label}【${card.name}】本场已受伤 ${painFeedbackBonus} 次，本次伤害 +${painFeedbackBonus}</span>`);
       }
+      const bloodBladeBonus = card.id === 'bloodpool_blood_blade'
+        ? getLostHp(attacker)
+        : 0;
+      if (card.id === 'bloodpool_blood_blade' && bloodBladeBonus > 0) {
+        log(`<span class="text-rose-300">${label}【${card.name}】当前已损失 ${bloodBladeBonus} 点生命，本次伤害 +${bloodBladeBonus}</span>`);
+      }
 
       if (card.id === 'yanhan_cold_chamber_duplicate') {
         const currentCold = getEffectStacks(defender, ET.COLD);
@@ -6233,6 +6458,8 @@ const resolveCombat = async (
                     ? Math.floor(finalPoint * 2)
                   : card.id === 'bloodpool_pain_feedback'
                     ? Math.max(0, Math.floor(finalPoint) + painFeedbackBonus)
+                    : card.id === 'bloodpool_blood_blade'
+                      ? Math.max(0, Math.floor(finalPoint) + bloodBladeBonus)
                     : card.id === 'enemy_yustia_guilt_manifest'
                       ? Math.max(0, Math.floor(finalPoint) + yustiaConsumedCold)
               : card.id === 'enemy_rose_wangzhi_whip' && getEffectStacks(defender, ET.BIND) > 0
@@ -6245,7 +6472,7 @@ const resolveCombat = async (
             damageLogic: { mode: 'fixed', value: Math.floor(customDamage) },
           };
         }
-        const forceTrueDamage = card.id === 'enemy_elizabeth_boiling_blood_pulse';
+        const forceTrueDamage = card.id === 'enemy_elizabeth_boiling_blood_pulse' || card.id === 'bloodpool_life_drain';
         const attackerEffectsForDamage = card.id === 'modao_big_destruction'
           ? attacker.effects.filter(effect => effect.type !== ET.DAMAGE_BOOST)
           : attacker.effects;
@@ -6361,6 +6588,16 @@ const resolveCombat = async (
         );
         triggerObedienceBrandOnDirectHit(source, defenderSide);
         applyHitAttachEffects(source, card, attacker, defenderSide);
+        const reverseBladeBleed = Math.max(0, reverseBladeBleedOnHit.value[defenderSide]);
+        if (reverseBladeBleed > 0) {
+          const applied = applyStatusEffectWithRelics(source, ET.BLEED, reverseBladeBleed, {
+            source: 'bloodpool_reverse_edge',
+            lockDecayThisTurn: true,
+          });
+          if (applied) {
+            log(`<span class="text-rose-300">${defenderLabel}[逆刃] 反施加了 ${reverseBladeBleed} 层流血给${label}</span>`);
+          }
+        }
         if (card.id === 'enemy_muxinlan_unstable_reagent') {
           const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
           const stacks = 1;
@@ -6406,6 +6643,16 @@ const resolveCombat = async (
         const { healed } = healForSide(source, healAmount);
         log(`<span class="text-green-300">${label}【${card.name}】吸血回复 ${healed} 点生命</span>`);
       }
+      if (card.id === 'bloodpool_life_drain') {
+        const { healed } = healForSide(source, totalActualDamageDealt, {
+          reason: `卡牌【${card.name}】吸血`,
+        });
+        if (healed > 0) {
+          log(`<span class="text-green-300">${label}【${card.name}】回复了 ${healed} 点生命</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未恢复生命</span>`);
+        }
+      }
       if (card.id === 'bloodpool_vital_reservoir') {
         const maxHpGain = Math.max(0, Math.floor(totalActualDamageDealt));
         if (maxHpGain > 0) {
@@ -6419,6 +6666,14 @@ const resolveCombat = async (
           }
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】未造成伤害，未获得临时生命上限</span>`);
+        }
+      }
+
+      if (card.id === 'yanhan_ice_spike') {
+        const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
+        if (coldStacks > 0) {
+          removeEffect(defender, ET.COLD);
+          log(`<span class="text-sky-300">${label}【${card.name}】清除了敌方 ${coldStacks} 层寒冷。</span>`);
         }
       }
 
@@ -6901,6 +7156,7 @@ const resolveCombat = async (
     reduceEffectStacks(enemyStats.value, ET.DAMAGE_BOOST, enemyTempBoostToRemove);
   }
   temporaryDamageBoostToRemoveAtTurnEnd.value = { player: 0, enemy: 0 };
+  reverseBladeBleedOnHit.value = { player: 0, enemy: 0 };
   const playerArmorAfterEnd = getEffectStacks(playerStats.value, ET.ARMOR);
   const armorLostOnDecay = Math.max(0, playerArmorBeforeEnd - playerArmorAfterEnd);
 
@@ -6925,6 +7181,14 @@ const resolveCombat = async (
     log(`<span class="text-gray-500 text-[9px]">${l}</span>`);
   }
   triggerPlayerRelicLifecycleHooks('onTurnEnd');
+  if (instantFreezeClearColdAtTurnEnd.value) {
+    const enemyColdStacks = Math.max(0, getEffectStacks(enemyStats.value, ET.COLD));
+    if (enemyColdStacks > 0) {
+      removeEffect(enemyStats.value, ET.COLD);
+      log(`<span class="text-sky-300">主动【瞬时冻结】：回合结束，清除了敌方 ${enemyColdStacks} 层寒冷。</span>`);
+    }
+    instantFreezeClearColdAtTurnEnd.value = false;
+  }
   const magicDollCount = getActiveRelicCount('modao_magic_doll');
   if (magicDollCount > 0 && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
     for (let i = 0; i < magicDollCount; i++) {
