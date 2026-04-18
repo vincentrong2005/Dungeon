@@ -1111,7 +1111,7 @@ const 赤潮压制: CardData = {
   description: '消耗2MP，造成1倍点数伤害，敌方流血+2',
 };
 
-/** 疼痛反馈：造成1倍点数伤害；本场战斗自身每受到1次伤害，伤害+1（加伤结算在 CombatView） */
+/** 疼痛反馈：造成1倍点数伤害；本场战斗自身每受到2次伤害，伤害+1（加伤结算在 CombatView） */
 const 疼痛反馈: CardData = {
   id: 'bloodpool_pain_feedback',
   name: '疼痛反馈',
@@ -1124,7 +1124,7 @@ const 疼痛反馈: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成1倍点数伤害；当前战斗自己每收到一次伤害，伤害+1',
+  description: '造成1倍点数伤害；当前战斗自己每收到2次伤害，伤害+1',
 };
 
 /** 放血：自伤2，回复2点魔力，连击 */

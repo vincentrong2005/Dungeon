@@ -6402,11 +6402,14 @@ const resolveCombat = async (
         }
       }
       const totalHitCount = baseHitCount + extraHitCount;
-      const painFeedbackBonus = card.id === 'bloodpool_pain_feedback'
+      const painFeedbackTakenHits = card.id === 'bloodpool_pain_feedback'
         ? getDamageHitTakenThisCombat(source)
         : 0;
+      const painFeedbackBonus = card.id === 'bloodpool_pain_feedback'
+        ? Math.floor(painFeedbackTakenHits / 2)
+        : 0;
       if (card.id === 'bloodpool_pain_feedback' && painFeedbackBonus > 0) {
-        log(`<span class="text-rose-300">${label}【${card.name}】本场已受伤 ${painFeedbackBonus} 次，本次伤害 +${painFeedbackBonus}</span>`);
+        log(`<span class="text-rose-300">${label}【${card.name}】本场已受伤 ${painFeedbackTakenHits} 次，本次伤害 +${painFeedbackBonus}</span>`);
       }
       const bloodBladeBonus = card.id === 'bloodpool_blood_blade'
         ? getLostHp(attacker)
