@@ -7193,6 +7193,17 @@ const TRAP_POOL_BY_AREA: Record<string, string[]> = {
 };
 
 const ALL_TRAPS = Object.values(TRAP_POOL_BY_AREA).flat();
+const NO_CONSECUTIVE_PORTAL_ROOM_TYPES = new Set(['宝箱房', '神像房']);
+const PATH_LABEL_TO_ROOM_TYPE: Record<string, string> = {
+  战斗: '战斗房',
+  宝箱: '宝箱房',
+  商店: '商店房',
+  温泉: '温泉房',
+  神像: '神像房',
+  事件: '事件房',
+  陷阱: '陷阱房',
+  领主: '领主房',
+};
 
 const pickTrapByArea = (area: string): string | null => {
   const pool = TRAP_POOL_BY_AREA[area] ?? [];
@@ -7201,18 +7212,35 @@ const pickTrapByArea = (area: string): string | null => {
   return null;
 };
 
-const getAvailablePortalRoomTypes = (currentArea: string) => {
-  if (parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人)) {
-    const withoutShop = PORTAL_ROOM_TYPES.filter(type => type !== '商店房');
-    if (currentArea === '呻吟阅览室') {
-      return withoutShop.filter(type => type !== '陷阱房');
-    }
-    return withoutShop;
+const getCurrentFloorPathLabels = (): string[] => {
+  const path = gameStore.statData.$路径;
+  if (!Array.isArray(path)) return [];
+  return path.map(item => (typeof item === 'string' ? item.trim() : '')).filter(item => item.length > 0);
+};
+
+const getLastPathRoomType = (pathLabels: string[]): string => {
+  const lastLabel = pathLabels[pathLabels.length - 1] ?? '';
+  return PATH_LABEL_TO_ROOM_TYPE[lastLabel] ?? '';
+};
+
+const getAvailablePortalRoomTypes = (currentArea: string, currentRoomType: string) => {
+  const pathLabels = getCurrentFloorPathLabels();
+  const effectiveCurrentRoomType = currentRoomType.trim() || getLastPathRoomType(pathLabels);
+  const hasShopThisFloor = pathLabels.includes('商店') || effectiveCurrentRoomType === '商店房';
+
+  let availableRoomTypes = [...PORTAL_ROOM_TYPES];
+
+  if (parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人) || hasShopThisFloor) {
+    availableRoomTypes = availableRoomTypes.filter(type => type !== '商店房');
   }
   if (currentArea === '呻吟阅览室') {
-    return PORTAL_ROOM_TYPES.filter(type => type !== '陷阱房');
+    availableRoomTypes = availableRoomTypes.filter(type => type !== '陷阱房');
   }
-  return [...PORTAL_ROOM_TYPES];
+  if (NO_CONSECUTIVE_PORTAL_ROOM_TYPES.has(effectiveCurrentRoomType)) {
+    availableRoomTypes = availableRoomTypes.filter(type => type !== effectiveCurrentRoomType);
+  }
+
+  return availableRoomTypes;
 };
 
 interface PortalVisual {
@@ -7316,8 +7344,8 @@ function shuffle<T>(arr: T[]): T[] {
 
 function rollPortalCount(): number {
   const roll = Math.random();
-  // 传送门数量概率：1/2/3 = 55% / 40% / 5%
-  return roll < 0.55 ? 1 : roll < 0.95 ? 2 : 3;
+  // 传送门数量概率：1/2/3 = 45% / 40% / 15%
+  return roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3;
 }
 
 const NEGATIVE_STATUS_MARKED = '[被标记]';
@@ -7404,7 +7432,7 @@ function generatePortals(): PortalChoice[] {
   }
 
   // ── Normal: 1-3 weighted room portals (30%/50%/20%, with replacement) ──
-  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
+  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea, currentRoomType);
   if (availableRoomTypes.length === 0) return [];
   const count = rollPortalCount();
   const picked = pickWeightedRoomTypes(availableRoomTypes, count);
@@ -7426,7 +7454,8 @@ const portalChoices = computed<PortalChoice[]>(() => {
   const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态).includes(
     NEGATIVE_STATUS_MARKED,
   );
-  const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}|${hasMarkedNegativeStatus ? 1 : 0}`;
+  const pathFingerprint = getCurrentFloorPathLabels().join('>');
+  const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}|${hasMarkedNegativeStatus ? 1 : 0}|${pathFingerprint}`;
   if (fingerprint !== cachedPortalFingerprint) {
     cachedPortalFingerprint = fingerprint;
     cachedPortals = generatePortals();
@@ -7528,7 +7557,8 @@ function generateChestLeavePortals(): PortalChoice[] {
   if (generated.length > 0) return generated;
 
   const currentArea = (gameStore.statData._当前区域 as string) || '';
-  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea);
+  const currentRoomType = (gameStore.statData._当前房间类型 as string) || '';
+  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea, currentRoomType);
   if (availableRoomTypes.length === 0) return [];
   const count = rollPortalCount();
   const picked = pickWeightedRoomTypes(availableRoomTypes, count);

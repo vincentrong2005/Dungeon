@@ -235,11 +235,13 @@ export const useGameStore = defineStore('game', () => {
     removedCount: number;
   }
 
-  const normalizeSummaryText = (text: string): string =>
+  const stripSummaryDecorators = (text: string): string =>
     text
-      .replace(/\r?\n+/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/^[\s\u3000]*[[（(［【]\s*事情总结\s*[\]）)］】]\s*/u, '')
+      .replace(/[\s\u3000]+/gu, ' ')
       .trim();
+
+  const normalizeSummaryText = (text: string): string => stripSummaryDecorators(text.replace(/\r?\n+/g, ' '));
 
   const parseChronicleContent = (content: string): ChronicleEntry[] => {
     const map = new Map<number, string>();
