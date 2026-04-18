@@ -810,17 +810,8 @@
                           <div class="player-detail-bag-head">
                             <div class="player-detail-bag-name">{{ consumable.名字 }}</div>
                             <div class="player-detail-bag-tags">
-                              <span
-                                v-if="typeof consumable.回复 === 'number'"
-                                class="player-detail-bag-tag player-detail-bag-tag--heal"
-                              >
+                              <span v-if="consumable.回复 !== 0" class="player-detail-bag-tag player-detail-bag-tag--heal">
                                 回复 {{ formatSignedNumber(consumable.回复) }}
-                              </span>
-                              <span
-                                v-if="consumable.净化"
-                                class="player-detail-bag-tag player-detail-bag-tag--cleanse"
-                              >
-                                净化 {{ consumable.净化 }}
                               </span>
                             </div>
                           </div>
@@ -828,7 +819,6 @@
                         </div>
                         <div class="player-detail-bag-actions">
                           <button
-                            v-if="canUseConsumable(consumable)"
                             type="button"
                             class="player-detail-bag-btn"
                             :disabled="inventoryActionDisabled"
@@ -2945,8 +2935,7 @@ interface InventoryItemEntry {
 }
 
 interface InventoryConsumableEntry extends InventoryItemEntry {
-  回复?: number;
-  净化?: string;
+  回复: number;
 }
 
 interface CarriedInventoryPayload {
@@ -3239,18 +3228,11 @@ const normalizeInventoryConsumables = (value: unknown): InventoryConsumableEntry
     if (!名字) continue;
 
     const 回复原值 = Number(entry.回复);
-    const 净化 = normalizeInventoryText(entry.净化);
     const nextEntry: InventoryConsumableEntry = {
       名字,
       描述: normalizeInventoryText(entry.描述),
+      回复: Number.isFinite(回复原值) ? Math.trunc(回复原值) : 0,
     };
-
-    if (Number.isFinite(回复原值)) {
-      nextEntry.回复 = 回复原值;
-    }
-    if (净化) {
-      nextEntry.净化 = 净化;
-    }
 
     result.push(nextEntry);
   }
@@ -3277,8 +3259,7 @@ const cloneInventoryItemEntry = (entry: InventoryItemEntry): InventoryItemEntry 
 const cloneInventoryConsumableEntry = (entry: InventoryConsumableEntry): InventoryConsumableEntry => ({
   名字: entry.名字,
   描述: entry.描述,
-  ...(typeof entry.回复 === 'number' ? { 回复: entry.回复 } : {}),
-  ...(entry.净化 ? { 净化: entry.净化 } : {}),
+  回复: entry.回复,
 });
 
 const carriedInventory = computed<CarriedInventoryPayload>(() => {
@@ -3757,12 +3738,6 @@ const toggleMagicBook = async (bookName: string) => {
   isUpdatingMagicBooks.value = false;
 };
 const formatSignedNumber = (value: number) => (value > 0 ? `+${value}` : String(value));
-const canUseConsumable = (entry: InventoryConsumableEntry): boolean =>
-  typeof entry.回复 === 'number' || Boolean(entry.净化);
-const normalizeNegativeStatusMatchKey = (value: unknown): string => {
-  if (typeof value !== 'string') return '';
-  return value.trim().replace(/^\[/, '').replace(/\]$/, '');
-};
 const discardInventoryItem = async (index: number) => {
   if (inventoryActionDisabled.value) return;
   const item = inventoryItems.value[index];
@@ -3802,34 +3777,16 @@ const discardConsumable = async (index: number) => {
 const useConsumable = async (index: number) => {
   if (inventoryActionDisabled.value) return;
   const consumable = inventoryConsumables.value[index];
-  if (!consumable || !canUseConsumable(consumable)) return;
+  if (!consumable) return;
 
   const nextConsumables = inventoryConsumables.value.filter((_, idx) => idx !== index);
   const updates: Record<string, any> = buildInventoryUpdateFields({ 消耗品: nextConsumables });
-  const effectTexts: string[] = [];
-
-  if (typeof consumable.回复 === 'number') {
-    const maxHp = Math.max(1, Math.floor(Number(gameStore.statData._血量上限 ?? 1)) || 1);
-    const currentHpRaw = Number(gameStore.statData._血量 ?? maxHp);
-    const currentHp = Number.isFinite(currentHpRaw)
-      ? Math.min(maxHp, Math.max(1, Math.floor(currentHpRaw)))
-      : maxHp;
-    const nextHp = Math.max(1, Math.min(maxHp, currentHp + Math.trunc(consumable.回复)));
-    updates._血量 = nextHp;
-    effectTexts.push(`生命 ${currentHp} → ${nextHp}`);
-  }
-
-  if (consumable.净化) {
-    const targetStatus = normalizeNegativeStatusMatchKey(consumable.净化);
-    const currentStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
-    const nextStatuses = currentStatuses.filter(status => normalizeNegativeStatusMatchKey(status) !== targetStatus);
-    updates.$负面状态 = nextStatuses;
-    effectTexts.push(
-      nextStatuses.length === currentStatuses.length
-        ? `未找到负面状态 ${consumable.净化}`
-        : `移除了负面状态 ${consumable.净化}`,
-    );
-  }
+  const maxHp = Math.max(1, Math.floor(Number(gameStore.statData._血量上限 ?? 1)) || 1);
+  const currentHpRaw = Number(gameStore.statData._血量 ?? maxHp);
+  const currentHp = Number.isFinite(currentHpRaw) ? Math.min(maxHp, Math.max(1, Math.floor(currentHpRaw))) : maxHp;
+  const healAmount = Math.max(0, Math.trunc(consumable.回复));
+  const nextHp = Math.max(1, Math.min(maxHp, currentHp + healAmount));
+  updates._血量 = nextHp;
 
   isUpdatingInventory.value = true;
   const ok = await gameStore.updateStatDataFields(updates);
@@ -3839,9 +3796,7 @@ const useConsumable = async (index: number) => {
     return;
   }
 
-  toastr.success(
-    effectTexts.length > 0 ? `已使用【${consumable.名字}】：${effectTexts.join('，')}。` : `已使用【${consumable.名字}】。`,
-  );
+  toastr.success(`已使用【${consumable.名字}】：生命 ${currentHp} → ${nextHp}。`);
 };
 const upgradeMagicHatStat = async (id: MagicHatUpgradeType) => {
   if (!canEditMagicBooks.value) return;

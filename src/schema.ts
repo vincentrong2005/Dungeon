@@ -52,8 +52,7 @@ export const Schema = z.object({
             .object({
               名字: z.string().prefault(''),
               描述: z.string().prefault(''),
-              回复: z.coerce.number().optional(),
-              净化: z.string().optional(),
+              回复: z.coerce.number().prefault(0),
             })
             .prefault({}),
         )
