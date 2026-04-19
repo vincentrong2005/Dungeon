@@ -1,4 +1,10 @@
 // Schema import removed - using raw MVU data directly
+import { getFloorNumberForArea } from './floor';
+import {
+  FIXED_OPENING_BACKGROUND_SETTING,
+  buildOpeningBackstoryDraftPrompt,
+  type OpeningInfoSubmission,
+} from './openingProfile';
 import {
   detectLeave,
   detectOptionE,
@@ -12,8 +18,6 @@ import {
   type ParsedResponse,
   type ResponseParserOptions,
 } from './responseParser';
-import { getFloorNumberForArea } from './floor';
-import { FIXED_OPENING_BACKGROUND_SETTING, buildOpeningBackstoryDraftPrompt, type OpeningInfoSubmission } from './openingProfile';
 
 /**
  * Maintenance note:
@@ -178,6 +182,11 @@ export const useGameStore = defineStore('game', () => {
     forbidMatchingXmlInsideThink: forbidMatchingXmlInsideThink.value,
   });
 
+  const getGeneratedText = (result: string | GenerateToolCallResult): string => {
+    if (typeof result === 'string') return result;
+    return typeof result.content === 'string' ? result.content : '';
+  };
+
   function setPendingPortalChanges(changes: PendingPortalChanges) {
     pendingPortalChanges.value = changes;
   }
@@ -237,7 +246,7 @@ export const useGameStore = defineStore('game', () => {
 
   const stripSummaryDecorators = (text: string): string =>
     text
-      .replace(/^[\s\u3000]*[[（(［【]\s*事情总结\s*[\]）)］】]\s*/u, '')
+      .replace(/^[\s\u3000]*[[（(［【]\s*事件总结\s*[\]）)］】]\s*/u, '')
       .replace(/[\s\u3000]+/gu, ' ')
       .trim();
 
@@ -431,7 +440,7 @@ export const useGameStore = defineStore('game', () => {
       ],
     });
 
-    const draft = (result ?? '').trim();
+    const draft = getGeneratedText(result).trim();
     if (!draft) {
       throw new Error('AI 未返回有效的背景故事内容。');
     }
@@ -532,7 +541,7 @@ export const useGameStore = defineStore('game', () => {
       ],
     });
 
-    const summary = (result ?? '').trim();
+    const summary = getGeneratedText(result).trim();
     if (!summary) {
       throw new Error('AI 未返回有效大总结内容。');
     }
@@ -1087,18 +1096,19 @@ export const useGameStore = defineStore('game', () => {
         user_input: userInput,
         should_stream: useStreaming.value,
       });
-      console.info('[GameStore] LLM response received, length:', result.length);
+      const resultText = getGeneratedText(result);
+      console.info('[GameStore] LLM response received, length:', resultText.length);
 
       // 停止流式监听
       streamListener.stop();
       streamingText.value = '';
 
       // 6. 解析回复标签
-      const parsed = parseResponse(result, getResponseParserOptions());
+      const parsed = parseResponse(resultText, getResponseParserOptions());
       applyParsedResponse(parsed);
 
       // 7. 解析 MVU 变量命令（基于 user 楼层变量继承）
-      let newMvuData = await Mvu.parseMessage(result, _.cloneDeep(userMvuData));
+      let newMvuData = await Mvu.parseMessage(resultText, _.cloneDeep(userMvuData));
       if (!newMvuData) {
         newMvuData = _.cloneDeep(userMvuData);
       } else if (!newMvuData.stat_data && userMvuData?.stat_data) {
@@ -1114,7 +1124,7 @@ export const useGameStore = defineStore('game', () => {
 
       // 9. 创建 assistant 楼层，携带解析后的 MVU 数据
       console.info('[GameStore] Creating assistant message with MVU data');
-      await createChatMessages([{ role: 'assistant', message: result, data: newMvuData }], { refresh: 'none' });
+      await createChatMessages([{ role: 'assistant', message: resultText, data: newMvuData }], { refresh: 'none' });
 
       // 10. 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
@@ -1293,20 +1303,21 @@ export const useGameStore = defineStore('game', () => {
         user_input: userInput,
         should_stream: useStreaming.value,
       });
+      const resultText = getGeneratedText(result);
 
       streamListener.stop();
       streamingText.value = '';
 
       // 解析回复标签
-      const parsed = parseResponse(result, getResponseParserOptions());
+      const parsed = parseResponse(resultText, getResponseParserOptions());
       applyParsedResponse(parsed);
 
       // 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
-      const newMvuData = await Mvu.parseMessage(result, _.cloneDeep(oldMvuData));
+      const newMvuData = await Mvu.parseMessage(resultText, _.cloneDeep(oldMvuData));
       syncFloorNumberByArea(newMvuData);
 
       // 创建新的 assistant 楼层，携带 MVU 数据
-      await createChatMessages([{ role: 'assistant', message: result, data: newMvuData }], { refresh: 'none' });
+      await createChatMessages([{ role: 'assistant', message: resultText, data: newMvuData }], { refresh: 'none' });
 
       // 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
