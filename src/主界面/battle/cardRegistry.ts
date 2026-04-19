@@ -3362,7 +3362,7 @@ const 静肃宣告: CardData = {
   description: '造成1倍点数伤害并施加2层禁言；若目标已有禁言，则额外施加1层束缚',
 };
 
-/** 纸刃切割：点数+1，造成1倍点数伤害，并施加1倍点数流血 */
+/** 纸刃切割：点数+1，造成1倍点数伤害，并施加0.8倍点数流血 */
 const 纸刃切割: CardData = {
   id: 'enemy_hilvy_paper_blade_cut',
   name: '纸刃切割',
@@ -3375,12 +3375,12 @@ const 纸刃切割: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.8 },
   ],
-  description: '点数+1，造成1倍点数伤害，并施加1倍点数的流血',
+  description: '点数+1，造成1倍点数伤害，并施加0.8倍点数的流血',
 };
 
-/** 哑剧牵引：消耗3MP，点数*1.5，造成1倍点数伤害并施加2层被操控；若目标已有禁言则回复自身1倍点数魔力（额外效果在 CombatView） */
+/** 哑剧牵引：消耗3MP，点数*1.5，造成1倍点数伤害并施加1层被操控；若目标已有禁言则回复自身1倍点数魔力（额外效果在 CombatView） */
 const 哑剧牵引: CardData = {
   id: 'enemy_hilvy_mime_pull',
   name: '哑剧牵引',
@@ -3393,12 +3393,12 @@ const 哑剧牵引: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '点数*1.5，造成1倍点数伤害，并施加2层被操控；若目标已有禁言，则回复自身1倍点数的魔力',
+  description: '点数*1.5，造成1倍点数伤害，并施加1层被操控；若目标已有禁言，则回复自身1倍点数的魔力',
 };
 
-/** 失声：消耗4MP，点数+3，造成1倍点数伤害并施加2层禁言；若目标已有禁言则额外施加1层性兴奋（额外效果在 CombatView） */
+/** 失声：消耗4MP，点数+3，造成1倍点数伤害并施加1层禁言；若目标已有禁言则额外施加1层性兴奋（额外效果在 CombatView） */
 const 失声: CardData = {
   id: 'enemy_hilvy_aphonia',
   name: '失声',
@@ -3411,9 +3411,9 @@ const 失声: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '点数+3，造成1倍点数伤害，并施加2层禁言；若目标已有禁言，则额外施加1层性兴奋',
+  description: '点数+3，造成1倍点数伤害，并施加1层禁言；若目标已有禁言，则额外施加1层性兴奋',
 };
 
 /** 静夜规避：闪避；若闪避成功或对方跳过回合，则施加1倍点数流血 */
@@ -3440,7 +3440,7 @@ const 静夜规避: CardData = {
   description: '闪避；若闪避成功或对方跳过回合，则施加1倍点数流血',
 };
 
-/** 沉默终章：消耗6MP，点数*2，造成1倍点数伤害，施加1倍点数流血、5层禁言与2层被操控，无视闪避 */
+/** 沉默终章：消耗6MP，点数*2，造成1倍点数伤害，施加0.5倍点数流血、5层禁言与1层被操控，无视闪避 */
 const 沉默终章: CardData = {
   id: 'enemy_hilvy_silent_finale',
   name: '沉默终章',
@@ -3453,12 +3453,12 @@ const 沉默终章: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
     { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
-    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   ignoreDodge: true,
-  description: '点数*2，造成1倍点数伤害，施加1倍点数流血、5层禁言与2层被操控；无视闪避',
+  description: '点数*2，造成1倍点数伤害，施加0.5倍点数流血、5层禁言与1层被操控；无视闪避',
 };
 
 /** 淫墨誓约：诅咒，无法打出 */

@@ -1866,7 +1866,7 @@ const 希尔薇: EnemyDefinition = {
     maxHp: 100,
     mp: 0,
     minDice: 3,
-    maxDice: 7,
+    maxDice: 6,
     effects: [{ type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
