@@ -2626,7 +2626,7 @@
         </Transition>
 
         <OpeningInfoEntryView
-          v-if="props.showOpeningEntry"
+          v-if="props.showOpeningEntry && !renderOpeningEntryAsViewportOverlay"
           :background-url="props.openingEntryBackgroundUrl"
           :loading="props.openingEntryLoading"
           :error="props.openingEntryError"
@@ -2635,6 +2635,15 @@
         />
       </div>
     </div>
+
+    <OpeningInfoEntryView
+      v-if="renderOpeningEntryAsViewportOverlay"
+      :background-url="props.openingEntryBackgroundUrl"
+      :loading="props.openingEntryLoading"
+      :error="props.openingEntryError"
+      @back-to-splash="emit('backToSplash')"
+      @submit="emit('submitOpeningEntry', $event)"
+    />
   </div>
 </template>
 
@@ -2815,6 +2824,9 @@ const currentTavernFloorNumber = computed<number>(() => {
 });
 const showLandscapeHint = computed(
   () => isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value,
+);
+const renderOpeningEntryAsViewportOverlay = computed(
+  () => props.showOpeningEntry && isTouchViewport.value && viewportHeight.value > viewportWidth.value,
 );
 const activeModal = ref<string | null>(null);
 type PlayerDetailTab = 'status' | 'inventory';
@@ -7799,6 +7811,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100vw;
   height: 100dvh;
+  min-height: max(100dvh, 56.25vw);
   overflow: hidden;
   background: #050505;
 }

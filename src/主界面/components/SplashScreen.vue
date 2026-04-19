@@ -1,8 +1,7 @@
 <template>
   <div
-    class="relative flex w-full flex-col items-center justify-center overflow-hidden bg-[#050505] text-dungeon-paper transition-opacity duration-1000"
+    class="splash-screen relative flex w-full flex-col items-center justify-center overflow-y-auto overflow-x-hidden bg-[#050505] text-dungeon-paper transition-opacity duration-1000"
     :class="isVisible ? 'opacity-100' : 'opacity-0'"
-    :style="{ aspectRatio: '16/9' }"
   >
     <div
       class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
@@ -34,8 +33,10 @@
       style="background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png')"
     ></div>
 
-    <div class="absolute left-8 top-8 h-64 w-64 border-l-2 border-t-2 border-dungeon-brown opacity-50"></div>
-    <div class="absolute bottom-8 right-8 h-64 w-64 border-b-2 border-r-2 border-dungeon-brown opacity-50"></div>
+    <div class="absolute left-4 top-4 h-40 w-24 border-l-2 border-t-2 border-dungeon-brown opacity-50 sm:left-8 sm:top-8 sm:h-64 sm:w-64"></div>
+    <div
+      class="absolute bottom-4 right-4 h-40 w-24 border-b-2 border-r-2 border-dungeon-brown opacity-50 sm:bottom-8 sm:right-8 sm:h-64 sm:w-64"
+    ></div>
 
     <button
       class="absolute right-4 top-4 z-50 flex h-8 w-8 items-center justify-center rounded border border-dungeon-brown/50 bg-dungeon-dark/60 text-dungeon-gold-dim transition-all duration-300 hover:border-dungeon-gold/50 hover:bg-dungeon-brown hover:text-dungeon-gold"
@@ -44,41 +45,45 @@
       <Maximize class="size-4" />
     </button>
 
-    <div class="z-10 flex flex-col items-center space-y-10 px-6 py-10">
+    <div class="z-10 flex w-full max-w-5xl flex-col items-center space-y-6 px-4 py-6 sm:space-y-10 sm:px-6 sm:py-10">
       <div class="relative space-y-4 text-center">
         <div
-          class="absolute -left-12 top-0 h-24 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50"
+          class="absolute -left-5 top-0 h-16 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50 sm:-left-12 sm:h-24"
         ></div>
         <div
-          class="absolute -right-12 top-0 h-24 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50"
+          class="absolute -right-5 top-0 h-16 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50 sm:-right-12 sm:h-24"
         ></div>
 
         <h1
-          class="bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim bg-clip-text font-heading text-6xl tracking-wide text-transparent drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] md:text-8xl"
+          class="bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim bg-clip-text font-heading text-5xl tracking-wide text-transparent drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] sm:text-6xl md:text-8xl"
         >
           欲望地牢
         </h1>
-        <h2 class="mt-2 border-t border-dungeon-brown pt-4 font-body text-xl uppercase tracking-[0.35em] text-[#f9e6a0] md:text-2xl">
+        <h2
+          class="mt-2 border-t border-dungeon-brown pt-4 font-body text-base uppercase tracking-[0.24em] text-[#f9e6a0] sm:text-xl sm:tracking-[0.35em] md:text-2xl"
+        >
           Created by Vin
         </h2>
       </div>
 
-      <div class="flex w-72 flex-col space-y-4">
+      <div class="flex w-full max-w-[22rem] flex-col space-y-4">
         <button
-          class="group relative flex items-center justify-center space-x-3 overflow-hidden border border-dungeon-gold/30 bg-[#1a0f08] px-8 py-4 transition-all duration-300 hover:border-dungeon-gold hover:bg-dungeon-brown disabled:cursor-wait disabled:opacity-75"
+          class="group relative flex min-w-0 items-center justify-center space-x-3 overflow-hidden border border-dungeon-gold/30 bg-[#1a0f08] px-6 py-4 transition-all duration-300 hover:border-dungeon-gold hover:bg-dungeon-brown disabled:cursor-wait disabled:opacity-75 sm:px-8"
           :disabled="environmentChecking"
           @click="$emit('start')"
         >
           <div class="absolute inset-0 w-0 bg-dungeon-gold/10 transition-all duration-300 group-hover:w-full"></div>
           <LoaderCircle v-if="environmentChecking" class="size-5 animate-spin text-dungeon-gold" />
           <Play v-else class="size-5 text-dungeon-gold transition-transform group-hover:scale-110" />
-          <span class="font-heading text-lg tracking-widest text-dungeon-paper transition-colors group-hover:text-dungeon-gold">
+          <span
+            class="font-heading text-base tracking-[0.18em] text-dungeon-paper transition-colors group-hover:text-dungeon-gold sm:text-lg sm:tracking-widest"
+          >
             {{ environmentChecking ? '检测环境中' : '进入地牢' }}
           </span>
         </button>
 
         <button
-          class="group relative flex items-center justify-center space-x-2 border border-dungeon-gold/20 bg-[#120b08] px-8 py-3 font-heading tracking-[0.28em] text-dungeon-paper/90 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-[#26150d] disabled:cursor-wait disabled:opacity-75"
+          class="group relative flex min-w-0 items-center justify-center space-x-2 border border-dungeon-gold/20 bg-[#120b08] px-6 py-3 font-heading tracking-[0.2em] text-dungeon-paper/90 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-[#26150d] disabled:cursor-wait disabled:opacity-75 sm:px-8 sm:tracking-[0.28em]"
           :disabled="environmentChecking"
           @click="$emit('checkEnvironment')"
         >
@@ -88,7 +93,7 @@
         </button>
 
         <button
-          class="group relative flex items-center justify-center space-x-2 border border-dungeon-brown/80 bg-[#120b08] px-8 py-3 font-heading tracking-widest text-dungeon-paper/85 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-dungeon-brown/80"
+          class="group relative flex min-w-0 items-center justify-center space-x-2 border border-dungeon-brown/80 bg-[#120b08] px-6 py-3 font-heading tracking-[0.18em] text-dungeon-paper/85 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-dungeon-brown/80 sm:px-8 sm:tracking-widest"
           @click="$emit('openCollection')"
         >
           <Star class="size-4" />
@@ -99,7 +104,7 @@
       <Transition name="panel-fade">
         <section
           v-if="shouldShowPanel"
-          class="w-[min(92vw,42rem)] overflow-hidden rounded-2xl border border-dungeon-gold/30 bg-[#120b08]/88 shadow-[0_18px_45px_rgba(0,0,0,0.38)] backdrop-blur-md"
+          class="w-full max-w-[42rem] overflow-hidden rounded-2xl border border-dungeon-gold/30 bg-[#120b08]/88 shadow-[0_18px_45px_rgba(0,0,0,0.38)] backdrop-blur-md"
         >
           <div class="flex items-start justify-between gap-4 border-b border-dungeon-gold/15 px-5 py-4">
             <div class="space-y-2">
@@ -326,6 +331,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.splash-screen {
+  height: 100dvh;
+  min-height: max(100dvh, 56.25vw);
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+
 .panel-fade-enter-active,
 .panel-fade-leave-active {
   transition:

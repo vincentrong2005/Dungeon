@@ -1,5 +1,5 @@
 <template>
-  <div class="absolute inset-0 z-[140] overflow-hidden">
+  <div class="opening-entry-root absolute inset-0 z-[140] overflow-y-auto overflow-x-hidden overscroll-contain">
     <div
       v-if="backgroundUrl"
       class="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -15,24 +15,24 @@
     </button>
 
     <div
-      class="relative z-[1] mx-auto flex min-h-full w-full max-w-6xl items-center justify-center px-4 py-8 md:px-8 md:py-10"
+      class="opening-entry-shell relative z-[1] mx-auto flex min-h-full w-full max-w-6xl items-start justify-center px-3 py-4 sm:px-4 md:items-center md:px-8 md:py-10"
     >
       <form
-        class="w-full overflow-hidden rounded-[30px] border border-[#6d4a1a] bg-[linear-gradient(180deg,rgba(27,18,12,0.92),rgba(10,7,5,0.94))] shadow-[0_28px_90px_rgba(0,0,0,0.55)]"
+        class="w-full max-w-full overflow-visible rounded-[24px] border border-[#6d4a1a] bg-[linear-gradient(180deg,rgba(27,18,12,0.92),rgba(10,7,5,0.94))] shadow-[0_28px_90px_rgba(0,0,0,0.55)] md:overflow-hidden md:rounded-[30px]"
         @submit.prevent="handleSubmit"
       >
-        <div class="border-b border-[#6d4a1a]/65 px-6 py-6 md:px-10">
+        <div class="border-b border-[#6d4a1a]/65 px-4 py-5 sm:px-6 md:px-10 md:py-6">
           <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div class="max-w-3xl">
               <p class="text-xs uppercase tracking-[0.38em] text-amber-200/60">Abyssal Oath</p>
-              <h2 class="mt-3 font-heading text-3xl tracking-[0.16em] text-[#f6deb0] md:text-4xl">开局信息录入</h2>
+              <h2 class="mt-3 font-heading text-[1.9rem] tracking-[0.12em] text-[#f6deb0] md:text-4xl">开局信息录入</h2>
               <p class="mt-3 text-sm leading-7 text-[#d9c6aa]/84 md:text-base">
                 在踏入欲望之神的地下城前，让世界记住 {{ previewName }} 的模样。
                 三页记录会化作她的档案，并成为命运编织开场时最初的线索。
               </p>
             </div>
 
-            <div class="grid min-w-[280px] grid-cols-3 gap-3">
+            <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3">
               <button
                 v-for="(stepInfo, index) in stepItems"
                 :key="stepInfo.key"
@@ -51,8 +51,8 @@
           </div>
         </div>
 
-        <div class="grid min-h-[600px] md:grid-cols-[280px_minmax(0,1fr)]">
-          <aside class="border-b border-[#6d4a1a]/35 bg-black/12 px-6 py-6 md:border-b-0 md:border-r md:px-8">
+        <div class="grid md:min-h-[600px] md:grid-cols-[280px_minmax(0,1fr)]">
+          <aside class="border-b border-[#6d4a1a]/35 bg-black/12 px-4 py-5 sm:px-6 md:border-b-0 md:border-r md:px-8 md:py-6">
             <div class="rounded-[24px] border border-[#6d4a1a]/35 bg-black/15 p-5">
               <p class="text-xs uppercase tracking-[0.35em] text-amber-200/45">Chapter {{ currentStep + 1 }}/3</p>
               <h3 class="mt-3 font-heading text-2xl tracking-[0.16em] text-[#f3d08f]">
@@ -78,7 +78,7 @@
             </div>
           </aside>
 
-          <section class="px-6 py-6 md:px-10 md:py-8">
+          <section class="px-4 py-5 sm:px-6 md:px-10 md:py-8">
             <Transition name="step-fade" mode="out-in">
               <div :key="currentStep" class="space-y-5">
                 <template v-if="currentStep === 0">
@@ -258,7 +258,7 @@
                       <span class="form-label">自定义背景故事</span>
                       <textarea
                         v-model="backstory"
-                        class="form-control min-h-[320px] resize-y"
+                        class="form-control min-h-[240px] resize-y md:min-h-[320px]"
                         maxlength="4000"
                         placeholder="请尽量详细地描述她的来历、身份、性格、欲望、能力、过去经历、与地下城的关系等。越详细越好。"
                       ></textarea>
@@ -270,7 +270,7 @@
           </section>
         </div>
 
-        <div class="border-t border-[#6d4a1a]/60 bg-black/14 px-6 py-5 md:px-10">
+        <div class="border-t border-[#6d4a1a]/60 bg-black/14 px-4 py-5 sm:px-6 md:px-10">
           <p v-if="currentStepMessage" class="text-sm text-rose-300">{{ currentStepMessage }}</p>
           <p v-else-if="error" class="text-sm text-rose-300">{{ error }}</p>
           <p v-else class="text-sm text-[#cbb89f]/75">
@@ -481,6 +481,17 @@ const handleSubmit = () => {
 </script>
 
 <style scoped>
+.opening-entry-root {
+  -webkit-overflow-scrolling: touch;
+}
+
+.opening-entry-shell {
+  padding-top: max(4rem, calc(env(safe-area-inset-top) + 0.75rem));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+}
+
 .form-grid {
   display: grid;
   gap: 1.25rem;
@@ -507,6 +518,7 @@ const handleSubmit = () => {
   border: 1px solid rgba(117, 80, 28, 0.72);
   background: rgba(8, 6, 5, 0.38);
   padding: 0.9rem 1rem;
+  font-size: 16px;
   color: #f3e2c8;
   outline: none;
   transition:
@@ -528,6 +540,7 @@ const handleSubmit = () => {
 .step-chip {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 0.35rem;
   border-radius: 1.1rem;
   border: 1px solid rgba(117, 80, 28, 0.4);
@@ -566,18 +579,20 @@ const handleSubmit = () => {
   font-size: 0.95rem;
   letter-spacing: 0.1em;
   color: #f2ddba;
+  overflow-wrap: anywhere;
 }
 
 .preview-label {
   display: inline-block;
-  min-width: 4rem;
+  min-width: 3.5rem;
   margin-right: 0.55rem;
   color: rgba(247, 226, 181, 0.6);
 }
 
 .nav-btn {
   display: inline-flex;
-  min-width: 180px;
+  width: 100%;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
@@ -621,8 +636,8 @@ const handleSubmit = () => {
 
 .opening-fullscreen-btn {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
   z-index: 2;
   display: inline-flex;
   align-items: center;
@@ -656,5 +671,12 @@ const handleSubmit = () => {
 .step-fade-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+@media (min-width: 640px) {
+  .nav-btn {
+    width: auto;
+    min-width: 180px;
+  }
 }
 </style>
