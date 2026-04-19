@@ -7810,8 +7810,10 @@ onBeforeUnmount(() => {
 .ui-viewport {
   position: relative;
   width: 100vw;
+  height: 100vh;
   height: 100dvh;
-  min-height: max(100dvh, 56.25vw);
+  min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   background: #050505;
 }
@@ -7868,6 +7870,10 @@ onBeforeUnmount(() => {
 
 .ui-input-shell {
   background: radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.06), transparent 46%), #0f0f0f;
+}
+
+.ui-input-anchor {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 .ui-input-field::placeholder {
@@ -7984,6 +7990,13 @@ onBeforeUnmount(() => {
 .landscape-hint-btn:hover {
   border-color: rgba(245, 208, 102, 0.9);
   background: rgba(93, 40, 21, 0.86);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-viewport {
+    min-height: max(100vh, 56.25vw);
+    min-height: max(100dvh, 56.25vw);
+  }
 }
 
 @font-face {

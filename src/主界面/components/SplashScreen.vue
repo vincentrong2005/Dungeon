@@ -332,12 +332,21 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .splash-screen {
+  height: 100vh;
   height: 100dvh;
-  min-height: max(100dvh, 56.25vw);
+  min-height: 100vh;
+  min-height: 100dvh;
   padding-top: max(1rem, env(safe-area-inset-top));
   padding-right: max(1rem, env(safe-area-inset-right));
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
   padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .splash-screen {
+    min-height: max(100vh, 56.25vw);
+    min-height: max(100dvh, 56.25vw);
+  }
 }
 
 .panel-fade-enter-active,
