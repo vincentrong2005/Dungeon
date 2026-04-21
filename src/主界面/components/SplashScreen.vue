@@ -33,7 +33,9 @@
       style="background-image: url('https://www.transparenttextures.com/patterns/dark-matter.png')"
     ></div>
 
-    <div class="absolute left-4 top-4 h-40 w-24 border-l-2 border-t-2 border-dungeon-brown opacity-50 sm:left-8 sm:top-8 sm:h-64 sm:w-64"></div>
+    <div
+      class="absolute left-4 top-4 h-40 w-24 border-l-2 border-t-2 border-dungeon-brown opacity-50 sm:left-8 sm:top-8 sm:h-64 sm:w-64"
+    ></div>
     <div
       class="absolute bottom-4 right-4 h-40 w-24 border-b-2 border-r-2 border-dungeon-brown opacity-50 sm:bottom-8 sm:right-8 sm:h-64 sm:w-64"
     ></div>
@@ -121,6 +123,17 @@
                 {{ lastCheckedLabel }}
               </span>
               <button
+                v-if="canForceStart"
+                type="button"
+                class="flex items-center gap-1 rounded border border-rose-400/30 bg-rose-950/35 px-2 py-1 text-[11px] tracking-[0.12em] text-rose-100 transition hover:border-rose-300/60 hover:bg-rose-900/55 disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="environmentChecking"
+                aria-label="无视风险直接开始游戏"
+                @click="$emit('forceStart')"
+              >
+                <AlertTriangle class="size-3.5" />
+                <span>无视风险直接开始游戏</span>
+              </button>
+              <button
                 type="button"
                 class="rounded-full border border-dungeon-gold/15 p-1 text-dungeon-paper/55 transition hover:border-dungeon-gold/40 hover:text-dungeon-paper disabled:cursor-not-allowed disabled:opacity-40"
                 :disabled="environmentChecking"
@@ -169,6 +182,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   start: [];
+  forceStart: [];
   checkEnvironment: [];
   toggleFullscreen: [];
   openCollection: [];
@@ -193,9 +207,12 @@ let backgroundFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let backgroundTransitionToken = 0;
 const isPanelDismissed = ref(false);
 
-const shouldShowPanel = computed(() => props.environmentChecking || (!!props.environmentReport && !isPanelDismissed.value));
+const shouldShowPanel = computed(
+  () => props.environmentChecking || (!!props.environmentReport && !isPanelDismissed.value),
+);
 const environmentItems = computed(() => props.environmentReport?.items ?? []);
 const environmentSummary = computed(() => props.environmentReport?.summary ?? '点击按钮后会显示检测结果。');
+const canForceStart = computed(() => !!props.environmentReport && !props.environmentReport.ready);
 const lastCheckedLabel = computed(() => {
   if (!props.environmentReport?.checkedAt) return '';
   return `上次检测 ${new Date(props.environmentReport.checkedAt).toLocaleTimeString('zh-CN', {

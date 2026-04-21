@@ -8,6 +8,7 @@
         :environment-report="environmentReport"
         :environment-checking="isEnvironmentChecking"
         @start="startGame"
+        @force-start="forceStartGame"
         @check-environment="checkEnvironment()"
         @toggle-fullscreen="toggleFullScreen"
         @open-collection="isCollectionOpen = true"
@@ -71,6 +72,17 @@ async function startGame() {
     return;
   }
 
+  await enterGame();
+}
+
+async function forceStartGame() {
+  if (isEnvironmentChecking.value) return;
+
+  toastr.warning('已跳过环境检测，若依赖缺失可能导致游戏异常。', '无视风险开始');
+  await enterGame();
+}
+
+async function enterGame() {
   appState.value = 'GAME';
   isOpeningEntryOpen.value = false;
   isOpeningEntrySubmitting.value = false;
