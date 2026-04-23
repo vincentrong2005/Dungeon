@@ -3440,25 +3440,25 @@ const 静夜规避: CardData = {
   description: '闪避；若闪避成功或对方跳过回合，则施加1倍点数流血',
 };
 
-/** 沉默终章：消耗6MP，点数*2，造成1倍点数伤害，施加0.5倍点数流血、5层禁言与1层被操控，无视闪避 */
+/** 沉默终章：消耗6MP，点数*2，造成1倍点数伤害，施加0.5倍点数流血、2层禁言与1层被操控，无视闪避 */
 const 沉默终章: CardData = {
   id: 'enemy_hilvy_silent_finale',
   name: '沉默终章',
   type: CardType.MAGIC,
   category: '敌人',
   rarity: '稀有',
-  manaCost: 6,
+  manaCost: 7,
   calculation: { multiplier: 2.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
-    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
+    { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
     { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   ignoreDodge: true,
-  description: '点数*2，造成1倍点数伤害，施加0.5倍点数流血、5层禁言与1层被操控；无视闪避',
+  description: '点数*2，造成1倍点数伤害，施加0.5倍点数流血、2层禁言与1层被操控；无视闪避',
 };
 
 /** 淫墨誓约：诅咒，无法打出 */

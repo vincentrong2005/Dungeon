@@ -2293,18 +2293,27 @@
                   :key="`chest-reward-${relic.id}-${i}`"
                   type="button"
                   class="pointer-events-auto chest-reward-btn"
-                  :class="{ 'is-collected': chestRewardCollectedFlags[i] }"
+                  :class="{
+                    'is-collected': chestRewardCollectedFlags[i],
+                    'is-awaiting-confirm': isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i],
+                  }"
                   :disabled="chestCollecting || chestRewardCollectedFlags[i]"
-                  @click="collectChestReward(i)"
+                  @click.stop="handleChestRewardClick($event, i)"
                   @mouseenter="showChestRewardTooltip($event, i)"
                   @mouseleave="hideRelicTooltip"
                   @focus="showChestRewardTooltip($event, i)"
                   @blur="hideRelicTooltip"
-                  @touchstart.passive="handleChestRewardTouchStart($event, i)"
-                  @touchend="handleRelicTouchEnd"
-                  @touchcancel="handleRelicTouchEnd"
+                  @touchstart.stop.passive="handleChestRewardTouchStart($event, i)"
+                  @touchend.stop="handleRelicTouchEnd"
+                  @touchcancel.stop="handleRelicTouchEnd"
                 >
                   <Box class="chest-reward-icon" />
+                  <span
+                    v-if="isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i]"
+                    class="chest-reward-confirm-hint"
+                  >
+                    再次点击获取
+                  </span>
                 </button>
               </div>
 
@@ -2870,6 +2879,7 @@ const chestPortalChoices = ref<PortalChoice[]>([]);
 const chestRewardCountFixed = ref<number | null>(null);
 const chestCloseCount = ref(0);
 const chestForceMimicNextOpen = ref(false);
+const pendingChestRewardIndex = ref<number | null>(null);
 const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
 const idolDiceValue = ref(1);
 const idolDiceRolling = ref(false);
@@ -2926,6 +2936,7 @@ const selectedTestActiveSkills = ref<string[]>(['', '']);
 let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let chestCloseLongPressTimer: ReturnType<typeof setTimeout> | null = null;
+let chestRewardConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
 let hotSpringCleanseTimer: ReturnType<typeof setTimeout> | null = null;
 let idolRollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -4363,6 +4374,58 @@ const handleChestRewardTouchStart = (event: TouchEvent, index: number) => {
   const entry = chestRewardEntries.value[index];
   if (!entry) return;
   handleRelicTouchStart(event, entry);
+};
+
+const clearChestRewardConfirmTimer = () => {
+  if (!chestRewardConfirmTimer) return;
+  clearTimeout(chestRewardConfirmTimer);
+  chestRewardConfirmTimer = null;
+};
+
+const resetChestRewardConfirmation = (hideTooltip = true) => {
+  clearChestRewardConfirmTimer();
+  pendingChestRewardIndex.value = null;
+  if (hideTooltip) {
+    hideRelicTooltip();
+  }
+};
+
+const previewChestRewardForTouch = (target: HTMLElement, index: number) => {
+  const entry = chestRewardEntries.value[index];
+  if (!entry) return;
+  clearChestRewardConfirmTimer();
+  showRelicTooltipForTarget(target, entry);
+  pendingChestRewardIndex.value = index;
+  chestRewardConfirmTimer = setTimeout(() => {
+    if (pendingChestRewardIndex.value === index) {
+      pendingChestRewardIndex.value = null;
+      hideRelicTooltip();
+    }
+    chestRewardConfirmTimer = null;
+  }, 2200);
+};
+
+const handleChestRewardClick = (event: MouseEvent, index: number) => {
+  if (chestCollecting.value) return;
+  if (index < 0 || index >= chestRewardRelics.value.length) return;
+  if (chestRewardCollectedFlags.value[index]) return;
+
+  if (!isTouchViewport.value) {
+    collectChestReward(index);
+    return;
+  }
+
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) return;
+
+  if (pendingChestRewardIndex.value === index) {
+    resetChestRewardConfirmation(false);
+    collectChestReward(index);
+    hideRelicTooltip();
+    return;
+  }
+
+  previewChestRewardForTouch(target, index);
 };
 
 const combatRelicMap = computed<Record<string, number>>(() => ({ ...inventoryRelicMap.value }));
@@ -6223,6 +6286,7 @@ onUnmounted(() => {
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
+  clearChestRewardConfirmTimer();
   clearHotSpringCleanseTimer();
   clearIdolRollTimer();
   closeSettingsHelp();
@@ -6243,6 +6307,7 @@ const openChestView = () => {
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
+  clearChestRewardConfirmTimer();
   chestStage.value = 'closed';
   chestRolling.value = false;
   chestRewardRelics.value = [];
@@ -6254,6 +6319,7 @@ const openChestView = () => {
   chestRewardCountFixed.value = null;
   chestCloseCount.value = 0;
   chestForceMimicNextOpen.value = false;
+  pendingChestRewardIndex.value = null;
   showChestView.value = true;
 };
 
@@ -6261,7 +6327,7 @@ const closeChestView = () => {
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
-  hideRelicTooltip();
+  resetChestRewardConfirmation();
   showChestView.value = false;
   chestRolling.value = false;
   chestRewardVisible.value = false;
@@ -6523,7 +6589,7 @@ const closeOpenedChestForRefresh = () => {
     chestForceMimicNextOpen.value = true;
   }
   clearChestRewardFadeTimer();
-  hideRelicTooltip();
+  resetChestRewardConfirmation();
   chestStage.value = 'closed';
   chestRolling.value = false;
   chestCollecting.value = false;
@@ -6555,6 +6621,7 @@ const collectChestReward = (index: number) => {
   if (chestCollecting.value) return;
   if (index < 0 || index >= chestRewardRelics.value.length) return;
   if (chestRewardCollectedFlags.value[index]) return;
+  resetChestRewardConfirmation(false);
   chestCollecting.value = true;
   chestRewardCollectedFlags.value[index] = true;
   chestCollecting.value = false;
@@ -6573,6 +6640,7 @@ const collectChestReward = (index: number) => {
 
 const handleChestCenterClick = async () => {
   if (chestRolling.value || chestStage.value !== 'closed') return;
+  resetChestRewardConfirmation();
   chestRolling.value = true;
 
   const forcedMimic = chestForceMimicNextOpen.value;
@@ -7810,8 +7878,10 @@ onBeforeUnmount(() => {
 .ui-viewport {
   position: relative;
   width: 100vw;
+  height: 100vh;
   height: 100dvh;
-  min-height: max(100dvh, 56.25vw);
+  min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   background: #050505;
 }
@@ -7868,6 +7938,10 @@ onBeforeUnmount(() => {
 
 .ui-input-shell {
   background: radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.06), transparent 46%), #0f0f0f;
+}
+
+.ui-input-anchor {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
 .ui-input-field::placeholder {
@@ -7984,6 +8058,13 @@ onBeforeUnmount(() => {
 .landscape-hint-btn:hover {
   border-color: rgba(245, 208, 102, 0.9);
   background: rgba(93, 40, 21, 0.86);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-viewport {
+    min-height: max(100vh, 56.25vw);
+    min-height: max(100dvh, 56.25vw);
+  }
 }
 
 @font-face {
@@ -9118,13 +9199,39 @@ onBeforeUnmount(() => {
   border-radius: 9999px;
   background: transparent;
   padding: 0.25rem;
+  position: relative;
   transition:
     transform 0.2s ease,
     opacity 0.2s ease;
 }
 
+.chest-reward-btn.is-awaiting-confirm .chest-reward-icon {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.95)) drop-shadow(0 0 34px rgba(245, 158, 11, 0.62))
+    drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
+}
+
 .chest-reward-btn:hover .chest-reward-icon {
   transform: scale(1.05);
+}
+
+.chest-reward-confirm-hint {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 0.35rem);
+  white-space: nowrap;
+  border-radius: 9999px;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  background: rgba(15, 10, 6, 0.92);
+  color: rgba(255, 235, 170, 0.98);
+  padding: 0.16rem 0.52rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  box-shadow:
+    0 0 12px rgba(245, 158, 11, 0.3),
+    0 4px 14px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
 }
 
 .chest-reward-btn.is-collected {
@@ -9331,19 +9438,19 @@ onBeforeUnmount(() => {
 .idol-slots-row {
   position: absolute;
   left: 50%;
-  bottom: 28vh;
+  bottom: 28%;
   transform: translateX(-50%);
-  width: min(920px, calc(100vw - 48px));
+  width: min(920px, calc(100% - 48px));
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(0.9rem, 2.8vw, 2.2rem);
+  gap: 1.5rem;
   align-items: center;
   justify-items: center;
   pointer-events: none;
 }
 
 .idol-slot {
-  width: clamp(6.6rem, 8.6vw, 8.1rem);
+  width: 7.4rem;
   aspect-ratio: 1;
   clip-path: polygon(50% 2%, 93% 25%, 93% 75%, 50% 98%, 7% 75%, 7% 25%);
   border: 1px solid rgba(255, 255, 255, 0.72);
@@ -9437,7 +9544,7 @@ onBeforeUnmount(() => {
 .idol-slot-hint {
   position: relative;
   color: rgba(240, 249, 255, 0.95);
-  font-size: clamp(0.95rem, 1.6vw, 1.28rem);
+  font-size: 1.08rem;
   font-weight: 700;
   white-space: nowrap;
   text-shadow:
@@ -10147,17 +10254,17 @@ onBeforeUnmount(() => {
   }
 
   .idol-slots-row {
-    width: calc(100vw - 24px);
-    bottom: 31vh;
-    gap: 0.4rem;
+    width: min(920px, calc(100% - 24px));
+    bottom: 28%;
+    gap: 1.2rem;
   }
 
   .idol-slot {
-    width: 5.2rem;
+    width: 7rem;
   }
 
   .idol-slot-hint {
-    font-size: 0.72rem;
+    font-size: 1rem;
   }
 
   .idol-exit-btn {

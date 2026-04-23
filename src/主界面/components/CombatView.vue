@@ -122,8 +122,7 @@
     <div class="absolute inset-0 z-10 pointer-events-none">
       <!-- Enemy Position: Right Side -->
       <div
-        class="enemy-layout-shell absolute flex flex-col items-center justify-end group transition-transform duration-1000 origin-bottom-right"
-        :class="isTouchDevice ? 'enemy-layout-shell--touch' : 'enemy-layout-shell--desktop'"
+        class="enemy-layout-shell enemy-layout-shell--desktop absolute flex flex-col items-center justify-end group transition-transform duration-1000 origin-bottom-right"
       >
         <!-- Enemy Intent Card -->
         <div
@@ -1282,7 +1281,6 @@ const logsCollapsed = ref(true);
 const pilesCollapsed = ref(true);
 const battleResultBanner = ref<CombatOutcome | null>(null);
 const endCombatPending = ref(false);
-const isTouchDevice = ref(false);
 const enemyIntentConsumedThisTurn = ref(false);
 const enemyIntentManaSpentThisTurn = ref(false);
 const enemyComboPreludeResolvedTurn = ref<number | null>(null);
@@ -1296,11 +1294,6 @@ const effectTooltip = ref<{
   stacks: number;
   align: 'center' | 'right';
 } | null>(null);
-
-const updateCombatViewportMode = () => {
-  if (typeof window === 'undefined') return;
-  isTouchDevice.value = window.matchMedia('(pointer: coarse)').matches;
-};
 
 type BattleSide = 'player' | 'enemy';
 type CombatOutcome = 'win' | 'lose' | 'escape';
@@ -4068,12 +4061,6 @@ onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
   loadFatigueDegree();
   addFatigueDegree(10);
-  updateCombatViewportMode();
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', updateCombatViewportMode, { passive: true });
-    window.addEventListener('orientationchange', updateCombatViewportMode, { passive: true });
-    window.visualViewport?.addEventListener('resize', updateCombatViewportMode, { passive: true });
-  }
   void initPortraitUrls();
 });
 watch(
@@ -4083,11 +4070,6 @@ watch(
   },
 );
 onUnmounted(() => {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', updateCombatViewportMode);
-    window.removeEventListener('orientationchange', updateCombatViewportMode);
-    window.visualViewport?.removeEventListener('resize', updateCombatViewportMode);
-  }
   portraitLoaderDisposed = true;
   if (hoverPreviewTimer) {
     clearTimeout(hoverPreviewTimer);
@@ -7839,13 +7821,6 @@ watch(
   --enemy-shell-height: 42rem;
   right: 0;
   bottom: 0.9rem;
-}
-
-.enemy-layout-shell--touch {
-  --enemy-shell-width: 20rem;
-  --enemy-shell-height: 33rem;
-  right: 0.75rem;
-  bottom: 0;
 }
 
 .enemy-intent-anchor {

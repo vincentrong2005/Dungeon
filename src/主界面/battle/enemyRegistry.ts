@@ -1879,7 +1879,7 @@ const 希尔薇: EnemyDefinition = {
   ]),
   selectCard(ctx: EnemyAIContext) {
     const playerHasSilence = ctx.playerStats.effects.some(e => e.type === EffectType.SILENCE && e.stacks > 0);
-    if (ctx.enemyStats.mp >= 6 && playerHasSilence) {
+    if (ctx.enemyStats.mp >= 7 && playerHasSilence) {
       return pickCardById(ctx, HILVY_CARD.SILENT_FINALE);
     }
 
