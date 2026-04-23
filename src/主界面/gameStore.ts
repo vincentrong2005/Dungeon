@@ -338,15 +338,7 @@ export const useGameStore = defineStore('game', () => {
 
   const isFreshChatSession = (): boolean => {
     const lastId = getLastMessageId();
-    if (lastId < 0) return true;
-
-    try {
-      const messages = getChatMessages(`0-${lastId}`, { hide_state: 'all' });
-      if (!Array.isArray(messages) || messages.length === 0) return true;
-      return messages.every(message => normalizeFreshChatMessage(message?.message).length === 0);
-    } catch {
-      return false;
-    }
+    return lastId <= 0;
   };
 
   const overwriteUserWorldbookEntryContent = async (content: string): Promise<boolean> => {
