@@ -383,6 +383,35 @@
                   class="ui-input-field flex-1 h-[4.5rem] bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-tight px-5 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   @keydown.enter="handleSendInput"
                 />
+                <div v-if="isButtonCompletionEnabled" ref="buttonCompletionMenuRef" class="ui-option-completion-wrap">
+                  <button
+                    type="button"
+                    class="ui-option-completion-trigger h-[4.5rem] px-4 flex items-center justify-center gap-2 shrink-0"
+                    :disabled="gameStore.isGenerating"
+                    :aria-expanded="optionCompletionMenuOpen"
+                    aria-haspopup="menu"
+                    @click="toggleOptionCompletionMenu"
+                  >
+                    <span class="ui-option-completion-trigger__label">按钮补全</span>
+                    <ChevronDown class="size-4 transition-transform duration-200" :class="optionCompletionMenuOpen ? 'rotate-180' : ''" />
+                  </button>
+                  <Transition name="option-completion-menu">
+                    <div v-if="optionCompletionMenuOpen" class="ui-option-completion-menu" role="menu">
+                      <button
+                        v-for="item in optionCompletionMenuItems"
+                        :key="item.key"
+                        type="button"
+                        class="ui-option-completion-item"
+                        :class="{ 'is-disabled': item.disabled }"
+                        :disabled="item.disabled || gameStore.isGenerating"
+                        @click="handleOptionCompletionItemClick(item.key)"
+                      >
+                        <span class="ui-option-completion-item__label">{{ item.label }}</span>
+                        <span class="ui-option-completion-item__tag">{{ item.marker }}</span>
+                      </button>
+                    </div>
+                  </Transition>
+                </div>
                 <button
                   class="ui-send-button h-[4.5rem] min-w-[4.5rem] px-3 flex items-center justify-center shrink-0"
                   :disabled="gameStore.isGenerating"
@@ -1506,6 +1535,24 @@
                     :aria-checked="isForbidMatchingXmlInsideThinkEnabled"
                     role="switch"
                     @click="isForbidMatchingXmlInsideThinkEnabled = !isForbidMatchingXmlInsideThinkEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">按钮补全</label>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isButtonCompletionEnabled }"
+                    :aria-checked="isButtonCompletionEnabled"
+                    role="switch"
+                    @click="isButtonCompletionEnabled = !isButtonCompletionEnabled"
                   >
                     <span class="settings-switch-track">
                       <span class="settings-switch-label settings-switch-label--off">关</span>
@@ -2849,6 +2896,16 @@ let inputWaitingDotsTimer: number | null = null;
 const inputPlaceholder = computed(() =>
   gameStore.isGenerating ? `等待回复中${'.'.repeat(inputWaitingDotsStep.value)}` : '输入你的行动',
 );
+type ButtonCompletionMenuKey = 'special' | 'leave' | 'rebirth';
+const buttonCompletionMenuRef = ref<HTMLElement | null>(null);
+const optionCompletionMenuOpen = ref(false);
+const closeOptionCompletionMenu = () => {
+  optionCompletionMenuOpen.value = false;
+};
+const toggleOptionCompletionMenu = () => {
+  if (!isButtonCompletionEnabled.value || gameStore.isGenerating) return;
+  optionCompletionMenuOpen.value = !optionCompletionMenuOpen.value;
+};
 const dismissLandscapeHint = () => {
   landscapeHintDismissed.value = true;
 };
@@ -3596,11 +3653,12 @@ const carriedMagicBooks = computed<string[]>(() => {
   return rawCarriedMagicBooks.value.filter(name => available.has(name));
 });
 const carriedMagicBookSet = computed(() => new Set(carriedMagicBooks.value));
-const ownedLegendaryRelicNameSet = computed<Set<string>>(() => {
+const isSingleAcquisitionRelic = (relic: RelicData) => relic.rarity === '传奇' || relic.uniqueAcquisition === true;
+const ownedSingleAcquisitionRelicNameSet = computed<Set<string>>(() => {
   const rawInventory = inventoryRelicMap.value;
   const owned = new Set<string>();
   for (const relic of getAllRelics()) {
-    if (relic.rarity !== '传奇') continue;
+    if (!isSingleAcquisitionRelic(relic)) continue;
     const countByName = Math.max(0, Math.floor(Number(rawInventory[relic.name] ?? 0)));
     const countById = Math.max(0, Math.floor(Number(rawInventory[relic.id] ?? 0)));
     if (countByName > 0 || countById > 0) {
@@ -3615,8 +3673,8 @@ const selectableRelicPool = computed<RelicData[]>(() => {
   if (pool.length === 0) {
     pool = getAllRelics().filter(relic => relic.category === '基础');
   }
-  const ownedLegendaryNames = ownedLegendaryRelicNameSet.value;
-  pool = pool.filter(relic => relic.rarity !== '传奇' || !ownedLegendaryNames.has(relic.name));
+  const ownedSingleAcquisitionNames = ownedSingleAcquisitionRelicNameSet.value;
+  pool = pool.filter(relic => !isSingleAcquisitionRelic(relic) || !ownedSingleAcquisitionNames.has(relic.name));
   return [...pool];
 });
 const muxinlanFavor = computed<number>(() => {
@@ -4660,6 +4718,17 @@ const isForbidMatchingXmlInsideThinkEnabled = computed<boolean>({
   set: value => gameStore.setForbidMatchingXmlInsideThink(value),
 });
 
+const isButtonCompletionEnabled = computed<boolean>({
+  get: () => gameStore.buttonCompletionEnabled,
+  set: value => gameStore.setButtonCompletionEnabled(value),
+});
+
+watch(isButtonCompletionEnabled, enabled => {
+  if (!enabled) {
+    closeOptionCompletionMenu();
+  }
+});
+
 const isAutoSummaryEnabled = computed<boolean>({
   get: () => gameStore.autoSummaryEnabled,
   set: value => {
@@ -5692,6 +5761,55 @@ const handleRebirthClick = () => {
   );
 };
 
+const isButtonCompletionTargetVisible = (target: ButtonCompletionMenuKey): boolean => {
+  switch (target) {
+    case 'special':
+      return Boolean(gameStore.hasOptionE);
+    case 'leave':
+      return Boolean(gameStore.hasLeave);
+    case 'rebirth':
+      return Boolean(gameStore.hasRebirth);
+  }
+};
+
+const handleOptionCompletionItemClick = async (target: ButtonCompletionMenuKey) => {
+  if (gameStore.isGenerating) return;
+
+  if (target === 'special' && !currentRoomSpecialOptionConfig.value) {
+    closeOptionCompletionMenu();
+    toastr.warning('当前房间没有可补全的特殊选项。');
+    return;
+  }
+
+  const wasVisible = isButtonCompletionTargetVisible(target);
+  gameStore.showManualButtonCompletion(target);
+
+  if (target === 'leave') {
+    await nextTick();
+    if (portalChoices.value.length === 0) {
+      gameStore.hideManualButtonCompletion('leave');
+      closeOptionCompletionMenu();
+      toastr.warning('当前状态没有可显示的传送门选项。');
+      return;
+    }
+  }
+
+  closeOptionCompletionMenu();
+
+  if (wasVisible) {
+    toastr.success('对应按钮已经在当前界面显示。');
+    return;
+  }
+
+  const successText =
+    target === 'special'
+      ? '已补全当前房间特殊选项按钮。'
+      : target === 'leave'
+        ? '已补全传送门按钮。'
+        : '已补全重生按钮。';
+  toastr.success(successText);
+};
+
 // ── Room type config for E option ──
 interface RoomConfig {
   label: string;
@@ -5753,9 +5871,7 @@ const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
   },
 };
 
-// E option: no button for 事件房 / 陷阱房
-const specialOptionConfig = computed<RoomConfig | null>(() => {
-  if (!gameStore.hasOptionE) return null;
+const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => {
   if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
   if (isShopContext.value) return ROOM_TYPE_CONFIG['商店房'];
   const roomType = gameStore.statData._当前房间类型 as string;
@@ -5763,6 +5879,35 @@ const specialOptionConfig = computed<RoomConfig | null>(() => {
   if (roomType === '事件房' || roomType === '陷阱房') return null;
   return ROOM_TYPE_CONFIG[roomType] ?? null;
 });
+
+// E option: no button for 事件房 / 陷阱房
+const specialOptionConfig = computed<RoomConfig | null>(() => {
+  if (!gameStore.hasOptionE) return null;
+  return currentRoomSpecialOptionConfig.value;
+});
+
+const optionCompletionMenuItems = computed<
+  Array<{ key: ButtonCompletionMenuKey; label: string; marker: string; disabled: boolean }>
+>(() => [
+  {
+    key: 'special',
+    label: '当前房间特殊选项',
+    marker: 'E',
+    disabled: !currentRoomSpecialOptionConfig.value,
+  },
+  {
+    key: 'leave',
+    label: '传送门选项',
+    marker: '[Leave]',
+    disabled: false,
+  },
+  {
+    key: 'rebirth',
+    label: '重生选项',
+    marker: '[Rebirth]',
+    disabled: false,
+  },
+]);
 
 const isTreasureRoomContext = computed(() => {
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
@@ -5848,7 +5993,7 @@ const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativ
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
   const stomachMarkCount = getOwnedRelicCountById('bloodpool_stomach_mark');
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
-  const stomachBonus = Math.max(0, 2 * stomachMarkCount);
+  const stomachBonus = Math.max(0, stomachMarkCount);
   const passiveMaxHpBonus = bloodpoolPassiveMaxHpBonus.value;
   const normalizedNegativeEffects = negativeEffects
     .filter((item): item is string => typeof item === 'string')
@@ -6289,6 +6434,7 @@ onUnmounted(() => {
   clearChestRewardConfirmTimer();
   clearHotSpringCleanseTimer();
   clearIdolRollTimer();
+  closeOptionCompletionMenu();
   closeSettingsHelp();
 });
 
@@ -7014,6 +7160,14 @@ watch(
   { deep: true },
 );
 
+const handleButtonCompletionOutsidePointerDown = (event: PointerEvent) => {
+  if (!optionCompletionMenuOpen.value) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (buttonCompletionMenuRef.value?.contains(target)) return;
+  closeOptionCompletionMenu();
+};
+
 onMounted(() => {
   restoreOverlaySnapshot();
   void initPlayerPortraitPreviewUrl();
@@ -7031,6 +7185,7 @@ onMounted(() => {
     window.addEventListener('orientationchange', handleViewportResize, { passive: true });
     window.visualViewport?.addEventListener('resize', handleViewportResize, { passive: true });
     document.addEventListener('fullscreenchange', handleViewportResize);
+    document.addEventListener('pointerdown', handleButtonCompletionOutsidePointerDown);
     inputWaitingDotsTimer = window.setInterval(() => {
       if (!gameStore.isGenerating) return;
       inputWaitingDotsStep.value = (inputWaitingDotsStep.value % 3) + 1;
@@ -7041,6 +7196,9 @@ onMounted(() => {
 watch(
   () => gameStore.isGenerating,
   (isGenerating, wasGenerating) => {
+    if (isGenerating) {
+      closeOptionCompletionMenu();
+    }
     if (!isGenerating) {
       inputWaitingDotsStep.value = 1;
       if (wasGenerating && isAutoScrollTopOnReplyEnabled.value) {
@@ -7855,6 +8013,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('orientationchange', handleViewportResize);
     window.visualViewport?.removeEventListener('resize', handleViewportResize);
     document.removeEventListener('fullscreenchange', handleViewportResize);
+    document.removeEventListener('pointerdown', handleButtonCompletionOutsidePointerDown);
     if (inputWaitingDotsTimer !== null) {
       window.clearInterval(inputWaitingDotsTimer);
       inputWaitingDotsTimer = null;
@@ -7948,6 +8107,143 @@ onBeforeUnmount(() => {
   color: rgba(213, 197, 170, 0.74);
 }
 
+.ui-option-completion-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ui-option-completion-trigger {
+  min-width: 8.75rem;
+  border-radius: 0.72rem;
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  background:
+    linear-gradient(180deg, rgba(62, 38, 15, 0.92), rgba(27, 16, 9, 0.96)),
+    radial-gradient(circle at 20% 18%, rgba(251, 191, 36, 0.12), transparent 48%);
+  color: rgba(246, 219, 144, 0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 6px 16px rgba(0, 0, 0, 0.34);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.ui-option-completion-trigger:hover:not(:disabled),
+.ui-option-completion-trigger:focus-visible {
+  border-color: rgba(251, 191, 36, 0.82);
+  color: rgba(254, 243, 199, 0.98);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 14px rgba(251, 191, 36, 0.24),
+    0 8px 18px rgba(0, 0, 0, 0.4);
+}
+
+.ui-option-completion-trigger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.ui-option-completion-trigger__label {
+  font-size: 0.96rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.ui-option-completion-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.55rem);
+  z-index: 10;
+  display: flex;
+  min-width: 14.5rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(212, 175, 55, 0.34);
+  background:
+    linear-gradient(180deg, rgba(22, 14, 8, 0.98), rgba(14, 10, 8, 0.98)),
+    radial-gradient(circle at 18% 14%, rgba(251, 191, 36, 0.1), transparent 46%);
+  padding: 0.45rem;
+  box-shadow:
+    0 16px 30px rgba(0, 0, 0, 0.44),
+    0 0 22px rgba(251, 191, 36, 0.1);
+  backdrop-filter: blur(16px);
+}
+
+.ui-option-completion-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  background: rgba(44, 26, 12, 0.72);
+  color: rgba(236, 225, 200, 0.92);
+  padding: 0.85rem 0.95rem;
+  text-align: left;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.ui-option-completion-item:hover:not(:disabled),
+.ui-option-completion-item:focus-visible {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(74, 43, 17, 0.88);
+  color: rgba(255, 247, 224, 0.98);
+  transform: translateX(-1px);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.12);
+}
+
+.ui-option-completion-item.is-disabled,
+.ui-option-completion-item:disabled {
+  cursor: not-allowed;
+  background: rgba(33, 22, 15, 0.58);
+  color: rgba(189, 171, 135, 0.48);
+  box-shadow: none;
+}
+
+.ui-option-completion-item__label {
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.ui-option-completion-item__tag {
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.26);
+  background: rgba(251, 191, 36, 0.08);
+  color: rgba(251, 220, 144, 0.96);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.option-completion-menu-enter-active,
+.option-completion-menu-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.option-completion-menu-enter-from,
+.option-completion-menu-leave-to {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+}
+
 .ui-send-button {
   transform: none;
   border-radius: 0.72rem;
@@ -7985,6 +8281,23 @@ onBeforeUnmount(() => {
 .ui-status-hud {
   transform: scale(1.2);
   transform-origin: bottom left;
+}
+
+@media (max-width: 900px) {
+  .ui-option-completion-trigger {
+    min-width: 6rem;
+    padding-left: 0.95rem;
+    padding-right: 0.95rem;
+  }
+
+  .ui-option-completion-trigger__label {
+    font-size: 0.82rem;
+    letter-spacing: 0.03em;
+  }
+
+  .ui-option-completion-menu {
+    min-width: 12.5rem;
+  }
 }
 
 .story-floor-indicator {

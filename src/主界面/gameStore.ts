@@ -43,6 +43,7 @@ export const useGameStore = defineStore('game', () => {
   const FORBID_MATCHING_XML_INSIDE_THINK_KEY = 'dungeon.forbid_matching_xml_inside_think';
   const AUTO_SUMMARY_ENABLED_KEY = 'dungeon.auto_summary_enabled';
   const SUMMARY_VISIBLE_WINDOW_KEY = 'dungeon.summary_visible_window';
+  const BUTTON_COMPLETION_ENABLED_KEY = 'dungeon.button_completion_enabled';
   const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
   const MIN_SUMMARY_VISIBLE_WINDOW = 1;
   const MAX_SUMMARY_VISIBLE_WINDOW = 60;
@@ -125,6 +126,24 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function readButtonCompletionEnabledSetting(): boolean {
+    try {
+      const raw = localStorage.getItem(BUTTON_COMPLETION_ENABLED_KEY);
+      if (raw === null) return false;
+      return raw === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  function persistButtonCompletionEnabledSetting(enabled: boolean) {
+    try {
+      localStorage.setItem(BUTTON_COMPLETION_ENABLED_KEY, String(enabled));
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
   // State
   const mainText = ref('');
   const options = ref<string[]>([]);
@@ -135,14 +154,22 @@ export const useGameStore = defineStore('game', () => {
   const forbidMatchingXmlInsideThink = ref(readForbidMatchingXmlInsideThinkSetting());
   const autoSummaryEnabled = ref(readAutoSummaryEnabledSetting());
   const summaryVisibleWindow = ref(readSummaryVisibleWindowSetting());
+  const buttonCompletionEnabled = ref(readButtonCompletionEnabledSetting());
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
 
   // ── 特殊选项标记 ──
-  const hasOptionE = ref(false);
-  const hasLeave = ref(false);
-  const hasRebirth = ref(false);
+  const parsedHasOptionE = ref(false);
+  const parsedHasLeave = ref(false);
+  const parsedHasRebirth = ref(false);
+  const manualHasOptionE = ref(false);
+  const manualHasLeave = ref(false);
+  const manualHasRebirth = ref(false);
+  const hasOptionE = computed(() => parsedHasOptionE.value || manualHasOptionE.value);
+  const hasLeave = computed(() => parsedHasLeave.value || manualHasLeave.value);
+  const hasRebirth = computed(() => parsedHasRebirth.value || manualHasRebirth.value);
   const variableUpdateText = ref('');
+  const lastResolvedAssistantMessageId = ref(-1);
 
   // ── 编辑模式 ──
   const isEditing = ref(false);
@@ -186,6 +213,54 @@ export const useGameStore = defineStore('game', () => {
     if (typeof result === 'string') return result;
     return typeof result.content === 'string' ? result.content : '';
   };
+
+  type ButtonCompletionTarget = 'special' | 'leave' | 'rebirth';
+
+  function clearManualButtonCompletion() {
+    manualHasOptionE.value = false;
+    manualHasLeave.value = false;
+    manualHasRebirth.value = false;
+  }
+
+  function setParsedOptionFlags(flags: Pick<ParsedResponse, 'hasOptionE' | 'hasLeave' | 'hasRebirth'>) {
+    parsedHasOptionE.value = Boolean(flags.hasOptionE);
+    parsedHasLeave.value = Boolean(flags.hasLeave);
+    parsedHasRebirth.value = Boolean(flags.hasRebirth);
+  }
+
+  function syncParsedOptionFlagsForAssistantMessage(
+    assistantMessageId: number,
+    flags: Pick<ParsedResponse, 'hasOptionE' | 'hasLeave' | 'hasRebirth'>,
+  ) {
+    if (assistantMessageId !== lastResolvedAssistantMessageId.value) {
+      clearManualButtonCompletion();
+      lastResolvedAssistantMessageId.value = assistantMessageId;
+    }
+    setParsedOptionFlags(flags);
+  }
+
+  function setManualButtonCompletion(target: ButtonCompletionTarget, enabled: boolean) {
+    switch (target) {
+      case 'special':
+        manualHasOptionE.value = enabled;
+        break;
+      case 'leave':
+        manualHasLeave.value = enabled;
+        break;
+      case 'rebirth':
+        manualHasRebirth.value = enabled;
+        break;
+    }
+  }
+
+  function showManualButtonCompletion(target: ButtonCompletionTarget) {
+    if (!buttonCompletionEnabled.value) return;
+    setManualButtonCompletion(target, true);
+  }
+
+  function hideManualButtonCompletion(target: ButtonCompletionTarget) {
+    setManualButtonCompletion(target, false);
+  }
 
   function setPendingPortalChanges(changes: PendingPortalChanges) {
     pendingPortalChanges.value = changes;
@@ -793,6 +868,15 @@ export const useGameStore = defineStore('game', () => {
     await ensureLatestMessageWindow(nextVisibleWindow);
   }
 
+  function setButtonCompletionEnabled(enabled: boolean) {
+    const nextEnabled = Boolean(enabled);
+    buttonCompletionEnabled.value = nextEnabled;
+    persistButtonCompletionEnabledSetting(nextEnabled);
+    if (!nextEnabled) {
+      clearManualButtonCompletion();
+    }
+  }
+
   function syncFloorNumberByArea(mvuData: any) {
     if (!mvuData || typeof mvuData !== 'object') return mvuData;
     const stat = _.get(mvuData, 'stat_data');
@@ -958,9 +1042,11 @@ export const useGameStore = defineStore('game', () => {
       mainText.value = extractMainText(text, parserOptions);
       options.value = extractOptions(text, parserOptions);
       currentSummary.value = extractSummary(text, parserOptions);
-      hasOptionE.value = detectOptionE(text, parserOptions);
-      hasLeave.value = detectLeave(text, parserOptions);
-      hasRebirth.value = detectRebirth(text, parserOptions);
+      syncParsedOptionFlagsForAssistantMessage(lastMsg.message_id, {
+        hasOptionE: detectOptionE(text, parserOptions),
+        hasLeave: detectLeave(text, parserOptions),
+        hasRebirth: detectRebirth(text, parserOptions),
+      });
       variableUpdateText.value = extractVariableUpdate(text, parserOptions);
     }
   }
@@ -1117,6 +1203,7 @@ export const useGameStore = defineStore('game', () => {
       // 9. 创建 assistant 楼层，携带解析后的 MVU 数据
       console.info('[GameStore] Creating assistant message with MVU data');
       await createChatMessages([{ role: 'assistant', message: resultText, data: newMvuData }], { refresh: 'none' });
+      lastResolvedAssistantMessageId.value = getLastMessageId();
 
       // 10. 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
@@ -1140,9 +1227,8 @@ export const useGameStore = defineStore('game', () => {
     mainText.value = parsed.mainText;
     options.value = parsed.options;
     currentSummary.value = parsed.summary;
-    hasOptionE.value = parsed.hasOptionE;
-    hasLeave.value = parsed.hasLeave;
-    hasRebirth.value = parsed.hasRebirth;
+    clearManualButtonCompletion();
+    setParsedOptionFlags(parsed);
     variableUpdateText.value = parsed.variableUpdate;
   }
 
@@ -1310,6 +1396,7 @@ export const useGameStore = defineStore('game', () => {
 
       // 创建新的 assistant 楼层，携带 MVU 数据
       await createChatMessages([{ role: 'assistant', message: resultText, data: newMvuData }], { refresh: 'none' });
+      lastResolvedAssistantMessageId.value = getLastMessageId();
 
       // 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
@@ -1381,6 +1468,7 @@ export const useGameStore = defineStore('game', () => {
 
       // 保存编辑后的完整文本到楼层
       await setChatMessages([{ message_id: lastId, message: editingText.value }], { refresh: 'none' });
+      lastResolvedAssistantMessageId.value = lastId;
 
       // 将 MVU 数据写回当前楼层
       if (newMvuData) {
@@ -1453,6 +1541,7 @@ export const useGameStore = defineStore('game', () => {
     forbidMatchingXmlInsideThink,
     autoSummaryEnabled,
     summaryVisibleWindow,
+    buttonCompletionEnabled,
     streamingText,
     error,
     isInitialized,
@@ -1477,6 +1566,9 @@ export const useGameStore = defineStore('game', () => {
     setForbidMatchingXmlInsideThink,
     setAutoSummaryEnabled,
     setSummaryVisibleWindow,
+    setButtonCompletionEnabled,
+    showManualButtonCompletion,
+    hideManualButtonCompletion,
     setPendingPortalChanges,
     setPendingCombatMvuChanges,
     setPendingStatDataChanges,

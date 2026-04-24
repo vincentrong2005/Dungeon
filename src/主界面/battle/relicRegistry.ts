@@ -129,6 +129,7 @@ export interface RelicData {
   category: RelicCategory;
   effect: string;
   description: string;
+  uniqueAcquisition?: boolean;
   hooks?: RelicHooks;
 }
 
@@ -348,6 +349,7 @@ const RELIC_LIST: readonly RelicData[] = [
     category: '基础',
     effect: '普通敌人额外掉落1张卡牌奖励',
     description: '战胜普通敌人时，奖励卡牌选项额外+1。',
+    uniqueAcquisition: true,
   },
   {
     id: 'base_silver_card',
@@ -356,6 +358,7 @@ const RELIC_LIST: readonly RelicData[] = [
     category: '基础',
     effect: '普通敌人卡牌奖励可刷新1次',
     description: '战胜普通敌人后，在选卡界面可使用一次“刷新奖励”。',
+    uniqueAcquisition: true,
   },
   {
     id: 'base_golden_card',
@@ -803,8 +806,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '胃印记',
     rarity: '稀有',
     category: '血池',
-    effect: '战斗结束后最大生命值+2',
-    description: '每次战斗结束后，最大生命值永久+2。',
+    effect: '战斗结束后最大生命值+1',
+    description: '每次战斗结束后，最大生命值永久+1。',
   },
   {
     id: 'bloodpool_strawberry',
