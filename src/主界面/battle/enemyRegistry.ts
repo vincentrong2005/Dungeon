@@ -1704,8 +1704,8 @@ const 温蒂尼: EnemyDefinition = {
   name: '温蒂尼',
   defeatNegativeStatus: '[被侵蚀]',
   stats: {
-    hp: 40,
-    maxHp: 40,
+    hp: 35,
+    maxHp: 35,
     mp: 0,
     minDice: 3,
     maxDice: 8,
@@ -1976,8 +1976,8 @@ const 伊丽莎白: EnemyDefinition = {
     hp: 250,
     maxHp: 250,
     mp: 0,
-    minDice: 6,
-    maxDice: 10,
+    minDice: 5,
+    maxDice: 9,
     effects: [
       { type: EffectType.BLOODLINE, stacks: 1, polarity: 'buff' },
       { type: EffectType.CONTRACT_CURSE, stacks: 1, polarity: 'buff' },

@@ -3290,7 +3290,7 @@ const 沸血律动: CardData = {
   description: '点数+2，造成1倍点数的真实伤害并施加0.5倍点数的流血',
 };
 
-/** 血液停滞：消耗2MP，施加1倍点数流血，并触发一次目标流血（触发逻辑在 CombatView） */
+/** 血液停滞：消耗2MP，施加0.6倍点数流血，并触发一次目标流血（触发逻辑在 CombatView） */
 const 血液停滞: CardData = {
   id: 'enemy_elizabeth_blood_stasis',
   name: '血液停滞',
@@ -3303,7 +3303,7 @@ const 血液停滞: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.6 },
   ],
   description: '施加1倍点数的流血，并触发一次目标流血',
 };
