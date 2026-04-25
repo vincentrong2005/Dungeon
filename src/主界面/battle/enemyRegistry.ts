@@ -1976,7 +1976,7 @@ const 伊丽莎白: EnemyDefinition = {
     hp: 250,
     maxHp: 250,
     mp: 0,
-    minDice: 5,
+    minDice: 3,
     maxDice: 9,
     effects: [
       { type: EffectType.BLOODLINE, stacks: 1, polarity: 'buff' },

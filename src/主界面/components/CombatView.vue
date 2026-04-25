@@ -1758,12 +1758,13 @@ const triggerBloodpoolHeartMarkByDamage = (
   side: BattleSide,
   actualDamage: number,
   reason: string,
-  options?: { skipHeartMark?: boolean },
+  options?: { skipHeartMark?: boolean; wasLethal?: boolean },
 ) => {
   if (side !== 'player') return;
   const damage = Math.max(0, Math.floor(actualDamage));
   if (damage <= 0) return;
   if (options?.skipHeartMark) return;
+  if (options?.wasLethal) return;
   if (shouldSkipHeartMarkTrigger(reason)) return;
 
   const heartMarkCount = getActiveRelicCount('bloodpool_heart_mark');
@@ -1877,12 +1878,17 @@ const applyDamageToSideWithRelics = (
     }
     return { actualDamage: 0, logs: [] };
   }
+  const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
   const result = applyDamageToEntity(target, adjusted, isTrueDamage, {
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!options?.card?.swarmAttack,
   });
   addDamageHitTakenThisCombat(side, result.actualDamage);
-  triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, options);
+  const wasLethalDamage = hpBeforeDamage > 0 && result.actualDamage >= hpBeforeDamage;
+  triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, {
+    ...options,
+    wasLethal: wasLethalDamage,
+  });
   if (options?.isDirectDamage) {
     triggerBloodlineLifesteal(options.sourceSide, result.actualDamage, reason);
   }
@@ -1936,7 +1942,11 @@ const applyDirectHpLossWithRelics = (
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
   addDamageHitTakenThisCombat(side, actualDamage);
-  triggerBloodpoolHeartMarkByDamage(side, actualDamage, reason, options);
+  const wasLethalDamage = before > 0 && actualDamage >= before;
+  triggerBloodpoolHeartMarkByDamage(side, actualDamage, reason, {
+    ...options,
+    wasLethal: wasLethalDamage,
+  });
   if (options?.isDirectDamage) {
     triggerBloodlineLifesteal(options.sourceSide, actualDamage, reason);
   }

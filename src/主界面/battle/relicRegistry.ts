@@ -950,9 +950,7 @@ const RELIC_LIST: readonly RelicData[] = [
 
 const RELIC_BY_ID = new Map(RELIC_LIST.map(relic => [relic.id, relic]));
 const RELIC_BY_NAME = new Map(RELIC_LIST.map(relic => [relic.name, relic]));
-const RELIC_NAME_ALIASES = new Map<string, string>([
-  ['火焰史莱姆', '火焰护符'],
-]);
+const RELIC_NAME_ALIASES = new Map<string, string>([['火焰史莱姆', '火焰护符']]);
 
 export function getAllRelics(): readonly RelicData[] {
   return RELIC_LIST;
