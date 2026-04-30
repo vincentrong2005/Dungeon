@@ -880,11 +880,36 @@
           @close="activeModal = null"
         >
           <div class="map-modal">
+            <section class="map-hero">
+              <div class="map-hero__copy">
+                <div class="map-hero__eyebrow">Cartography Archive</div>
+                <div class="map-hero__title">地牢地图</div>
+                <div class="map-hero__desc">
+                  记录本层推进顺序。拖拽平移、滚轮缩放，最新抵达的房间会以高亮标记。
+                </div>
+              </div>
+              <div class="map-hero__chips">
+                <div class="map-hero__chip">
+                  <span class="map-hero__chip-label">已走房间</span>
+                  <span class="map-hero__chip-value">{{ currentFloorPath.length }}</span>
+                </div>
+                <div class="map-hero__chip">
+                  <span class="map-hero__chip-label">当前房型</span>
+                  <span class="map-hero__chip-value">{{ mapCurrentRoomLabel }}</span>
+                </div>
+                <div class="map-hero__chip">
+                  <span class="map-hero__chip-label">缩放比例</span>
+                  <span class="map-hero__chip-value">{{ mapZoomPercent }}</span>
+                </div>
+              </div>
+            </section>
             <div class="map-toolbar">
               <div class="map-summary">
-                本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房
+                <span>本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房</span>
                 <span class="map-summary-divider">|</span>
-                统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房
+                <span>统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房</span>
+                <span class="map-summary-divider">|</span>
+                <span>操作提示：拖拽查看细节</span>
               </div>
               <div class="map-controls">
                 <button type="button" class="map-control-btn" @click="handleMapZoomOut">-</button>
@@ -928,9 +953,12 @@
                   v-for="node in mapPathNodes"
                   :key="`path-node-${node.index}`"
                   class="map-room-cell"
+                  :class="{ 'map-room-cell--latest': node.isLatest }"
                   :style="node.style"
                 >
+                  <span v-if="node.isLatest" class="map-room-pulse"></span>
                   <span class="map-room-icon">{{ node.icon }}</span>
+                  <span class="map-room-label">{{ node.label }}</span>
                   <span class="map-room-step">{{ node.index + 1 }}</span>
                 </div>
               </div>
@@ -1029,27 +1057,51 @@
           panel-class="max-w-[92rem] max-h-[94%]"
           @close="activeModal = null"
         >
-          <div class="w-full max-w-[90rem] mx-auto flex flex-col gap-4">
-            <div class="flex items-center gap-2">
+          <div class="magic-books-layout">
+            <section class="magic-books-hero">
+              <div class="magic-books-hero__copy">
+                <div class="magic-books-hero__eyebrow">Arcane Library</div>
+                <div class="magic-books-hero__title">魔法书藏馆</div>
+                <div class="magic-books-hero__desc">
+                  这里管理附加魔法书与开局主动技能。附加书影响卡池结构，主动槽决定你每场战斗的起手工具。
+                </div>
+              </div>
+              <div class="magic-books-hero__chips">
+                <div class="magic-books-hero__chip">
+                  <span class="magic-books-hero__chip-label">已携带魔法书</span>
+                  <span class="magic-books-hero__chip-value">{{ magicBookCarryCount }}</span>
+                </div>
+                <div class="magic-books-hero__chip">
+                  <span class="magic-books-hero__chip-label">可选书库</span>
+                  <span class="magic-books-hero__chip-value">{{ carryableMagicBookNames.length }}</span>
+                </div>
+                <div class="magic-books-hero__chip">
+                  <span class="magic-books-hero__chip-label">已装主动槽</span>
+                  <span class="magic-books-hero__chip-value">{{ startingActiveEquippedCount }}/2</span>
+                </div>
+              </div>
+            </section>
+
+            <div class="magic-books-tabs">
               <button
                 type="button"
-                class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
+                class="magic-books-tab"
                 :class="
                   magicBooksNavTab === 'books'
-                    ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
-                    : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'
+                    ? 'is-active'
+                    : ''
                 "
                 @click="magicBooksNavTab = 'books'"
               >
-                魔法书
+                附加魔法书
               </button>
               <button
                 type="button"
-                class="px-4 py-1.5 rounded border text-xs font-ui transition-colors"
+                class="magic-books-tab"
                 :class="
                   magicBooksNavTab === 'active'
-                    ? 'border-dungeon-gold/70 text-dungeon-gold bg-dungeon-gold/10'
-                    : 'border-dungeon-brown/60 text-dungeon-paper/70 hover:border-dungeon-gold/50'
+                    ? 'is-active'
+                    : ''
                 "
                 @click="magicBooksNavTab = 'active'"
               >
@@ -1060,117 +1112,111 @@
             <template v-if="magicBooksNavTab === 'books'">
               <div
                 v-if="carryableMagicBookNames.length > 0"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1"
+                class="magic-books-grid custom-scrollbar"
               >
                 <button
                   v-for="bookName in carryableMagicBookNames"
                   :key="`magic-book-${bookName}`"
                   type="button"
-                  class="relative rounded-lg border p-3 text-left transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed bg-[#130c08]/80"
-                  :class="
-                    carriedMagicBookSet.has(bookName)
-                      ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.45)] ring-1 ring-dungeon-gold/70'
-                      : 'border-dungeon-brown/70 hover:border-dungeon-gold/45'
-                  "
+                  class="magic-book-card"
+                  :class="{ 'is-equipped': carriedMagicBookSet.has(bookName) }"
                   :disabled="isUpdatingMagicBooks"
                   @click="toggleMagicBook(bookName)"
                 >
                   <div
-                    class="relative w-full overflow-hidden rounded-md border"
+                    class="magic-book-card__cover"
                     :class="carriedMagicBookSet.has(bookName) ? 'border-dungeon-gold/60' : 'border-dungeon-brown/60'"
                   >
                     <img
                       :src="getMagicBookCoverUrl(bookName)"
                       :alt="`${bookName} 魔法书封面`"
-                      class="w-full [aspect-ratio:832/1216] object-cover transition-all duration-300"
+                      class="magic-book-card__image"
                       :class="
                         carriedMagicBookSet.has(bookName) ? 'brightness-100 saturate-110' : 'brightness-50 saturate-60'
                       "
                       loading="lazy"
                     />
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/38"></div>
-                    <div class="absolute inset-x-2 top-2 z-10">
+                    <div class="magic-book-card__shade"></div>
+                    <div class="magic-book-card__header">
+                      <span class="magic-book-card__badge">
+                        {{ carriedMagicBookSet.has(bookName) ? '已携带' : '待装配' }}
+                      </span>
+                    </div>
+                    <div class="magic-book-card__title-wrap">
                       <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
                     </div>
+                  </div>
+                  <div class="magic-book-card__footer">
+                    <span class="magic-book-card__footer-title">{{ bookName }}</span>
+                    <span class="magic-book-card__footer-action">
+                      {{ carriedMagicBookSet.has(bookName) ? '点击卸下' : '点击携带' }}
+                    </span>
                   </div>
                 </button>
               </div>
               <div
                 v-else
-                class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 py-8 text-center text-sm text-dungeon-paper/50"
+                class="magic-books-empty"
               >
                 当前没有可选的附加魔法书。
               </div>
             </template>
 
             <template v-else>
-              <div class="rounded border border-dungeon-brown/60 bg-[#140d08]/70 p-3">
-                <div class="flex items-center justify-end gap-2">
-                  <div class="text-xs text-dungeon-gold/80">当前编辑槽位：{{ selectedStartingActiveSlot + 1 }}</div>
+              <div class="magic-books-active-panel">
+                <div class="magic-books-active-panel__head">
+                  <div>
+                    <div class="magic-books-active-panel__title">起始主动槽</div>
+                    <div class="magic-books-active-panel__desc">
+                      先选中要编辑的槽位，再从下方技能库中指定一张开局主动技能。
+                    </div>
+                  </div>
+                  <div class="magic-books-active-panel__badge">当前编辑槽位：{{ selectedStartingActiveSlot + 1 }}</div>
                 </div>
-                <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center">
+                <div class="magic-books-slot-grid">
                   <button
                     v-for="entry in startingActiveSkillEntries"
                     :key="`starting-active-slot-${entry.idx}`"
                     type="button"
-                    class="relative w-[180px] h-[250px] rounded-xl border-2 overflow-hidden shadow-lg text-left transition-all"
+                    class="magic-books-slot-card"
                     :class="
                       selectedStartingActiveSlot === entry.idx
-                        ? 'border-dungeon-gold/75 shadow-[0_0_20px_rgba(212,175,55,0.35)]'
-                        : 'border-dungeon-brown/60 hover:border-dungeon-gold/45'
+                        ? 'is-selected'
+                        : ''
                     "
                     :disabled="isUpdatingStartingActiveSkills"
                     @click="selectedStartingActiveSlot = entry.idx"
                   >
                     <div
-                      class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.16),rgba(18,14,24,0.96)_64%)]"
-                    ></div>
-                    <div
                       v-if="entry.skill"
-                      class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10"
+                      class="magic-books-slot-card__top"
                     >
-                      <div
-                        class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
-                      >
+                      <div class="magic-books-slot-card__mana">
                         {{ entry.skill.manaCost }}
                       </div>
-                      <div
-                        class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none"
-                      >
-                        主动
-                      </div>
+                      <div class="magic-books-slot-card__tag">主动</div>
                     </div>
-                    <div
-                      class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
-                    >
-                      <div
-                        class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"
-                      ></div>
-                      <span class="relative font-heading text-4xl text-white/20 select-none">{{
-                        entry.skill?.name?.[0] ?? '槽'
-                      }}</span>
+                    <div class="magic-books-slot-card__art">
+                      <div class="magic-books-slot-card__art-glow"></div>
+                      <span class="magic-books-slot-card__art-letter">{{ entry.skill?.name?.[0] ?? '槽' }}</span>
                     </div>
-                    <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
-                      <div
-                        class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md"
-                      >
+                    <div class="magic-books-slot-card__body">
+                      <div class="magic-books-slot-card__name">
                         {{ entry.skill?.name ?? `主动槽位 ${entry.idx + 1}` }}
                       </div>
-                      <div
-                        class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
-                      >
+                      <div class="magic-books-slot-card__desc">
                         {{ entry.skill?.description ?? '空主动槽位，点击下方技能卡可装备到此槽位。' }}
                       </div>
-                      <div class="mt-1 text-center text-white/55 font-bold text-[10px] font-ui tracking-wider">
+                      <div class="magic-books-slot-card__state">
                         {{ selectedStartingActiveSlot === entry.idx ? '当前编辑中' : `槽位 ${entry.idx + 1}` }}
                       </div>
                     </div>
                   </button>
                 </div>
-                <div class="mt-2 flex justify-end">
+                <div class="magic-books-active-panel__actions">
                   <button
                     type="button"
-                    class="px-3 py-1 rounded border border-dungeon-brown/60 text-xs text-dungeon-paper/70 hover:border-dungeon-gold/45 disabled:opacity-50"
+                    class="magic-books-clear-btn"
                     :disabled="isUpdatingStartingActiveSkills"
                     @click="clearStartingActiveSkill(selectedStartingActiveSlot)"
                   >
@@ -1179,62 +1225,39 @@
                 </div>
               </div>
 
-              <div
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 justify-items-center"
-              >
+              <div class="magic-books-skill-grid custom-scrollbar">
                 <button
                   v-for="skill in startingActiveSkillOptions"
                   :key="`starting-active-skill-${skill.id}`"
                   type="button"
-                  class="relative w-[180px] h-[250px] rounded-xl border-2 shadow-xl overflow-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="magic-books-skill-card"
                   :class="[
                     skill.rarity === '稀有' ? 'rare-active-skill-card' : '',
-                    isSkillEquippedInStartingActive(skill.name)
-                      ? 'border-dungeon-gold/80 shadow-[0_0_20px_rgba(212,175,55,0.38)]'
-                      : 'border-dungeon-brown/60 hover:border-dungeon-gold/50',
+                    { 'is-equipped': isSkillEquippedInStartingActive(skill.name) },
                   ]"
                   :disabled="isUpdatingStartingActiveSkills"
                   @click="setStartingActiveSkill(skill)"
                 >
-                  <div
-                    class="absolute inset-0 bg-[radial-gradient(circle_at_30%_15%,rgba(250,248,255,0.18),rgba(18,14,24,0.96)_64%)]"
-                  ></div>
-                  <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
-                    <div
-                      class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-300/40 shadow-md"
-                    >
+                  <div class="magic-books-skill-card__top">
+                    <div class="magic-books-skill-card__mana">
                       {{ skill.manaCost }}
                     </div>
-                    <div
-                      class="bg-black/60 p-1 rounded-full border border-white/10 text-[10px] text-zinc-100 leading-none"
-                    >
-                      主动
-                    </div>
+                    <div class="magic-books-skill-card__tag">主动</div>
                   </div>
-                  <div
-                    class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
-                  >
-                    <div
-                      class="absolute inset-0 bg-[linear-gradient(135deg,rgba(245,245,245,0.36),rgba(145,145,168,0.09)_58%,rgba(11,9,16,0.84))]"
-                    ></div>
-                    <span class="relative font-heading text-4xl text-white/20 select-none">{{ skill.name[0] }}</span>
+                  <div class="magic-books-skill-card__art">
+                    <div class="magic-books-skill-card__art-glow"></div>
+                    <span class="magic-books-skill-card__art-letter">{{ skill.name[0] }}</span>
                   </div>
-                  <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
-                    <div
-                      class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md"
-                    >
+                  <div class="magic-books-skill-card__body">
+                    <div class="magic-books-skill-card__name">
                       {{ skill.name }}
                     </div>
-                    <div
-                      class="bg-[#0d0d10]/85 border border-white/10 p-2 rounded-lg text-[10px] text-gray-300 font-ui leading-tight min-h-[50px] flex items-center justify-center text-center"
-                    >
+                    <div class="magic-books-skill-card__desc">
                       {{ skill.description }}
                     </div>
-                    <div class="mt-1 flex items-center justify-between text-[10px] text-white/60 font-ui">
+                    <div class="magic-books-skill-card__meta">
                       <span>CD {{ skill.Cooldown }}</span>
-                      <span
-                        :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'"
-                      >
+                      <span :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'">
                         {{ isSkillEquippedInStartingActive(skill.name) ? '已装备' : '点击装备' }}
                       </span>
                     </div>
@@ -1251,51 +1274,163 @@
           panel-class="max-w-3xl"
           @close="activeModal = null"
         >
-          <div class="w-full max-w-3xl mx-auto flex flex-col gap-5">
-            <div
-              class="rounded border border-dungeon-gold/30 bg-[#140d08]/70 px-4 py-3 flex items-center justify-between"
-            >
-              <span class="font-ui text-dungeon-paper/75 text-sm">可用技能点</span>
-              <span class="font-heading text-dungeon-gold text-xl">{{ magicHatSkillPoints }}</span>
-            </div>
-
-            <div
-              v-for="track in magicHatTracks"
-              :key="`magic-hat-${track.id}`"
-              class="rounded border border-dungeon-brown/60 bg-[#160d08]/65 p-4"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <div class="font-heading text-dungeon-gold text-base">{{ track.label }}</div>
-                  <div class="font-ui text-xs text-dungeon-paper/65 mt-1">
-                    当前 {{ track.currentValue }} · 等级 {{ track.currentLevel }}/{{ track.maxLevel }}
+          <div class="magic-hat-layout">
+            <section class="magic-hat-hero">
+              <div class="magic-hat-hero__mesh"></div>
+              <div class="magic-hat-hero__content">
+                <div class="magic-hat-hero__copy">
+                  <div class="magic-hat-hero__eyebrow">Arcane Atelier</div>
+                  <div class="magic-hat-hero__title">魔法帽工坊</div>
+                  <div class="magic-hat-hero__desc">
+                    在这里校准开局资源与试炼强度。困难及以上难度会让领主随回合逐渐变强。
                   </div>
                 </div>
-                <button
-                  type="button"
-                  class="px-3 py-1.5 rounded border text-xs font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  :class="
-                    track.isMax
-                      ? 'border-dungeon-brown/60 text-dungeon-paper/45'
-                      : 'border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10'
-                  "
-                  :disabled="isUpgradingMagicHat || track.isMax"
-                  @click="upgradeMagicHatStat(track.id)"
+                <div class="magic-hat-hero__chips">
+                  <div class="magic-hat-hero__chip">
+                    <span class="magic-hat-hero__chip-label">当前难度</span>
+                    <span class="magic-hat-hero__chip-value">{{ magicHatDifficulty }}</span>
+                  </div>
+                  <div class="magic-hat-hero__chip">
+                    <span class="magic-hat-hero__chip-label">楼层参照</span>
+                    <span class="magic-hat-hero__chip-value">{{ magicHatDifficultyFloor }} 层</span>
+                  </div>
+                  <div class="magic-hat-hero__chip">
+                    <span class="magic-hat-hero__chip-label">可用技能点</span>
+                    <span class="magic-hat-hero__chip-value">{{ magicHatSkillPoints }}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="magic-hat-section">
+              <div class="magic-hat-section__head">
+                <div>
+                  <div class="magic-hat-section__title">难度调节</div>
+                  <div class="magic-hat-section__subtitle">
+                    仅影响局内战斗，不会改动你已经购买或升级过的成长项。
+                  </div>
+                </div>
+                <span class="magic-hat-section__badge">自定义暂未开放</span>
+              </div>
+
+              <div class="magic-hat-difficulty-layout">
+                <div class="magic-hat-difficulty-grid">
+                  <button
+                    v-for="option in magicHatDifficultyOptions"
+                    :key="`magic-hat-difficulty-${option.value}`"
+                    type="button"
+                    class="magic-hat-difficulty-card"
+                    :class="[
+                      getMagicHatDifficultyClass(option.value),
+                      {
+                        'is-active': magicHatDifficulty === option.value,
+                        'is-locked': option.locked,
+                        'is-wide': option.value === '自定义',
+                      },
+                    ]"
+                    :disabled="isUpdatingMagicHatDifficulty || option.locked"
+                    @click="setMagicHatDifficulty(option.value)"
+                  >
+                    <div class="magic-hat-difficulty-card__head">
+                      <span class="magic-hat-difficulty-card__name">{{ option.label }}</span>
+                      <span class="magic-hat-difficulty-card__state">
+                        {{ option.locked ? '锁定' : magicHatDifficulty === option.value ? '已启用' : '可切换' }}
+                      </span>
+                    </div>
+                    <div class="magic-hat-difficulty-card__desc">
+                      {{ getMagicHatDifficultyBlurb(option.value) }}
+                    </div>
+                    <div class="magic-hat-difficulty-card__footer">
+                      <span class="magic-hat-difficulty-card__footer-text">
+                        {{ option.locked ? '功能预留中' : '切换后下场战斗立即生效' }}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+
+                <div class="magic-hat-preview">
+                  <div class="magic-hat-preview__label">当前效果预览</div>
+                  <div class="magic-hat-preview__difficulty">{{ magicHatDifficulty }}</div>
+                  <div class="magic-hat-preview__list">
+                    <div
+                      v-for="line in magicHatDifficultyPreviewLines"
+                      :key="`magic-hat-difficulty-line-${line}`"
+                      class="magic-hat-preview__item"
+                    >
+                      {{ line }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="magic-hat-section">
+              <div class="magic-hat-section__head magic-hat-section__head--compact">
+                <div>
+                  <div class="magic-hat-section__title">起始增幅</div>
+                  <div class="magic-hat-section__subtitle">
+                    这部分决定你每次开局的底子，技能点会永久消耗。
+                  </div>
+                </div>
+                <div class="magic-hat-points-card">
+                  <span class="magic-hat-points-card__label">技能点存量</span>
+                  <span class="magic-hat-points-card__value">{{ magicHatSkillPoints }}</span>
+                </div>
+              </div>
+
+              <div class="magic-hat-track-grid">
+                <article
+                  v-for="track in magicHatTracks"
+                  :key="`magic-hat-${track.id}`"
+                  class="magic-hat-track-card"
+                  :class="getMagicHatTrackClass(track.id)"
                 >
-                  {{ track.isMax ? '已满级' : `升级（-${track.nextCost} 技能点）` }}
-                </button>
+                  <div class="magic-hat-track-card__top">
+                    <div>
+                      <div class="magic-hat-track-card__kicker">{{ getMagicHatTrackKicker(track.id) }}</div>
+                      <div class="magic-hat-track-card__title">{{ track.label }}</div>
+                    </div>
+                    <div class="magic-hat-track-card__rune">{{ getMagicHatTrackRune(track.id) }}</div>
+                  </div>
+
+                  <div class="magic-hat-track-card__stats">
+                    <div class="magic-hat-track-card__stat">
+                      <span class="magic-hat-track-card__stat-label">当前值</span>
+                      <span class="magic-hat-track-card__stat-value">{{ track.currentValue }}</span>
+                    </div>
+                    <div class="magic-hat-track-card__stat">
+                      <span class="magic-hat-track-card__stat-label">等级</span>
+                      <span class="magic-hat-track-card__stat-value">{{ track.currentLevel }}/{{ track.maxLevel }}</span>
+                    </div>
+                  </div>
+
+                  <div class="magic-hat-track-card__bar">
+                    <div
+                      class="magic-hat-track-card__bar-fill"
+                      :class="track.barClass"
+                      :style="{ width: `${track.progressPercent}%` }"
+                    ></div>
+                  </div>
+
+                  <div class="magic-hat-track-card__hint">
+                    {{ track.isMax ? '已达到可升级上限' : `下一级提升至 ${track.nextValue}` }}
+                  </div>
+
+                  <button
+                    type="button"
+                    class="magic-hat-track-card__action"
+                    :class="{ 'is-disabled': track.isMax }"
+                    :disabled="isUpgradingMagicHat || track.isMax"
+                    @click="upgradeMagicHatStat(track.id)"
+                  >
+                    <span class="magic-hat-track-card__action-label">{{ track.isMax ? '已满级' : '立即升级' }}</span>
+                    <span class="magic-hat-track-card__action-cost">
+                      {{ track.isMax ? '该项已封顶' : `消耗 ${track.nextCost} 技能点` }}
+                    </span>
+                  </button>
+                </article>
               </div>
-              <div class="mt-3 h-2 rounded bg-black/45 border border-dungeon-brown/45 overflow-hidden">
-                <div
-                  class="h-full transition-all duration-300"
-                  :class="track.barClass"
-                  :style="{ width: `${track.progressPercent}%` }"
-                ></div>
-              </div>
-              <div class="mt-2 font-ui text-[11px] text-dungeon-paper/60">
-                {{ track.isMax ? '已达到可升级上限' : `下一级提升至 ${track.nextValue}` }}
-              </div>
-            </div>
+            </section>
           </div>
         </DungeonModal>
 
@@ -2729,6 +2864,13 @@ import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
 import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
 import { recordEncounteredCards, recordEncounteredRelics } from '../codexStore';
+import {
+  DIFFICULTY_OPTIONS,
+  getDifficultyPreviewLines,
+  normalizeDifficulty,
+  shouldRestoreFullHpOnBattleStart,
+  type DifficultyOption,
+} from '../difficulty';
 import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
@@ -3653,6 +3795,7 @@ const carriedMagicBooks = computed<string[]>(() => {
   return rawCarriedMagicBooks.value.filter(name => available.has(name));
 });
 const carriedMagicBookSet = computed(() => new Set(carriedMagicBooks.value));
+const magicBookCarryCount = computed(() => carriedMagicBooks.value.length);
 const isSingleAcquisitionRelic = (relic: RelicData) => relic.rarity === '传奇' || relic.uniqueAcquisition === true;
 const ownedSingleAcquisitionRelicNameSet = computed<Set<string>>(() => {
   const rawInventory = inventoryRelicMap.value;
@@ -3661,7 +3804,10 @@ const ownedSingleAcquisitionRelicNameSet = computed<Set<string>>(() => {
     if (!isSingleAcquisitionRelic(relic)) continue;
     const countByName = Math.max(0, Math.floor(Number(rawInventory[relic.name] ?? 0)));
     const countById = Math.max(0, Math.floor(Number(rawInventory[relic.id] ?? 0)));
-    if (countByName > 0 || countById > 0) {
+    const countByLegacyName = (LEGACY_RELIC_NAMES_BY_ID[relic.id] ?? []).reduce((sum, name) => {
+      return sum + Math.max(0, Math.floor(Number(rawInventory[name] ?? 0)));
+    }, 0);
+    if (countByName > 0 || countById > 0 || countByLegacyName > 0) {
       owned.add(relic.name);
     }
   }
@@ -3705,6 +3851,7 @@ const magicBooksNavTab = ref<'books' | 'active'>('books');
 const selectedStartingActiveSlot = ref(0);
 const isUpdatingStartingActiveSkills = ref(false);
 const isUpgradingMagicHat = ref(false);
+const isUpdatingMagicHatDifficulty = ref(false);
 type MagicHatUpgradeType = 'hp' | 'mp' | 'gold';
 type MagicHatTrackView = {
   id: MagicHatUpgradeType;
@@ -3718,6 +3865,36 @@ type MagicHatTrackView = {
   progressPercent: number;
   barClass: string;
 };
+const MAGIC_HAT_DIFFICULTY_BLURBS: Record<DifficultyOption, string> = {
+  简单: '进入战斗回满血，敌人血量降低，适合稳妥铺垫。',
+  普通: '标准试炼节奏，敌我都不额外倾斜。',
+  困难: '楼层越高敌人越硬，领主还会在战斗中持续增伤。',
+  地狱: '高压试炼，领主成长更快，开局还会附带随机负面状态。',
+  自定义: '预留给后续更细的难度拼装，当前暂时锁定。',
+};
+const MAGIC_HAT_TRACK_META: Record<MagicHatUpgradeType, { kicker: string; rune: string }> = {
+  hp: { kicker: '容错', rune: '血' },
+  mp: { kicker: '启动', rune: '魔' },
+  gold: { kicker: '成型', rune: '财' },
+};
+const getMagicHatDifficultyBlurb = (difficulty: DifficultyOption) => MAGIC_HAT_DIFFICULTY_BLURBS[difficulty];
+const getMagicHatDifficultyClass = (difficulty: DifficultyOption) => {
+  switch (difficulty) {
+    case '简单':
+      return 'is-simple';
+    case '普通':
+      return 'is-normal';
+    case '困难':
+      return 'is-hard';
+    case '地狱':
+      return 'is-hell';
+    default:
+      return 'is-custom';
+  }
+};
+const getMagicHatTrackClass = (type: MagicHatUpgradeType) => `is-${type}`;
+const getMagicHatTrackKicker = (type: MagicHatUpgradeType) => MAGIC_HAT_TRACK_META[type].kicker;
+const getMagicHatTrackRune = (type: MagicHatUpgradeType) => MAGIC_HAT_TRACK_META[type].rune;
 const getSafeInt = (value: unknown, fallback: number) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -3745,6 +3922,12 @@ const calcUpgradeLevel = (value: number, base: number, step: number, maxLevel: n
   const level = Math.floor((value - base) / step);
   return Math.max(0, Math.min(maxLevel, level));
 };
+const magicHatDifficultyOptions = DIFFICULTY_OPTIONS;
+const magicHatDifficulty = computed<DifficultyOption>(() => normalizeDifficulty(gameStore.statData.$难度));
+const magicHatDifficultyFloor = computed(() => Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1)));
+const magicHatDifficultyPreviewLines = computed(() =>
+  getDifficultyPreviewLines(magicHatDifficulty.value, magicHatDifficultyFloor.value),
+);
 const magicHatSkillPoints = computed(() => getSafeInt(gameStore.statData.$技能点, 0));
 const magicHatTracks = computed<MagicHatTrackView[]>(() => {
   const hpValue = readInitialMaxHpForUpgrade();
@@ -3807,6 +3990,21 @@ const openMagicBookModal = () => {
 const openMagicHatModal = () => {
   if (!canEditMagicBooks.value) return;
   activeModal.value = 'magicHat';
+};
+const setMagicHatDifficulty = async (difficulty: DifficultyOption) => {
+  if (!canEditMagicBooks.value || difficulty === '自定义') return;
+  if (isUpdatingMagicHatDifficulty.value) return;
+  if (magicHatDifficulty.value === difficulty) return;
+
+  isUpdatingMagicHatDifficulty.value = true;
+  const ok = await gameStore.updateStatDataFields({ $难度: difficulty });
+  isUpdatingMagicHatDifficulty.value = false;
+  if (!ok) {
+    toastr.warning('难度切换失败，请稍后重试。');
+    return;
+  }
+
+  toastr.success(`难度已切换为【${difficulty}】。`);
 };
 const toggleMagicBook = async (bookName: string) => {
   if (isUpdatingMagicBooks.value) return;
@@ -3959,6 +4157,7 @@ const startingActiveSkillEntries = computed<Array<{ idx: number; name: string; s
     skill: activeSkillByNameMap.value.get(name) ?? null,
   }));
 });
+const startingActiveEquippedCount = computed(() => startingActiveSkillEntries.value.filter(entry => Boolean(entry.name)).length);
 const isSkillEquippedInStartingActive = (skillName: string): boolean =>
   startingActiveSkillEntries.value.some(entry => entry.name === skillName);
 const setStartingActiveSkill = async (skill: ActiveSkillData) => {
@@ -4315,20 +4514,29 @@ const relicEntries = computed(() => {
 });
 
 type RelicEntryView = (typeof relicEntries.value)[number];
+const LEGACY_RELIC_NAMES_BY_ID: Record<string, string[]> = {
+  bloodpool_strawberry: ['草莓'],
+  bloodpool_pear: ['梨'],
+  bloodpool_mango: ['芒果'],
+};
 const getOwnedRelicCountById = (id: string): number => {
   const relic = getAllRelics().find(entry => entry.id === id);
   if (!relic) return 0;
   const raw = inventoryRelicMap.value;
   const byName = Number(raw[relic.name] ?? 0);
   const byId = Number(raw[id] ?? 0);
+  const byLegacyName = (LEGACY_RELIC_NAMES_BY_ID[id] ?? []).reduce((sum, name) => {
+    const value = Number(raw[name] ?? 0);
+    return sum + (Number.isFinite(value) ? value : 0);
+  }, 0);
   const safeByName = Number.isFinite(byName) ? byName : 0;
   const safeById = Number.isFinite(byId) ? byId : 0;
-  return Math.max(0, Math.floor(Math.max(safeByName, safeById)));
+  return Math.max(0, Math.floor(Math.max(safeByName, safeById, byLegacyName)));
 };
 const BLOODPOOL_PASSIVE_MAX_HP_RELICS: Array<{ id: string; bonus: number }> = [
-  { id: 'bloodpool_strawberry', bonus: 5 },
+  { id: 'bloodpool_strawberry', bonus: 7 },
   { id: 'bloodpool_pear', bonus: 10 },
-  { id: 'bloodpool_mango', bonus: 15 },
+  { id: 'bloodpool_mango', bonus: 13 },
 ];
 const RELIC_DICE_RANGE_BONUS_CONFIG = {
   min: [{ id: 'lucky_coin_small', bonus: 1 }],
@@ -5127,6 +5335,8 @@ type MapPathNodeView = {
   centerX: number;
   centerY: number;
   icon: string;
+  label: string;
+  isLatest: boolean;
   style: Record<string, string>;
 };
 type MapPathLineView = {
@@ -5176,6 +5386,8 @@ const mapOffsetY = ref(0);
 const mapDragPointerId = ref<number | null>(null);
 const mapDragStartClient = ref({ x: 0, y: 0 });
 const mapDragStartOffset = ref({ x: 0, y: 0 });
+const mapZoomPercent = computed(() => `${Math.round(mapScale.value * 100)}%`);
+const mapCurrentRoomLabel = computed(() => currentFloorPath.value[currentFloorPath.value.length - 1] ?? '未记录');
 
 const mapPathNodes = computed<MapPathNodeView[]>(() => {
   const step = MAP_CELL_SIZE + MAP_CELL_GAP;
@@ -5199,6 +5411,8 @@ const mapPathNodes = computed<MapPathNodeView[]>(() => {
       centerX: x + MAP_CELL_SIZE / 2,
       centerY: y + MAP_CELL_SIZE / 2,
       icon: visual.icon,
+      label,
+      isLatest: index === currentFloorPath.value.length - 1,
       style: {
         left: `${x}px`,
         top: `${y}px`,
@@ -5532,6 +5746,10 @@ const displayHp = computed(() => {
 const displayMaxHp = computed(() => {
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
   return Math.max(1, baseMaxHp + bloodpoolPassiveMaxHpBonus.value);
+});
+const nextFloorRecoveryHpAfterLord = computed(() => {
+  const recoveryFloor = Math.max(1, Math.min(displayMaxHp.value, Math.round(displayMaxHp.value * 0.7)));
+  return Math.max(displayHp.value, recoveryFloor);
 });
 
 // MP: $魔量 only, no max variable. Visual cap at 20.
@@ -6366,11 +6584,15 @@ const handleShopRobClick = async () => {
 
   clearShopRobTimer();
   shopRobTimer = setTimeout(() => {
-    closeShopView();
-    combatEnemyName.value = '沐芯兰';
-    activeCombatContext.value = 'shopRobbery';
-    showCombat.value = true;
-    shopRobTimer = null;
+    void (async () => {
+      const launched = await launchCombat('沐芯兰', 'shopRobbery');
+      if (launched) {
+        closeShopView();
+      } else {
+        shopRobbing.value = false;
+      }
+      shopRobTimer = null;
+    })();
   }, 1000);
 };
 
@@ -6378,6 +6600,41 @@ const clearShopRobTimer = () => {
   if (!shopRobTimer) return;
   clearTimeout(shopRobTimer);
   shopRobTimer = null;
+};
+
+const preparePlayerForCombatStart = async (roomTypeOverride?: string): Promise<boolean> => {
+  const difficulty = normalizeDifficulty(gameStore.statData.$难度);
+  const roomType = typeof roomTypeOverride === 'string'
+    ? roomTypeOverride.trim()
+    : ((gameStore.statData._当前房间类型 as string) || '').trim();
+  const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
+  const shouldFullHeal =
+    shouldRestoreFullHpOnBattleStart(difficulty)
+    || (roomType === '领主房' && bloodPoolCount > 0);
+  if (!shouldFullHeal) return true;
+
+  const fullHp = displayMaxHp.value;
+  const currentHp = toNonNegativeInt(gameStore.statData._血量, fullHp);
+  if (currentHp >= fullHp) return true;
+  return await gameStore.updateStatDataFields({ _血量: fullHp });
+};
+
+const launchCombat = async (
+  enemyName: string,
+  context: CombatContext,
+  options?: {
+    roomTypeOverride?: string;
+    testStartAt999?: boolean;
+  },
+): Promise<boolean> => {
+  const ready = await preparePlayerForCombatStart(options?.roomTypeOverride);
+  if (!ready) return false;
+
+  combatEnemyName.value = enemyName;
+  activeCombatContext.value = context;
+  combatTestStartAt999CurrentBattle.value = Boolean(options?.testStartAt999);
+  showCombat.value = true;
+  return true;
 };
 
 const clearChestMimicTimer = () => {
@@ -6713,13 +6970,15 @@ const pickChestRewardRelics = (count: number): RelicData[] => {
 const queueChestMimicCombatTransition = () => {
   clearChestMimicTimer();
   chestMimicTimer = setTimeout(() => {
-    showChestView.value = false;
-    chestRolling.value = false;
-    chestRewardVisible.value = false;
-    combatEnemyName.value = '宝箱怪';
-    activeCombatContext.value = 'chestMimic';
-    showCombat.value = true;
-    chestMimicTimer = null;
+    void (async () => {
+      const launched = await launchCombat('宝箱怪', 'chestMimic');
+      if (launched) {
+        showChestView.value = false;
+        chestRolling.value = false;
+        chestRewardVisible.value = false;
+      }
+      chestMimicTimer = null;
+    })();
   }, 1000);
 };
 
@@ -6826,15 +7085,6 @@ const handleChestCenterClick = async () => {
 const startCombatFromSpecialOption = async () => {
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
   const area = ((gameStore.statData._当前区域 as string) || '').trim();
-  const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
-  if (roomType === '领主房' && bloodPoolCount > 0) {
-    const fullHp = displayMaxHp.value;
-    const currentHp = toNonNegativeInt(gameStore.statData._血量, fullHp);
-    if (currentHp < fullHp) {
-      const ok = await gameStore.updateStatDataFields({ _血量: fullHp });
-      if (!ok) return;
-    }
-  }
 
   let enemyName = ((gameStore.statData._对手名称 as string) || '').trim();
   if (!enemyName) {
@@ -6846,9 +7096,7 @@ const startCombatFromSpecialOption = async () => {
     const ok = await gameStore.updateStatDataFields({ _对手名称: enemyName });
     if (!ok) return;
   }
-  combatEnemyName.value = enemyName;
-  activeCombatContext.value = 'normal';
-  showCombat.value = true;
+  await launchCombat(enemyName, 'normal', { roomTypeOverride: roomType });
 };
 
 const handleSpecialOption = async () => {
@@ -7677,6 +7925,13 @@ interface QueuedPortalAction {
 
 const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   if (portal.isFloorTransition) {
+    const currentRoomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+    const pendingStatDataFields = currentRoomType === '领主房'
+      ? {
+          // 仅写入“下一层 user 楼层”的待应用变量，不直接修改当前领主房楼层。
+          _血量: nextFloorRecoveryHpAfterLord.value,
+        }
+      : undefined;
     // 记录待应用变量：进入新区域，首个房间为宝箱房，重置房间计数
     gameStore.setPendingPortalChanges({
       area: portal.areaName!,
@@ -7693,6 +7948,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
     return {
       enterText,
       actionText: `<user>选择了继续前进，${enterText}`,
+      pendingStatDataFields,
     };
   }
 
@@ -7947,10 +8203,9 @@ const confirmCombatTestEnemyAndStart = async () => {
   if (!ok) return;
 
   activeModal.value = null;
-  combatEnemyName.value = selectedTestEnemy.value;
-  activeCombatContext.value = 'combatTest';
-  combatTestStartAt999CurrentBattle.value = combatTestStartAt999.value;
-  showCombat.value = true;
+  await launchCombat(selectedTestEnemy.value, 'combatTest', {
+    testStartAt999: combatTestStartAt999.value,
+  });
 };
 
 const handleCombatEnd = async (
@@ -8399,6 +8654,500 @@ onBeforeUnmount(() => {
   text-shadow:
     0 1px 1px rgba(0, 0, 0, 0.9),
     0 0 10px rgba(212, 175, 55, 0.35);
+}
+
+.magic-books-layout {
+  width: 100%;
+  max-width: 90rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.magic-books-hero,
+.magic-books-active-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 28%),
+    radial-gradient(circle at left top, rgba(251, 191, 36, 0.12), transparent 32%),
+    linear-gradient(145deg, rgba(30, 18, 12, 0.96), rgba(14, 9, 7, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 201, 0.05),
+    0 18px 34px rgba(0, 0, 0, 0.28);
+}
+
+.magic-books-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(16rem, 1fr);
+  gap: 1rem;
+  padding: 1.2rem 1.25rem;
+}
+
+.magic-books-hero__eyebrow {
+  color: rgba(251, 191, 36, 0.8);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.magic-books-hero__title {
+  margin-top: 0.35rem;
+  color: rgba(255, 229, 184, 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  letter-spacing: 0.04em;
+}
+
+.magic-books-hero__desc {
+  margin-top: 0.55rem;
+  max-width: 38rem;
+  color: rgba(237, 226, 205, 0.76);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.magic-books-hero__chips {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.magic-books-hero__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.92rem;
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  background: rgba(5, 4, 5, 0.42);
+  backdrop-filter: blur(8px);
+}
+
+.magic-books-hero__chip-label {
+  color: rgba(214, 211, 209, 0.7);
+  font-size: 0.74rem;
+}
+
+.magic-books-hero__chip-value {
+  color: rgba(255, 224, 163, 0.97);
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.magic-books-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.magic-books-tab {
+  min-width: 8.2rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 85, 56, 0.68);
+  background: rgba(22, 13, 8, 0.72);
+  color: rgba(231, 223, 212, 0.7);
+  font-size: 0.77rem;
+  letter-spacing: 0.08em;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.magic-books-tab:hover,
+.magic-books-tab:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: rgba(251, 191, 36, 0.46);
+  color: rgba(255, 236, 201, 0.94);
+}
+
+.magic-books-tab.is-active {
+  border-color: rgba(251, 191, 36, 0.78);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)),
+    rgba(22, 13, 8, 0.8);
+  color: rgba(255, 224, 163, 0.98);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.16),
+    0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+.magic-books-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16.2rem, 17.6rem));
+  justify-content: center;
+  gap: 1.05rem;
+  max-height: 68vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.magic-books-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 10rem);
+  justify-content: center;
+  gap: 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.magic-book-card,
+.magic-books-skill-card,
+.magic-books-slot-card {
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.magic-book-card {
+  width: min(100%, 17.6rem);
+  justify-self: center;
+  padding: 0.7rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(120, 85, 56, 0.72);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
+    rgba(18, 12, 8, 0.84);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 201, 0.04),
+    0 14px 24px rgba(0, 0, 0, 0.24);
+}
+
+.magic-book-card:hover,
+.magic-book-card:focus-visible,
+.magic-books-skill-card:hover,
+.magic-books-skill-card:focus-visible,
+.magic-books-slot-card:hover,
+.magic-books-slot-card:focus-visible {
+  outline: none;
+  transform: translateY(-3px);
+}
+
+.magic-book-card:hover,
+.magic-book-card:focus-visible {
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 201, 0.04),
+    0 16px 28px rgba(0, 0, 0, 0.28);
+}
+
+.magic-book-card.is-equipped,
+.magic-books-skill-card.is-equipped,
+.magic-books-slot-card.is-selected {
+  border-color: rgba(251, 191, 36, 0.76);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.16),
+    0 0 0 1px rgba(251, 191, 36, 0.08),
+    0 16px 28px rgba(0, 0, 0, 0.3);
+}
+
+.magic-book-card__cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 832 / 1216;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(120, 85, 56, 0.6);
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 245, 200, 0.08), transparent 30%),
+    rgba(4, 5, 8, 0.88);
+}
+
+.magic-book-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition:
+    transform 0.28s ease,
+    filter 0.28s ease;
+}
+
+.magic-book-card:hover .magic-book-card__image,
+.magic-book-card:focus-visible .magic-book-card__image {
+  transform: scale(1.03);
+}
+
+.magic-book-card__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.08) 45%, rgba(0, 0, 0, 0.42));
+}
+
+.magic-book-card__header,
+.magic-book-card__title-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.magic-book-card__header {
+  top: 0;
+  padding: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.magic-book-card__badge {
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 236, 201, 0.14);
+  background: rgba(0, 0, 0, 0.34);
+  color: rgba(251, 237, 203, 0.84);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+.magic-book-card__title-wrap {
+  top: 0.65rem;
+  padding: 0 0.8rem;
+}
+
+.magic-book-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.72rem;
+  padding: 0 0.2rem;
+}
+
+.magic-book-card__footer-title {
+  color: rgba(255, 239, 205, 0.92);
+  font-family: 'Cinzel', serif;
+  font-size: 0.86rem;
+}
+
+.magic-book-card__footer-action {
+  color: rgba(212, 175, 55, 0.84);
+  font-size: 0.72rem;
+}
+
+.magic-books-empty {
+  border-radius: 0.95rem;
+  border: 1px dashed rgba(120, 85, 56, 0.66);
+  background: rgba(18, 10, 7, 0.72);
+  color: rgba(214, 211, 209, 0.58);
+  text-align: center;
+  font-size: 0.86rem;
+  padding: 3rem 1rem;
+}
+
+.magic-books-active-panel {
+  padding: 1rem 1.05rem 1.1rem;
+}
+
+.magic-books-active-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.magic-books-active-panel__title {
+  color: rgba(255, 224, 163, 0.95);
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+}
+
+.magic-books-active-panel__desc {
+  margin-top: 0.3rem;
+  color: rgba(231, 223, 212, 0.65);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.magic-books-active-panel__badge {
+  flex-shrink: 0;
+  padding: 0.48rem 0.78rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(241, 225, 186, 0.82);
+  font-size: 0.74rem;
+}
+
+.magic-books-slot-grid {
+  margin-top: 0.95rem;
+  display: grid;
+  grid-template-columns: repeat(2, 10rem);
+  justify-content: center;
+  gap: 1rem;
+}
+
+.magic-books-slot-card,
+.magic-books-skill-card {
+  width: 10rem;
+  height: 15rem;
+  min-height: 15rem;
+  justify-self: center;
+  border-radius: 1rem;
+  border: 1px solid rgba(120, 85, 56, 0.72);
+  background:
+    radial-gradient(circle at top right, rgba(147, 51, 234, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%),
+    rgba(18, 14, 24, 0.95);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.24);
+}
+
+.magic-books-slot-card__top,
+.magic-books-skill-card__top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.75rem;
+  z-index: 1;
+}
+
+.magic-books-slot-card__mana,
+.magic-books-skill-card__mana {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 180, 254, 0.35);
+  background: rgba(109, 40, 217, 0.76);
+  color: rgba(255, 255, 255, 0.96);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.magic-books-slot-card__tag,
+.magic-books-skill-card__tag {
+  padding: 0.25rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.34);
+  color: rgba(244, 244, 245, 0.86);
+  font-size: 0.66rem;
+}
+
+.magic-books-slot-card__art,
+.magic-books-skill-card__art {
+  position: relative;
+  height: 5.6rem;
+  margin: 2.7rem 0.6rem 0;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.magic-books-slot-card__art-glow,
+.magic-books-skill-card__art-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(245, 245, 245, 0.34), rgba(145, 145, 168, 0.08) 58%, rgba(11, 9, 16, 0.84));
+}
+
+.magic-books-slot-card__art-letter,
+.magic-books-skill-card__art-letter {
+  position: relative;
+  color: rgba(255, 255, 255, 0.2);
+  font-family: 'Cinzel', serif;
+  font-size: 2.15rem;
+  line-height: 1;
+}
+
+.magic-books-slot-card__body,
+.magic-books-skill-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+  padding: 0.72rem;
+}
+
+.magic-books-slot-card__name,
+.magic-books-skill-card__name {
+  color: rgba(255, 239, 205, 0.96);
+  font-family: 'Cinzel', serif;
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+.magic-books-slot-card__desc,
+.magic-books-skill-card__desc {
+  min-height: 3rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 13, 16, 0.78);
+  color: rgba(212, 212, 216, 0.84);
+  font-size: 0.62rem;
+  line-height: 1.45;
+  padding: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.magic-books-slot-card__state,
+.magic-books-skill-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.6rem;
+}
+
+.magic-books-slot-card__state {
+  justify-content: center;
+  letter-spacing: 0.06em;
+}
+
+.magic-books-active-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.8rem;
+}
+
+.magic-books-clear-btn {
+  padding: 0.58rem 0.9rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(120, 85, 56, 0.68);
+  background: rgba(22, 13, 8, 0.68);
+  color: rgba(231, 223, 212, 0.74);
+  font-size: 0.76rem;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.magic-books-clear-btn:hover,
+.magic-books-clear-btn:focus-visible {
+  outline: none;
+  border-color: rgba(251, 191, 36, 0.46);
+  color: rgba(255, 236, 201, 0.92);
 }
 
 .story-rich-text {
@@ -9159,7 +9908,72 @@ onBeforeUnmount(() => {
 .map-modal {
   display: flex;
   flex-direction: column;
+  gap: 0.85rem;
+}
+
+.map-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(16rem, 1fr);
+  gap: 1rem;
+  padding: 1.05rem 1.15rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 28%),
+    radial-gradient(circle at 12% 16%, rgba(251, 191, 36, 0.14), transparent 32%),
+    linear-gradient(145deg, rgba(29, 18, 11, 0.96), rgba(12, 9, 7, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 201, 0.05),
+    0 16px 30px rgba(0, 0, 0, 0.24);
+}
+
+.map-hero__eyebrow {
+  color: rgba(251, 191, 36, 0.78);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.map-hero__title {
+  margin-top: 0.35rem;
+  color: rgba(255, 229, 184, 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.45rem, 2vw, 1.95rem);
+}
+
+.map-hero__desc {
+  margin-top: 0.52rem;
+  color: rgba(237, 226, 205, 0.74);
+  font-size: 0.86rem;
+  line-height: 1.62;
+}
+
+.map-hero__chips {
+  display: grid;
   gap: 0.65rem;
+}
+
+.map-hero__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.78rem 0.88rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  background: rgba(6, 5, 4, 0.42);
+}
+
+.map-hero__chip-label {
+  color: rgba(214, 211, 209, 0.68);
+  font-size: 0.74rem;
+}
+
+.map-hero__chip-value {
+  color: rgba(255, 224, 163, 0.97);
+  font-family: 'Cinzel', serif;
+  font-size: 0.96rem;
 }
 
 .map-toolbar {
@@ -9167,12 +9981,14 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  padding: 0.15rem 0.1rem 0;
 }
 
 .map-summary {
-  color: rgba(245, 222, 179, 0.78);
+  color: rgba(245, 222, 179, 0.72);
   font-size: 12px;
   letter-spacing: 0.04em;
+  line-height: 1.55;
 }
 
 .map-summary-highlight {
@@ -9192,32 +10008,42 @@ onBeforeUnmount(() => {
 }
 
 .map-control-btn {
-  height: 1.9rem;
-  min-width: 1.9rem;
-  border-radius: 0.45rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  border-radius: 0.7rem;
   border: 1px solid rgba(217, 119, 6, 0.42);
-  background: rgba(24, 13, 8, 0.82);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(120, 53, 15, 0.18)),
+    rgba(24, 13, 8, 0.82);
   color: rgba(253, 230, 138, 0.92);
   font-size: 12px;
-  padding: 0 0.55rem;
-  transition: all 0.18s ease;
+  padding: 0 0.7rem;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .map-control-btn:hover {
+  transform: translateY(-1px);
   border-color: rgba(251, 191, 36, 0.72);
   color: rgba(254, 243, 199, 0.98);
   background: rgba(58, 32, 18, 0.82);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
 .map-control-btn--wide {
-  min-width: 4.4rem;
+  min-width: 5.4rem;
 }
 
 .map-empty {
   height: 17rem;
-  border-radius: 0.6rem;
+  border-radius: 0.9rem;
   border: 1px dashed rgba(217, 119, 6, 0.4);
-  background: rgba(18, 10, 7, 0.7);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%),
+    rgba(18, 10, 7, 0.76);
   color: rgba(245, 222, 179, 0.55);
   display: flex;
   align-items: center;
@@ -9227,8 +10053,8 @@ onBeforeUnmount(() => {
 
 .map-viewport {
   position: relative;
-  height: 17rem;
-  border-radius: 0.65rem;
+  height: 18rem;
+  border-radius: 1rem;
   border: 1px solid rgba(217, 119, 6, 0.35);
   background:
     radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%),
@@ -9236,10 +10062,25 @@ onBeforeUnmount(() => {
   overflow: hidden;
   touch-action: none;
   cursor: grab;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 201, 0.05),
+    0 14px 26px rgba(0, 0, 0, 0.26);
 }
 
 .map-viewport:active {
   cursor: grabbing;
+}
+
+.map-viewport::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 2.8rem 2.8rem;
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .map-canvas {
@@ -9259,26 +10100,64 @@ onBeforeUnmount(() => {
   position: absolute;
   width: 62px;
   height: 62px;
-  border-radius: 0.55rem;
+  border-radius: 0.9rem;
   border: 2px solid rgba(255, 255, 255, 0.25);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.18rem;
+  overflow: hidden;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
+.map-room-cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.06), transparent 46%);
+  pointer-events: none;
+}
+
+.map-room-cell--latest {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 0 1px rgba(251, 191, 36, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.map-room-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 224, 163, 0.74);
+  box-shadow:
+    0 0 16px rgba(251, 191, 36, 0.38),
+    inset 0 0 12px rgba(255, 224, 163, 0.14);
+}
+
 .map-room-icon {
+  position: relative;
   font-size: 1.3rem;
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 
+.map-room-label {
+  position: relative;
+  max-width: 86%;
+  font-size: 0.58rem;
+  line-height: 1.2;
+  text-align: center;
+  opacity: 0.86;
+}
+
 .map-room-step {
   position: absolute;
-  right: 4px;
-  bottom: 3px;
+  right: 5px;
+  bottom: 5px;
   font-size: 10px;
   line-height: 1;
   font-weight: 700;
@@ -10538,7 +11417,653 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.26);
 }
 
+.magic-hat-layout {
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.magic-hat-hero,
+.magic-hat-section {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(33, 19, 12, 0.96), rgba(15, 9, 6, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 201, 0.05),
+    0 18px 34px rgba(0, 0, 0, 0.28);
+}
+
+.magic-hat-hero {
+  padding: 1.2rem 1.25rem;
+}
+
+.magic-hat-hero__mesh {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 16% 22%, rgba(251, 191, 36, 0.12), transparent 22%),
+    radial-gradient(circle at 82% 30%, rgba(59, 130, 246, 0.11), transparent 20%),
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.03) 48%, transparent 100%);
+  pointer-events: none;
+}
+
+.magic-hat-hero__content {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.magic-hat-hero__eyebrow {
+  color: rgba(251, 191, 36, 0.8);
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.magic-hat-hero__title {
+  margin-top: 0.4rem;
+  color: rgba(255, 230, 180, 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: clamp(1.45rem, 2vw, 1.95rem);
+  letter-spacing: 0.04em;
+}
+
+.magic-hat-hero__desc {
+  margin-top: 0.55rem;
+  max-width: 34rem;
+  color: rgba(237, 226, 205, 0.76);
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.magic-hat-hero__chips {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.magic-hat-hero__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  background: rgba(8, 6, 5, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.magic-hat-hero__chip-label {
+  color: rgba(214, 211, 209, 0.7);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+}
+
+.magic-hat-hero__chip-value {
+  color: rgba(255, 224, 163, 0.96);
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.magic-hat-section {
+  padding: 1.1rem 1.15rem 1.2rem;
+}
+
+.magic-hat-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.magic-hat-section__head--compact {
+  align-items: center;
+}
+
+.magic-hat-section__title {
+  color: rgba(255, 224, 163, 0.96);
+  font-family: 'Cinzel', serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+}
+
+.magic-hat-section__subtitle {
+  margin-top: 0.35rem;
+  color: rgba(231, 223, 212, 0.63);
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.magic-hat-section__badge {
+  flex-shrink: 0;
+  padding: 0.5rem 0.86rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(120, 53, 15, 0.18)),
+    rgba(0, 0, 0, 0.24);
+  color: rgba(241, 225, 186, 0.84);
+  font-size: 0.74rem;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 201, 0.06);
+}
+
+.magic-hat-difficulty-layout {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(15rem, 0.9fr);
+  gap: 0.95rem;
+}
+
+.magic-hat-difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.magic-hat-difficulty-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  min-height: 7.25rem;
+  padding: 0.9rem 0.95rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(120, 85, 56, 0.62);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 42%),
+    rgba(12, 9, 7, 0.72);
+  color: rgba(237, 226, 205, 0.85);
+  overflow: hidden;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.magic-hat-difficulty-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 236, 201, 0.28), transparent);
+  opacity: 0.9;
+}
+
+.magic-hat-difficulty-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.04), transparent 42%);
+  pointer-events: none;
+}
+
+.magic-hat-difficulty-card:hover,
+.magic-hat-difficulty-card:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  border-color: rgba(251, 191, 36, 0.52);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.24),
+    0 0 0 1px rgba(251, 191, 36, 0.08);
+}
+
+.magic-hat-difficulty-card.is-active {
+  border-color: rgba(251, 191, 36, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 191, 36, 0.16),
+    0 0 0 1px rgba(251, 191, 36, 0.08),
+    0 14px 24px rgba(0, 0, 0, 0.28);
+}
+
+.magic-hat-difficulty-card.is-wide {
+  grid-column: 1 / -1;
+  min-height: 5.6rem;
+}
+
+.magic-hat-difficulty-card.is-locked {
+  cursor: not-allowed;
+  border-style: dashed;
+  color: rgba(214, 211, 209, 0.48);
+  background:
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.12), transparent 32%),
+    rgba(24, 24, 27, 0.64);
+  box-shadow: none;
+  transform: none;
+}
+
+.magic-hat-difficulty-card.is-simple {
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.16), transparent 34%),
+    rgba(12, 9, 7, 0.72);
+}
+
+.magic-hat-difficulty-card.is-normal {
+  background:
+    radial-gradient(circle at top right, rgba(148, 163, 184, 0.16), transparent 32%),
+    rgba(12, 9, 7, 0.72);
+}
+
+.magic-hat-difficulty-card.is-hard {
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.18), transparent 34%),
+    rgba(12, 9, 7, 0.72);
+}
+
+.magic-hat-difficulty-card.is-hell {
+  background:
+    radial-gradient(circle at top right, rgba(220, 38, 38, 0.2), transparent 34%),
+    rgba(12, 9, 7, 0.72);
+}
+
+.magic-hat-difficulty-card.is-custom {
+  background:
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.16), transparent 34%),
+    rgba(24, 24, 27, 0.66);
+}
+
+.magic-hat-difficulty-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.magic-hat-difficulty-card__name {
+  color: rgba(255, 239, 205, 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+}
+
+.magic-hat-difficulty-card__state {
+  flex-shrink: 0;
+  padding: 0.22rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 236, 201, 0.08);
+  background: rgba(0, 0, 0, 0.26);
+  color: rgba(245, 222, 179, 0.76);
+  font-size: 0.68rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.magic-hat-difficulty-card__desc {
+  margin-top: 0.7rem;
+  color: rgba(237, 226, 205, 0.72);
+  font-size: 0.77rem;
+  line-height: 1.65;
+}
+
+.magic-hat-difficulty-card__footer {
+  margin-top: auto;
+  padding-top: 0.8rem;
+}
+
+.magic-hat-difficulty-card__footer-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.1rem 0;
+  color: rgba(214, 211, 209, 0.54);
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+}
+
+.magic-hat-difficulty-card__footer-text::before {
+  content: '';
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.64);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
+}
+
+.magic-hat-preview {
+  padding: 1rem 1rem 1.05rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.14);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.08), transparent 24%),
+    rgba(6, 5, 4, 0.78);
+}
+
+.magic-hat-preview__label {
+  color: rgba(212, 175, 55, 0.72);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.magic-hat-preview__difficulty {
+  margin-top: 0.45rem;
+  color: rgba(255, 229, 170, 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+}
+
+.magic-hat-preview__list {
+  margin-top: 0.95rem;
+  display: grid;
+  gap: 0.62rem;
+}
+
+.magic-hat-preview__item {
+  position: relative;
+  padding-left: 1rem;
+  color: rgba(237, 226, 205, 0.78);
+  font-size: 0.82rem;
+  line-height: 1.58;
+}
+
+.magic-hat-preview__item::before {
+  content: '';
+  position: absolute;
+  left: 0.15rem;
+  top: 0.52rem;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.74);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.28);
+}
+
+.magic-hat-points-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background:
+    radial-gradient(circle at left center, rgba(251, 191, 36, 0.15), transparent 42%),
+    rgba(8, 6, 5, 0.56);
+}
+
+.magic-hat-points-card__label {
+  color: rgba(214, 211, 209, 0.72);
+  font-size: 0.76rem;
+}
+
+.magic-hat-points-card__value {
+  color: rgba(255, 224, 163, 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+}
+
+.magic-hat-track-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.magic-hat-track-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 18rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(120, 85, 56, 0.56);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%),
+    rgba(11, 9, 7, 0.76);
+}
+
+.magic-hat-track-card.is-hp {
+  background:
+    radial-gradient(circle at top right, rgba(244, 63, 94, 0.14), transparent 30%),
+    rgba(11, 9, 7, 0.76);
+}
+
+.magic-hat-track-card.is-mp {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 30%),
+    rgba(11, 9, 7, 0.76);
+}
+
+.magic-hat-track-card.is-gold {
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 30%),
+    rgba(11, 9, 7, 0.76);
+}
+
+.magic-hat-track-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.magic-hat-track-card__kicker {
+  color: rgba(212, 175, 55, 0.72);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.magic-hat-track-card__title {
+  margin-top: 0.3rem;
+  color: rgba(255, 239, 205, 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.magic-hat-track-card__rune {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(255, 224, 163, 0.95);
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+}
+
+.magic-hat-track-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.magic-hat-track-card__stat {
+  padding: 0.72rem 0.75rem;
+  border-radius: 0.82rem;
+  border: 1px solid rgba(120, 85, 56, 0.38);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.magic-hat-track-card__stat-label {
+  display: block;
+  color: rgba(214, 211, 209, 0.62);
+  font-size: 0.7rem;
+}
+
+.magic-hat-track-card__stat-value {
+  display: block;
+  margin-top: 0.26rem;
+  color: rgba(255, 239, 205, 0.96);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.magic-hat-track-card__bar {
+  height: 0.62rem;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 85, 56, 0.4);
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.magic-hat-track-card__bar-fill {
+  height: 100%;
+  transition: width 0.28s ease;
+}
+
+.magic-hat-track-card__hint {
+  min-height: 2.5rem;
+  color: rgba(231, 223, 212, 0.66);
+  font-size: 0.77rem;
+  line-height: 1.6;
+}
+
+.magic-hat-track-card__action {
+  margin-top: auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.82rem 0.95rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  background:
+    linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)),
+    rgba(22, 13, 8, 0.72);
+  color: rgba(255, 224, 163, 0.94);
+  font-size: 0.78rem;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.magic-hat-track-card__action:hover,
+.magic-hat-track-card__action:focus-visible {
+  outline: none;
+  transform: translateY(-2px);
+  border-color: rgba(251, 191, 36, 0.68);
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(251, 191, 36, 0.08);
+}
+
+.magic-hat-track-card__action-label,
+.magic-hat-track-card__action-cost {
+  display: block;
+}
+
+.magic-hat-track-card__action-label {
+  color: rgba(255, 233, 185, 0.97);
+  font-family: 'Cinzel', serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+}
+
+.magic-hat-track-card__action-cost {
+  color: rgba(241, 225, 186, 0.72);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.magic-hat-track-card__action.is-disabled {
+  border-color: rgba(115, 115, 115, 0.42);
+  background: rgba(38, 38, 38, 0.64);
+  color: rgba(214, 211, 209, 0.48);
+  box-shadow: none;
+  transform: none;
+}
+
+.magic-hat-track-card__action.is-disabled .magic-hat-track-card__action-label,
+.magic-hat-track-card__action.is-disabled .magic-hat-track-card__action-cost {
+  color: rgba(214, 211, 209, 0.5);
+}
+
 @media (max-width: 768px) {
+  .magic-books-hero,
+  .map-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .magic-books-grid,
+  .magic-books-skill-grid,
+  .magic-books-slot-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .magic-books-active-panel__head,
+  .map-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .magic-books-tabs {
+    flex-wrap: wrap;
+  }
+
+  .magic-books-tab {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .map-summary {
+    font-size: 0.72rem;
+  }
+
+  .map-viewport,
+  .map-empty {
+    height: 15rem;
+  }
+
+  .magic-hat-hero__content,
+  .magic-hat-difficulty-layout,
+  .magic-hat-track-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .magic-hat-difficulty-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .magic-hat-difficulty-card.is-wide {
+    grid-column: auto;
+  }
+
+  .magic-hat-section__head,
+  .magic-hat-section__head--compact {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .magic-hat-hero,
+  .magic-hat-section {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .magic-hat-track-card {
+    min-height: auto;
+  }
+
+  .magic-hat-track-card__action {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .magic-hat-track-card__action-cost {
+    text-align: left;
+  }
+
   .shop-layout {
     left: 2%;
     right: 2%;

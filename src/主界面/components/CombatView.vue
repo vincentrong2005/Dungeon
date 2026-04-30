@@ -824,6 +824,14 @@ import {
   type ResolvedRelicEntry,
 } from '../battle/relicRegistry';
 import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
+import {
+  HELL_STARTING_DEBUFFS,
+  getDifficultyHpMultiplier,
+  getLordTurnBoostInterval,
+  normalizeDifficulty,
+  shouldApplyHellStartingDebuff,
+  shouldGrantLordTurnBoost,
+} from '../difficulty';
 import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
@@ -869,6 +877,10 @@ const resolveCurrentFloorNumber = () => {
   return floor;
 };
 const currentFloorNumber = resolveCurrentFloorNumber();
+const difficultyAtBattleStart = normalizeDifficulty(gameStore.statData.$难度);
+const difficultyHpMultiplier = getDifficultyHpMultiplier(difficultyAtBattleStart, currentFloorNumber);
+const lordTurnBoostInterval = getLordTurnBoostInterval(difficultyAtBattleStart);
+const isLordBattle = String(gameStore.statData._当前房间类型 ?? '').includes('领主');
 
 // --- Enemy Loading ---
 const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
@@ -1051,15 +1063,24 @@ const normalizeTestStartStats = (stats: EntityStats): EntityStats => {
   return { ...cloned, hp: 999, maxHp: 999, mp: 999 };
 };
 
+const buildEnemyInitialStats = (): EntityStats => {
+  const baseStats = enemyDef
+    ? cloneEntityStats(enemyDef.stats)
+    : { hp: 1, maxHp: 1, mp: 0, minDice: 1, maxDice: 1, effects: [] as EffectInstance[] };
+  if (difficultyHpMultiplier !== 1) {
+    const scaledMaxHp = Math.max(1, Math.round(baseStats.maxHp * difficultyHpMultiplier));
+    const scaledHp = Math.max(1, Math.min(scaledMaxHp, Math.round(baseStats.hp * difficultyHpMultiplier)));
+    baseStats.maxHp = scaledMaxHp;
+    baseStats.hp = scaledHp;
+  }
+  return normalizeTestStartStats(baseStats);
+};
+
 const playerStats = ref<EntityStats>(
   normalizeTestStartStats(props.initialPlayerStats),
 );
 const enemyStats = ref<EntityStats>(
-  normalizeTestStartStats(
-    enemyDef
-      ? enemyDef.stats
-      : { hp: 1, maxHp: 1, mp: 0, minDice: 1, maxDice: 1, effects: [] },
-  ),
+  buildEnemyInitialStats(),
 );
 
 // --- Effect display helpers ---
@@ -1514,7 +1535,7 @@ const enemyDicePreviewChanged = computed(() => (
   previewEnemyDice.value !== null && previewEnemyDice.value !== combatState.value.enemyBaseDice
 ));
 const playerDiceNumberClass = computed(() => {
-  if (isPlayerDiceObscured.value) return 'text-violet-400';
+  if (isPlayerDiceObscured.value) return 'text-[#3550c9] [text-shadow:0_1px_0_rgba(255,248,220,0.55),0_0_10px_rgba(96,165,250,0.22)]';
   return playerDicePreviewChanged.value ? 'text-red-800' : '';
 });
 const enemyDiceNumberClass = computed(() => {
@@ -4005,6 +4026,10 @@ if (activePlayerRelics.length > 0) {
   log(`<span class="text-amber-300">本场圣遗物：${relicSummary}</span>`);
 }
 
+if (difficultyAtBattleStart !== '普通' && difficultyAtBattleStart !== '自定义') {
+  log(`<span class="text-amber-200">[难度] 当前为【${difficultyAtBattleStart}】；敌方生命系数 x${difficultyHpMultiplier.toFixed(1)}。</span>`);
+}
+
 const applyMvuNegativeStatusesOnBattleStart = () => {
   const statuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
   if (statuses.length === 0) return;
@@ -4064,8 +4089,19 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
   }
 };
 
+const applyDifficultyBattleStartEffects = () => {
+  if (!shouldApplyHellStartingDebuff(difficultyAtBattleStart)) return;
+  const picked = HELL_STARTING_DEBUFFS[Math.floor(Math.random() * HELL_STARTING_DEBUFFS.length)];
+  if (!picked) return;
+  const applied = applyEffect(playerStats.value, picked, 1, { source: 'difficulty:hell' });
+  if (!applied) return;
+  const effectName = EFFECT_REGISTRY[picked]?.name ?? String(picked);
+  log(`<span class="text-fuchsia-300">[地狱难度] 开局获得了 1 层${effectName}。</span>`);
+};
+
 triggerPlayerRelicLifecycleHooks('onBattleStart');
 applyMvuNegativeStatusesOnBattleStart();
+applyDifficultyBattleStartEffects();
 
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
@@ -4799,6 +4835,18 @@ watch(
       const defeatedByFatigueDegree = applyFatigueDegreePenaltyOnTurnStart();
       if (defeatedByFatigueDegree) {
         return;
+      }
+      if (
+        isLordBattle
+        && shouldGrantLordTurnBoost(difficultyAtBattleStart)
+        && lordTurnBoostInterval !== null
+        && combatState.value.turn > 0
+        && combatState.value.turn % lordTurnBoostInterval === 0
+      ) {
+        const applied = applyEffect(enemyStats.value, ET.DAMAGE_BOOST, 1, { source: `difficulty:${difficultyAtBattleStart}` });
+        if (applied) {
+          log(`<span class="text-rose-300">[${difficultyAtBattleStart}难度] 领主在第 ${combatState.value.turn} 回合获得了 1 层增伤。</span>`);
+        }
       }
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
@@ -7322,7 +7370,7 @@ watch(
       && nextHp < halfHp
     ) {
       bloodpoolCriticalReboundTriggered.value = true;
-      const { healed } = healForSide('player', 5 * reboundCount);
+      const { healed } = healForSide('player', 10 * reboundCount);
       logRelicMessage(`[危线回流] 首次低于半血，回复 ${healed} 点生命。`);
     }
   },
