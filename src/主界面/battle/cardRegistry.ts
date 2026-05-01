@@ -2484,6 +2484,86 @@ const WITNESS_WORM_RETREAT: CardData = {
   description: '逃离',
 };
 
+/** 附着：造成1点伤害，为自身施加1层生命回复，附带负面效果[被寄生]；拼点失败后自身最小与最大骰子点数+1 */
+const SPACE_RIFT_BUG_ATTACH: CardData = {
+  id: 'enemy_space_rift_bug_attach',
+  name: '附着',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'modify_dice',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      minDiceDelta: 1,
+      maxDiceDelta: 1,
+    },
+  ],
+  negativeEffect: '[被寄生]',
+  description: '造成1点伤害，为自身施加1层生命回复，附带负面效果[被寄生]；拼点失败后自身最小与最大骰子点数+1',
+};
+
+/** 触觉盲区：为玩家施加1层视野模糊 */
+const SPACE_RIFT_BUG_BLIND_SPOT: CardData = {
+  id: 'enemy_space_rift_bug_blind_spot',
+  name: '触觉盲区',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.MEMORY_FOG, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '为玩家施加1层视野模糊',
+};
+
+/** 痛觉放大：消耗3MP，造成2点伤害，施加1层性兴奋 */
+const SPACE_RIFT_BUG_PAIN_AMPLIFICATION: CardData = {
+  id: 'enemy_space_rift_bug_pain_amplification',
+  name: '痛觉放大',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 2 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '消耗3MP，造成2点伤害，施加1层性兴奋',
+};
+
+/** 空间闪烁：闪避，若闪避成功或对方跳过回合则逃离 */
+const SPACE_RIFT_BUG_SPATIAL_BLINK: CardData = {
+  id: 'enemy_space_rift_bug_spatial_blink',
+  name: '空间闪烁',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { triggers: ['on_dodge_success', 'on_opponent_skip'], kind: 'escape', target: 'self', valueMode: 'fixed', fixedValue: 0 },
+  ],
+  description: '闪避，若闪避成功或对方跳过回合则逃离',
+};
+
 /** 体内繁殖：自身获得1层群集，并为目标施加1倍点数中毒 */
 const SHAME_LEECH_INTERNAL_BREEDING: CardData = {
   id: 'enemy_shame_leech_internal_breeding',
@@ -2776,7 +2856,9 @@ const EXECUTIONER_PUPPET_TOOL_SHIFT: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, minDiceDelta: 1, maxDiceDelta: 1 },
+  ],
   description: '增加自身最大点数和最小点数1点',
 };
 
@@ -4611,6 +4693,117 @@ const 虚空游光_游荡: CardData = {
   description: '闪避；若闪避成功或对方跳过回合，则施加1层性兴奋',
 };
 
+/** 迎宾·引路：为自身施加1层增伤与1倍点数护甲 */
+const 面具侍从_迎宾引路: CardData = {
+  id: 'enemy_mask_attendant_greeting_guide',
+  name: '迎宾·引路',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '为自身施加1层增伤与1倍点数护甲',
+};
+
+/** 舞步：点数-2，闪避；若本回合未受到直接伤害，则施加1层束缚 */
+const 面具侍从_舞步: CardData = {
+  id: 'enemy_mask_attendant_dance',
+  name: '舞步',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数-2，闪避；若本回合未受到直接伤害，则施加1层束缚',
+};
+
+/** 迎宾·强制邀请：造成1倍点数伤害；若对方拥有束缚，则伤害翻倍并追加1层易伤（条件逻辑在 CombatView） */
+const 面具侍从_迎宾强制邀请: CardData = {
+  id: 'enemy_mask_attendant_forced_invitation',
+  name: '迎宾·强制邀请',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害；若对方拥有束缚，则伤害翻倍并追加1层易伤',
+};
+
+/** 卸下面具：施加2层性兴奋 */
+const 面具侍从_卸下面具: CardData = {
+  id: 'enemy_mask_attendant_remove_mask',
+  name: '卸下面具',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '施加2层性兴奋',
+};
+
+/** 无面·深吻：点数+1，造成1倍点数伤害，施加1倍点数疲劳，法力汲取2 */
+const 面具侍从_无面深吻: CardData = {
+  id: 'enemy_mask_attendant_faceless_deep_kiss',
+  name: '无面·深吻',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.FATIGUE, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  manaDrain: 2,
+  description: '点数+1，造成1倍点数伤害，施加1倍点数疲劳，法力汲取2',
+};
+
+/** 无面·束缚：点数+2，无视闪避，造成1倍点数伤害；若对方拥有性兴奋，则额外施加1层眩晕（条件逻辑在 CombatView） */
+const 面具侍从_无面束缚: CardData = {
+  id: 'enemy_mask_attendant_faceless_bind',
+  name: '无面·束缚',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  ignoreDodge: true,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+2，无视闪避，造成1倍点数伤害；若对方拥有性兴奋，则额外施加1层眩晕',
+};
+
 /** 群体围猎：点数+自身群集数，造成1倍点数伤害并施加自身群集数层束缚，自身群集+1 */
 const STITCHED_SPIDER_PACK_HUNT: CardData = {
   id: 'enemy_stitched_spider_pack_hunt',
@@ -4677,6 +4870,14 @@ const 丝线扑倒: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 99 },
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'modify_dice',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      maxDiceDelta: 1,
+    },
   ],
   description: '造成1倍点数伤害，施加99层束缚；若拼点失败，自身最大骰子点数+1',
 };
@@ -4725,7 +4926,9 @@ const 逻辑分析: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, minDiceDelta: 1, maxDiceDelta: 1 },
+  ],
   description: '增加自身1点最大点数和最小点数',
 };
 
@@ -4919,7 +5122,16 @@ const 丝线侵蚀: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 3,
+    },
+  ],
   manaDrain: 3,
   description: '法力汲取3，拼点失败后施加3层侵蚀',
 };
@@ -5455,6 +5667,7 @@ const 花蜜调教: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: 1 },
   ],
   description: '获得1倍点数的护甲，若目标有束缚，则赋予目标1倍点数的中毒',
 };
@@ -5620,7 +5833,16 @@ const 胆小: CardData = {
   calculation: { multiplier: 1.0, addition: -1 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'modify_dice',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      maxDiceDelta: 1,
+    },
+  ],
   description: '点数-1，闪避，闪避成功后增加1点骰子最大值',
 };
 
@@ -5635,7 +5857,9 @@ const 逃窜: CardData = {
   calculation: { multiplier: 1.0, addition: -1 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
+  cardEffects: [
+    { triggers: ['on_dodge_success'], kind: 'escape', target: 'self', valueMode: 'fixed', fixedValue: 0 },
+  ],
   description: '点数-1，闪避，若闪避成功则逃离',
 };
 
@@ -5958,6 +6182,7 @@ const 守护: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: 1 },
   ],
   description: '获得1倍点数护甲，本轮护甲不触发减半',
 };
@@ -5975,6 +6200,7 @@ const 魔力扩容: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: 1 },
   ],
   description: '点数-1，本场战斗最大骰子点数+1，获得1倍点数护甲',
 };
@@ -6744,6 +6970,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [虚空游光_悄无声息.name, 虚空游光_悄无声息],
   [虚空游光_共鸣.name, 虚空游光_共鸣],
   [虚空游光_游荡.name, 虚空游光_游荡],
+  [面具侍从_迎宾引路.name, 面具侍从_迎宾引路],
+  [面具侍从_舞步.name, 面具侍从_舞步],
+  [面具侍从_迎宾强制邀请.name, 面具侍从_迎宾强制邀请],
+  [面具侍从_卸下面具.name, 面具侍从_卸下面具],
+  [面具侍从_无面深吻.name, 面具侍从_无面深吻],
+  [面具侍从_无面束缚.name, 面具侍从_无面束缚],
   [束缚丝.name, 束缚丝],
   [传导丝.name, 传导丝],
   [麻痹螯刺.name, 麻痹螯刺],
@@ -6818,6 +7050,10 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [SHAME_LEECH_PARASITIC_DRILL.name, SHAME_LEECH_PARASITIC_DRILL],
   [WITNESS_WORM_MENTAL_SHOCK.name, WITNESS_WORM_MENTAL_SHOCK],
   [WITNESS_WORM_RETREAT.name, WITNESS_WORM_RETREAT],
+  [SPACE_RIFT_BUG_ATTACH.name, SPACE_RIFT_BUG_ATTACH],
+  [SPACE_RIFT_BUG_BLIND_SPOT.name, SPACE_RIFT_BUG_BLIND_SPOT],
+  [SPACE_RIFT_BUG_PAIN_AMPLIFICATION.name, SPACE_RIFT_BUG_PAIN_AMPLIFICATION],
+  [SPACE_RIFT_BUG_SPATIAL_BLINK.name, SPACE_RIFT_BUG_SPATIAL_BLINK],
   [SHAME_LEECH_INTERNAL_BREEDING.name, SHAME_LEECH_INTERNAL_BREEDING],
   [SHAME_LEECH_SHAME_AMPLIFY.name, SHAME_LEECH_SHAME_AMPLIFY],
   [PARASITIC_LEECH_CUMULATIVE_APHRO.name, PARASITIC_LEECH_CUMULATIVE_APHRO],

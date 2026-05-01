@@ -1109,6 +1109,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.DAMAGE_BOOST]: Sword,
   [ET.WEAKEN]: TriangleAlert,
   [ET.REGEN]: Heart,
+  [ET.DAMAGE_LIMIT]: Shield,
   [ET.IRIS_AMBER]: Eye,
   [ET.IRIS_SCARLET]: Eye,
   [ET.WHITE_TURBID]: Droplet,
@@ -1646,6 +1647,10 @@ const activePlayerRelics = resolveRelicMap(props.playerRelics);
 const playerDiceRerollCharges = ref(0);
 const relicRuntimeState = reactive<Record<string, Record<string, unknown>>>({});
 const playerDamageTakenThisTurn = ref(0);
+const directDamageTakenThisTurn = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
 const damageHitTakenThisCombat = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
@@ -1736,6 +1741,16 @@ const addPlayerDamageTakenThisTurn = (amount: number) => {
   if (value <= 0) return;
   playerDamageTakenThisTurn.value += value;
 };
+
+const addDirectDamageTakenThisTurn = (side: BattleSide, amount: number) => {
+  const value = Math.max(0, Math.floor(amount));
+  if (value <= 0) return;
+  directDamageTakenThisTurn.value[side] += value;
+};
+
+const hasTakenDirectDamageThisTurn = (side: BattleSide): boolean => (
+  Math.max(0, Math.floor(directDamageTakenThisTurn.value[side] ?? 0)) > 0
+);
 
 const addDamageHitTakenThisCombat = (side: BattleSide, actualDamage: number) => {
   const value = Math.max(0, Math.floor(actualDamage));
@@ -1905,6 +1920,9 @@ const applyDamageToSideWithRelics = (
     swarmAttack: !!options?.card?.swarmAttack,
   });
   addDamageHitTakenThisCombat(side, result.actualDamage);
+  if (options?.isDirectDamage) {
+    addDirectDamageTakenThisTurn(side, result.actualDamage);
+  }
   const wasLethalDamage = hpBeforeDamage > 0 && result.actualDamage >= hpBeforeDamage;
   triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, {
     ...options,
@@ -1963,6 +1981,9 @@ const applyDirectHpLossWithRelics = (
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
   addDamageHitTakenThisCombat(side, actualDamage);
+  if (options?.isDirectDamage) {
+    addDirectDamageTakenThisTurn(side, actualDamage);
+  }
   const wasLethalDamage = before > 0 && actualDamage >= before;
   triggerBloodpoolHeartMarkByDamage(side, actualDamage, reason, {
     ...options,
@@ -2782,6 +2803,12 @@ const applyCardEffectsByTrigger = (
   const attacker = source === 'player' ? playerStats.value : enemyStats.value;
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
   const label = source === 'player' ? '我方' : '敌方';
+  const triggerTextMap: Partial<Record<CardEffectTrigger, string>> = {
+    on_clash_fail: '拼点失败',
+    on_dodge_success: '闪避成功',
+    on_opponent_skip: '对方跳过回合',
+    on_no_direct_damage_taken_this_turn: '本回合未受到直接伤害',
+  };
   let hasEffect = false;
   for (const ce of card.cardEffects) {
     if (!cardEffectMatchesTrigger(ce.triggers, trigger)) continue;
@@ -2884,6 +2911,29 @@ const applyCardEffectsByTrigger = (
       }
       log(`<span class="text-cyan-300">${label}【${card.name}】清除了负面效果</span>`);
       hasEffect = true;
+    } else if (ce.kind === 'modify_dice') {
+      const beforeMinDice = targetEntity.minDice;
+      const beforeMaxDice = targetEntity.maxDice;
+      const minMultiplier = ce.minDiceMultiplier ?? 1;
+      const maxMultiplier = ce.maxDiceMultiplier ?? 1;
+      const minDelta = Math.floor(ce.minDiceDelta ?? 0);
+      const maxDelta = Math.floor(ce.maxDiceDelta ?? 0);
+      let nextMinDice = Math.floor(beforeMinDice * minMultiplier) + minDelta;
+      let nextMaxDice = Math.floor(beforeMaxDice * maxMultiplier) + maxDelta;
+      nextMinDice = Math.max(1, nextMinDice);
+      nextMaxDice = Math.max(nextMinDice, nextMaxDice);
+      targetEntity.minDice = nextMinDice;
+      targetEntity.maxDice = nextMaxDice;
+      const targetLabel = targetKey === 'self' ? '自身' : '目标';
+      log(`<span class="text-violet-300">${label}【${card.name}】使${targetLabel}最小/最大点数 ${beforeMinDice}~${beforeMaxDice} → ${nextMinDice}~${nextMaxDice}</span>`);
+      hasEffect = true;
+    } else if (ce.kind === 'escape') {
+      if (endCombatPending.value) continue;
+      const reasonText = triggerTextMap[trigger];
+      log(`<span class="text-zinc-300">${label}【${card.name}】${reasonText ? `${reasonText}后` : ''}逃离了战斗。</span>`);
+      endCombatPending.value = true;
+      void runEndCombatSequence('escape');
+      hasEffect = true;
     }
   }
 
@@ -2967,15 +3017,6 @@ const triggerShadowAssaultDamage = (
   for (const reviveLog of reviveResult.logs) {
     log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
   }
-};
-
-const triggerRunawayEscapeOnDodgeSuccess = (source: BattleSide, card: CardData) => {
-  if (card.id !== 'enemy_inkmouse_runaway') return;
-  if (endCombatPending.value) return;
-  const sourceLabel = source === 'player' ? '我方' : '敌方';
-  log(`<span class="text-zinc-300">${sourceLabel}【${card.name}】闪避成功并逃离了战斗。</span>`);
-  endCombatPending.value = true;
-  void runEndCombatSequence('escape');
 };
 
 const applyToxinSpreadOnPhysicalPlay = (source: BattleSide, card: CardData) => {
@@ -4792,6 +4833,7 @@ watch(
      if (endCombatPending.value) return;
      if (phase === CombatPhase.TURN_START) {
       playerDamageTakenThisTurn.value = 0;
+      directDamageTakenThisTurn.value = { player: 0, enemy: 0 };
       freezePumpTriggersThisTurn.value = 0;
       freezeFlowCoreTriggeredThisTurn.value = false;
       modaoStabilizerTriggersThisTurn.value = 0;
@@ -5372,21 +5414,11 @@ const resolveCombat = async (
     if (resultMsg) {
       log(`<span class="text-gray-300">${resultMsg}</span>`);
     }
-    if (!pSuccess && resolvedPlayerCard.id === 'enemy_silk_puppet_pounce') {
-      playerStats.value.maxDice += 1;
-      log('<span class="text-cyan-300">我方【扑倒】拼点失败：最大骰子点数 +1</span>');
+    if (!pSuccess) {
+      applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_clash_fail');
     }
-    if (!eSuccess && resolvedEnemyCard.id === 'enemy_silk_puppet_pounce') {
-      enemyStats.value.maxDice += 1;
-      log('<span class="text-cyan-300">敌方【扑倒】拼点失败：最大骰子点数 +1</span>');
-    }
-    if (!pSuccess && resolvedPlayerCard.id === 'enemy_doll_silk_corrosion') {
-      applyStatusEffectWithRelics('enemy', ET.CORROSION, 3, { source: resolvedPlayerCard.id });
-      log('<span class="text-emerald-300">我方【丝线侵蚀】拼点失败：对敌方施加 3 层侵蚀</span>');
-    }
-    if (!eSuccess && resolvedEnemyCard.id === 'enemy_doll_silk_corrosion') {
-      applyStatusEffectWithRelics('player', ET.CORROSION, 3, { source: resolvedEnemyCard.id });
-      log('<span class="text-emerald-300">敌方【丝线侵蚀】拼点失败：对我方施加 3 层侵蚀</span>');
+    if (!eSuccess) {
+      applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_clash_fail');
     }
     // 流血：只要发生拼点，双方都按各自当前流血层数受到真实伤害
     const playerBleedStacksOnClash = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
@@ -5428,11 +5460,6 @@ const resolveCombat = async (
       applyLightningAttachOnDodge('player', 'enemy');
       applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
       triggerShadowAssaultDamage('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
-      triggerRunawayEscapeOnDodgeSuccess('player', resolvedPlayerCard);
-      if (resolvedPlayerCard.id === 'enemy_inkmouse_cowardice') {
-        playerStats.value.maxDice += 1;
-        log('<span class="text-cyan-300">我方【胆小】闪避成功：最大骰子点数 +1</span>');
-      }
       if (resolvedPlayerCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('player', resolvedPlayerCard);
       }
@@ -5443,11 +5470,6 @@ const resolveCombat = async (
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
       triggerShadowAssaultDamage('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
-      triggerRunawayEscapeOnDodgeSuccess('enemy', resolvedEnemyCard);
-      if (resolvedEnemyCard.id === 'enemy_inkmouse_cowardice') {
-        enemyStats.value.maxDice += 1;
-        log('<span class="text-cyan-300">敌方【胆小】闪避成功：最大骰子点数 +1</span>');
-      }
       if (resolvedEnemyCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('enemy', resolvedEnemyCard);
       }
@@ -5666,6 +5688,15 @@ const resolveCombat = async (
         if (card.id === 'enemy_abyss_jellyfish_full_wrap') {
           aiFlags.abyssJellyfishFullWrapHit = true;
         }
+        if (card.id === 'enemy_mask_attendant_remove_mask') {
+          aiFlags.maskAttendantRemovedMaskUsed = true;
+        }
+        if (card.id === 'enemy_space_rift_bug_blind_spot') {
+          aiFlags.spaceRiftBugBlindSpotUsed = true;
+        }
+        if (card.id === 'enemy_space_rift_bug_attach') {
+          aiFlags.spaceRiftBugAttachHit = true;
+        }
       }
       if (card.id === 'basic_jagged_attack') {
         const nextBonus = increaseBattleCardPointBonus(source, card.id, 2, 4);
@@ -5718,6 +5749,9 @@ const resolveCombat = async (
     if (opponentSkippedTurn) {
       applyCardEffects('on_opponent_skip');
       triggerShadowAssaultDamage(source, card, finalPoint, 'on_opponent_skip');
+    }
+    if (!hasTakenDirectDamageThisTurn(source)) {
+      applyCardEffects('on_no_direct_damage_taken_this_turn');
     }
     triggerLowTempEngraverOnFunctionPlay();
 
@@ -5907,17 +5941,6 @@ const resolveCombat = async (
       return;
     }
 
-    if (card.id === 'enemy_executioner_puppet_tool_shift') {
-      attacker.minDice += 1;
-      attacker.maxDice += 1;
-      if (attacker.minDice > attacker.maxDice) {
-        attacker.maxDice = attacker.minDice;
-      }
-      log(`<span class="text-violet-300">${label}【${card.name}】最小/最大点数 +1（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
-      finalizeAndTrack();
-      return;
-    }
-
     if (card.id === 'enemy_silk_puppet_rally') {
       const swarmStacks = Math.max(0, getEffectStacks(attacker, ET.SWARM));
       if (swarmStacks > 0) {
@@ -5953,17 +5976,6 @@ const resolveCombat = async (
       }
       syncCurrentPointForUi();
       log(`<span class="text-violet-300">${label}【${card.name}】消耗1层群集，临时生命上限 +${actualMaxHpGain}，回复 ${healed} 点生命，最小/最大点数 ${minDiceBefore}~${maxDiceBefore} → ${attacker.minDice}~${attacker.maxDice}</span>`);
-      finalizeAndTrack();
-      return;
-    }
-
-    if (card.id === 'enemy_tester_logic_analysis') {
-      attacker.minDice += 1;
-      attacker.maxDice += 1;
-      if (attacker.minDice > attacker.maxDice) {
-        attacker.maxDice = attacker.minDice;
-      }
-      log(`<span class="text-violet-300">${label}【${card.name}】最小/最大点数 +1（当前 ${attacker.minDice}~${attacker.maxDice}）</span>`);
       finalizeAndTrack();
       return;
     }
@@ -6287,14 +6299,6 @@ const resolveCombat = async (
         finalizeAndTrack();
         return;
       }
-      if (card.id === 'basic_mana_expand') {
-        syncCurrentPointForUi();
-        applyCardEffects();
-        attacker.maxDice += 1;
-        log(`<span class="text-cyan-300">${label}【${card.name}】使本场战斗最大骰子点数 +1</span>`);
-        finalizeAndTrack();
-        return;
-      }
       if (card.id === 'basic_cognitive_swap') {
         syncCurrentPointForUi();
         applyCardEffects();
@@ -6342,6 +6346,7 @@ const resolveCombat = async (
       const targetHasSilenceBeforeOnUse = getEffectStacks(defender, ET.SILENCE) > 0;
       const targetHasControlledBeforeOnUse = getEffectStacks(defender, ET.CONTROLLED) > 0;
       const targetHasIndomitableBeforeOnUse = getEffectStacks(defender, ET.INDOMITABLE) > 0;
+      const targetHasOrgasmBeforeOnUse = getEffectStacks(defender, ET.ORGASM) > 0;
       let yustiaConsumedCold = 0;
       if (card.id === 'enemy_yustia_guilt_manifest') {
         yustiaConsumedCold = Math.max(0, getEffectStacks(defender, ET.COLD));
@@ -6484,6 +6489,9 @@ const resolveCombat = async (
       if (card.id === 'bloodpool_blood_blade' && bloodBladeBonus > 0) {
         log(`<span class="text-rose-300">${label}【${card.name}】当前已损失 ${bloodBladeBonus} 点生命，本次伤害 +${bloodBladeBonus}</span>`);
       }
+      if (card.id === 'enemy_mask_attendant_forced_invitation' && targetHasBindBeforeOnUse) {
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】目标已束缚：本次伤害翻倍，并将在命中后追加1层易伤</span>`);
+      }
 
       if (card.id === 'yanhan_cold_chamber_duplicate') {
         const currentCold = getEffectStacks(defender, ET.COLD);
@@ -6528,12 +6536,14 @@ const resolveCombat = async (
                     ? Math.floor(finalPoint * 2)
                   : card.id === 'bloodpool_pain_feedback'
                     ? Math.max(0, Math.floor(finalPoint) + painFeedbackBonus)
-                    : card.id === 'bloodpool_blood_blade'
+                  : card.id === 'bloodpool_blood_blade'
                       ? Math.max(0, Math.floor(finalPoint) + bloodBladeBonus)
                     : card.id === 'enemy_yustia_guilt_manifest'
                       ? Math.max(0, Math.floor(finalPoint) + yustiaConsumedCold)
               : card.id === 'enemy_rose_wangzhi_whip' && getEffectStacks(defender, ET.BIND) > 0
                 ? Math.floor(finalPoint) + 2
+              : card.id === 'enemy_mask_attendant_forced_invitation' && targetHasBindBeforeOnUse
+                ? Math.floor(finalPoint) * 2
               : null;
 
         if (customDamage !== null) {
@@ -7037,6 +7047,16 @@ const resolveCombat = async (
         if (targetHasBind) {
           applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
           log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已束缚，施加 1 层敌意隐藏</span>`);
+        }
+      }
+      if (card.id === 'enemy_mask_attendant_forced_invitation' && targetHasBindBeforeOnUse) {
+        if (applyStatusEffectWithRelics(defenderSide, ET.VULNERABLE, 1, { source: card.id })) {
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已束缚，额外施加 1 层易伤</span>`);
+        }
+      }
+      if (card.id === 'enemy_mask_attendant_faceless_bind' && targetHasOrgasmBeforeOnUse) {
+        if (applyStatusEffectWithRelics(defenderSide, ET.STUN, 1, { source: card.id, lockDecayThisTurn: true })) {
+          log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已有性兴奋，额外施加 1 层眩晕</span>`);
         }
       }
       finalizeAndTrack();

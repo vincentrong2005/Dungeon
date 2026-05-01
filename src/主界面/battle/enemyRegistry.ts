@@ -16,6 +16,18 @@ function weightedRandom<T>(options: { value: T; weight: number }[]): T {
   return options[options.length - 1]!.value;
 }
 
+function weightedRandomWithoutImmediateRepeat<T extends string>(
+  ctx: EnemyAIContext,
+  flagKey: string,
+  options: { value: T; weight: number }[],
+): T {
+  const lastValue = typeof ctx.flags[flagKey] === 'string' ? (ctx.flags[flagKey] as T) : null;
+  const availableOptions = options.filter(option => option.value !== lastValue);
+  const chosen = weightedRandom(availableOptions);
+  ctx.flags[flagKey] = chosen;
+  return chosen;
+}
+
 const pickRandomCard = (cards: CardData[]): CardData | null =>
   cards.length > 0 ? cards[Math.floor(Math.random() * cards.length)]! : null;
 
@@ -189,6 +201,13 @@ const WITNESS_WORM_CARD = {
   PARASITIC_DRILL: 'enemy_shame_leech_parasitic_drill',
   MENTAL_SHOCK: 'enemy_witness_worm_mental_shock',
   RETREAT: 'enemy_witness_worm_retreat',
+} as const;
+
+const SPACE_RIFT_BUG_CARD = {
+  ATTACH: 'enemy_space_rift_bug_attach',
+  BLIND_SPOT: 'enemy_space_rift_bug_blind_spot',
+  PAIN_AMPLIFICATION: 'enemy_space_rift_bug_pain_amplification',
+  SPATIAL_BLINK: 'enemy_space_rift_bug_spatial_blink',
 } as const;
 
 const BLOOD_BAT_CARD = {
@@ -502,6 +521,15 @@ const VOID_GLIMMER_CARD = {
   SOUNDLESS: 'enemy_void_glimmer_soundless',
   RESONANCE: 'enemy_void_glimmer_resonance',
   WANDER: 'enemy_void_glimmer_wander',
+} as const;
+
+const MASK_ATTENDANT_CARD = {
+  GREETING_GUIDE: 'enemy_mask_attendant_greeting_guide',
+  DANCE: 'enemy_mask_attendant_dance',
+  FORCED_INVITATION: 'enemy_mask_attendant_forced_invitation',
+  REMOVE_MASK: 'enemy_mask_attendant_remove_mask',
+  FACELESS_DEEP_KISS: 'enemy_mask_attendant_faceless_deep_kiss',
+  FACELESS_BIND: 'enemy_mask_attendant_faceless_bind',
 } as const;
 
 function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
@@ -1118,6 +1146,53 @@ const 证词虫: EnemyDefinition = {
     }
 
     return pickCardById(ctx, WITNESS_WORM_CARD.PARASITIC_DRILL);
+  },
+};
+
+const SPACE_RIFT_BUG: EnemyDefinition = {
+  name: '空间裂隙虫',
+  defeatNegativeStatus: '[被寄生]',
+  stats: {
+    hp: 13,
+    maxHp: 13,
+    mp: 0,
+    minDice: 1,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.SWARM, stacks: 3, polarity: 'buff' },
+      { type: EffectType.DAMAGE_LIMIT, stacks: 4, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    SPACE_RIFT_BUG_CARD.ATTACH,
+    SPACE_RIFT_BUG_CARD.BLIND_SPOT,
+    SPACE_RIFT_BUG_CARD.PAIN_AMPLIFICATION,
+    SPACE_RIFT_BUG_CARD.SPATIAL_BLINK,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, SPACE_RIFT_BUG_CARD.ATTACH);
+    }
+
+    if (!ctx.flags.spaceRiftBugBlindSpotUsed) {
+      return pickCardById(ctx, SPACE_RIFT_BUG_CARD.BLIND_SPOT);
+    }
+
+    const attachHit = ctx.flags.spaceRiftBugAttachHit === true;
+    if (ctx.enemyStats.mp >= 3) {
+      const pool = [
+        { value: SPACE_RIFT_BUG_CARD.PAIN_AMPLIFICATION, weight: 40 },
+        {
+          value: attachHit ? SPACE_RIFT_BUG_CARD.SPATIAL_BLINK : SPACE_RIFT_BUG_CARD.ATTACH,
+          weight: 60,
+        },
+      ];
+      return pickCardById(ctx, weightedRandom<string>(pool));
+    }
+
+    return pickCardById(ctx, attachHit ? SPACE_RIFT_BUG_CARD.SPATIAL_BLINK : SPACE_RIFT_BUG_CARD.ATTACH);
   },
 };
 
@@ -2825,6 +2900,48 @@ const 虚空游光: EnemyDefinition = {
   },
 };
 
+const 面具侍从: EnemyDefinition = {
+  name: '面具侍从',
+  stats: {
+    hp: 45,
+    maxHp: 45,
+    mp: 0,
+    minDice: 4,
+    maxDice: 7,
+    effects: [{ type: EffectType.SWARM, stacks: 2, polarity: 'buff' }],
+  },
+  deck: buildDeckById([
+    MASK_ATTENDANT_CARD.GREETING_GUIDE,
+    MASK_ATTENDANT_CARD.DANCE,
+    MASK_ATTENDANT_CARD.FORCED_INVITATION,
+    MASK_ATTENDANT_CARD.REMOVE_MASK,
+    MASK_ATTENDANT_CARD.FACELESS_DEEP_KISS,
+    MASK_ATTENDANT_CARD.FACELESS_BIND,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const swarmStacks = Math.max(0, ctx.enemyStats.effects.find(e => e.type === EffectType.SWARM)?.stacks ?? 0);
+    const removeMaskUsed = ctx.flags.maskAttendantRemovedMaskUsed === true;
+
+    if (swarmStacks <= 1 && !removeMaskUsed) {
+      return pickCardById(ctx, MASK_ATTENDANT_CARD.REMOVE_MASK);
+    }
+
+    if (swarmStacks > 1) {
+      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'maskAttendantHighSwarmLastCardId', [
+        { value: MASK_ATTENDANT_CARD.GREETING_GUIDE, weight: 30 },
+        { value: MASK_ATTENDANT_CARD.DANCE, weight: 30 },
+        { value: MASK_ATTENDANT_CARD.FORCED_INVITATION, weight: 40 },
+      ]));
+    }
+
+    return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'maskAttendantLowSwarmLastCardId', [
+      { value: MASK_ATTENDANT_CARD.DANCE, weight: 20 },
+      { value: MASK_ATTENDANT_CARD.FACELESS_DEEP_KISS, weight: 40 },
+      { value: MASK_ATTENDANT_CARD.FACELESS_BIND, weight: 40 },
+    ]));
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -2842,6 +2959,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [羞耻蛭.name, 羞耻蛭],
   [寄生水蛭.name, 寄生水蛭],
   [证词虫.name, 证词虫],
+  [SPACE_RIFT_BUG.name, SPACE_RIFT_BUG],
   [缝合蜘蛛.name, 缝合蜘蛛],
   [血蝙蝠.name, 血蝙蝠],
   [血仆.name, 血仆],
@@ -2864,6 +2982,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [布偶.name, 布偶],
   [深渊水母.name, 深渊水母],
   [虚空游光.name, 虚空游光],
+  [面具侍从.name, 面具侍从],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],

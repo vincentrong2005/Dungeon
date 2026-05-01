@@ -197,6 +197,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始时回复等量层数的生命',
   },
+  [EffectType.DAMAGE_LIMIT]: {
+    type: EffectType.DAMAGE_LIMIT,
+    name: '限伤',
+    polarity: 'buff',
+    timings: ['onBeforeDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '单次受到的非真实伤害最多为当前层数',
+  },
   [EffectType.SELF_REPAIR]: {
     type: EffectType.SELF_REPAIR,
     name: '自修复',
@@ -648,6 +657,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.DAMAGE_BOOST,
   EffectType.IGNORE_DODGE,
   EffectType.WEAKEN,
+  EffectType.DAMAGE_LIMIT,
   EffectType.CHARGE,
   EffectType.FATIGUE,
   EffectType.SCALE_POWDER,

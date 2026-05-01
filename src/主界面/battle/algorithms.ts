@@ -289,6 +289,11 @@ export function applyDamageToEntity(
 ): { actualDamage: number; logs: string[] } {
   const logs: string[] = [];
   if (!isTrueDamage) {
+    const damageLimit = getEffectStacks(target, EffectType.DAMAGE_LIMIT);
+    if (damageLimit > 0 && damage > damageLimit) {
+      logs.push(`[限伤] ${damage} -> ${damageLimit}`);
+      damage = damageLimit;
+    }
     if (hasEffect(target, EffectType.BARRIER) && damage > 0) {
       reduceEffectStacks(target, EffectType.BARRIER);
       logs.push(`[结界] 层数-1。`);

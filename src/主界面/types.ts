@@ -69,7 +69,13 @@ export interface CardCalculation {
 /** 效果数值来源 */
 export type EffectValueMode = 'fixed' | 'point_scale' | 'max_hp_percent';
 /** 卡牌附带效果触发时机 */
-export type CardEffectTrigger = 'on_use' | 'on_clash' | 'on_dodge_success' | 'on_opponent_skip';
+export type CardEffectTrigger =
+  | 'on_use'
+  | 'on_clash'
+  | 'on_clash_fail'
+  | 'on_dodge_success'
+  | 'on_opponent_skip'
+  | 'on_no_direct_damage_taken_this_turn';
 
 /** 卡牌打出时附带的效果 */
 export interface CardEffect {
@@ -81,7 +87,9 @@ export interface CardEffect {
     | 'apply_buff'     // 为目标施加 Buff/Debuff
     | 'heal'           // 回复生命
     | 'restore_mana'   // 回复魔力
-    | 'cleanse';       // 清除自身指定类型的 Debuff
+    | 'cleanse'        // 清除自身指定类型的 Debuff
+    | 'modify_dice'    // 调整最小/最大骰子点数
+    | 'escape';        // 触发逃离战斗
 
   // ── apply_buff 专用 ──
   /** 施加的效果类型（kind = apply_buff 时必填） */
@@ -98,6 +106,16 @@ export interface CardEffect {
   fixedValue?: number;
   /** point_scale / max_hp_percent 模式下的系数 */
   scale?: number;
+
+  // ── modify_dice 专用 ──
+  /** 最小骰子点数加减值 */
+  minDiceDelta?: number;
+  /** 最大骰子点数加减值 */
+  maxDiceDelta?: number;
+  /** 最小骰子点数倍率 */
+  minDiceMultiplier?: number;
+  /** 最大骰子点数倍率 */
+  maxDiceMultiplier?: number;
 
   // ── cleanse 专用 ──
   /** 要清除的 Debuff 类型列表（kind = cleanse 时使用，为空则清除全部） */
@@ -223,6 +241,8 @@ export enum EffectType {
   OBEDIENCE_BRAND = '服从烙印',
   /** 生命回复 — 每回合回复生命 */
   REGEN = '生命回复',
+  /** 限伤 — 单次受到的非真实伤害最多为当前层数 */
+  DAMAGE_LIMIT = '限伤',
   /** 自修复 — 回合开始时若生命低于50%，按层数回复生命并移除等量元素debuff；每累计3层回复计数增加2层生命上限削减 */
   SELF_REPAIR = '自修复',
   /** 虹膜：琥珀 — 受到的伤害减少50% */
