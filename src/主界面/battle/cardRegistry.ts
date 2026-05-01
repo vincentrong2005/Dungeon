@@ -4499,6 +4499,118 @@ const ABYSS_JELLYFISH_TOXIN_SECRETION: CardData = {
   description: '造成1倍点数中毒',
 };
 
+/** 荧光牵引：物理，无直接伤害，施加4层中毒与1层被操控 */
+const 虚空游光_荧光牵引: CardData = {
+  id: 'enemy_void_glimmer_fluorescent_tether',
+  name: '荧光牵引',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加4层中毒与1层被操控',
+};
+
+/** 柔光：消耗2MP，造成1倍点数伤害，并施加1倍点数疲劳 */
+const 虚空游光_柔光: CardData = {
+  id: 'enemy_void_glimmer_soft_light',
+  name: '柔光',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.FATIGUE, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '造成1倍点数伤害，并施加1倍点数的疲劳',
+};
+
+/** 脉冲：消耗3MP，点数+2，造成0.4倍点数伤害，3连击，并施加4层中毒 */
+const 虚空游光_脉冲: CardData = {
+  id: 'enemy_void_glimmer_pulse',
+  name: '脉冲',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '点数+2，造成0.4倍点数伤害，3连击，并施加4层中毒',
+};
+
+/** 悄无声息：获得1层无视闪避与1倍点数蓄力 */
+const 虚空游光_悄无声息: CardData = {
+  id: 'enemy_void_glimmer_soundless',
+  name: '悄无声息',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.IGNORE_DODGE, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1层无视闪避与1倍点数的蓄力',
+};
+
+/** 共鸣：失去1层群集，生命上限翻倍并恢复等量生命，最小/最大点数翻倍（结算逻辑在 CombatView） */
+const 虚空游光_共鸣: CardData = {
+  id: 'enemy_void_glimmer_resonance',
+  name: '共鸣',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '失去1层群集，获得等同当前生命上限的临时生命上限并恢复等量生命，最小/最大点数翻倍',
+};
+
+/** 游荡：闪避；若闪避成功或对方跳过回合，则施加1层性兴奋 */
+const 虚空游光_游荡: CardData = {
+  id: 'enemy_void_glimmer_wander',
+  name: '游荡',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.ORGASM,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '闪避；若闪避成功或对方跳过回合，则施加1层性兴奋',
+};
+
 /** 群体围猎：点数+自身群集数，造成1倍点数伤害并施加自身群集数层束缚，自身群集+1 */
 const STITCHED_SPIDER_PACK_HUNT: CardData = {
   id: 'enemy_stitched_spider_pack_hunt',
@@ -6626,6 +6738,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [ABYSS_JELLYFISH_CIRCUITOUS.name, ABYSS_JELLYFISH_CIRCUITOUS],
   [ABYSS_JELLYFISH_FULL_WRAP.name, ABYSS_JELLYFISH_FULL_WRAP],
   [ABYSS_JELLYFISH_TOXIN_SECRETION.name, ABYSS_JELLYFISH_TOXIN_SECRETION],
+  [虚空游光_荧光牵引.name, 虚空游光_荧光牵引],
+  [虚空游光_柔光.name, 虚空游光_柔光],
+  [虚空游光_脉冲.name, 虚空游光_脉冲],
+  [虚空游光_悄无声息.name, 虚空游光_悄无声息],
+  [虚空游光_共鸣.name, 虚空游光_共鸣],
+  [虚空游光_游荡.name, 虚空游光_游荡],
   [束缚丝.name, 束缚丝],
   [传导丝.name, 传导丝],
   [麻痹螯刺.name, 麻痹螯刺],

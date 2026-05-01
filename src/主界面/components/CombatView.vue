@@ -5930,6 +5930,33 @@ const resolveCombat = async (
       return;
     }
 
+    if (card.id === 'enemy_void_glimmer_resonance') {
+      const swarmStacks = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+      if (swarmStacks <= 0) {
+        log(`<span class="text-gray-400">${label}【${card.name}】未生效：当前没有可消耗的群集</span>`);
+        finalizeAndTrack();
+        return;
+      }
+
+      reduceEffectStacks(attacker, ET.SWARM, 1);
+      const beforeMaxHp = attacker.maxHp;
+      const maxHpGain = Math.max(0, beforeMaxHp);
+      const minDiceBefore = attacker.minDice;
+      const maxDiceBefore = attacker.maxDice;
+      const applied = applyStatusEffectWithRelics(source, ET.TEMP_MAX_HP, maxHpGain, { source: card.id });
+      const actualMaxHpGain = applied ? Math.max(0, attacker.maxHp - beforeMaxHp) : 0;
+      const { healed } = healForSide(source, actualMaxHpGain);
+      attacker.minDice *= 2;
+      attacker.maxDice *= 2;
+      if (attacker.minDice > attacker.maxDice) {
+        attacker.maxDice = attacker.minDice;
+      }
+      syncCurrentPointForUi();
+      log(`<span class="text-violet-300">${label}【${card.name}】消耗1层群集，临时生命上限 +${actualMaxHpGain}，回复 ${healed} 点生命，最小/最大点数 ${minDiceBefore}~${maxDiceBefore} → ${attacker.minDice}~${attacker.maxDice}</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
     if (card.id === 'enemy_tester_logic_analysis') {
       attacker.minDice += 1;
       attacker.maxDice += 1;

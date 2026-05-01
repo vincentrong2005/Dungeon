@@ -495,6 +495,15 @@ const ABYSS_JELLYFISH_CARD = {
   TOXIN_SECRETION: 'enemy_abyss_jellyfish_toxin_secretion',
 } as const;
 
+const VOID_GLIMMER_CARD = {
+  FLUORESCENT_TETHER: 'enemy_void_glimmer_fluorescent_tether',
+  SOFT_LIGHT: 'enemy_void_glimmer_soft_light',
+  PULSE: 'enemy_void_glimmer_pulse',
+  SOUNDLESS: 'enemy_void_glimmer_soundless',
+  RESONANCE: 'enemy_void_glimmer_resonance',
+  WANDER: 'enemy_void_glimmer_wander',
+} as const;
+
 function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
   const floor = Math.max(1, Math.floor(currentFloor));
   return {
@@ -2761,6 +2770,61 @@ const 深渊水母: EnemyDefinition = {
   },
 };
 
+const 虚空游光: EnemyDefinition = {
+  name: '虚空游光',
+  stats: {
+    hp: 50,
+    maxHp: 50,
+    mp: 0,
+    minDice: 2,
+    maxDice: 5,
+    effects: [
+      { type: EffectType.SWARM, stacks: 1, polarity: 'buff' },
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    VOID_GLIMMER_CARD.FLUORESCENT_TETHER,
+    VOID_GLIMMER_CARD.SOFT_LIGHT,
+    VOID_GLIMMER_CARD.PULSE,
+    VOID_GLIMMER_CARD.SOUNDLESS,
+    VOID_GLIMMER_CARD.RESONANCE,
+    VOID_GLIMMER_CARD.WANDER,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const hasSwarm = ctx.enemyStats.effects.some(e => e.type === EffectType.SWARM && e.stacks > 0);
+    if (ctx.turn >= 5 && hasSwarm) {
+      return pickCardById(ctx, VOID_GLIMMER_CARD.RESONANCE);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      return pickCardById(ctx, weightedRandom<string>([
+        { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 20 },
+        { value: VOID_GLIMMER_CARD.SOFT_LIGHT, weight: 15 },
+        { value: VOID_GLIMMER_CARD.PULSE, weight: 20 },
+        { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
+        { value: VOID_GLIMMER_CARD.WANDER, weight: 25 },
+      ]));
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      return pickCardById(ctx, weightedRandom<string>([
+        { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 20 },
+        { value: VOID_GLIMMER_CARD.SOFT_LIGHT, weight: 30 },
+        { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
+        { value: VOID_GLIMMER_CARD.WANDER, weight: 30 },
+      ]));
+    }
+
+    return pickCardById(ctx, weightedRandom<string>([
+      { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 40 },
+      { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
+      { value: VOID_GLIMMER_CARD.WANDER, weight: 40 },
+    ]));
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -2799,6 +2863,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [克拉肯.name, 克拉肯],
   [布偶.name, 布偶],
   [深渊水母.name, 深渊水母],
+  [虚空游光.name, 虚空游光],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],

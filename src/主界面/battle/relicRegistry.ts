@@ -231,14 +231,14 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '魔力残渣',
     rarity: '普通',
     category: '基础',
-    effect: '回合结束时，若自身魔力等于 0，则魔力 +1',
-    description: '每回合结束时，若魔力为 0，则回复 1 点魔力。',
+    effect: '每回合结束时，若魔力小于等于2，则回复1点魔力',
+    description: '每回合结束时，若魔力小于等于 2，则回复 1 点魔力。',
     hooks: {
       onTurnEnd: ({ count, side, self, restoreMana, addLog }) => {
-        if (self.mp !== 0) return;
+        if (self.mp > 2) return;
         const restored = restoreMana(side, count);
         if (restored > 0) {
-          addLog(`[魔力残渣] 魔力为 0，回复 ${restored} 点魔力。`);
+          addLog(`[魔力残渣] 魔力小于等于 2，回复 ${restored} 点魔力。`);
         }
       },
     },
@@ -811,15 +811,15 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'bloodpool_strawberry',
-    name: '草莓',
+    name: '小小草莓',
     rarity: '普通',
     category: '血池',
-    effect: '最大生命值+5',
-    description: '最大生命值增加5点。',
+    effect: '最大生命值+7',
+    description: '最大生命值增加7点。',
   },
   {
     id: 'bloodpool_pear',
-    name: '梨',
+    name: '小小梨',
     rarity: '稀有',
     category: '血池',
     effect: '最大生命值+10',
@@ -827,11 +827,11 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'bloodpool_mango',
-    name: '芒果',
+    name: '小小芒果',
     rarity: '传奇',
     category: '血池',
-    effect: '最大生命值+15',
-    description: '最大生命值增加15点。',
+    effect: '最大生命值+13',
+    description: '最大生命值增加13点。',
   },
   {
     id: 'bloodpool_crimson_plasma',
@@ -943,14 +943,19 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '危线回流',
     rarity: '稀有',
     category: '血池',
-    effect: '战斗中首次生命低于一半时，回复5点生命',
-    description: '每场战斗中，第一次生命值低于50%时，立即回复5点生命。',
+    effect: '战斗中首次生命低于一半时，回复10点生命',
+    description: '每场战斗中，第一次生命值低于50%时，立即回复10点生命。',
   },
 ];
 
 const RELIC_BY_ID = new Map(RELIC_LIST.map(relic => [relic.id, relic]));
 const RELIC_BY_NAME = new Map(RELIC_LIST.map(relic => [relic.name, relic]));
-const RELIC_NAME_ALIASES = new Map<string, string>([['火焰史莱姆', '火焰护符']]);
+const RELIC_NAME_ALIASES = new Map<string, string>([
+  ['火焰史莱姆', '火焰护符'],
+  ['草莓', '小小草莓'],
+  ['梨', '小小梨'],
+  ['芒果', '小小芒果'],
+]);
 
 export function getAllRelics(): readonly RelicData[] {
   return RELIC_LIST;
