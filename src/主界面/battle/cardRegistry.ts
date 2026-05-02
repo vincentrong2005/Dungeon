@@ -2830,6 +2830,111 @@ const NIGHTMARE_STEED_MIST_DUST: CardData = {
   description: '为对手施加1层敌意隐藏',
 };
 
+/** 残影粉尘：闪避，若闪避成功或对方跳过回合，则施加1层性兴奋 */
+const NIGHTMARE_MOTH_AFTERIMAGE_DUST: CardData = {
+  id: 'enemy_nightmare_moth_afterimage_dust',
+  name: '残影粉尘',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.ORGASM,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '闪避，若闪避成功或对方跳过回合，则施加1层性兴奋',
+};
+
+/** 鳞粉催眠：消耗2，施加4点侵蚀与1层鳞粉 */
+const NIGHTMARE_MOTH_SCALE_POWDER_HYPNOSIS: CardData = {
+  id: 'enemy_nightmare_moth_scale_powder_hypnosis',
+  name: '鳞粉催眠',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+    { kind: 'apply_buff', effectType: EffectType.SCALE_POWDER, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  negativeEffect: '[鳞粉]',
+  description: '消耗2，施加4点侵蚀，施加1层鳞粉，并附带负面状态[鳞粉]',
+};
+
+/** 群体编梦：消耗3，点数+群集数，法力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀（额外效果在 CombatView） */
+const NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE: CardData = {
+  id: 'enemy_nightmare_moth_collective_dreamweave',
+  name: '群体编梦',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 3,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  manaDrain: 3,
+  description: '消耗3，点数+群集数，法力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀',
+};
+
+/** 鳞粉爆散：消耗2，自伤30，点数+4，施加1倍点数侵蚀与1层虚弱，拼点失败则施加1层鳞粉 */
+const NIGHTMARE_MOTH_SCALE_POWDER_BURST: CardData = {
+  id: 'enemy_nightmare_moth_scale_powder_burst',
+  name: '鳞粉爆散',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 4 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.WEAKEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.SCALE_POWDER,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  selfDamage: 30,
+  description: '消耗2，自伤30，点数+4，施加1倍点数侵蚀与1层虚弱，拼点失败则施加1层鳞粉',
+};
+
+/** 极乐之梦：消耗6，造成1倍点数的侵蚀；对方每有1种debuff，点数+2（额外点数逻辑在 CombatView） */
+const NIGHTMARE_MOTH_BLISSFUL_DREAM: CardData = {
+  id: 'enemy_nightmare_moth_blissful_dream',
+  name: '极乐之梦',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '消耗6，造成1倍点数的侵蚀；对方每有1种debuff，点数+2',
+};
+
 /** 无面威慑：施加1层虚实不明与敌意隐藏 */
 const EXECUTIONER_PUPPET_FACELESS_INTIMIDATION: CardData = {
   id: 'enemy_executioner_puppet_faceless_intimidation',
@@ -7068,6 +7173,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [NIGHTMARE_STEED_BRANDED_STOMP.name, NIGHTMARE_STEED_BRANDED_STOMP],
   [NIGHTMARE_STEED_SADDLE_CAPTURE.name, NIGHTMARE_STEED_SADDLE_CAPTURE],
   [NIGHTMARE_STEED_MIST_DUST.name, NIGHTMARE_STEED_MIST_DUST],
+  [NIGHTMARE_MOTH_AFTERIMAGE_DUST.name, NIGHTMARE_MOTH_AFTERIMAGE_DUST],
+  [NIGHTMARE_MOTH_SCALE_POWDER_HYPNOSIS.name, NIGHTMARE_MOTH_SCALE_POWDER_HYPNOSIS],
+  [NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE.name, NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE],
+  [NIGHTMARE_MOTH_SCALE_POWDER_BURST.name, NIGHTMARE_MOTH_SCALE_POWDER_BURST],
+  [NIGHTMARE_MOTH_BLISSFUL_DREAM.name, NIGHTMARE_MOTH_BLISSFUL_DREAM],
   [EXECUTIONER_PUPPET_FACELESS_INTIMIDATION.name, EXECUTIONER_PUPPET_FACELESS_INTIMIDATION],
   [EXECUTIONER_PUPPET_TOOL_SHIFT.name, EXECUTIONER_PUPPET_TOOL_SHIFT],
   [EXECUTIONER_PUPPET_EXECUTION.name, EXECUTIONER_PUPPET_EXECUTION],

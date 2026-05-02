@@ -440,6 +440,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 1,
     description: '无法识别对方意图卡',
   },
+  [EffectType.UNSEEABLE]: {
+    type: EffectType.UNSEEABLE,
+    name: '无法直视',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '开局施加1层虚实不明与敌意隐藏；每回合开始为对手补上缺失的虚实不明/敌意隐藏',
+  },
   [EffectType.MEMORY_FOG]: {
     type: EffectType.MEMORY_FOG,
     name: '视野模糊',
@@ -688,6 +697,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.PEEP_FORBIDDEN,
   EffectType.BLIND_ASH,
   EffectType.COGNITIVE_INTERFERENCE,
+  EffectType.UNSEEABLE,
   EffectType.MEMORY_FOG,
   EffectType.SWARM,
   EffectType.WHITE_TURBID,

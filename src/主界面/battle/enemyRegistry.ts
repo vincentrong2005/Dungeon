@@ -230,6 +230,14 @@ const NIGHTMARE_STEED_CARD = {
   MIST_DUST: 'enemy_nightmare_steed_mist_dust',
 } as const;
 
+const NIGHTMARE_MOTH_CARD = {
+  AFTERIMAGE_DUST: 'enemy_nightmare_moth_afterimage_dust',
+  SCALE_POWDER_HYPNOSIS: 'enemy_nightmare_moth_scale_powder_hypnosis',
+  COLLECTIVE_DREAMWEAVE: 'enemy_nightmare_moth_collective_dreamweave',
+  SCALE_POWDER_BURST: 'enemy_nightmare_moth_scale_powder_burst',
+  BLISSFUL_DREAM: 'enemy_nightmare_moth_blissful_dream',
+} as const;
+
 const PUNISHMENT_PUPPET_CARD = {
   BONE_WHIP: 'enemy_punishment_puppet_bone_whip',
   SUCTION_SUPPRESS: 'enemy_punishment_puppet_suction_suppress',
@@ -1328,6 +1336,67 @@ const 梦魇驹: EnemyDefinition = {
       { value: NIGHTMARE_STEED_CARD.SADDLE_CAPTURE, weight: 10 },
     ]);
     return pickCardById(ctx, chosen);
+  },
+};
+
+const 梦魇蛾: EnemyDefinition = {
+  name: '梦魇蛾',
+  stats: {
+    hp: 25,
+    maxHp: 25,
+    mp: 0,
+    minDice: 1,
+    maxDice: 2,
+    effects: [
+      { type: EffectType.SWARM, stacks: 4, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 3, polarity: 'buff' },
+      { type: EffectType.UNSEEABLE, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST,
+    NIGHTMARE_MOTH_CARD.SCALE_POWDER_HYPNOSIS,
+    NIGHTMARE_MOTH_CARD.COLLECTIVE_DREAMWEAVE,
+    NIGHTMARE_MOTH_CARD.SCALE_POWDER_BURST,
+    NIGHTMARE_MOTH_CARD.BLISSFUL_DREAM,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const lowHp = ctx.enemyStats.maxHp > 0 && ctx.enemyStats.hp <= ctx.enemyStats.maxHp * 0.4;
+    const targetHasScalePowder = ctx.playerStats.effects.some(effect => (
+      effect.type === EffectType.SCALE_POWDER && effect.stacks > 0
+    ));
+
+    const buildWeightedPool = (
+      basePool: { value: string; weight: number }[],
+    ): { value: string; weight: number }[] => {
+      const pool = [...basePool];
+      if (lowHp) {
+        pool.push({ value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_BURST, weight: 100 });
+      }
+      if (targetHasScalePowder && ctx.enemyStats.mp >= 2) {
+        pool.push({ value: NIGHTMARE_MOTH_CARD.COLLECTIVE_DREAMWEAVE, weight: 40 });
+      }
+      return pool;
+    };
+
+    if (ctx.enemyStats.mp >= 6) {
+      const chosen = weightedRandom<string>(buildWeightedPool([
+        { value: NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST, weight: 20 },
+        { value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_HYPNOSIS, weight: 20 },
+        { value: NIGHTMARE_MOTH_CARD.BLISSFUL_DREAM, weight: 50 },
+      ]));
+      return pickCardById(ctx, chosen);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      const chosen = weightedRandom<string>(buildWeightedPool([
+        { value: NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST, weight: 50 },
+        { value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_HYPNOSIS, weight: 50 },
+      ]));
+      return pickCardById(ctx, chosen);
+    }
+
+    return pickCardById(ctx, NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST);
   },
 };
 
@@ -2903,10 +2972,10 @@ const 虚空游光: EnemyDefinition = {
 const 面具侍从: EnemyDefinition = {
   name: '面具侍从',
   stats: {
-    hp: 45,
-    maxHp: 45,
+    hp: 40,
+    maxHp: 40,
     mp: 0,
-    minDice: 4,
+    minDice: 2,
     maxDice: 7,
     effects: [{ type: EffectType.SWARM, stacks: 2, polarity: 'buff' }],
   },
@@ -2964,6 +3033,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [血蝙蝠.name, 血蝙蝠],
   [血仆.name, 血仆],
   [梦魇驹.name, 梦魇驹],
+  [梦魇蛾.name, 梦魇蛾],
   [刽子手偶.name, 刽子手偶],
   [惩戒傀儡.name, 惩戒傀儡],
   [影牢使魔.name, 影牢使魔],

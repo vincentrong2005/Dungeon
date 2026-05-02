@@ -1135,6 +1135,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.PEEP_FORBIDDEN]: Eye,
   [ET.BLIND_ASH]: EyeOff,
   [ET.COGNITIVE_INTERFERENCE]: Brain,
+  [ET.UNSEEABLE]: EyeOff,
   [ET.MEMORY_FOG]: EyeOff,
   [ET.SILENCE]: Ban,
   [ET.STURDY]: Shield,
@@ -1392,6 +1393,7 @@ const STATUS_LUST_KNOWLEDGE = '[淫乱知识]';
 const STATUS_MARKED = '[被标记]';
 const STATUS_PARASITIZED = '[被寄生]';
 const STATUS_BLOODLINE_MARK = '[血族印记]';
+const STATUS_SCALE_POWDER = '[鳞粉]';
 const PHEROMONE_CURSE_CARD_NAME = '信息素';
 const ARCHIVE_TAINT_CURSE_CARD_NAME = '档案污页';
 const normalizeNegativeStatusList = (value: unknown): string[] => {
@@ -3184,6 +3186,13 @@ const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number =
   return debuffs.length;
 };
 
+const countDistinctDebuffTypes = (entity: EntityStats): number => {
+  const debuffTypes = entity.effects
+    .filter(effect => effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff')
+    .map(effect => effect.type);
+  return new Set(debuffTypes).size;
+};
+
 const replacePlayerHandWithRandomRareCards = (count: number): CardData[] => {
   const rarePool = getAllCards().filter(card => card.category !== '敌人' && card.type !== CardType.ACTIVE && card.rarity === '稀有');
   const nextHand: CardData[] = [];
@@ -3488,6 +3497,12 @@ const getCardFinalPoint = (
   if (card.id === 'enemy_yustia_trueword_scale_powder') {
     finalPoint += Math.max(0, Math.floor(defender.mp));
   }
+  if (card.id === 'enemy_nightmare_moth_collective_dreamweave') {
+    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
+  }
+  if (card.id === 'enemy_nightmare_moth_blissful_dream') {
+    finalPoint += countDistinctDebuffTypes(defender) * 2;
+  }
   if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
     finalPoint += 3;
     if (!isPreview) {
@@ -3673,6 +3688,21 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     if (manaBonus > 0) {
       finalPoint += manaBonus;
       lines.push(`真言鳞粉（目标魔力${manaBonus}）+${manaBonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'enemy_nightmare_moth_collective_dreamweave') {
+    const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    if (swarmBonus > 0) {
+      finalPoint += swarmBonus;
+      lines.push(`${card.name}（群集${swarmBonus}）+${swarmBonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'enemy_nightmare_moth_blissful_dream') {
+    const debuffTypeCount = countDistinctDebuffTypes(defender);
+    const blissBonus = debuffTypeCount * 2;
+    if (blissBonus > 0) {
+      finalPoint += blissBonus;
+      lines.push(`极乐之梦（debuff种类${debuffTypeCount}）+${blissBonus} => ${finalPoint}`);
     }
   }
   if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
@@ -4128,6 +4158,13 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
       log('<span class="text-fuchsia-300">[负面状态][血族印记] 面对伊丽莎白时，开局获得了10层性兴奋。</span>');
     }
   }
+
+  if (statuses.includes(STATUS_SCALE_POWDER)) {
+    const applied = applyEffect(playerStats.value, ET.SCALE_POWDER, 1, { source: 'negative-status:[鳞粉]' });
+    if (applied) {
+      log('<span class="text-fuchsia-300">[负面状态][鳞粉] 开局获得了1层鳞粉。</span>');
+    }
+  }
 };
 
 const applyDifficultyBattleStartEffects = () => {
@@ -4140,9 +4177,35 @@ const applyDifficultyBattleStartEffects = () => {
   log(`<span class="text-fuchsia-300">[地狱难度] 开局获得了 1 层${effectName}。</span>`);
 };
 
+const applyUnseeableAura = (ownerSide: BattleSide, reason: 'battle_start' | 'turn_start') => {
+  const owner = ownerSide === 'player' ? playerStats.value : enemyStats.value;
+  if (getEffectStacks(owner, ET.UNSEEABLE) <= 0) return;
+
+  const targetSide: BattleSide = ownerSide === 'player' ? 'enemy' : 'player';
+  const target = targetSide === 'player' ? playerStats.value : enemyStats.value;
+  const ownerLabel = ownerSide === 'player' ? '我方' : '敌方';
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  const appliedEffects: string[] = [];
+
+  if (getEffectStacks(target, ET.PEEP_FORBIDDEN) <= 0) {
+    applyStatusEffectWithRelics(targetSide, ET.PEEP_FORBIDDEN, 1, { source: 'effect:unseeable' });
+    appliedEffects.push('虚实不明');
+  }
+  if (getEffectStacks(target, ET.COGNITIVE_INTERFERENCE) <= 0) {
+    applyStatusEffectWithRelics(targetSide, ET.COGNITIVE_INTERFERENCE, 1, { source: 'effect:unseeable' });
+    appliedEffects.push('敌意隐藏');
+  }
+  if (appliedEffects.length <= 0) return;
+
+  const reasonText = reason === 'battle_start' ? '开局' : '回合开始';
+  log(`<span class="text-violet-300">[${ownerLabel}特性][无法直视] ${reasonText}为${targetLabel}施加了${appliedEffects.join('与')}。</span>`);
+};
+
 triggerPlayerRelicLifecycleHooks('onBattleStart');
 applyMvuNegativeStatusesOnBattleStart();
 applyDifficultyBattleStartEffects();
+applyUnseeableAura('player', 'battle_start');
+applyUnseeableAura('enemy', 'battle_start');
 
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
@@ -4890,6 +4953,8 @@ watch(
           log(`<span class="text-rose-300">[${difficultyAtBattleStart}难度] 领主在第 ${combatState.value.turn} 回合获得了 1 层增伤。</span>`);
         }
       }
+      applyUnseeableAura('player', 'turn_start');
+      applyUnseeableAura('enemy', 'turn_start');
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
         for (const [side, label, stats] of [['player', '我方', playerStats], ['enemy', '敌方', enemyStats]] as const) {
@@ -6867,6 +6932,14 @@ const resolveCombat = async (
             }
           }
           log(`<span class="text-fuchsia-300">${label}【${card.name}】受群集影响额外结算 ${swarmStacks} 次：额外施加 ${extraExcitementApplied} 层性兴奋${extraFatigueApplied > 0 ? `与 ${extraFatigueApplied} 层疲劳` : ''}</span>`);
+        }
+      }
+      if (card.id === 'enemy_nightmare_moth_collective_dreamweave') {
+        const scalePowderStacks = Math.max(0, getEffectStacks(defender, ET.SCALE_POWDER));
+        const extraCorrosion = scalePowderStacks * 2;
+        if (extraCorrosion > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.CORROSION, extraCorrosion, { source: card.id });
+          log(`<span class="text-emerald-300">${label}【${card.name}】按目标鳞粉层数额外施加了 ${extraCorrosion} 层侵蚀</span>`);
         }
       }
       if (card.id === 'enemy_stitched_spider_pack_hunt') {
