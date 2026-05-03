@@ -197,6 +197,7 @@ export const useGameStore = defineStore('game', () => {
     addDefeatMark?: boolean;
     goldDelta?: number;
     negativeStatusesAdd?: string[];
+    negativeStatusesRemove?: string[];
   }
   interface PendingStatDataChanges {
     fields: Record<string, any>;
@@ -976,6 +977,18 @@ export const useGameStore = defineStore('game', () => {
         }
       }
       sd.$负面状态 = base;
+    }
+
+    if (Array.isArray(changes.negativeStatusesRemove) && changes.negativeStatusesRemove.length > 0) {
+      const raw = sd.$负面状态;
+      const base = Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+      const removeSet = new Set(
+        changes.negativeStatusesRemove
+          .filter((status): status is string => typeof status === 'string')
+          .map(status => status.trim())
+          .filter(status => status.length > 0),
+      );
+      sd.$负面状态 = removeSet.size > 0 ? base.filter(status => !removeSet.has(status)) : base;
     }
 
     if (Number.isFinite(changes.goldDelta)) {

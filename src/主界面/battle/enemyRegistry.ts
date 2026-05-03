@@ -1443,6 +1443,7 @@ const 枕头精: EnemyDefinition = {
 
 const 梦魔双子: EnemyDefinition = {
   name: '梦魔双子',
+  defeatNegativeStatus: '[蛾翼印记]',
   stats: {
     hp: 600,
     maxHp: 600,

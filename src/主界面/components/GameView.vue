@@ -5781,7 +5781,7 @@ const effectiveDisplayMaxDice = computed(() => {
   return Math.max(effectiveDisplayMinDice.value, withRelic);
 });
 const normalizeNegativeStatusList = (value: unknown): string[] => {
-  const normalizeArray = (arr: unknown[]) => {
+  const normalizeArray = (arr: unknown[]): string[] => {
     const seen = new Set<string>();
     const result: string[] = [];
     for (const item of arr) {
@@ -5810,8 +5810,8 @@ const normalizeNegativeStatusList = (value: unknown): string[] => {
 
   return [];
 };
-const REBIRTH_PERSISTENT_NEGATIVE_STATUSES = new Set<string>(['[淫乱知识]', '[血族印记]']);
-const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>(['[人格排泄]']);
+const REBIRTH_PERSISTENT_NEGATIVE_STATUSES = new Set<string>(['[淫乱知识]', '[血族印记]', '[灵魂受损]']);
+const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>(['[人格排泄]', '[灵魂受损]']);
 
 const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
@@ -5819,15 +5819,18 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[淫乱知识]': '每场战斗开始时向你的牌库随机插入1张【档案污页】。',
   '[被标记]': '战斗房出现概率大幅增加，且每场战斗开始时你获得2层易伤。',
   '[被寄生]': '每场战斗开始时，你获得1层性兴奋。',
+  '[鳞粉]': '每场战斗开始时，你获得1层鳞粉。',
   '[败北]': '在地牢中战败，沦为俘虏。',
   '[催淫]': '因中毒量hp归零，后续剧情会体现身体被药性支配。',
   '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
   '[被侵蚀]': '曾因侵蚀hp归零，后续剧情会体现身体被操控。',
   '[血族印记]': '被伊丽莎白支配后留下的烙印，后续剧情会体现其持续影响。',
+  '[蛾翼印记]': '被梦魔双子击败后的印记。',
+  '[灵魂受损]': '灵魂被梦魔双子所吞噬一部分，只有打败梦魔双子后才能净化。每场战斗开始时，你获得3层法力枯竭。',
   '[人格排泄]': '被灌入人格排泄剂，理性与意识融化凝结为人格果冻，灵魂被禁锢于排泄出的果冻中，肉体沦为空壳。',
 };
 const negativeStatusEntries = computed(() =>
-  normalizeNegativeStatusList(gameStore.statData.$负面状态).map(name => ({
+  normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name: string) => ({
     name,
     description:
       NEGATIVE_STATUS_DESCRIPTION_MAP[name] ??
@@ -5909,9 +5912,15 @@ const buildRebirthResetFields = (): Record<string, any> => {
   const currentFloor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
   const rebirthSkillPointGain = Math.floor((currentFloor * (currentFloor + 1)) / 2);
   const currentNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
-  const retainedNegativeStatuses = currentNegativeStatuses.filter(status =>
+  const retainedNegativeStatuses = currentNegativeStatuses.filter((status: string) =>
     REBIRTH_PERSISTENT_NEGATIVE_STATUSES.has(status),
   );
+  if (
+    currentNegativeStatuses.includes('[蛾翼印记]')
+    && !retainedNegativeStatuses.includes('[灵魂受损]')
+  ) {
+    retainedNegativeStatuses.push('[灵魂受损]');
+  }
   return {
     _血量: initialMaxHp,
     _血量上限: initialMaxHp,
@@ -6198,7 +6207,12 @@ const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
   gameStore.sendAction(text);
 };
 
-const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativeEffects: string[]) => {
+const queueCombatMvuSync = (
+  outcome: CombatOutcome,
+  finalStats: unknown,
+  negativeEffects: string[],
+  negativeStatusesRemove: string[] = [],
+) => {
   const win = outcome === 'win';
   const lose = outcome === 'lose';
   const hpRaw = Number((finalStats as { hp?: unknown } | null | undefined)?.hp);
@@ -6214,6 +6228,10 @@ const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativ
   const stomachBonus = Math.max(0, stomachMarkCount);
   const passiveMaxHpBonus = bloodpoolPassiveMaxHpBonus.value;
   const normalizedNegativeEffects = negativeEffects
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
+  const normalizedNegativeStatusesRemove = negativeStatusesRemove
     .filter((item): item is string => typeof item === 'string')
     .map(item => item.trim())
     .filter(item => item.length > 0);
@@ -6240,6 +6258,7 @@ const queueCombatMvuSync = (outcome: CombatOutcome, finalStats: unknown, negativ
     addDefeatMark: lose,
     goldDelta: win ? goldReward : undefined,
     negativeStatusesAdd: normalizedNegativeEffects,
+    negativeStatusesRemove: normalizedNegativeStatusesRemove,
   });
 };
 
@@ -6676,7 +6695,7 @@ const showHotSpringCleanseText = () => {
 
 const useHotSpringCleanse = () => {
   showHotSpringCleanseText();
-  const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态).filter(status =>
+  const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态).filter((status: string) =>
     HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES.has(status),
   );
   gameStore.setPendingStatDataChanges({ $负面状态: retainedNegativeStatuses });
@@ -8220,6 +8239,9 @@ const handleCombatEnd = async (
 ) => {
   const context = activeCombatContext.value;
   const enemyName = combatEnemyName.value || (gameStore.statData._对手名称 as string) || '未知敌人';
+  const negativeStatusesRemove = outcome === 'win' && enemyName === '梦魔双子'
+    ? ['[灵魂受损]']
+    : [];
   pendingCombatNarrative.value = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     context,
@@ -8228,7 +8250,7 @@ const handleCombatEnd = async (
     text: buildCombatNarrative(outcome, enemyName, context, logs ?? []),
   };
 
-  queueCombatMvuSync(outcome, finalStats, negativeEffects ?? []);
+  queueCombatMvuSync(outcome, finalStats, negativeEffects ?? [], negativeStatusesRemove);
 
   showCombat.value = false;
   showVictoryRewardView.value = false;

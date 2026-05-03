@@ -1456,6 +1456,7 @@ const STATUS_MARKED = '[被标记]';
 const STATUS_PARASITIZED = '[被寄生]';
 const STATUS_BLOODLINE_MARK = '[血族印记]';
 const STATUS_SCALE_POWDER = '[鳞粉]';
+const STATUS_SOUL_DAMAGE = '[灵魂受损]';
 const PHEROMONE_CURSE_CARD_NAME = '信息素';
 const ARCHIVE_TAINT_CURSE_CARD_NAME = '档案污页';
 const normalizeNegativeStatusList = (value: unknown): string[] => {
@@ -4362,6 +4363,13 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
     const applied = applyEffect(playerStats.value, ET.SCALE_POWDER, 1, { source: 'negative-status:[鳞粉]' });
     if (applied) {
       log('<span class="text-fuchsia-300">[负面状态][鳞粉] 开局获得了1层鳞粉。</span>');
+    }
+  }
+
+  if (statuses.includes(STATUS_SOUL_DAMAGE)) {
+    const applied = applyEffect(playerStats.value, ET.MANA_DRAIN, 3, { source: 'negative-status:[灵魂受损]' });
+    if (applied) {
+      log('<span class="text-fuchsia-300">[负面状态][灵魂受损] 开局获得了3层法力枯竭。</span>');
     }
   }
 };
