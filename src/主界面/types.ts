@@ -297,6 +297,8 @@ export enum EffectType {
   COGNITIVE_INTERFERENCE = '敌意隐藏',
   /** 无法直视 — 开局施加虚实不明与敌意隐藏；每回合开始为对手补上缺失的虚实不明/敌意隐藏 */
   UNSEEABLE = '无法直视',
+  /** 双生 — 受到群攻卡牌的直接伤害翻倍，获得的治疗量翻倍，收到禁言后自身获得1层虚弱 */
+  TWINS = '双生',
   /** 视野模糊 — 仅在出牌阶段隐藏自身手牌名称/描述（永久debuff） */
   MEMORY_FOG = '视野模糊',
   /** 禁言 — 无法使用魔法卡牌，每回合结束层数-1 */
@@ -504,6 +506,7 @@ export interface EnemyAIContext {
  * 可根据双方血量、蓝量、效果状态、回合数等任意条件决策。
  */
 export type EnemyAISelectCard = (ctx: EnemyAIContext) => CardData;
+export type EnemyAISelectTwinCards = (ctx: EnemyAIContext) => readonly [CardData, CardData];
 
 /** 敌人定义 */
 export interface EnemyDefinition {
@@ -517,4 +520,6 @@ export interface EnemyDefinition {
   defeatNegativeStatus?: string | string[];
   /** 独立的出牌 AI 函数 */
   selectCard: EnemyAISelectCard;
+  /** 双卡出牌 AI：若存在，则该敌人每回合会为不同位置选择两张牌 */
+  selectTwinCards?: EnemyAISelectTwinCards;
 }

@@ -7989,7 +7989,11 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
 
   const enterText =
     (portal.roomType === '战斗房' || portal.roomType === '领主房') && encounterMonster
-      ? `进入了${portal.roomType}并遭遇了${encounterMonster}`
+      ? `进入了${portal.roomType}并遭遇了${
+        portal.roomType === '领主房' && encounterMonster === '梦魔双子'
+          ? '沉睡的梦魔双子'
+          : encounterMonster
+      }`
       : portal.roomType === '陷阱房' && trapName
         ? `进入了${portal.roomType}的房间，当前陷阱房为${trapName}`
         : `进入了${portal.roomType}的房间`;

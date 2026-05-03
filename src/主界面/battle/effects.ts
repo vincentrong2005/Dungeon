@@ -449,6 +449,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 1,
     description: '开局施加1层虚实不明与敌意隐藏；每回合开始为对手补上缺失的虚实不明/敌意隐藏',
   },
+  [EffectType.TWINS]: {
+    type: EffectType.TWINS,
+    name: '双生',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '受到群攻卡牌的直接伤害翻倍，获得的治疗量翻倍，收到禁言后自身获得1层虚弱',
+  },
   [EffectType.MEMORY_FOG]: {
     type: EffectType.MEMORY_FOG,
     name: '视野模糊',
@@ -698,6 +707,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.BLIND_ASH,
   EffectType.COGNITIVE_INTERFERENCE,
   EffectType.UNSEEABLE,
+  EffectType.TWINS,
   EffectType.MEMORY_FOG,
   EffectType.SWARM,
   EffectType.WHITE_TURBID,

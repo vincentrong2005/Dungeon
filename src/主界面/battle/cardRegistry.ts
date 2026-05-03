@@ -2559,7 +2559,13 @@ const SPACE_RIFT_BUG_SPATIAL_BLINK: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { triggers: ['on_dodge_success', 'on_opponent_skip'], kind: 'escape', target: 'self', valueMode: 'fixed', fixedValue: 0 },
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'escape',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+    },
   ],
   description: '闪避，若闪避成功或对方跳过回合则逃离',
 };
@@ -2933,6 +2939,235 @@ const NIGHTMARE_MOTH_BLISSFUL_DREAM: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   description: '消耗6，造成1倍点数的侵蚀；对方每有1种debuff，点数+2',
+};
+
+/** 陷入永恒的沉睡：诅咒，陷入沉睡 */
+const PILLOW_SPIRIT_ETERNAL_SLUMBER: CardData = {
+  id: 'enemy_pillow_spirit_eternal_slumber',
+  name: '陷入永恒的沉睡',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [],
+  selfDamage: 9999,
+  description: '陷入沉睡',
+};
+
+/** 来睡一觉吧：插入诅咒卡牌“陷入永恒的沉睡” */
+const PILLOW_SPIRIT_NAP_INVITATION: CardData = {
+  id: 'enemy_pillow_spirit_nap_invitation',
+  name: '来睡一觉吧',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['陷入永恒的沉睡'] },
+  cardEffects: [],
+  description: '插入诅咒卡牌“陷入永恒的沉睡”',
+};
+
+/** 我会给你一个永恒的沉眠：插入3张诅咒卡牌“陷入永恒的沉睡” */
+const PILLOW_SPIRIT_ETERNAL_SLEEP: CardData = {
+  id: 'enemy_pillow_spirit_eternal_sleep',
+  name: '我会给你一个永恒的沉眠',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: {
+    combo: false,
+    reroll: 'none',
+    draw: false,
+    insertCardsToEnemyDeck: ['陷入永恒的沉睡', '陷入永恒的沉睡', '陷入永恒的沉睡'],
+  },
+  cardEffects: [],
+  description: '插入3张诅咒卡牌“陷入永恒的沉睡”',
+};
+
+/** 弥纱·银丝织网：消耗2，造成1倍点数伤害，施加1层束缚 */
+const DREAM_DEMON_TWIN_MISA_SILVER_WEB: CardData = {
+  id: 'enemy_dream_demon_twin_misa_silver_web',
+  name: '弥纱·银丝织网',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，施加1层束缚',
+};
+
+/** 弥纱·汲取：消耗2，造成1倍点数伤害，施加1层性兴奋 */
+const DREAM_DEMON_TWIN_MISA_DRAIN: CardData = {
+  id: 'enemy_dream_demon_twin_misa_drain',
+  name: '弥纱·汲取',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，施加1层性兴奋',
+};
+
+/** 弥纱·观察：自身获得2层增伤 */
+const DREAM_DEMON_TWIN_MISA_OBSERVE: CardData = {
+  id: 'enemy_dream_demon_twin_misa_observe',
+  name: '弥纱·观察',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '自身获得2层增伤',
+};
+
+/** 弥纱·保护：恢复1倍点数生命，获得1倍点数护甲 */
+const DREAM_DEMON_TWIN_MISA_PROTECT: CardData = {
+  id: 'enemy_dream_demon_twin_misa_protect',
+  name: '弥纱·保护',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '恢复1倍点数生命，获得1倍点数护甲',
+};
+
+/** 弥纱·收网：消耗6，点数+10，造成0.2倍点数伤害，3连击 */
+const DREAM_DEMON_TWIN_MISA_GATHER_NET: CardData = {
+  id: 'enemy_dream_demon_twin_misa_gather_net',
+  name: '弥纱·收网',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 10 },
+  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+10，造成0.2倍点数伤害，3连击',
+};
+
+/** 弥纱·噩梦主宰：点数x10，造成10倍点数真实伤害，无视防御 */
+const DREAM_DEMON_TWIN_MISA_NIGHTMARE_DOMINATION: CardData = {
+  id: 'enemy_dream_demon_twin_misa_nightmare_domination',
+  name: '弥纱·噩梦主宰',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 10.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 10.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数x10，造成10倍点数真实伤害，无视防御',
+};
+
+/** 弥音·娇蛮践踏：造成1倍点数伤害并施加1层易伤，销毁 */
+const DREAM_DEMON_TWIN_MIOTO_BRATTY_TRAMPLE: CardData = {
+  id: 'enemy_dream_demon_twin_mioto_bratty_trample',
+  name: '弥音·娇蛮践踏',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害并施加1层易伤，销毁',
+};
+
+/** 弥音·玩闹：点数+2，造成1倍点数伤害，施加4层燃烧 */
+const DREAM_DEMON_TWIN_MIOTO_PLAYFUL: CardData = {
+  id: 'enemy_dream_demon_twin_mioto_playful',
+  name: '弥音·玩闹',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '点数+2，造成1倍点数伤害，施加4层燃烧',
+};
+
+/** 弥音·挑衅：点数-3，闪避，若本回合没有收到伤害，自身最小骰子点数+1 */
+const DREAM_DEMON_TWIN_MIOTO_TAUNT: CardData = {
+  id: 'enemy_dream_demon_twin_mioto_taunt',
+  name: '弥音·挑衅',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -3 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'modify_dice',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      minDiceDelta: 1,
+    },
+  ],
+  description: '点数-3，闪避，若本回合没有收到伤害，自身最小骰子点数+1',
+};
+
+/** 弥音·洁净：清除自身随机一种负面状态（结算逻辑在 CombatView） */
+const DREAM_DEMON_TWIN_MIOTO_CLEANSE: CardData = {
+  id: 'enemy_dream_demon_twin_mioto_cleanse',
+  name: '弥音·洁净',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '清除自身随机一种负面状态',
 };
 
 /** 无面威慑：施加1层虚实不明与敌意隐藏 */
@@ -5962,9 +6197,7 @@ const 逃窜: CardData = {
   calculation: { multiplier: 1.0, addition: -1 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { triggers: ['on_dodge_success'], kind: 'escape', target: 'self', valueMode: 'fixed', fixedValue: 0 },
-  ],
+  cardEffects: [{ triggers: ['on_dodge_success'], kind: 'escape', target: 'self', valueMode: 'fixed', fixedValue: 0 }],
   description: '点数-1，闪避，若闪避成功则逃离',
 };
 
@@ -7178,6 +7411,19 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE.name, NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE],
   [NIGHTMARE_MOTH_SCALE_POWDER_BURST.name, NIGHTMARE_MOTH_SCALE_POWDER_BURST],
   [NIGHTMARE_MOTH_BLISSFUL_DREAM.name, NIGHTMARE_MOTH_BLISSFUL_DREAM],
+  [PILLOW_SPIRIT_ETERNAL_SLUMBER.name, PILLOW_SPIRIT_ETERNAL_SLUMBER],
+  [PILLOW_SPIRIT_NAP_INVITATION.name, PILLOW_SPIRIT_NAP_INVITATION],
+  [PILLOW_SPIRIT_ETERNAL_SLEEP.name, PILLOW_SPIRIT_ETERNAL_SLEEP],
+  [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
+  [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
+  [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],
+  [DREAM_DEMON_TWIN_MISA_PROTECT.name, DREAM_DEMON_TWIN_MISA_PROTECT],
+  [DREAM_DEMON_TWIN_MISA_GATHER_NET.name, DREAM_DEMON_TWIN_MISA_GATHER_NET],
+  [DREAM_DEMON_TWIN_MISA_NIGHTMARE_DOMINATION.name, DREAM_DEMON_TWIN_MISA_NIGHTMARE_DOMINATION],
+  [DREAM_DEMON_TWIN_MIOTO_BRATTY_TRAMPLE.name, DREAM_DEMON_TWIN_MIOTO_BRATTY_TRAMPLE],
+  [DREAM_DEMON_TWIN_MIOTO_PLAYFUL.name, DREAM_DEMON_TWIN_MIOTO_PLAYFUL],
+  [DREAM_DEMON_TWIN_MIOTO_TAUNT.name, DREAM_DEMON_TWIN_MIOTO_TAUNT],
+  [DREAM_DEMON_TWIN_MIOTO_CLEANSE.name, DREAM_DEMON_TWIN_MIOTO_CLEANSE],
   [EXECUTIONER_PUPPET_FACELESS_INTIMIDATION.name, EXECUTIONER_PUPPET_FACELESS_INTIMIDATION],
   [EXECUTIONER_PUPPET_TOOL_SHIFT.name, EXECUTIONER_PUPPET_TOOL_SHIFT],
   [EXECUTIONER_PUPPET_EXECUTION.name, EXECUTIONER_PUPPET_EXECUTION],

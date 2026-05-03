@@ -93,6 +93,30 @@
           </div>
         </div>
         <div
+          v-if="isTwinBattle"
+          class="mt-2 w-44 relative pointer-events-auto"
+          :style="dreamControlBarStyle"
+          @mouseenter="showDreamControlHelp"
+          @mouseleave="hideDreamControlHelp"
+        >
+          <div class="mb-1 flex items-center justify-between text-[10px] tracking-wide text-fuchsia-100/85">
+            <span>梦境控制权</span>
+            <span>{{ dreamControlPercent }}%</span>
+          </div>
+          <div class="h-1.5 rounded-full border border-fuchsia-300/35 bg-black/45 overflow-hidden">
+            <div
+              class="h-full bg-gradient-to-r from-amber-300 via-fuchsia-400 to-cyan-300 transition-all duration-500"
+              :style="withTransition({ width: `${dreamControlPercent}%` }, 500)"
+            ></div>
+          </div>
+          <div
+            v-if="dreamControlHelpVisible"
+            class="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 w-72 rounded-md border border-fuchsia-300/35 bg-black/85 px-2 py-1 text-[10px] leading-relaxed text-fuchsia-50 text-left shadow-lg"
+          >
+            当前梦境控制权：{{ dreamControlPercent }}%。0~24%：双子最终点数x1.5且伤害视为真实伤害；0~39%：双子骰子范围+3；61~99%：回合开始至少3层虚弱；76~99%：回合开始至少5层易伤。
+          </div>
+        </div>
+        <div
           v-if="dicePreviewPanels.length > 0"
           class="mt-2 w-80 space-y-1"
         >
@@ -126,20 +150,34 @@
       >
         <!-- Enemy Intent Card -->
         <div
-          v-if="showEnemyIntentCard && combatState.enemyIntentCard"
+          v-if="visibleEnemyIntentCards.length > 0"
           class="enemy-intent-anchor absolute"
+          :class="isTwinBattle ? 'enemy-intent-anchor--twins' : ''"
         >
-          <div class="relative">
+          <div
+            class="relative flex"
+            :class="visibleEnemyIntentCards.length > 1 ? 'gap-10' : 'gap-4'"
+          >
+            <div
+              v-for="entry in visibleEnemyIntentCards"
+              :key="`enemy-intent-${entry.slot}`"
+              class="relative"
+              :class="visibleEnemyIntentCards.length > 1 ? (entry.slot === 1 ? '-translate-x-3' : 'translate-x-3') : ''"
+            >
             <div class="absolute -top-5 left-0 text-amber-200/80 text-[10px] px-2 py-0.5 rounded">
               敌方意图
             </div>
-            <div class="rotate-[-3deg] scale-[1.3] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]">
+            <div
+              class="scale-[1.3] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]"
+              :class="entry.slot === 1 ? 'rotate-[-3deg]' : 'rotate-[3deg]'"
+            >
               <DungeonCard
-                :card="combatState.enemyIntentCard!"
+                :card="entry.card"
                 :mask-level="enemyIntentMaskLevel"
                 is-enemy
                 disabled
               />
+            </div>
             </div>
           </div>
         </div>
@@ -158,8 +196,8 @@
             <DungeonDice
               :value="displayEnemyDice"
               :rolling="isRolling"
-              :rolling-min="enemyStats.minDice"
-              :rolling-max="enemyStats.maxDice"
+              :rolling-min="effectiveEnemyMinDice"
+              :rolling-max="effectiveEnemyMaxDice"
               :number-class="enemyDiceNumberClass"
               color="red"
               size="lg"
@@ -285,7 +323,7 @@
           <!-- Dice Range -->
           <div class="flex items-center gap-2 mb-1">
             <span class="text-[10px] text-gray-400 font-bold w-6">🎲</span>
-            <span class="text-[10px] text-red-300">{{ enemyStats.minDice }} ~ {{ enemyStats.maxDice }}</span>
+            <span class="text-[10px] text-red-300">{{ effectiveEnemyMinDice }} ~ {{ effectiveEnemyMaxDice }}</span>
           </div>
           <!-- Buffs/Debuffs -->
           <div v-if="enemyVisibleEffects.length > 0" class="flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto">
@@ -563,8 +601,8 @@
             <DungeonDice
               :value="displayEnemyDice"
               :rolling="false"
-              :rolling-min="enemyStats.minDice"
-              :rolling-max="enemyStats.maxDice"
+              :rolling-min="effectiveEnemyMinDice"
+              :rolling-max="effectiveEnemyMaxDice"
               color="red"
               size="lg"
             />
@@ -578,11 +616,24 @@
         class="pointer-events-none min-h-[200px] w-full flex items-end justify-center pb-6 px-4 space-x-4 relative"
       >
         <!-- Center: Hand Cards -->
-        <div class="combat-hand-anchor flex space-x-4 items-end mb-2 z-40 pointer-events-auto">
+        <div class="combat-hand-anchor relative flex space-x-4 items-end mb-2 z-40 pointer-events-auto">
+          <div
+            v-if="isTwinBattle"
+            class="absolute left-1/2 -top-16 -translate-x-1/2 flex gap-2"
+          >
+            <div
+              v-for="slot in twinPlayerSelectionSummaries"
+              :key="`twin-player-slot-${slot.slot}`"
+              class="min-w-[9rem] rounded-lg border border-fuchsia-300/25 bg-[#18141e]/92 px-3 py-2 text-[11px] text-fuchsia-50 shadow-lg backdrop-blur-sm"
+            >
+              <div class="text-fuchsia-200/80">{{ getTwinTargetLabel(slot.slot) }}</div>
+              <div class="mt-1 font-medium">{{ slot.label }}</div>
+            </div>
+          </div>
           <div
             v-for="(card, idx) in combatState.playerHand"
             :key="handCardKey(card)"
-            class="transition-all duration-500 origin-bottom"
+            class="relative transition-all duration-500 origin-bottom"
             :class="[handCardClass(card), isCardShaking(card) ? 'invalid-card-shake' : '']"
             :style="transitionStyle(500)"
             @mouseenter="handlePlayerCardHoverStart(card)"
@@ -591,6 +642,12 @@
             @touchend="handlePlayerCardTouchEnd"
             @touchcancel="handlePlayerCardTouchEnd"
           >
+            <div
+              v-if="isTwinBattle && getTwinPlayerSelectionSlot(card) !== null"
+              class="absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-dungeon-gold/40 bg-[#241b12]/95 px-2 py-0.5 text-[10px] font-bold text-dungeon-gold shadow-lg"
+            >
+              {{ getTwinTargetLabel(getTwinPlayerSelectionSlot(card)) }}
+            </div>
             <DungeonCard
               :card="getDisplayHandCard(card)"
               :mask-level="playerHandMaskLevel"
@@ -885,6 +942,7 @@ const isLordBattle = String(gameStore.statData._当前房间类型 ?? '').includ
 // --- Enemy Loading ---
 const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
 const enemyDisplayName = enemyDef?.name ?? props.enemyName;
+const isTwinBattle = Boolean(enemyDef?.selectTwinCards);
 
 // --- Portrait URLs ---
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
@@ -1136,6 +1194,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BLIND_ASH]: EyeOff,
   [ET.COGNITIVE_INTERFERENCE]: Brain,
   [ET.UNSEEABLE]: EyeOff,
+  [ET.TWINS]: Link2,
   [ET.MEMORY_FOG]: EyeOff,
   [ET.SILENCE]: Ban,
   [ET.STURDY]: Shield,
@@ -1373,6 +1432,9 @@ interface DicePreviewPanel {
 const SPEED_SETTING_KEY = 'dungeon.combat.speed_up';
 const FATIGUE_DEGREE_KEY = 'dungeon.combat.fatigue_degree';
 const FATIGUE_DEGREE_MAX = 300;
+const DREAM_CONTROL_MIN = 0;
+const DREAM_CONTROL_MAX = 99;
+const DREAM_CONTROL_INITIAL = 50;
 const speedMultiplier = computed(() => (battleSpeedUp.value ? 2 : 1));
 const DEFAULT_COMBAT_FONT_FAMILY = "'Inter', sans-serif";
 const combatFontFamily = computed(() => {
@@ -1431,6 +1493,12 @@ const PLAYER_SHOCK_LETHAL_NEGATIVE_STATUS = '[神经肌肉失调]';
 const PLAYER_CORROSION_LETHAL_NEGATIVE_STATUS = '[被侵蚀]';
 const fatigueDegree = ref(0);
 const fatigueHelpVisible = ref(false);
+const dreamControlPercent = ref(DREAM_CONTROL_INITIAL);
+const dreamControlHelpVisible = ref(false);
+const twinEnemyIntentCards = ref<[CardData | null, CardData | null]>([null, null]);
+const twinEnemyConsumedSlots = ref<[boolean, boolean]>([false, false]);
+const twinPlayerSelectedCards = ref<[CardData | null, CardData | null]>([null, null]);
+const twinDirectComboResolving = ref(false);
 const fatigueDegreeRatio = computed(() => (
   Math.max(0, Math.min(fatigueDegree.value / FATIGUE_DEGREE_MAX, 1))
 ));
@@ -1440,11 +1508,18 @@ const fatigueBarOpacityRatio = computed(() => {
   return Math.max(0, Math.min((fatigueDegree.value - 50) / (FATIGUE_DEGREE_MAX - 50), 1));
 });
 const fatigueBarStyle = computed(() => ({ opacity: String(fatigueBarOpacityRatio.value) }));
+const dreamControlBarStyle = computed(() => ({ opacity: isTwinBattle ? '1' : '0' }));
 const showFatigueHelp = () => {
   fatigueHelpVisible.value = fatigueDegree.value > 50;
 };
 const hideFatigueHelp = () => {
   fatigueHelpVisible.value = false;
+};
+const showDreamControlHelp = () => {
+  dreamControlHelpVisible.value = isTwinBattle;
+};
+const hideDreamControlHelp = () => {
+  dreamControlHelpVisible.value = false;
 };
 const queuePlayerLethalNegativeStatus = (negativeStatus: string, reason: string) => {
   const normalized = negativeStatus.trim();
@@ -1517,6 +1592,11 @@ const displayEnemyDice = computed(() => {
   if (!isEnemyDiceObscured.value) return base;
   return Math.max(0, base + enemyDiceUiNoise.value);
 });
+const twinEnemyDiceBonus = computed(() => (
+  isTwinBattle && dreamControlPercent.value <= 39 ? 3 : 0
+));
+const effectiveEnemyMinDice = computed(() => Math.max(1, enemyStats.value.minDice + twinEnemyDiceBonus.value));
+const effectiveEnemyMaxDice = computed(() => Math.max(effectiveEnemyMinDice.value, enemyStats.value.maxDice + twinEnemyDiceBonus.value));
 const canPlayerRerollDice = computed(() => (
   playerDiceRerollCharges.value > 0
   && combatState.value.phase === CombatPhase.PLAYER_INPUT
@@ -1754,6 +1834,37 @@ const hasTakenDirectDamageThisTurn = (side: BattleSide): boolean => (
   Math.max(0, Math.floor(directDamageTakenThisTurn.value[side] ?? 0)) > 0
 );
 
+const clampDreamControl = (value: number): number => (
+  Math.max(DREAM_CONTROL_MIN, Math.min(DREAM_CONTROL_MAX, Math.round(value * 2) / 2))
+);
+
+const setDreamControl = (next: number, reason?: string) => {
+  const normalized = clampDreamControl(next);
+  const previous = dreamControlPercent.value;
+  dreamControlPercent.value = normalized;
+  if (reason && normalized !== previous) {
+    log(`<span class="text-fuchsia-300">[梦境控制权] ${reason}：${previous}% → ${normalized}%</span>`);
+  }
+};
+
+const isTwinEntity = (entity: EntityStats): boolean => getEffectStacks(entity, ET.TWINS) > 0;
+
+const updateDreamControlFromHit = (
+  sourceSide: BattleSide | undefined,
+  targetSide: BattleSide,
+  kind: 'direct' | 'status',
+  actualDamage: number,
+) => {
+  if (!isTwinBattle) return;
+  if (actualDamage <= 0 || !sourceSide) return;
+  if (targetSide === 'enemy' && sourceSide === 'player') {
+    const delta = kind === 'direct' ? 3 : 0.5;
+    setDreamControl(dreamControlPercent.value + delta, kind === 'direct' ? '玩家造成直接伤害' : '玩家造成负面状态伤害');
+  } else if (targetSide === 'player' && sourceSide === 'enemy' && kind === 'direct') {
+    setDreamControl(dreamControlPercent.value - 10, '双子造成直接伤害');
+  }
+};
+
 const addDamageHitTakenThisCombat = (side: BattleSide, actualDamage: number) => {
   const value = Math.max(0, Math.floor(actualDamage));
   if (value <= 0) return;
@@ -1763,6 +1874,23 @@ const addDamageHitTakenThisCombat = (side: BattleSide, actualDamage: number) => 
 const getDamageHitTakenThisCombat = (side: BattleSide): number => (
   Math.max(0, Math.floor(damageHitTakenThisCombat.value[side] ?? 0))
 );
+
+const applyTwinDreamControlThresholds = () => {
+  if (!isTwinBattle || enemyStats.value.hp <= 0 || !isTwinEntity(enemyStats.value)) return;
+  if (dreamControlPercent.value < 61) return;
+
+  const weakenMissing = Math.max(0, 3 - getEffectStacks(enemyStats.value, ET.WEAKEN));
+  if (weakenMissing > 0 && applyStatusEffectWithRelics('enemy', ET.WEAKEN, weakenMissing, { source: 'effect:dream_control' })) {
+    log('<span class="text-fuchsia-300">[梦境控制权] 梦魔双子的虚弱至少维持在 3 层。</span>');
+  }
+
+  const vulnerableMissing = dreamControlPercent.value >= 76
+    ? Math.max(0, 5 - getEffectStacks(enemyStats.value, ET.VULNERABLE))
+    : 0;
+  if (vulnerableMissing > 0 && applyStatusEffectWithRelics('enemy', ET.VULNERABLE, vulnerableMissing, { source: 'effect:dream_control' })) {
+    log('<span class="text-fuchsia-300">[梦境控制权] 梦魔双子的易伤至少维持在 5 层。</span>');
+  }
+};
 
 const applyPlayerSkinMarkDamageReduction = (rawDamage: number, reason: string): number => {
   const damage = Math.max(0, Math.floor(rawDamage));
@@ -1871,12 +1999,23 @@ const applyDamageToSideWithRelics = (
     isDirectDamage?: boolean;
     skipCoDamage?: boolean;
     card?: CardData;
+    dreamControlKind?: 'direct' | 'status';
   },
 ) => {
   const incoming = Math.max(0, Math.floor(damage));
+  const twinLowControlTrueDamage =
+    side === 'player'
+    && options?.sourceSide === 'enemy'
+    && isTwinBattle
+    && dreamControlPercent.value <= 24;
+  const effectiveTrueDamage = isTrueDamage || twinLowControlTrueDamage;
+  let effectiveIncoming = incoming;
+  if (options?.isDirectDamage && options.card?.swarmAttack && isTwinEntity(target)) {
+    effectiveIncoming = Math.max(0, Math.floor(effectiveIncoming * 2));
+  }
   const adjusted = side === 'player'
-    ? applyPlayerHemostaticValveDamageCap(incoming, reason)
-    : incoming;
+    ? applyPlayerHemostaticValveDamageCap(effectiveIncoming, reason)
+    : effectiveIncoming;
   if (
     options?.isDirectDamage
     && options.card?.type === CardType.MAGIC
@@ -1897,12 +2036,12 @@ const applyDamageToSideWithRelics = (
         reflectedSide,
         reflectedTarget,
         reflectedDamage,
-        isTrueDamage,
+        effectiveTrueDamage,
         '棱镜魔法反弹',
         { sourceSide: side, isDirectDamage: true },
       );
       if (actualReflectedDamage > 0) {
-        pushFloatingNumber(reflectedSide, actualReflectedDamage, isTrueDamage ? 'true' : 'magic', '-');
+        pushFloatingNumber(reflectedSide, actualReflectedDamage, effectiveTrueDamage ? 'true' : 'magic', '-');
       }
       log(`<span class="text-cyan-300">${targetLabel}[棱镜魔法] 反弹了 ${actualReflectedDamage} 点伤害给${sourceLabel}</span>`);
       for (const reflectedLog of reflectedLogs) {
@@ -1917,7 +2056,7 @@ const applyDamageToSideWithRelics = (
     return { actualDamage: 0, logs: [] };
   }
   const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
-  const result = applyDamageToEntity(target, adjusted, isTrueDamage, {
+  const result = applyDamageToEntity(target, adjusted, effectiveTrueDamage, {
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!options?.card?.swarmAttack,
   });
@@ -1933,7 +2072,13 @@ const applyDamageToSideWithRelics = (
   if (options?.isDirectDamage) {
     triggerBloodlineLifesteal(options.sourceSide, result.actualDamage, reason);
   }
-  if (!isTrueDamage && result.actualDamage > 0 && !options?.skipCoDamage) {
+  if (result.actualDamage > 0) {
+    const dreamControlKind = options?.dreamControlKind ?? (options?.isDirectDamage ? 'direct' : undefined);
+    if (dreamControlKind) {
+      updateDreamControlFromHit(options.sourceSide, side, dreamControlKind, result.actualDamage);
+    }
+  }
+  if (!effectiveTrueDamage && result.actualDamage > 0 && !options?.skipCoDamage) {
     const coDamageStacks = getEffectStacks(target, ET.CO_DAMAGE);
     if (coDamageStacks > 0) {
       const reflectedSide = oppositeSide(side);
@@ -1972,7 +2117,7 @@ const applyDirectHpLossWithRelics = (
   target: EntityStats,
   damage: number,
   reason: string,
-  options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean },
+  options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean; dreamControlKind?: 'direct' | 'status' },
 ): number => {
   const incoming = Math.max(0, Math.floor(damage));
   if (incoming <= 0) return 0;
@@ -1993,6 +2138,12 @@ const applyDirectHpLossWithRelics = (
   });
   if (options?.isDirectDamage) {
     triggerBloodlineLifesteal(options.sourceSide, actualDamage, reason);
+  }
+  if (actualDamage > 0) {
+    const dreamControlKind = options?.dreamControlKind ?? (options?.isDirectDamage ? 'direct' : undefined);
+    if (dreamControlKind) {
+      updateDreamControlFromHit(options.sourceSide, side, dreamControlKind, actualDamage);
+    }
   }
   return actualDamage;
 };
@@ -2065,9 +2216,11 @@ const healForSide = (
       value = Math.max(0, Math.floor(value * (1 + 0.25 * healAmpCount)));
     }
   }
-  if (value <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
-
   const target = getEntityBySide(side);
+  if (isTwinEntity(target)) {
+    value = Math.max(0, Math.floor(value * 2));
+  }
+  if (value <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
   const sourceSide = options?.sourceSide ?? side;
   if (sourceSide !== side && getEffectStacks(target, ET.BLOODLINE) > 0) {
     const convertedDamage = applyDirectHpLossWithRelics(
@@ -2203,6 +2356,13 @@ const applyStatusEffectWithRelics = (
   ) {
     log('<span class="text-red-400">[侵蚀] 侵蚀指数越过了临界值，我方战败，失去对身体的控制权。</span>');
     queuePlayerLethalNegativeStatus(PLAYER_CORROSION_LETHAL_NEGATIVE_STATUS, '侵蚀');
+  }
+  if (applied && effectType === ET.SILENCE && isTwinEntity(target)) {
+    const twinWeakenApplied = applyEffect(target, ET.WEAKEN, 1, { source: 'effect:twins_silence_response' });
+    if (twinWeakenApplied) {
+      const label = side === 'player' ? '我方' : '敌方';
+      log(`<span class="text-fuchsia-300">${label}[双生] 收到禁言后，自身获得了 1 层虚弱。</span>`);
+    }
   }
   if (applied && side === 'enemy' && effectType === ET.COLD) {
     const sourceTag = options?.source ?? '';
@@ -2388,6 +2548,35 @@ const showEnemyIntentCard = computed(() => {
   if (enemyIntentConsumedThisTurn.value) return false;
   return !resolvedEnemyCardVisual.value;
 });
+const visibleEnemyIntentCards = computed(() => {
+  if (resolvedEnemyCardVisual.value) return [] as Array<{ slot: number; card: CardData }>;
+  if (isTwinBattle) {
+    return twinEnemyIntentCards.value
+      .map((card, index) => ({ slot: index + 1, card, consumed: twinEnemyConsumedSlots.value[index] }))
+      .filter((entry): entry is { slot: number; card: CardData; consumed: boolean } => (
+        entry.card !== null && entry.card.id !== PASS_CARD.id
+      ))
+      .filter((entry) => !entry.consumed)
+      .map((entry) => ({ slot: entry.slot, card: entry.card }));
+  }
+  if (!showEnemyIntentCard.value || !combatState.value.enemyIntentCard) return [] as Array<{ slot: number; card: CardData }>;
+  return [{ slot: 1, card: combatState.value.enemyIntentCard }];
+});
+const getTwinTargetLabel = (slot: number | null | undefined): string => {
+  if (slot === 1) return '对弥纱';
+  if (slot === 2) return '对弥音';
+  return '待分配';
+};
+const getTwinPlayerSelectionSlot = (card: CardData): number | null => {
+  const index = twinPlayerSelectedCards.value.findIndex((entry) => entry === card);
+  return index >= 0 ? index + 1 : null;
+};
+const twinPlayerSelectionSummaries = computed(() => (
+  twinPlayerSelectedCards.value.map((card, index) => ({
+    slot: index + 1,
+    label: card?.name ?? '待选择',
+  }))
+));
 
 const floatingColors: Record<FloatingNumberKind, string> = {
   physical: 'text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.85)]',
@@ -2746,7 +2935,11 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
     return 0;
   }
 
-  const { actualDamage, logs: bleedLogs } = applyDamageToSideWithRelics(targetSide, target, bleedStacks, true, '流血');
+  const bleedSourceSide: BattleSide = targetSide === 'player' ? 'enemy' : 'player';
+  const { actualDamage, logs: bleedLogs } = applyDamageToSideWithRelics(targetSide, target, bleedStacks, true, '流血', {
+    sourceSide: bleedSourceSide,
+    dreamControlKind: targetSide === 'enemy' ? 'status' : undefined,
+  });
   if (actualDamage > 0) {
     pushFloatingNumber(targetSide, actualDamage, 'true', '-');
   }
@@ -2756,8 +2949,7 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
     log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
   }
   if (actualDamage > 0) {
-    const sourceSide: BattleSide = targetSide === 'player' ? 'enemy' : 'player';
-    triggerBloodlineLifesteal(sourceSide, actualDamage, '流血伤害');
+    triggerBloodlineLifesteal(bleedSourceSide, actualDamage, '流血伤害');
   }
 
   if (targetSide === 'enemy' && actualDamage > 0) {
@@ -3562,6 +3754,9 @@ const getCardFinalPoint = (
   if (card.type === CardType.DODGE) {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
   }
+  if (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24) {
+    finalPoint *= 1.5;
+  }
 
   if (source === 'player') {
     forEachPlayerRelic((entry, relic, state) => {
@@ -3781,6 +3976,10 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       finalPoint += scalePowderStacks;
       lines.push(`鳞粉 +${scalePowderStacks} => ${finalPoint}`);
     }
+  }
+  if (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24) {
+    finalPoint *= 1.5;
+    lines.push(`梦境控制权（<=24%）x1.5 => ${formatPointValue(finalPoint)}`);
   }
 
   if (source === 'player') {
@@ -4688,10 +4887,22 @@ const useActiveSkill = (idx: number) => {
 };
 
 const handCardClass = (card: CardData) => {
+  const isActionPhase = combatState.value.phase === CombatPhase.PLAYER_INPUT;
+
+  if (isTwinBattle) {
+    const slot = getTwinPlayerSelectionSlot(card);
+    const isSelected = slot !== null;
+    const selectedCount = twinPlayerSelectedCards.value.filter((entry) => entry !== null).length;
+    return [
+      isSelected ? '-translate-y-12 scale-110 z-50 ring-2 ring-dungeon-gold rounded-lg shadow-[0_0_30px_#d4af37]' : '',
+      !isSelected && selectedCount >= 2 ? 'opacity-35 scale-90 translate-y-6 grayscale' : 'hover:scale-110 hover:-translate-y-4 hover:z-50',
+      !isActionPhase && !isSelected ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer',
+    ];
+  }
+
   const selected = combatState.value.playerSelectedCard;
   const isSelected = selected === card;
   const isNotSelected = selected && !isSelected;
-  const isActionPhase = combatState.value.phase === CombatPhase.PLAYER_INPUT;
 
   return [
     isSelected ? '-translate-y-12 scale-110 z-50 ring-2 ring-dungeon-gold rounded-lg shadow-[0_0_30px_#d4af37]' : '',
@@ -4701,6 +4912,189 @@ const handCardClass = (card: CardData) => {
 };
 
 const getDisplayHandCard = (card: CardData): CardData => withEffectiveManaCost('player', card);
+const resetTwinTurnSelections = () => {
+  twinEnemyIntentCards.value = [null, null];
+  twinEnemyConsumedSlots.value = [false, false];
+  twinPlayerSelectedCards.value = [null, null];
+};
+const isTwinSelectionReady = () => twinPlayerSelectedCards.value.every((card) => card !== null);
+const markTwinPlayerSelection = (card: CardData) => {
+  const currentIndex = twinPlayerSelectedCards.value.findIndex((entry) => entry === card);
+  if (currentIndex >= 0) {
+    const next = twinPlayerSelectedCards.value.filter((entry) => entry !== card);
+    while (next.length < 2) next.push(null);
+    twinPlayerSelectedCards.value = [next[0] ?? null, next[1] ?? null];
+    return;
+  }
+
+  const next = [...twinPlayerSelectedCards.value];
+  const emptyIndex = next.findIndex((entry) => entry === null);
+  if (emptyIndex < 0) {
+    triggerInvalidCardShake(card);
+    log('<span class="text-red-400">双子机制下每回合最多选择两张牌。</span>');
+    return;
+  }
+  next[emptyIndex] = card;
+  twinPlayerSelectedCards.value = [next[0] ?? null, next[1] ?? null];
+};
+const fillTwinPassSlot = () => {
+  const next = [...twinPlayerSelectedCards.value];
+  const emptyIndex = next.findIndex((entry) => entry === null);
+  if (emptyIndex < 0) return false;
+  next[emptyIndex] = PASS_CARD;
+  twinPlayerSelectedCards.value = [next[0] ?? null, next[1] ?? null];
+  return true;
+};
+const getTwinDirectComboAllowedTypes = (): CardType[] => {
+  if (!isTwinBattle) return [];
+
+  const openSlotTypes = twinPlayerSelectedCards.value
+    .map((selectedCard, index) => (selectedCard === null ? twinEnemyIntentCards.value[index] : null))
+    .filter((card): card is CardData => card !== null && card.id !== PASS_CARD.id)
+    .map((card) => card.type);
+
+  return [...new Set(openSlotTypes)];
+};
+const getTwinDirectComboControlledReason = (card: CardData): string | null => {
+  if (getEffectStacks(playerStats.value, ET.CONTROLLED) <= 0) return null;
+
+  const allowedTypes = getTwinDirectComboAllowedTypes();
+  if (allowedTypes.length === 0 || allowedTypes.includes(card.type)) return null;
+  if (allowedTypes.length === 1) {
+    return `被操控中，仅可使用${allowedTypes[0]}卡牌或跳过。`;
+  }
+  return `被操控中，仅可使用${allowedTypes.join('或')}卡牌或跳过。`;
+};
+const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
+  const [played] = combatState.value.playerHand.splice(handIdx, 1);
+  if (!played) return;
+
+  clearDicePreview();
+  showPlayerPlayedCard(played);
+  addFatigueDegree(1);
+  combatState.value.discardPile.push(played);
+  combatState.value.playerSelectedCard = played;
+  twinDirectComboResolving.value = true;
+  combatState.value.phase = CombatPhase.RESOLUTION;
+
+  try {
+    await resolveCombat(
+      played,
+      PASS_CARD,
+      combatState.value.playerBaseDice,
+      combatState.value.enemyBaseDice,
+      {
+        suppressTurnCleanup: true,
+        twinDirectCombo: true,
+      },
+    );
+  } finally {
+    twinDirectComboResolving.value = false;
+    if (!endCombatPending.value && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
+      combatState.value.playerSelectedCard = null;
+      if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) {
+        combatState.value.phase = CombatPhase.PLAYER_INPUT;
+      }
+    }
+  }
+};
+const selectEnemyTwinCards = (): [CardData, CardData] => {
+  if (getEffectStacks(enemyStats.value, ET.STUN) > 0) {
+    log('<span class="text-gray-400">敌方处于眩晕，双子本回合两个位置都跳过。</span>');
+    return [PASS_CARD, PASS_CARD];
+  }
+  if (enemyDef?.selectTwinCards) {
+    aiFlags.dreamControlPercent = dreamControlPercent.value;
+    const ctx: EnemyAIContext = {
+      enemyStats: enemyStats.value,
+      playerStats: playerStats.value,
+      deck: combatState.value.enemyDeck,
+      playerHand: combatState.value.playerHand.slice(0, 3),
+      turn: combatState.value.turn,
+      flags: aiFlags,
+    };
+    const [first, second] = enemyDef.selectTwinCards(ctx);
+    return [first ?? PASS_CARD, second ?? PASS_CARD];
+  }
+  const fallback = selectEnemyCard();
+  return [fallback, PASS_CARD];
+};
+
+const resolveTwinCombatSequence = async () => {
+  const playerCards = twinPlayerSelectedCards.value;
+  const enemyCards = twinEnemyIntentCards.value;
+  const originalPlayerBaseDice = combatState.value.playerBaseDice;
+  const originalEnemyBaseDice = combatState.value.enemyBaseDice;
+  const slotEntries: Array<{ slot: 1 | 2; playerCard: CardData; enemyCard: CardData }> = [
+    {
+      slot: 1,
+      playerCard: playerCards[0] ?? PASS_CARD,
+      enemyCard: enemyCards[0] ?? PASS_CARD,
+    },
+    {
+      slot: 2,
+      playerCard: playerCards[1] ?? PASS_CARD,
+      enemyCard: enemyCards[1] ?? PASS_CARD,
+    },
+  ];
+
+  clearDicePreview();
+
+  for (const entry of slotEntries) {
+    if (endCombatPending.value || playerStats.value.hp <= 0 || enemyStats.value.hp <= 0) {
+      resetTwinTurnSelections();
+      return;
+    }
+
+    let playerCardToResolve = entry.playerCard;
+    if (playerCardToResolve.id !== PASS_CARD.id) {
+      const handIndex = combatState.value.playerHand.findIndex((card) => card === playerCardToResolve);
+      if (handIndex >= 0) {
+        const [played] = combatState.value.playerHand.splice(handIndex, 1);
+        if (played) {
+          playerCardToResolve = played;
+          combatState.value.discardPile.push(played);
+        }
+      } else {
+        playerCardToResolve = PASS_CARD;
+      }
+    }
+
+    combatState.value.playerBaseDice = originalPlayerBaseDice;
+    combatState.value.enemyBaseDice = originalEnemyBaseDice;
+    combatState.value.playerSelectedCard = playerCardToResolve;
+    combatState.value.enemyIntentCard = entry.enemyCard;
+    enemyIntentConsumedThisTurn.value = false;
+    enemyIntentManaSpentThisTurn.value = false;
+    twinEnemyConsumedSlots.value[entry.slot - 1] = false;
+
+    if (playerCardToResolve.id !== PASS_CARD.id) {
+      showPlayerPlayedCard(playerCardToResolve);
+      addFatigueDegree(1);
+    } else {
+      clearPlayerPlayedCard();
+    }
+
+    await resolveCombat(
+      playerCardToResolve,
+      entry.enemyCard,
+      originalPlayerBaseDice,
+      originalEnemyBaseDice,
+      {
+        deferTurnCleanup: entry.slot === 1,
+        twinSlotIndex: entry.slot,
+      },
+    );
+
+    twinEnemyConsumedSlots.value[entry.slot - 1] = true;
+    clearPlayerPlayedCard();
+
+    if (endCombatPending.value || playerStats.value.hp <= 0 || enemyStats.value.hp <= 0) {
+      resetTwinTurnSelections();
+      return;
+    }
+  }
+};
 
 // --- Enemy AI Card Selection ---
 function selectEnemyCard(): CardData {
@@ -4719,6 +5113,7 @@ function selectEnemyCard(): CardData {
   let selectedCard: CardData;
   if (enemyDef) {
     // Use the enemy's custom AI logic
+    aiFlags.dreamControlPercent = dreamControlPercent.value;
     const ctx: EnemyAIContext = {
       enemyStats: enemyStats.value,
       playerStats: playerStats.value,
@@ -4875,7 +5270,7 @@ const startTurn = () => {
   setTimeout(() => {
     if (endCombatPending.value) return;
     const pRawRoll = Math.floor(Math.random() * (playerStats.value.maxDice - playerStats.value.minDice + 1)) + playerStats.value.minDice;
-    const eRawRoll = Math.floor(Math.random() * (enemyStats.value.maxDice - enemyStats.value.minDice + 1)) + enemyStats.value.minDice;
+    const eRawRoll = Math.floor(Math.random() * (effectiveEnemyMaxDice.value - effectiveEnemyMinDice.value + 1)) + effectiveEnemyMinDice.value;
     const pRoll = consumeChargeOnRoll(playerStats.value, '我方', pRawRoll);
     const eRoll = consumeChargeOnRoll(enemyStats.value, '敌方', eRawRoll);
     playerTurnRawDice.value = pRawRoll;
@@ -4902,6 +5297,8 @@ watch(
       modaoStabilizerTriggersThisTurn.value = 0;
       bloodpoolSkinMarkTriggersThisTurn.value = 0;
       if (combatState.value.turn === 1) {
+        dreamControlPercent.value = DREAM_CONTROL_INITIAL;
+        resetTwinTurnSelections();
         bloodpoolFirstBleedFeastTriggered.value = false;
         bloodpoolCriticalReboundTriggered.value = false;
         battleCardFirstUseConsumed.value = { player: {}, enemy: {} };
@@ -4955,6 +5352,7 @@ watch(
       }
       applyUnseeableAura('player', 'turn_start');
       applyUnseeableAura('enemy', 'turn_start');
+      applyTwinDreamControlThresholds();
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
         for (const [side, label, stats] of [['player', '我方', playerStats], ['enemy', '敌方', enemyStats]] as const) {
@@ -5041,6 +5439,10 @@ watch(
                     burnResult.damage,
                     true,
                     '燃烧',
+                    {
+                      sourceSide: targetSide === 'enemy' ? 'player' : 'enemy',
+                      dreamControlKind: targetSide === 'enemy' ? 'status' : undefined,
+                    },
                   );
                   burnDamageTaken = actualDamage;
                   burnIsTrueDamage = actualDamage > 0;
@@ -5059,6 +5461,10 @@ watch(
                     burnResult.damage,
                     false,
                     '燃烧',
+                    {
+                      sourceSide: targetSide === 'enemy' ? 'player' : 'enemy',
+                      dreamControlKind: targetSide === 'enemy' ? 'status' : undefined,
+                    },
                   );
                   burnDamageTaken = actualDamage;
                   turnStartImmediateDamageTaken += actualDamage;
@@ -5082,13 +5488,13 @@ watch(
           if (burnDamageTaken > 0 && inkCreationStacks > 0) {
             const extraTrueDamage = Math.max(0, Math.floor(burnDamageTaken * inkCreationStacks));
             if (extraTrueDamage > 0) {
-              const { actualDamage, logs: inkCreationLogs } = applyDamageToSideWithRelics(
-                side,
-                stats.value,
-                extraTrueDamage,
-                true,
-                '笔墨造物',
-              );
+            const { actualDamage, logs: inkCreationLogs } = applyDamageToSideWithRelics(
+              side,
+              stats.value,
+              extraTrueDamage,
+              true,
+              '笔墨造物',
+            );
               turnStartImmediateDamageTaken += actualDamage;
               if (actualDamage > 0) {
                 pushFloatingNumber(side, actualDamage, 'true', '-');
@@ -5123,7 +5529,11 @@ watch(
               result.trueDamage,
               true,
               '回合开始真实伤害',
-              { skipHeartMark: true },
+              {
+                skipHeartMark: true,
+                sourceSide: targetSide === 'enemy' ? 'player' : 'enemy',
+                dreamControlKind: targetSide === 'enemy' ? 'status' : undefined,
+              },
             );
             turnStartTrueDamageTaken = actualDamage;
             if (actualDamage > 0) {
@@ -5196,10 +5606,20 @@ watch(
           combatState.value.playerHand = drawn;
           combatState.value.playerDeck = newDeck;
           combatState.value.discardPile = newDiscard;
+          resetTwinTurnSelections();
+          if (isTwinBattle) {
+            const [slot1Card, slot2Card] = selectEnemyTwinCards();
+            twinEnemyIntentCards.value = [slot1Card, slot2Card];
+            twinEnemyConsumedSlots.value = [false, false];
+            combatState.value.enemyIntentCard = slot1Card;
+            enemyIntentConsumedThisTurn.value = false;
+            enemyIntentManaSpentThisTurn.value = false;
+            combatState.value.phase = CombatPhase.PLAYER_INPUT;
+            return;
+          }
 
           // 敌方连击牌：回合开始先亮出并直接结算，再亮出本回合正式意图牌。
-          const selected = selectEnemyCard();
-          const eCard = await resolveEnemyComboPreludeIfNeeded(selected);
+          const eCard = await resolveEnemyComboPreludeIfNeeded(selectEnemyCard());
           if (endCombatPending.value) return;
 
           combatState.value.enemyIntentCard = eCard;
@@ -5219,6 +5639,66 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   if (handIdx < 0 || handIdx >= combatState.value.playerHand.length) return;
   if (combatState.value.playerHand[handIdx] !== card) return;
+
+  if (isTwinBattle) {
+    const runtimeCard = withEffectiveManaCost('player', card);
+    if (runtimeCard.traits.combo) {
+      const allowedTypes = getTwinDirectComboAllowedTypes();
+      const controlledExpectedType = allowedTypes.length === 1 ? allowedTypes[0] : null;
+      const check = canPlayCard(playerStats.value, runtimeCard, playerTurnRawDice.value, {
+        controlledExpectedType,
+      });
+      const controlledReason = check.allowed ? getTwinDirectComboControlledReason(runtimeCard) : null;
+      if (!check.allowed || controlledReason) {
+        triggerInvalidCardShake(card);
+        log(`<span class="text-red-400">${controlledReason ?? check.reason ?? '当前无法使用这张卡牌。'}</span>`);
+        return;
+      }
+      if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
+        triggerInvalidCardShake(card);
+        log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+        return;
+      }
+      void resolveTwinDirectComboCard(card, handIdx);
+      return;
+    }
+
+    const currentSlot = getTwinPlayerSelectionSlot(card);
+    if (currentSlot !== null) {
+      clearDicePreview();
+      markTwinPlayerSelection(card);
+      return;
+    }
+
+    const targetSlotIndex = twinPlayerSelectedCards.value.findIndex((entry) => entry === null);
+    const controlledExpectedType = (() => {
+      if (getEffectStacks(playerStats.value, ET.CONTROLLED) <= 0) return null;
+      if (targetSlotIndex < 0) return null;
+      const intentCard = twinEnemyIntentCards.value[targetSlotIndex];
+      if (!intentCard || intentCard.id === PASS_CARD.id) return null;
+      return intentCard.type;
+    })();
+    const check = canPlayCard(playerStats.value, runtimeCard, playerTurnRawDice.value, {
+      controlledExpectedType,
+    });
+    if (!check.allowed) {
+      triggerInvalidCardShake(card);
+      log(`<span class="text-red-400">${check.reason ?? '当前无法使用这张卡牌。'}</span>`);
+      return;
+    }
+    if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
+      triggerInvalidCardShake(card);
+      log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+      return;
+    }
+    clearDicePreview();
+    markTwinPlayerSelection(card);
+    if (isTwinSelectionReady()) {
+      combatState.value.playerSelectedCard = twinPlayerSelectedCards.value[0] ?? PASS_CARD;
+      combatState.value.phase = CombatPhase.RESOLUTION;
+    }
+    return;
+  }
 
   const runtimeCard = withEffectiveManaCost('player', card);
   const controlledExpectedType = (() => {
@@ -5255,6 +5735,18 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
 
 const handleSkipTurn = () => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  if (isTwinBattle) {
+    const filled = fillTwinPassSlot();
+    if (!filled) return;
+    clearDicePreview();
+    if (isTwinSelectionReady()) {
+      combatState.value.playerSelectedCard = twinPlayerSelectedCards.value[0] ?? PASS_CARD;
+      combatState.value.phase = CombatPhase.RESOLUTION;
+    } else {
+      log('<span class="text-gray-400">双子机制：当前空位已设为跳过。</span>');
+    }
+    return;
+  }
   if (!combatState.value.enemyIntentCard) return;
 
   clearDicePreview();
@@ -5287,12 +5779,21 @@ const resolveCombat = async (
   eCard: CardData,
   pDice: number,
   eDice: number,
-  options: { enemyComboPrelude?: boolean } = {},
+  options: {
+    enemyComboPrelude?: boolean;
+    deferTurnCleanup?: boolean;
+    suppressTurnCleanup?: boolean;
+    twinSlotIndex?: 1 | 2;
+    twinDirectCombo?: boolean;
+  } = {},
 ) => {
   if (endCombatPending.value) return;
   try {
   nonLivingConversionGuard.clear();
   const isEnemyComboPrelude = options.enemyComboPrelude === true;
+  if (options.twinSlotIndex) {
+    log(`<span class="text-fuchsia-300">[双子机制] ${getTwinTargetLabel(options.twinSlotIndex)}开始结算。</span>`);
+  }
   let resolvedPlayerCard = pCard;
   let resolvedEnemyCard = eCard;
   resolvedEnemyCard = withEffectiveManaCost('enemy', resolvedEnemyCard);
@@ -6374,6 +6875,20 @@ const resolveCombat = async (
         finalizeAndTrack();
         return;
       }
+      if (card.id === 'enemy_dream_demon_twin_mioto_cleanse') {
+        syncCurrentPointForUi();
+        const debuffs = attacker.effects.filter((effect) => EFFECT_REGISTRY[effect.type]?.polarity === 'debuff');
+        if (debuffs.length > 0) {
+          const picked = debuffs[Math.floor(Math.random() * debuffs.length)]!;
+          removeEffect(attacker, picked.type);
+          const effectName = EFFECT_REGISTRY[picked.type]?.name ?? picked.type;
+          log(`<span class="text-cyan-300">${label}【${card.name}】清除了自身的【${effectName}】。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可清除的负面状态。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
 
       // Process card effects (heal, apply_buff, restore_mana, cleanse)
       syncCurrentPointForUi();
@@ -6617,7 +7132,11 @@ const resolveCombat = async (
             damageLogic: { mode: 'fixed', value: Math.floor(customDamage) },
           };
         }
-        const forceTrueDamage = card.id === 'enemy_elizabeth_boiling_blood_pulse' || card.id === 'bloodpool_life_drain';
+        const forceTrueDamage =
+          card.id === 'enemy_elizabeth_boiling_blood_pulse'
+          || card.id === 'bloodpool_life_drain'
+          || card.id === 'enemy_dream_demon_twin_misa_nightmare_domination'
+          || (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24);
         const attackerEffectsForDamage = card.id === 'modao_big_destruction'
           ? attacker.effects.filter(effect => effect.type !== ET.DAMAGE_BOOST)
           : attacker.effects;
@@ -7253,7 +7772,13 @@ const resolveCombat = async (
       combatState.value.playerHand = [...combatState.value.playerHand, ...drawn];
     }
 
-    if (combatState.value.playerHand.length > 0 && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
+    if (options.twinDirectCombo && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
+      combatState.value.playerSelectedCard = null;
+      combatState.value.phase = CombatPhase.PLAYER_INPUT;
+      return;
+    }
+
+    if (!isTwinBattle && combatState.value.playerHand.length > 0 && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
       combatState.value.playerSelectedCard = null;
       combatState.value.phase = CombatPhase.PLAYER_INPUT;
       return;
@@ -7269,6 +7794,12 @@ const resolveCombat = async (
   }
 
   if (playerStats.value.hp <= 0 || enemyStats.value.hp <= 0) return;
+
+  if (options.suppressTurnCleanup) {
+    combatState.value.playerSelectedCard = null;
+    combatState.value.phase = CombatPhase.PLAYER_INPUT;
+    return;
+  }
 
   // End-of-turn effect processing (armor halving, stun clear, etc.)
   const playerArmorBeforeEnd = getEffectStacks(playerStats.value, ET.ARMOR);
@@ -7388,9 +7919,14 @@ const resolveCombat = async (
     }
   }
 
+  if (options.deferTurnCleanup) {
+    return;
+  }
+
   // Cleanup
   combatState.value.discardPile = [...combatState.value.discardPile, ...combatState.value.playerHand];
   combatState.value.playerHand = [];
+  resetTwinTurnSelections();
   combatState.value.turn += 1;
   combatState.value.phase = CombatPhase.TURN_START;
   } catch (error) {
@@ -7409,13 +7945,18 @@ watch(
   () => combatState.value.phase,
   (phase) => {
     if (endCombatPending.value) return;
+    if (twinDirectComboResolving.value) return;
     if (
       phase === CombatPhase.RESOLUTION &&
       combatState.value.playerSelectedCard &&
       combatState.value.enemyIntentCard &&
       !showClashAnimation.value
     ) {
-      resolveCombat(
+      if (isTwinBattle && isTwinSelectionReady()) {
+        void resolveTwinCombatSequence();
+        return;
+      }
+      void resolveCombat(
         combatState.value.playerSelectedCard,
         combatState.value.enemyIntentCard,
         combatState.value.playerBaseDice,
@@ -8004,6 +8545,11 @@ watch(
 .enemy-intent-anchor {
   left: calc(var(--enemy-shell-width) * var(--enemy-intent-left-ratio));
   top: calc(var(--enemy-shell-height) * var(--enemy-intent-top-ratio));
+}
+
+.enemy-intent-anchor--twins {
+  left: calc(var(--enemy-shell-width) * var(--enemy-intent-left-ratio) - 6rem);
+  top: calc(var(--enemy-shell-height) * var(--enemy-intent-top-ratio) + 0.5rem);
 }
 
 .enemy-dice-anchor {

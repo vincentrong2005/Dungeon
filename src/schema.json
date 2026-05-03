@@ -7,67 +7,52 @@
       "type": "object",
       "properties": {
         "种族": {
-          "default": "",
           "type": "string"
         },
         "姓名": {
-          "default": "",
           "type": "string"
         },
         "年龄": {
-          "default": 0,
           "type": "integer",
           "minimum": -9007199254740991,
           "maximum": 9007199254740991
         },
         "贞操": {
-          "default": "",
           "type": "string"
         },
         "天赋": {
-          "default": "",
           "type": "string"
         },
         "外貌": {
-          "default": "",
           "type": "string"
         },
         "特征": {
-          "default": "",
           "type": "string"
         },
         "身高": {
-          "default": 0,
           "type": "integer",
           "minimum": -9007199254740991,
           "maximum": 9007199254740991
         },
         "体重": {
-          "default": "",
           "type": "string"
         },
         "胸围": {
-          "default": "",
           "type": "string"
         },
         "臀部": {
-          "default": "",
           "type": "string"
         },
         "小穴": {
-          "default": "",
           "type": "string"
         },
         "屁穴": {
-          "default": "",
           "type": "string"
         },
         "敏感点": {
-          "default": "",
           "type": "string"
         },
         "背景故事": {
-          "default": "",
           "type": "string"
         }
       }
@@ -85,7 +70,6 @@
       "type": "number"
     },
     "_金币": {
-      "default": 0,
       "type": "number"
     },
     "$初始血量上限": {
@@ -97,11 +81,9 @@
       "type": "number"
     },
     "$初始金币": {
-      "default": 0,
       "type": "number"
     },
     "$技能点": {
-      "default": 0,
       "type": "number"
     },
     "_技能": {
@@ -131,7 +113,6 @@
       }
     },
     "$被动": {
-      "default": "",
       "type": "string"
     },
     "$主动": {
@@ -165,11 +146,9 @@
             "type": "object",
             "properties": {
               "名字": {
-                "default": "",
                 "type": "string"
               },
               "描述": {
-                "default": "",
                 "type": "string"
               }
             }
@@ -195,15 +174,12 @@
             "type": "object",
             "properties": {
               "名字": {
-                "default": "",
                 "type": "string"
               },
               "描述": {
-                "default": "",
                 "type": "string"
               },
               "回复": {
-                "default": 0,
                 "type": "number"
               }
             }
@@ -212,11 +188,9 @@
       }
     },
     "$最大点数": {
-      "default": 0,
       "type": "number"
     },
     "$最小点数": {
-      "default": 0,
       "type": "number"
     },
     "$星期": {
@@ -248,23 +222,18 @@
       "maximum": 9007199254740991
     },
     "_当前区域": {
-      "default": "",
       "type": "string"
     },
     "_当前房间类型": {
-      "default": "",
       "type": "string"
     },
     "$当前事件": {
-      "default": "",
       "type": "string"
     },
     "_对手名称": {
-      "default": "",
       "type": "string"
     },
     "$是否已击败商人": {
-      "default": false,
       "type": "boolean"
     },
     "_友好的领主": {
@@ -286,39 +255,30 @@
       "type": "object",
       "properties": {
         "当前层已过房间": {
-          "default": 0,
           "type": "number"
         },
         "累计已过房间": {
-          "default": 0,
           "type": "number"
         },
         "累计经过战斗": {
-          "default": 0,
           "type": "number"
         },
         "累计经过温泉": {
-          "default": 0,
           "type": "number"
         },
         "累计经过宝箱": {
-          "default": 0,
           "type": "number"
         },
         "累计经过商店": {
-          "default": 0,
           "type": "number"
         },
         "累计经过神像": {
-          "default": 0,
           "type": "number"
         },
         "累计经过事件": {
-          "default": 0,
           "type": "number"
         },
         "累计经过陷阱": {
-          "default": 0,
           "type": "number"
         }
       }
@@ -344,7 +304,6 @@
         "type": "object",
         "properties": {
           "好感度": {
-            "default": 0,
             "type": "number"
           }
         }

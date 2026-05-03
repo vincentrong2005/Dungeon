@@ -238,6 +238,24 @@ const NIGHTMARE_MOTH_CARD = {
   BLISSFUL_DREAM: 'enemy_nightmare_moth_blissful_dream',
 } as const;
 
+const PILLOW_SPIRIT_CARD = {
+  NAP_INVITATION: 'enemy_pillow_spirit_nap_invitation',
+  ETERNAL_SLEEP: 'enemy_pillow_spirit_eternal_sleep',
+} as const;
+
+const DREAM_DEMON_TWIN_CARD = {
+  MISA_SILVER_WEB: 'enemy_dream_demon_twin_misa_silver_web',
+  MISA_DRAIN: 'enemy_dream_demon_twin_misa_drain',
+  MISA_OBSERVE: 'enemy_dream_demon_twin_misa_observe',
+  MISA_PROTECT: 'enemy_dream_demon_twin_misa_protect',
+  MISA_GATHER_NET: 'enemy_dream_demon_twin_misa_gather_net',
+  MISA_NIGHTMARE_DOMINATION: 'enemy_dream_demon_twin_misa_nightmare_domination',
+  MIOTO_BRATTY_TRAMPLE: 'enemy_dream_demon_twin_mioto_bratty_trample',
+  MIOTO_PLAYFUL: 'enemy_dream_demon_twin_mioto_playful',
+  MIOTO_TAUNT: 'enemy_dream_demon_twin_mioto_taunt',
+  MIOTO_CLEANSE: 'enemy_dream_demon_twin_mioto_cleanse',
+} as const;
+
 const PUNISHMENT_PUPPET_CARD = {
   BONE_WHIP: 'enemy_punishment_puppet_bone_whip',
   SUCTION_SUPPRESS: 'enemy_punishment_puppet_suction_suppress',
@@ -1397,6 +1415,111 @@ const 梦魇蛾: EnemyDefinition = {
     }
 
     return pickCardById(ctx, NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST);
+  },
+};
+
+const 枕头精: EnemyDefinition = {
+  name: '枕头精',
+  stats: {
+    hp: 35,
+    maxHp: 35,
+    mp: 0,
+    minDice: 1,
+    maxDice: 2,
+    effects: [],
+  },
+  deck: buildDeckById([
+    PILLOW_SPIRIT_CARD.NAP_INVITATION,
+    PILLOW_SPIRIT_CARD.ETERNAL_SLEEP,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const chosen = weightedRandom<string>([
+      { value: PILLOW_SPIRIT_CARD.NAP_INVITATION, weight: 75 },
+      { value: PILLOW_SPIRIT_CARD.ETERNAL_SLEEP, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 梦魔双子: EnemyDefinition = {
+  name: '梦魔双子',
+  stats: {
+    hp: 600,
+    maxHp: 600,
+    mp: 0,
+    minDice: 4,
+    maxDice: 10,
+    effects: [
+      { type: EffectType.TWINS, stacks: 1, polarity: 'trait' },
+      { type: EffectType.BARRIER, stacks: 5, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    DREAM_DEMON_TWIN_CARD.MISA_SILVER_WEB,
+    DREAM_DEMON_TWIN_CARD.MISA_DRAIN,
+    DREAM_DEMON_TWIN_CARD.MISA_OBSERVE,
+    DREAM_DEMON_TWIN_CARD.MISA_PROTECT,
+    DREAM_DEMON_TWIN_CARD.MISA_GATHER_NET,
+    DREAM_DEMON_TWIN_CARD.MISA_NIGHTMARE_DOMINATION,
+    DREAM_DEMON_TWIN_CARD.MIOTO_BRATTY_TRAMPLE,
+    DREAM_DEMON_TWIN_CARD.MIOTO_PLAYFUL,
+    DREAM_DEMON_TWIN_CARD.MIOTO_TAUNT,
+    DREAM_DEMON_TWIN_CARD.MIOTO_CLEANSE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (Number(ctx.flags.dreamControlPercent ?? 50) <= 0) {
+      return pickCardById(ctx, DREAM_DEMON_TWIN_CARD.MISA_NIGHTMARE_DOMINATION);
+    }
+    if (ctx.turn % 2 === 1) {
+      return pickCardById(ctx, weightedRandom<string>([
+        { value: DREAM_DEMON_TWIN_CARD.MISA_OBSERVE, weight: 50 },
+        { value: DREAM_DEMON_TWIN_CARD.MISA_PROTECT, weight: 50 },
+      ]));
+    }
+    if (ctx.enemyStats.mp >= 6) {
+      return pickCardById(ctx, DREAM_DEMON_TWIN_CARD.MISA_GATHER_NET);
+    }
+    return pickCardById(ctx, weightedRandom<string>([
+      { value: DREAM_DEMON_TWIN_CARD.MISA_SILVER_WEB, weight: 50 },
+      { value: DREAM_DEMON_TWIN_CARD.MISA_DRAIN, weight: 50 },
+    ]));
+  },
+  selectTwinCards(ctx: EnemyAIContext) {
+    const dreamControlPercent = Math.max(0, Math.min(100, Math.floor(Number(ctx.flags.dreamControlPercent ?? 50))));
+    const slot1Id = (() => {
+      if (dreamControlPercent <= 0) {
+        return DREAM_DEMON_TWIN_CARD.MISA_NIGHTMARE_DOMINATION;
+      }
+      if (ctx.turn % 2 === 1) {
+        return weightedRandom<string>([
+          { value: DREAM_DEMON_TWIN_CARD.MISA_OBSERVE, weight: 50 },
+          { value: DREAM_DEMON_TWIN_CARD.MISA_PROTECT, weight: 50 },
+        ]);
+      }
+      if (ctx.enemyStats.mp >= 6) {
+        return DREAM_DEMON_TWIN_CARD.MISA_GATHER_NET;
+      }
+      return weightedRandom<string>([
+        { value: DREAM_DEMON_TWIN_CARD.MISA_SILVER_WEB, weight: 50 },
+        { value: DREAM_DEMON_TWIN_CARD.MISA_DRAIN, weight: 50 },
+      ]);
+    })();
+
+    const slot2Id = ctx.turn % 2 === 1
+      ? weightedRandom<string>([
+        { value: DREAM_DEMON_TWIN_CARD.MIOTO_BRATTY_TRAMPLE, weight: 50 },
+        { value: DREAM_DEMON_TWIN_CARD.MIOTO_PLAYFUL, weight: 50 },
+      ])
+      : weightedRandom<string>([
+        { value: DREAM_DEMON_TWIN_CARD.MIOTO_TAUNT, weight: 50 },
+        { value: DREAM_DEMON_TWIN_CARD.MIOTO_CLEANSE, weight: 50 },
+      ]);
+
+    return [
+      pickCardById(ctx, slot1Id),
+      pickCardById(ctx, slot2Id),
+    ] as const;
   },
 };
 
@@ -3034,6 +3157,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [血仆.name, 血仆],
   [梦魇驹.name, 梦魇驹],
   [梦魇蛾.name, 梦魇蛾],
+  [枕头精.name, 枕头精],
+  [梦魔双子.name, 梦魔双子],
   [刽子手偶.name, 刽子手偶],
   [惩戒傀儡.name, 惩戒傀儡],
   [影牢使魔.name, 影牢使魔],
