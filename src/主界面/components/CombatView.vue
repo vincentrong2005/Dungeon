@@ -3741,9 +3741,6 @@ const getCardFinalPoint = (
       }
     }
   }
-  if (card.id === 'modao_staff_strike') {
-    finalPoint = Math.max(finalPoint, baseDice);
-  }
   if (card.id === 'modao_rune_greatsword') {
     finalPoint += countMagicCardsInDeckForSide(source) * 2;
   }
@@ -3779,6 +3776,10 @@ const getCardFinalPoint = (
       };
       finalPoint = hook(ctx);
     });
+  }
+
+  if (card.id === 'modao_staff_strike') {
+    finalPoint = Math.max(finalPoint, baseDice);
   }
 
   return Math.max(0, Math.floor(finalPoint));
@@ -3942,10 +3943,6 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       }
     }
   }
-  if (card.id === 'modao_staff_strike' && finalPoint < baseDice) {
-    finalPoint = baseDice;
-    lines.push(`杖击（最终点数不低于原始点数）=> ${finalPoint}`);
-  }
   if (card.id === 'modao_rune_greatsword') {
     const magicCardCount = countMagicCardsInDeckForSide(source);
     if (magicCardCount > 0) {
@@ -4006,6 +4003,11 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       if (Math.abs(finalPoint - before) < 0.0001) return;
       lines.push(`${relic.name} ${formatRelicPointDelta(relic.id, before, finalPoint)} => ${formatPointValue(finalPoint)}`);
     });
+  }
+
+  if (card.id === 'modao_staff_strike' && finalPoint < baseDice) {
+    finalPoint = baseDice;
+    lines.push(`杖击（最终点数不低于原始点数）=> ${finalPoint}`);
   }
 
   lines.push(`最终：${Math.max(0, Math.floor(finalPoint))}`);

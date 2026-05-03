@@ -4367,7 +4367,7 @@ const 狂暴化: CardData = {
   description: '获得1层增伤与3层无视闪避',
 };
 
-/** 震动感知：为自身增加1.5倍点数护甲 */
+/** 震动感知：为自身增加1倍点数护甲 */
 const 震动感知: CardData = {
   id: 'enemy_root_tremor_sense',
   name: '震动感知',
@@ -4379,9 +4379,9 @@ const 震动感知: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.5 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '为自身增加1.5倍最终点数的护甲',
+  description: '为自身增加1倍最终点数的护甲',
 };
 
 /** 润滑分泌：为敌方增加0.5倍点数的中毒 */
