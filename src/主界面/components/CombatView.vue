@@ -1754,6 +1754,7 @@ const nextTurnMagicCostFree = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
+const lockedManaCostByCard = new WeakMap<CardData, number>();
 const nextTurnMagicPointBonus = ref<Record<BattleSide, { turn: number; amount: number }>>({
   player: { turn: 0, amount: 0 },
   enemy: { turn: 0, amount: 0 },
@@ -2802,6 +2803,17 @@ const hasModaoWeaveBackupInPlayerHand = () => (
   combatState.value.playerHand.some((entry) => entry.id === 'modao_weave_backup')
 );
 
+const lockCardManaCost = (side: BattleSide, card: CardData): number => {
+  const cost = getEffectiveManaCost(side, card);
+  lockedManaCostByCard.set(card, cost);
+  return cost;
+};
+
+const unlockCardManaCost = (card: CardData | null | undefined) => {
+  if (!card || card.id === PASS_CARD.id) return;
+  lockedManaCostByCard.delete(card);
+};
+
 const getSecondMagicCardInPlayerHand = (): CardData | null => {
   let seen = 0;
   for (const card of combatState.value.playerHand) {
@@ -2882,6 +2894,8 @@ const isAboveHalfHp = (entity: EntityStats): boolean => (
 const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   const base = Math.max(0, Math.floor(card.manaCost ?? 0));
   if (card.type !== CardType.MAGIC) return base;
+  const locked = lockedManaCostByCard.get(card);
+  if (typeof locked === 'number') return Math.max(0, Math.floor(locked));
   if (isMagicCostFreeThisTurn(side)) return 0;
 
   let discount = 0;
@@ -4923,6 +4937,7 @@ const handCardClass = (card: CardData) => {
 
 const getDisplayHandCard = (card: CardData): CardData => withEffectiveManaCost('player', card);
 const resetTwinTurnSelections = () => {
+  twinPlayerSelectedCards.value.forEach((card) => unlockCardManaCost(card));
   twinEnemyIntentCards.value = [null, null];
   twinEnemyConsumedSlots.value = [false, false];
   twinPlayerSelectedCards.value = [null, null];
@@ -4931,6 +4946,7 @@ const isTwinSelectionReady = () => twinPlayerSelectedCards.value.every((card) =>
 const markTwinPlayerSelection = (card: CardData) => {
   const currentIndex = twinPlayerSelectedCards.value.findIndex((entry) => entry === card);
   if (currentIndex >= 0) {
+    unlockCardManaCost(card);
     const next = twinPlayerSelectedCards.value.filter((entry) => entry !== card);
     while (next.length < 2) next.push(null);
     twinPlayerSelectedCards.value = [next[0] ?? null, next[1] ?? null];
@@ -4976,8 +4992,12 @@ const getTwinDirectComboControlledReason = (card: CardData): string | null => {
   return `被操控中，仅可使用${allowedTypes.join('或')}卡牌或跳过。`;
 };
 const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
+  lockCardManaCost('player', card);
   const [played] = combatState.value.playerHand.splice(handIdx, 1);
-  if (!played) return;
+  if (!played) {
+    unlockCardManaCost(card);
+    return;
+  }
 
   clearDicePreview();
   showPlayerPlayedCard(played);
@@ -4999,6 +5019,7 @@ const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
       },
     );
   } finally {
+    unlockCardManaCost(played);
     twinDirectComboResolving.value = false;
     if (!endCombatPending.value && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
       combatState.value.playerSelectedCard = null;
@@ -5701,6 +5722,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
       log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
       return;
     }
+    lockCardManaCost('player', card);
     clearDicePreview();
     markTwinPlayerSelection(card);
     if (isTwinSelectionReady()) {
@@ -5731,10 +5753,14 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
     return;
   }
+  lockCardManaCost('player', card);
 
   // 出牌后立即离开手牌（卡牌“消失”），并进入弃牌堆
   const [played] = combatState.value.playerHand.splice(handIdx, 1);
-  if (!played) return;
+  if (!played) {
+    unlockCardManaCost(card);
+    return;
+  }
   clearDicePreview();
   showPlayerPlayedCard(played);
   addFatigueDegree(1);
@@ -7946,6 +7972,8 @@ const resolveCombat = async (
     combatState.value.phase = CombatPhase.PLAYER_INPUT;
     log(`<span class="text-red-400">???????${error instanceof Error ? error.message : String(error)}</span>`);
   } finally {
+    unlockCardManaCost(pCard);
+    unlockCardManaCost(eCard);
     comboUiMaskBridge.value = false;
   }
 };
