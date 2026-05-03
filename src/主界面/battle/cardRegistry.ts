@@ -2992,7 +2992,7 @@ const PILLOW_SPIRIT_ETERNAL_SLEEP: CardData = {
   description: '插入3张诅咒卡牌“陷入永恒的沉睡”',
 };
 
-/** 弥纱·银丝织网：消耗2，造成1倍点数伤害，施加1层束缚 */
+/** 弥纱·银丝织网：消耗2，造成1倍点数伤害，施加2层束缚 */
 const DREAM_DEMON_TWIN_MISA_SILVER_WEB: CardData = {
   id: 'enemy_dream_demon_twin_misa_silver_web',
   name: '弥纱·银丝织网',
@@ -3005,9 +3005,9 @@ const DREAM_DEMON_TWIN_MISA_SILVER_WEB: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '造成1倍点数伤害，施加1层束缚',
+  description: '造成1倍点数伤害，施加2层束缚',
 };
 
 /** 弥纱·汲取：消耗2，造成1倍点数伤害，施加1层性兴奋 */
