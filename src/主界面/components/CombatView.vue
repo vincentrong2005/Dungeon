@@ -113,7 +113,7 @@
             v-if="dreamControlHelpVisible"
             class="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 w-72 rounded-md border border-fuchsia-300/35 bg-black/85 px-2 py-1 text-[10px] leading-relaxed text-fuchsia-50 text-left shadow-lg"
           >
-            当前梦境控制权：{{ dreamControlPercent }}%。0~24%：双子最终点数x1.5且伤害视为真实伤害；0~39%：双子骰子范围+3；61~99%：回合开始至少3层虚弱；76~99%：回合开始至少5层易伤。
+            当前梦境控制权：{{ dreamControlPercent }}%。0~24%：双子最终点数x1.5且伤害视为真实伤害；0~39%：双子骰子范围+2；61~99%：回合开始至少3层虚弱；76~99%：回合开始至少5层易伤。
           </div>
         </div>
         <div
@@ -1593,7 +1593,7 @@ const displayEnemyDice = computed(() => {
   return Math.max(0, base + enemyDiceUiNoise.value);
 });
 const twinEnemyDiceBonus = computed(() => (
-  isTwinBattle && dreamControlPercent.value <= 39 ? 3 : 0
+  isTwinBattle && dreamControlPercent.value <= 39 ? 2 : 0
 ));
 const effectiveEnemyMinDice = computed(() => Math.max(1, enemyStats.value.minDice + twinEnemyDiceBonus.value));
 const effectiveEnemyMaxDice = computed(() => Math.max(effectiveEnemyMinDice.value, enemyStats.value.maxDice + twinEnemyDiceBonus.value));

@@ -3028,7 +3028,7 @@ const DREAM_DEMON_TWIN_MISA_DRAIN: CardData = {
   description: '造成1倍点数伤害，施加1层性兴奋',
 };
 
-/** 弥纱·观察：自身获得2层增伤 */
+/** 弥纱·观察：自身获得1层增伤 */
 const DREAM_DEMON_TWIN_MISA_OBSERVE: CardData = {
   id: 'enemy_dream_demon_twin_misa_observe',
   name: '弥纱·观察',
@@ -3040,9 +3040,9 @@ const DREAM_DEMON_TWIN_MISA_OBSERVE: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '自身获得2层增伤',
+  description: '自身获得1层增伤',
 };
 
 /** 弥纱·保护：恢复1倍点数生命，获得1倍点数护甲 */
