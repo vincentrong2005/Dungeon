@@ -3730,6 +3730,29 @@ const 血液停滞: CardData = {
   description: '施加1倍点数的流血，并触发一次目标流血',
 };
 
+/** 血蝠引：闪避，若闪避成功则回复2倍点数的生命值 */
+const 血蝠引: CardData = {
+  id: 'enemy_elizabeth_blood_bat_lure',
+  name: '血蝠引',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 2.0,
+    },
+  ],
+  description: '闪避，闪避成功后回复2倍点数的生命值',
+};
+
 /** 血雾化身：为自身施加40%生命上限的生命上限削减与1层虚幻之躯，然后恢复至满血 */
 const 血雾化身: CardData = {
   id: 'enemy_elizabeth_blood_mist_avatar',
@@ -7251,6 +7274,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [蝙蝠突袭.name, 蝙蝠突袭],
   [沸血律动.name, 沸血律动],
   [血液停滞.name, 血液停滞],
+  [血蝠引.name, 血蝠引],
   [血雾化身.name, 血雾化身],
   [静肃宣告.name, 静肃宣告],
   [纸刃切割.name, 纸刃切割],

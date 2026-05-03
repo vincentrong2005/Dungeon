@@ -402,6 +402,7 @@ const ELIZABETH_CARD = {
   BAT_RAID: 'enemy_elizabeth_bat_raid',
   BOILING_BLOOD_PULSE: 'enemy_elizabeth_boiling_blood_pulse',
   BLOOD_STASIS: 'enemy_elizabeth_blood_stasis',
+  BLOOD_BAT_LURE: 'enemy_elizabeth_blood_bat_lure',
   BLOOD_MIST_AVATAR: 'enemy_elizabeth_blood_mist_avatar',
 } as const;
 
@@ -2267,6 +2268,7 @@ const 伊丽莎白: EnemyDefinition = {
     ELIZABETH_CARD.BAT_RAID,
     ELIZABETH_CARD.BOILING_BLOOD_PULSE,
     ELIZABETH_CARD.BLOOD_STASIS,
+    ELIZABETH_CARD.BLOOD_BAT_LURE,
     ELIZABETH_CARD.BLOOD_MIST_AVATAR,
   ]),
   selectCard(ctx: EnemyAIContext) {
@@ -2278,27 +2280,30 @@ const 伊丽莎白: EnemyDefinition = {
 
     if (ctx.enemyStats.mp >= 4) {
       const chosen = weightedRandom<string>([
-        { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 25 },
-        { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 15 },
-        { value: ELIZABETH_CARD.BOILING_BLOOD_PULSE, weight: 30 },
-        { value: ELIZABETH_CARD.BLOOD_STASIS, weight: 30 },
+        { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 20 },
+        { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 10 },
+        { value: ELIZABETH_CARD.BOILING_BLOOD_PULSE, weight: 20 },
+        { value: ELIZABETH_CARD.BLOOD_STASIS, weight: 20 },
+        { value: ELIZABETH_CARD.BLOOD_BAT_LURE, weight: 30 },
       ]);
       return pickCardById(ctx, chosen);
     }
 
     if (ctx.enemyStats.mp >= 2) {
       const chosen = weightedRandom<string>([
-        { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 40 },
-        { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 20 },
-        { value: ELIZABETH_CARD.BLOOD_STASIS, weight: 40 },
+        { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 30 },
+        { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 10 },
+        { value: ELIZABETH_CARD.BLOOD_STASIS, weight: 30 },
+        { value: ELIZABETH_CARD.BLOOD_BAT_LURE, weight: 30 },
       ]);
       return pickCardById(ctx, chosen);
     }
 
     const chosen = weightedRandom<string>([
-      { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 20 },
-      { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 20 },
-      { value: ELIZABETH_CARD.BAT_RAID, weight: 60 },
+      { value: ELIZABETH_CARD.BLOOD_THORNS, weight: 15 },
+      { value: ELIZABETH_CARD.COAGULATE_SOLDIER, weight: 15 },
+      { value: ELIZABETH_CARD.BLOOD_BAT_LURE, weight: 30 },
+      { value: ELIZABETH_CARD.BAT_RAID, weight: 40 },
     ]);
     return pickCardById(ctx, chosen);
   },
