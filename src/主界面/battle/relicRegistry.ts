@@ -367,6 +367,7 @@ const RELIC_LIST: readonly RelicData[] = [
     category: '基础',
     effect: '普通敌人掉落卡牌有10%概率为稀有',
     description: '战胜普通敌人时，每个奖励位有10%概率直接生成稀有卡牌。',
+    uniqueAcquisition: true,
   },
   {
     id: 'oily_grease',

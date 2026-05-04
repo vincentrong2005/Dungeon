@@ -6509,7 +6509,7 @@ const buildNextRelicInventory = (
     if (!name || count <= 0) continue;
     nextRelics[name] = count;
   }
-  if (pickedRelic.rarity === '传奇') {
+  if (isSingleAcquisitionRelic(pickedRelic)) {
     const existingByName = Math.max(0, Math.floor(Number(nextRelics[pickedRelic.name] ?? 0)));
     const existingById = Math.max(0, Math.floor(Number(nextRelics[pickedRelic.id] ?? 0)));
     if (existingByName > 0 || existingById > 0) {
