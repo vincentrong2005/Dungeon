@@ -6221,7 +6221,7 @@ const queueCombatMvuSync = (
   const hasFinalMaxHp = Number.isFinite(finalMaxHpRaw);
   const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
   const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
-  const goldReward = 2 + floor;
+  const goldReward = 3 + Math.floor(floor / 2);
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
   const stomachMarkCount = getOwnedRelicCountById('bloodpool_stomach_mark');
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
@@ -6390,8 +6390,8 @@ const formatRarityLabel = (rarity: RelicData['rarity']) => (rarity === '传奇' 
 
 const rollShopRarity = (): RelicData['rarity'] => {
   const r = Math.random();
-  if (r < 0.8) return '普通';
-  if (r < 0.95) return '稀有';
+  if (r < 0.7) return '普通';
+  if (r < 0.92) return '稀有';
   return '传奇';
 };
 
