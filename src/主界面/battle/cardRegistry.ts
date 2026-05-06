@@ -484,20 +484,20 @@ const 奥术裂枪: CardData = {
   description: '点数*1.2，造成1倍点数伤害；若当前MP≥8，再消耗4MP追加一次2倍伤害',
 };
 
-/** 魔导序曲：8MP，点数*1.5，2倍伤害；每次抽到该牌时其费用-1（结算逻辑在 CombatView） */
+/** 魔导序曲：10MP，点数*1.5，2倍伤害；每次抽到该牌时其费用-1（结算逻辑在 CombatView） */
 const 魔导序曲: CardData = {
   id: 'modao_overture',
   name: '魔导序曲',
   type: CardType.MAGIC,
   category: '魔导',
   rarity: '普通',
-  manaCost: 8,
+  manaCost: 10,
   calculation: { multiplier: 1.5, addition: 0 },
   damageLogic: { mode: 'relative', scale: 2.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗8MP，点数*1.5，造成2倍点数伤害；每次抽到该牌时该牌费用-1',
+  description: '消耗10MP，点数*1.5，造成2倍点数伤害；每次抽到该牌时该牌费用-1',
 };
 
 /** 法环坍缩：1.5倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
@@ -4944,6 +4944,132 @@ const ABYSS_JELLYFISH_TOXIN_SECRETION: CardData = {
   description: '造成1倍点数中毒',
 };
 
+/** 拖入墙壁：造成1倍点数伤害，施加1层被吞食 */
+const FLESH_WALL_WORM_DRAG_INTO_WALL: CardData = {
+  id: 'enemy_flesh_wall_worm_drag_into_wall',
+  name: '拖入墙壁',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DEVOUR, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'cleanse', target: 'enemy', valueMode: 'fixed', fixedValue: 0, cleanseTypes: [EffectType.STUN] },
+  ],
+  description: '造成1倍点数伤害，施加1层被吞食，并去除对方眩晕',
+};
+
+/** 黏液喷吐：施加3层电击与10层麻醉深度 */
+const FLESH_WALL_WORM_SLIME_SPIT: CardData = {
+  id: 'enemy_flesh_wall_worm_slime_spit',
+  name: '黏液喷吐',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+    { kind: 'apply_buff', effectType: EffectType.ANESTHESIA_DEPTH, target: 'enemy', valueMode: 'fixed', fixedValue: 10 },
+  ],
+  description: '施加3层电击与10层麻醉深度',
+};
+
+/** 肉壁呼吸：回复自身2倍点数血量 */
+const FLESH_WALL_WORM_FLESH_WALL_BREATH: CardData = {
+  id: 'enemy_flesh_wall_worm_flesh_wall_breath',
+  name: '肉壁呼吸',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 },
+  ],
+  description: '回复自身2倍点数血量',
+};
+
+/** 四肢锁定：造成0.5倍点数伤害并施加1层束缚 */
+const FLESH_WALL_WORM_LIMB_LOCK: CardData = {
+  id: 'enemy_flesh_wall_worm_limb_lock',
+  name: '四肢锁定',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成0.5倍点数伤害并施加1层束缚',
+};
+
+/** 腔室收缩：点数+2，造成1倍点数伤害并清空对方护甲 */
+const FLESH_WALL_WORM_CHAMBER_CONTRACTION: CardData = {
+  id: 'enemy_flesh_wall_worm_chamber_contraction',
+  name: '腔室收缩',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+2，造成1倍点数伤害并清空对方护甲',
+};
+
+/** 律动按压：施加20层麻醉深度，为双方施加1层生命回复 */
+const FLESH_WALL_WORM_RHYTHMIC_PRESS: CardData = {
+  id: 'enemy_flesh_wall_worm_rhythmic_press',
+  name: '律动按压',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ANESTHESIA_DEPTH, target: 'enemy', valueMode: 'fixed', fixedValue: 20 },
+    { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加20层麻醉深度，为双方施加1层生命回复',
+};
+
+/** 催情液分泌：施加3层中毒 */
+const FLESH_WALL_WORM_APHRODISIAC_SECRETION: CardData = {
+  id: 'enemy_flesh_wall_worm_aphrodisiac_secretion',
+  name: '催情液分泌',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '施加3层中毒',
+};
+
 /** 荧光牵引：物理，无直接伤害，施加4层中毒与1层被操控 */
 const 虚空游光_荧光牵引: CardData = {
   id: 'enemy_void_glimmer_fluorescent_tether',
@@ -7326,6 +7452,13 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [ABYSS_JELLYFISH_CIRCUITOUS.name, ABYSS_JELLYFISH_CIRCUITOUS],
   [ABYSS_JELLYFISH_FULL_WRAP.name, ABYSS_JELLYFISH_FULL_WRAP],
   [ABYSS_JELLYFISH_TOXIN_SECRETION.name, ABYSS_JELLYFISH_TOXIN_SECRETION],
+  [FLESH_WALL_WORM_DRAG_INTO_WALL.name, FLESH_WALL_WORM_DRAG_INTO_WALL],
+  [FLESH_WALL_WORM_SLIME_SPIT.name, FLESH_WALL_WORM_SLIME_SPIT],
+  [FLESH_WALL_WORM_FLESH_WALL_BREATH.name, FLESH_WALL_WORM_FLESH_WALL_BREATH],
+  [FLESH_WALL_WORM_LIMB_LOCK.name, FLESH_WALL_WORM_LIMB_LOCK],
+  [FLESH_WALL_WORM_CHAMBER_CONTRACTION.name, FLESH_WALL_WORM_CHAMBER_CONTRACTION],
+  [FLESH_WALL_WORM_RHYTHMIC_PRESS.name, FLESH_WALL_WORM_RHYTHMIC_PRESS],
+  [FLESH_WALL_WORM_APHRODISIAC_SECRETION.name, FLESH_WALL_WORM_APHRODISIAC_SECRETION],
   [虚空游光_荧光牵引.name, 虚空游光_荧光牵引],
   [虚空游光_柔光.name, 虚空游光_柔光],
   [虚空游光_脉冲.name, 虚空游光_脉冲],

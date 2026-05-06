@@ -3379,16 +3379,40 @@ const getOpposingCardForPointComparison = (source: BattleSide): { side: BattleSi
   };
 };
 
+const COGNITIVE_SWAP_BLOCKED_EFFECTS = new Set<EffectType>([
+  ET.DEVOUR,
+  ET.CONTROLLED,
+]);
+
 const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number => {
   const sourceStats = from === 'player' ? playerStats.value : enemyStats.value;
   const targetStats = to === 'player' ? playerStats.value : enemyStats.value;
   const debuffs = sourceStats.effects
-    .filter(effect => EFFECT_REGISTRY[effect.type]?.polarity === 'debuff' && effect.stacks > 0)
-    .map(effect => ({ type: effect.type, stacks: effect.stacks, source: effect.source }));
+    .filter(effect => (
+      EFFECT_REGISTRY[effect.type]?.polarity === 'debuff'
+      && effect.stacks > 0
+      && !COGNITIVE_SWAP_BLOCKED_EFFECTS.has(effect.type)
+    ))
+    .map(effect => ({
+      type: effect.type,
+      stacks: effect.stacks,
+      source: effect.source,
+      lockDecayThisTurn: effect.lockDecayThisTurn,
+      restrictedTypes: effect.restrictedTypes ? [...effect.restrictedTypes] : undefined,
+      runtimeCounter: effect.runtimeCounter,
+    }));
 
   for (const effect of debuffs) {
     removeEffect(sourceStats, effect.type);
-    applyEffect(targetStats, effect.type, effect.stacks, { source: effect.source });
+    applyEffect(targetStats, effect.type, effect.stacks, {
+      source: effect.source,
+      lockDecayThisTurn: effect.lockDecayThisTurn,
+      restrictedTypes: effect.restrictedTypes,
+    });
+    const transferredEffect = targetStats.effects.find((entry) => entry.type === effect.type);
+    if (transferredEffect) {
+      transferredEffect.runtimeCounter = effect.runtimeCounter;
+    }
   }
   return debuffs.length;
 };
@@ -5399,12 +5423,24 @@ watch(
           let burnIsTrueDamage = false;
           let turnStartImmediateDamageTaken = 0;
           let turnStartTrueDamageTaken = 0;
-          let pendingRegenHeal = 0;
 
-          const regenLog = result.logs.find((entry) => entry.includes('[生命回复]'));
-          if (regenLog) {
-            const regenMatch = regenLog.match(/回复\s+(\d+)\s+点生命/);
-            pendingRegenHeal = regenMatch ? Math.max(0, Number(regenMatch[1])) : 0;
+          const livingRoomStacks = getEffectStacks(stats.value, ET.LIVING_ROOM);
+          if (livingRoomStacks > 0) {
+            const currentPoint = side === 'player'
+              ? combatState.value.playerBaseDice
+              : combatState.value.enemyBaseDice;
+            const amountPerStack = Math.max(0, Math.floor(currentPoint / 2));
+            const totalAmount = amountPerStack * livingRoomStacks;
+            const anesthesiaGrowth = 5 * livingRoomStacks;
+            if (anesthesiaGrowth > 0) {
+              applyStatusEffectWithRelics(opponentSide, ET.ANESTHESIA_DEPTH, anesthesiaGrowth, { source: 'effect:living_room' });
+              turnStartLogs.push(`[活体房间] 对方的麻醉深度增加 ${anesthesiaGrowth} 层。`);
+            }
+            if (totalAmount > 0) {
+              applyStatusEffectWithRelics(opponentSide, ET.FATIGUE, totalAmount, { source: 'effect:living_room' });
+              applyStatusEffectWithRelics(targetSide, ET.CHARGE, totalAmount, { source: 'effect:living_room' });
+              turnStartLogs.push(`[活体房间] 以当前点数 ${currentPoint} 为基础：为对方施加 ${totalAmount} 层疲劳，并为自身施加 ${totalAmount} 层蓄力。`);
+            }
           }
 
           if (combatState.value.turn % 3 === 0) {
@@ -5537,17 +5573,10 @@ watch(
             }
           }
 
-          const residualHpChange = result.hpChange - pendingRegenHeal;
-          if (pendingRegenHeal > 0) {
-            healForSide(targetSide, pendingRegenHeal);
-          }
-
-          if (residualHpChange !== 0) {
-            if (residualHpChange > 0) {
-              healForSide(targetSide, residualHpChange);
-            } else {
-              stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + residualHpChange));
-            }
+          const negativeHpChange = Math.min(0, result.hpChange);
+          const positiveHpChange = Math.max(0, result.hpChange);
+          if (negativeHpChange !== 0) {
+            stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + negativeHpChange));
           }
           if (result.mpChange !== 0) {
             changeManaWithShock(side, result.mpChange, '法力变化（回合开始）', { showPositiveFloating: true });
@@ -5579,10 +5608,14 @@ watch(
               queuePlayerLethalNegativeStatus(PLAYER_POISON_LETHAL_NEGATIVE_STATUS, '中毒量致死判定');
             }
           }
+          // 回合开始的致死伤害应当阻断后续治疗，避免出现“先死亡再被同阶段回血拉起”的穿透结算。
+          if (stats.value.hp > 0 && positiveHpChange > 0) {
+            healForSide(targetSide, positiveHpChange);
+          }
           if (targetSide === 'player') {
             const turnStartDamageTaken = Math.max(
               0,
-              turnStartImmediateDamageTaken + turnStartTrueDamageTaken + Math.max(0, -residualHpChange),
+              turnStartImmediateDamageTaken + turnStartTrueDamageTaken + Math.max(0, -negativeHpChange),
             );
             addPlayerDamageTakenThisTurn(turnStartDamageTaken);
           }
@@ -7121,6 +7154,16 @@ const resolveCombat = async (
 
       if (totalHitCount > 1) {
         log(`<span class="text-violet-300">${label}【${card.name}】进行 ${totalHitCount} 段攻击</span>`);
+      }
+
+      if (card.id === 'enemy_flesh_wall_worm_chamber_contraction') {
+        const armorStacks = Math.max(0, getEffectStacks(defender, ET.ARMOR));
+        if (armorStacks > 0) {
+          removeEffect(defender, ET.ARMOR);
+          log(`<span class="text-cyan-300">${label}【${card.name}】清空了${defenderLabel}的 ${armorStacks} 点护甲</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】目标当前没有护甲可清空</span>`);
+        }
       }
 
       let modaoMagicSwordTotalDamage = 0;

@@ -278,6 +278,24 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '下一次投掷骰子时减少等量层数的点数并清空全部层数',
   },
+  [EffectType.ANESTHESIA_DEPTH]: {
+    type: EffectType.ANESTHESIA_DEPTH,
+    name: '麻醉深度',
+    polarity: 'debuff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '40层：1层眩晕，70层+：最小/最大点数-1，100层：2层性兴奋与虚弱；超过100层后，每累计20层额外获得1层性兴奋',
+  },
+  [EffectType.LIVING_ROOM]: {
+    type: EffectType.LIVING_ROOM,
+    name: '活体房间',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始时，按自身当前点数的一半为对方施加等量疲劳，并为自身施加等量蓄力',
+  },
   [EffectType.SCALE_POWDER]: {
     type: EffectType.SCALE_POWDER,
     name: '鳞粉',
@@ -678,6 +696,8 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.DAMAGE_LIMIT,
   EffectType.CHARGE,
   EffectType.FATIGUE,
+  EffectType.ANESTHESIA_DEPTH,
+  EffectType.LIVING_ROOM,
   EffectType.SCALE_POWDER,
   EffectType.BARRIER,
   EffectType.STURDY,
@@ -818,6 +838,57 @@ export function getEffectStacks(entity: EntityStats, type: EffectType): number {
   return effect ? effect.stacks : 0;
 }
 
+const ANESTHESIA_STUN_FLAG = 1 << 0;
+const ANESTHESIA_DICE_FLAG = 1 << 1;
+const ANESTHESIA_HUNDRED_FLAG = 1 << 2;
+const ANESTHESIA_FLAG_MASK = ANESTHESIA_STUN_FLAG | ANESTHESIA_DICE_FLAG | ANESTHESIA_HUNDRED_FLAG;
+
+function syncAnesthesiaDepthProgress(
+  entity: EntityStats,
+  effect: EffectInstance,
+  logs?: string[],
+): void {
+  if (effect.type !== EffectType.ANESTHESIA_DEPTH || effect.stacks <= 0) return;
+
+  const runtimeCounter = Math.max(0, Math.floor(effect.runtimeCounter ?? 0));
+  let thresholdFlags = runtimeCounter & ANESTHESIA_FLAG_MASK;
+  let bonusOrgasmCount = runtimeCounter >> 3;
+
+  if ((thresholdFlags & ANESTHESIA_STUN_FLAG) === 0 && effect.stacks >= 40) {
+    applyEffect(entity, EffectType.STUN, 1, { source: 'effect:anesthesia_depth', lockDecayThisTurn: true });
+    thresholdFlags |= ANESTHESIA_STUN_FLAG;
+    logs?.push('[麻醉深度] 首次达到 40 层：获得 1 层眩晕。');
+  }
+
+  if ((thresholdFlags & ANESTHESIA_DICE_FLAG) === 0 && effect.stacks > 70) {
+    const beforeMinDice = entity.minDice;
+    const beforeMaxDice = entity.maxDice;
+    entity.minDice = Math.max(1, entity.minDice - 1);
+    entity.maxDice = Math.max(entity.minDice, entity.maxDice - 1);
+    thresholdFlags |= ANESTHESIA_DICE_FLAG;
+    logs?.push(`[麻醉深度] 首次超过 70 层：最小/最大点数 ${beforeMinDice}-${beforeMaxDice} -> ${entity.minDice}-${entity.maxDice}。`);
+  }
+
+  if ((thresholdFlags & ANESTHESIA_HUNDRED_FLAG) === 0 && effect.stacks >= 100) {
+    applyEffect(entity, EffectType.ORGASM, 2, { source: 'effect:anesthesia_depth' });
+    applyEffect(entity, EffectType.WEAKEN, 2, { source: 'effect:anesthesia_depth' });
+    thresholdFlags |= ANESTHESIA_HUNDRED_FLAG;
+    logs?.push('[麻醉深度] 首次达到 100 层：获得 2 层性兴奋与 2 层虚弱。');
+  }
+
+  const currentBonusOrgasmCount = effect.stacks > 100
+    ? Math.floor((effect.stacks - 100) / 20)
+    : 0;
+  if (currentBonusOrgasmCount > bonusOrgasmCount) {
+    const delta = currentBonusOrgasmCount - bonusOrgasmCount;
+    applyEffect(entity, EffectType.ORGASM, delta, { source: 'effect:anesthesia_depth' });
+    bonusOrgasmCount = currentBonusOrgasmCount;
+    logs?.push(`[麻醉深度] 超过 100 层追加效果：额外获得 ${delta} 层性兴奋。`);
+  }
+
+  effect.runtimeCounter = thresholdFlags | (bonusOrgasmCount << 3);
+}
+
 /**
  * 为实体施加效果（叠加或新增）
  * 自动处理：非生物免疫流血/中毒，并将其转化为1点真实伤害
@@ -879,6 +950,9 @@ export function applyEffect(
           entity.maxHp += actualAdded;
         }
       }
+      if (type === EffectType.ANESTHESIA_DEPTH) {
+        syncAnesthesiaDepthProgress(entity, existing);
+      }
     }
     if (type === EffectType.CORROSION && existing.stacks >= 30) {
       entity.maxHp = 0;
@@ -903,6 +977,9 @@ export function applyEffect(
     source: options?.source,
   };
   entity.effects.push(instance);
+  if (type === EffectType.ANESTHESIA_DEPTH) {
+    syncAnesthesiaDepthProgress(entity, instance);
+  }
   if (type === EffectType.CORROSION && instance.stacks >= 30) {
     entity.maxHp = 0;
     entity.hp = 0;

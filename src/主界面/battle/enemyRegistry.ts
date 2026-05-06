@@ -541,6 +541,16 @@ const ABYSS_JELLYFISH_CARD = {
   TOXIN_SECRETION: 'enemy_abyss_jellyfish_toxin_secretion',
 } as const;
 
+const FLESH_WALL_WORM_CARD = {
+  DRAG_INTO_WALL: 'enemy_flesh_wall_worm_drag_into_wall',
+  SLIME_SPIT: 'enemy_flesh_wall_worm_slime_spit',
+  FLESH_WALL_BREATH: 'enemy_flesh_wall_worm_flesh_wall_breath',
+  LIMB_LOCK: 'enemy_flesh_wall_worm_limb_lock',
+  CHAMBER_CONTRACTION: 'enemy_flesh_wall_worm_chamber_contraction',
+  RHYTHMIC_PRESS: 'enemy_flesh_wall_worm_rhythmic_press',
+  APHRODISIAC_SECRETION: 'enemy_flesh_wall_worm_aphrodisiac_secretion',
+} as const;
+
 const VOID_GLIMMER_CARD = {
   FLUORESCENT_TETHER: 'enemy_void_glimmer_fluorescent_tether',
   SOFT_LIGHT: 'enemy_void_glimmer_soft_light',
@@ -3043,6 +3053,53 @@ const 深渊水母: EnemyDefinition = {
   },
 };
 
+const 肉壁蠕虫: EnemyDefinition = {
+  name: '肉壁蠕虫',
+  stats: {
+    hp: 140,
+    maxHp: 140,
+    mp: 0,
+    minDice: 1,
+    maxDice: 4,
+    effects: [
+      { type: EffectType.AMBUSH, stacks: 1, polarity: 'buff' },
+      { type: EffectType.LIVING_ROOM, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    FLESH_WALL_WORM_CARD.DRAG_INTO_WALL,
+    FLESH_WALL_WORM_CARD.SLIME_SPIT,
+    FLESH_WALL_WORM_CARD.FLESH_WALL_BREATH,
+    FLESH_WALL_WORM_CARD.LIMB_LOCK,
+    FLESH_WALL_WORM_CARD.CHAMBER_CONTRACTION,
+    FLESH_WALL_WORM_CARD.RHYTHMIC_PRESS,
+    FLESH_WALL_WORM_CARD.APHRODISIAC_SECRETION,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasDevour = ctx.playerStats.effects.some(e => e.type === EffectType.DEVOUR && e.stacks > 0);
+    const playerHasStun = ctx.playerStats.effects.some(e => e.type === EffectType.STUN && e.stacks > 0);
+
+    if (!playerHasDevour && playerHasStun) {
+      return pickCardById(ctx, FLESH_WALL_WORM_CARD.DRAG_INTO_WALL);
+    }
+
+    if (!playerHasDevour) {
+      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'fleshWallWormPreDevourLastCardId', [
+        { value: FLESH_WALL_WORM_CARD.DRAG_INTO_WALL, weight: 40 },
+        { value: FLESH_WALL_WORM_CARD.SLIME_SPIT, weight: 30 },
+        { value: FLESH_WALL_WORM_CARD.FLESH_WALL_BREATH, weight: 30 },
+      ]));
+    }
+
+    return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'fleshWallWormPostDevourLastCardId', [
+      { value: FLESH_WALL_WORM_CARD.LIMB_LOCK, weight: 20 },
+      { value: FLESH_WALL_WORM_CARD.CHAMBER_CONTRACTION, weight: 30 },
+      { value: FLESH_WALL_WORM_CARD.RHYTHMIC_PRESS, weight: 20 },
+      { value: FLESH_WALL_WORM_CARD.APHRODISIAC_SECRETION, weight: 30 },
+    ]));
+  },
+};
+
 const 虚空游光: EnemyDefinition = {
   name: '虚空游光',
   stats: {
@@ -3182,6 +3239,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [克拉肯.name, 克拉肯],
   [布偶.name, 布偶],
   [深渊水母.name, 深渊水母],
+  [肉壁蠕虫.name, 肉壁蠕虫],
   [虚空游光.name, 虚空游光],
   [面具侍从.name, 面具侍从],
   [普莉姆.name, 普莉姆],
