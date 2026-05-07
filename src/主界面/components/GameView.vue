@@ -2612,11 +2612,32 @@
             </div>
 
             <button
-              class="idol-exit-btn absolute right-5 bottom-5 z-[98] px-6 py-3 font-ui text-sm tracking-wider text-amber-50"
+              v-for="(portal, i) in idolPortalChoices"
+              :key="`idol-portal-${i}`"
+              class="portal-btn idol-portal-btn group absolute z-[98] flex flex-col items-center justify-center rounded-lg border-2 backdrop-blur-sm transition-all duration-500 hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              :style="{
+                left: `${50 + (i - (idolPortalChoices.length - 1) / 2) * 13}%`,
+                backgroundColor: portal.bgColor,
+                borderColor: portal.borderColor,
+                boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
+              }"
               :disabled="gameStore.isGenerating"
-              @click="exitIdolView"
+              @click="handleIdolPortalClick(portal)"
             >
-              退出
+              <div
+                class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
+                :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
+              ></div>
+              <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
+              <span
+                class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
+                :style="{ color: portal.textColor }"
+                >{{ portal.label }}</span
+              >
+              <div
+                class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70 animate-[spin_8s_linear_infinite] transition-opacity"
+                :style="{ borderColor: portal.borderColor }"
+              ></div>
             </button>
           </div>
         </Transition>
@@ -2808,6 +2829,7 @@
             />
             <!-- Exit combat button -->
             <button
+              v-if="canExitCurrentCombat"
               class="absolute top-4 right-4 z-[110] px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
               @click="showCombat = false"
             >
@@ -3079,6 +3101,7 @@ const chestRewardCountFixed = ref<number | null>(null);
 const chestCloseCount = ref(0);
 const chestForceMimicNextOpen = ref(false);
 const pendingChestRewardIndex = ref<number | null>(null);
+const idolPortalChoices = ref<PortalChoice[]>([]);
 const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
 const idolDiceValue = ref(1);
 const idolDiceRolling = ref(false);
@@ -3102,6 +3125,8 @@ const selectedTestRelicCounts = ref<Record<string, number>>({});
 const selectedCardCategoryTab = ref('全部');
 const selectedRelicCategoryTab = ref('全部');
 const activeCombatContext = ref<'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest'>('normal');
+const NO_COMBAT_EXIT_ENEMY_NAMES = new Set(['宝箱怪', '沐芯兰']);
+const canExitCurrentCombat = computed(() => !NO_COMBAT_EXIT_ENEMY_NAMES.has(combatEnemyName.value.trim()));
 const pendingCombatNarrative = ref<{
   id: string;
   context: 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
@@ -3218,6 +3243,7 @@ interface PersistedIdolState {
   assignedTarget: IdolBlessingTarget | null;
   snapPreviewTarget: IdolBlessingTarget | null;
   dicePosition: { x: number; y: number };
+  portalChoices: PortalChoice[];
 }
 
 interface PersistedVictoryState {
@@ -6856,6 +6882,7 @@ const openIdolView = () => {
   idolDragPointerId.value = null;
   idolDiceValue.value = idolDiceMin.value;
   idolDiceRolling.value = true;
+  idolPortalChoices.value = generateRoomLeavePortals();
   showIdolView.value = true;
   idolRollTimer = setTimeout(() => {
     idolDiceValue.value = rollIdolDiceValue();
@@ -6871,6 +6898,7 @@ const closeIdolView = () => {
   clearIdolRollTimer();
   idolDragPointerId.value = null;
   showIdolView.value = false;
+  idolPortalChoices.value = [];
 };
 
 const handleIdolDicePointerDown = (event: PointerEvent) => {
@@ -6944,21 +6972,6 @@ const buildIdolPendingFields = () => {
   return { _金币: currentGold + reward.amount };
 };
 
-const exitIdolView = () => {
-  if (gameStore.isGenerating) return;
-  const reward = idolRewardSummary.value;
-  closeIdolView();
-  if (!reward) {
-    gameStore.sendAction('<user>没有膜拜任何一座神像，选择了直接离开。');
-    return;
-  }
-  const fields = buildIdolPendingFields();
-  if (fields) {
-    gameStore.setPendingStatDataChanges(fields);
-  }
-  gameStore.sendAction(`<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}。`);
-};
-
 const rollChestRewardRarity = (): RelicData['rarity'] => {
   const rarityRoll = Math.random();
   if (rarityRoll < 0.8) return '普通';
@@ -7019,9 +7032,7 @@ const closeOpenedChestForRefresh = () => {
     return;
   }
   chestCloseCount.value += 1;
-  if (chestCloseCount.value >= 2) {
-    chestForceMimicNextOpen.value = true;
-  }
+  chestForceMimicNextOpen.value = false;
   clearChestRewardFadeTimer();
   resetChestRewardConfirmation();
   chestStage.value = 'closed';
@@ -7032,6 +7043,15 @@ const closeOpenedChestForRefresh = () => {
   chestRewardRelics.value = [];
   chestRewardCollectedFlags.value = [];
   chestPortalChoices.value = [];
+};
+
+const getChestMimicChance = (refreshCount: number) => {
+  const normalized = Math.max(0, Math.floor(refreshCount));
+  if (normalized <= 1) return 0.1;
+  if (normalized === 2) return 0.3;
+  if (normalized === 3) return 0.6;
+  if (normalized === 4) return 0.9;
+  return 1;
 };
 
 const handleChestContextMenu = () => {
@@ -7077,8 +7097,8 @@ const handleChestCenterClick = async () => {
   resetChestRewardConfirmation();
   chestRolling.value = true;
 
-  const forcedMimic = chestForceMimicNextOpen.value;
-  const openSuccess = !forcedMimic && Math.random() < 0.9;
+  const mimicChance = getChestMimicChance(chestCloseCount.value);
+  const openSuccess = Math.random() >= mimicChance;
 
   if (openSuccess) {
     chestStage.value = 'opened';
@@ -7094,7 +7114,7 @@ const handleChestCenterClick = async () => {
     chestRewardRelics.value = rewards;
     chestRewardCollectedFlags.value = rewards.map(() => false);
     chestCollecting.value = false;
-    chestPortalChoices.value = generateChestLeavePortals();
+    chestPortalChoices.value = generateRoomLeavePortals();
     if (chestOpenedBgReady.value) {
       chestRewardVisible.value = true;
     }
@@ -7201,6 +7221,7 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
         assignedTarget: idolAssignedTarget.value,
         snapPreviewTarget: idolSnapPreviewTarget.value,
         dicePosition: { ...idolDicePosition.value },
+        portalChoices: idolPortalChoices.value.map(portal => ({ ...portal })),
       },
     };
   }
@@ -7356,6 +7377,10 @@ const restoreOverlaySnapshot = () => {
         x: Number.isFinite(parsed.idol.dicePosition?.x) ? parsed.idol.dicePosition.x : 0,
         y: Number.isFinite(parsed.idol.dicePosition?.y) ? parsed.idol.dicePosition.y : 0,
       };
+      idolPortalChoices.value = resolvePersistedPortalChoices(parsed.idol.portalChoices);
+      if (idolPortalChoices.value.length === 0) {
+        idolPortalChoices.value = generateRoomLeavePortals();
+      }
       idolDragPointerId.value = null;
       return;
     }
@@ -7425,6 +7450,7 @@ watch(
     idolAssignedTarget,
     idolSnapPreviewTarget,
     idolDicePosition,
+    idolPortalChoices,
     victoryRewardStage,
     victoryRewardOptions,
     selectedVictoryRewardCard,
@@ -8034,7 +8060,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   };
 };
 
-function generateChestLeavePortals(): PortalChoice[] {
+function generateRoomLeavePortals(): PortalChoice[] {
   const generated = generatePortals();
   if (generated.length > 0) return generated;
 
@@ -8084,6 +8110,31 @@ const handleChestPortalClick = async (portal: PortalChoice) => {
     return;
   }
   gameStore.sendAction(actionText);
+};
+
+const handleIdolPortalClick = async (portal: PortalChoice) => {
+  if (gameStore.isGenerating || !showIdolView.value) return;
+  resetShopSession();
+  const { enterText, pendingStatDataFields } = buildQueuedPortalAction(portal);
+  const reward = idolRewardSummary.value;
+  const mergedPendingStatDataFields: Record<string, any> = {
+    ...(pendingStatDataFields ?? {}),
+  };
+  if (reward) {
+    Object.assign(mergedPendingStatDataFields, buildIdolPendingFields() ?? {});
+  }
+  gameStore.setPendingStatDataChanges(
+    Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null,
+  );
+
+  closeIdolView();
+  if (!reward) {
+    gameStore.sendAction(`<user>没有膜拜任何一座神像，随后离开了当前房间并进入了下一个房间，<user>${enterText}`);
+    return;
+  }
+  gameStore.sendAction(
+    `<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+  );
 };
 
 const openSaveLoad = () => {
@@ -10830,33 +10881,17 @@ onBeforeUnmount(() => {
   }
 }
 
-.idol-exit-btn {
-  border-radius: 9999px;
-  border: 1px solid rgba(196, 136, 255, 0.72);
-  background:
-    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.18), transparent 48%),
-    linear-gradient(120deg, rgba(44, 20, 74, 0.94), rgba(86, 38, 138, 0.9) 50%, rgba(27, 12, 48, 0.95));
-  box-shadow:
-    0 0 14px rgba(168, 85, 247, 0.45),
-    0 0 28px rgba(109, 40, 217, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
+.idol-portal-btn {
+  bottom: 2rem;
+  transform: translateX(-50%);
 }
 
-.idol-exit-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow:
-    0 0 18px rgba(196, 136, 255, 0.58),
-    0 0 34px rgba(147, 51, 234, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+.idol-portal-btn:hover:not(:disabled) {
+  transform: translateX(-50%) scale(1.1);
 }
 
-.idol-exit-btn:disabled {
-  opacity: 0.48;
-  cursor: not-allowed;
+.idol-portal-btn:active:not(:disabled) {
+  transform: translateX(-50%) scale(0.95);
 }
 
 .variable-update-panel {
@@ -12141,10 +12176,8 @@ onBeforeUnmount(() => {
     font-size: 1rem;
   }
 
-  .idol-exit-btn {
-    right: 0.9rem;
+  .idol-portal-btn {
     bottom: 0.8rem;
-    padding: 0.55rem 1rem;
   }
 }
 </style>
