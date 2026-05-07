@@ -484,7 +484,7 @@ const 奥术裂枪: CardData = {
   description: '点数*1.2，造成1倍点数伤害；若当前MP≥8，再消耗4MP追加一次2倍伤害',
 };
 
-/** 魔导序曲：10MP，点数*1.5，2倍伤害；每次抽到该牌时其费用-1（结算逻辑在 CombatView） */
+/** 魔导序曲：10MP，点数*1.5，1.5倍伤害；每次抽到该牌时其费用-1（结算逻辑在 CombatView） */
 const 魔导序曲: CardData = {
   id: 'modao_overture',
   name: '魔导序曲',
@@ -493,11 +493,11 @@ const 魔导序曲: CardData = {
   rarity: '普通',
   manaCost: 10,
   calculation: { multiplier: 1.5, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 2.0, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗10MP，点数*1.5，造成2倍点数伤害；每次抽到该牌时该牌费用-1',
+  description: '消耗10MP，点数*1.5，造成1.5倍点数伤害；每次抽到该牌时该牌费用-1',
 };
 
 /** 法环坍缩：1.5倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
@@ -2570,6 +2570,126 @@ const SPACE_RIFT_BUG_SPATIAL_BLINK: CardData = {
   description: '闪避，若闪避成功或对方跳过回合则逃离',
 };
 
+/** 空间压缩·碎骨：点数*1.5，造成1.5倍伤害，自伤10，施加1层虚弱 */
+const SELINA_SPACE_COMPRESSION_CRUSHBONE: CardData = {
+  id: 'enemy_selina_space_compression_crushbone',
+  name: '空间压缩·碎骨',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.WEAKEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  selfDamage: 10,
+  description: '点数*1.5，造成1.5倍伤害，自伤10，施加1层虚弱',
+};
+
+/** 维度剥离：消耗4，造成1倍点数伤害，并随机将对方的一层增益转移到自身；若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次 */
+const SELINA_DIMENSION_STRIP: CardData = {
+  id: 'enemy_selina_dimension_strip',
+  name: '维度剥离',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，并随机将对方的一层增益转移到自身。若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次',
+};
+
+/** 空间折叠：消耗一半魔力并增加等量点数，造成固定5点伤害，对方骰子最小值-1 */
+const SELINA_SPACE_FOLD: CardData = {
+  id: 'enemy_selina_space_fold',
+  name: '空间折叠',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 5 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'modify_dice', target: 'enemy', valueMode: 'fixed', fixedValue: 0, minDiceDelta: -1 },
+  ],
+  description: '消耗一半魔力并增加等量点数，造成固定5点伤害，对方骰子最小值-1',
+};
+
+/** 挽留：消耗自身所有魔力，点数*2，回复对方等同于消耗魔力的生命值，并施加等量法力枯竭 */
+const SELINA_DETAIN: CardData = {
+  id: 'enemy_selina_detain',
+  name: '挽留',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗自身所有魔力，点数*2，回复对方等同于消耗魔力的生命值，并施加等量法力枯竭',
+};
+
+/** 待客：消耗1，回复对方10点生命值，为对方施加3回合的视野模糊与敌意隐藏 */
+const SELINA_HOSPITALITY: CardData = {
+  id: 'enemy_selina_hospitality',
+  name: '待客',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 1,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'enemy', valueMode: 'fixed', fixedValue: 10 },
+    { kind: 'apply_buff', effectType: EffectType.MEMORY_FOG, target: 'enemy', valueMode: 'fixed', fixedValue: 1, durationTurns: 3 },
+    { kind: 'apply_buff', effectType: EffectType.COGNITIVE_INTERFERENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1, durationTurns: 3 },
+  ],
+  description: '回复对方10点生命值，为对方施加3回合的视野模糊与敌意隐藏',
+};
+
+/** 遁入空间：点数-1，闪避。当前回合没收到伤害则获得2回合的虚幻之躯与2层无视闪避 */
+const SELINA_PHASE_INTO_SPACE: CardData = {
+  id: 'enemy_selina_phase_into_space',
+  name: '遁入空间',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.ILLUSORY_BODY,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+      durationTurns: 2,
+    },
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.IGNORE_DODGE,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 2,
+    },
+  ],
+  description: '点数-1，闪避。当前回合没收到伤害则获得2回合的虚幻之躯与2层无视闪避',
+};
+
 /** 体内繁殖：自身获得1层群集，并为目标施加1倍点数中毒 */
 const SHAME_LEECH_INTERNAL_BREEDING: CardData = {
   id: 'enemy_shame_leech_internal_breeding',
@@ -3843,7 +3963,7 @@ const 哑剧牵引: CardData = {
   description: '点数*1.5，造成1倍点数伤害，并施加1层被操控；若目标已有禁言，则回复自身1倍点数的魔力',
 };
 
-/** 失声：消耗4MP，点数+3，造成1倍点数伤害并施加1层禁言；若目标已有禁言则额外施加1层性兴奋（额外效果在 CombatView） */
+/** 失声：消耗4MP，点数+2，造成1倍点数伤害并施加1层禁言；若目标已有禁言则额外施加1层性兴奋（额外效果在 CombatView） */
 const 失声: CardData = {
   id: 'enemy_hilvy_aphonia',
   name: '失声',
@@ -3851,14 +3971,14 @@ const 失声: CardData = {
   category: '敌人',
   rarity: '普通',
   manaCost: 4,
-  calculation: { multiplier: 1.0, addition: 3 },
+  calculation: { multiplier: 1.0, addition: 2 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.SILENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '点数+3，造成1倍点数伤害，并施加1层禁言；若目标已有禁言，则额外施加1层性兴奋',
+  description: '点数+2，造成1倍点数伤害，并施加1层禁言；若目标已有禁言，则额外施加1层性兴奋',
 };
 
 /** 静夜规避：闪避；若闪避成功或对方跳过回合，则施加1倍点数流血 */
@@ -3885,7 +4005,7 @@ const 静夜规避: CardData = {
   description: '闪避；若闪避成功或对方跳过回合，则施加1倍点数流血',
 };
 
-/** 沉默终章：消耗6MP，点数*2，造成1倍点数伤害，施加0.5倍点数流血、2层禁言与1层被操控，无视闪避 */
+/** 沉默终章：消耗6MP，点数+2，造成1倍点数伤害，施加0.5倍点数流血、2层禁言与1层被操控，无视闪避 */
 const 沉默终章: CardData = {
   id: 'enemy_hilvy_silent_finale',
   name: '沉默终章',
@@ -3893,7 +4013,7 @@ const 沉默终章: CardData = {
   category: '敌人',
   rarity: '稀有',
   manaCost: 7,
-  calculation: { multiplier: 2.0, addition: 0 },
+  calculation: { multiplier: 1.0, addition: 2 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
@@ -3903,7 +4023,7 @@ const 沉默终章: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   ignoreDodge: true,
-  description: '点数*2，造成1倍点数伤害，施加0.5倍点数流血、2层禁言与1层被操控；无视闪避',
+  description: '点数+2，造成1倍点数伤害，施加0.5倍点数流血、2层禁言与1层被操控；无视闪避',
 };
 
 /** 淫墨誓约：诅咒，无法打出 */
@@ -7549,6 +7669,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [SPACE_RIFT_BUG_BLIND_SPOT.name, SPACE_RIFT_BUG_BLIND_SPOT],
   [SPACE_RIFT_BUG_PAIN_AMPLIFICATION.name, SPACE_RIFT_BUG_PAIN_AMPLIFICATION],
   [SPACE_RIFT_BUG_SPATIAL_BLINK.name, SPACE_RIFT_BUG_SPATIAL_BLINK],
+  [SELINA_SPACE_COMPRESSION_CRUSHBONE.name, SELINA_SPACE_COMPRESSION_CRUSHBONE],
+  [SELINA_DIMENSION_STRIP.name, SELINA_DIMENSION_STRIP],
+  [SELINA_SPACE_FOLD.name, SELINA_SPACE_FOLD],
+  [SELINA_DETAIN.name, SELINA_DETAIN],
+  [SELINA_HOSPITALITY.name, SELINA_HOSPITALITY],
+  [SELINA_PHASE_INTO_SPACE.name, SELINA_PHASE_INTO_SPACE],
   [SHAME_LEECH_INTERNAL_BREEDING.name, SHAME_LEECH_INTERNAL_BREEDING],
   [SHAME_LEECH_SHAME_AMPLIFY.name, SHAME_LEECH_SHAME_AMPLIFY],
   [PARASITIC_LEECH_CUMULATIVE_APHRO.name, PARASITIC_LEECH_CUMULATIVE_APHRO],

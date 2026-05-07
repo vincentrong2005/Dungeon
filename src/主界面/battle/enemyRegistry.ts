@@ -210,6 +210,15 @@ const SPACE_RIFT_BUG_CARD = {
   SPATIAL_BLINK: 'enemy_space_rift_bug_spatial_blink',
 } as const;
 
+const SELINA_CARD = {
+  SPACE_COMPRESSION_CRUSHBONE: 'enemy_selina_space_compression_crushbone',
+  DIMENSION_STRIP: 'enemy_selina_dimension_strip',
+  SPACE_FOLD: 'enemy_selina_space_fold',
+  DETAIN: 'enemy_selina_detain',
+  HOSPITALITY: 'enemy_selina_hospitality',
+  PHASE_INTO_SPACE: 'enemy_selina_phase_into_space',
+} as const;
+
 const BLOOD_BAT_CARD = {
   PREDATORY_NIBBLE: 'enemy_blood_bat_predatory_nibble',
   ULTRASONIC_STIMULUS: 'enemy_blood_bat_ultrasonic_stimulus',
@@ -1233,6 +1242,71 @@ const SPACE_RIFT_BUG: EnemyDefinition = {
   },
 };
 
+const 赛琳娜: EnemyDefinition = {
+  name: '赛琳娜',
+  stats: {
+    hp: 400,
+    maxHp: 400,
+    mp: 1,
+    minDice: 7,
+    maxDice: 11,
+    effects: [
+      { type: EffectType.VOID_TAINT, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 3, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE,
+    SELINA_CARD.DIMENSION_STRIP,
+    SELINA_CARD.SPACE_FOLD,
+    SELINA_CARD.DETAIN,
+    SELINA_CARD.HOSPITALITY,
+    SELINA_CARD.PHASE_INTO_SPACE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, SELINA_CARD.HOSPITALITY);
+    }
+
+    if (ctx.playerStats.maxHp > 0 && ctx.playerStats.hp <= ctx.playerStats.maxHp * 0.2 && ctx.flags.selinaDetainUsed !== true) {
+      ctx.flags.selinaDetainUsed = true;
+      return pickCardById(ctx, SELINA_CARD.DETAIN);
+    }
+
+    if (ctx.enemyStats.mp >= 5) {
+      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'selinaHighManaLastCardId', [
+        { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 15 },
+        { value: SELINA_CARD.DIMENSION_STRIP, weight: 20 },
+        { value: SELINA_CARD.SPACE_FOLD, weight: 20 },
+        { value: SELINA_CARD.HOSPITALITY, weight: 10 },
+        { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 35 },
+      ]));
+    }
+
+    if (ctx.enemyStats.mp >= 4) {
+      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'selinaMidManaLastCardId', [
+        { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 20 },
+        { value: SELINA_CARD.DIMENSION_STRIP, weight: 25 },
+        { value: SELINA_CARD.HOSPITALITY, weight: 15 },
+        { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 40 },
+      ]));
+    }
+
+    if (ctx.enemyStats.mp >= 1) {
+      return pickCardById(ctx, weightedRandom<string>([
+        { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 25 },
+        { value: SELINA_CARD.HOSPITALITY, weight: 25 },
+        { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 50 },
+      ]));
+    }
+
+    return pickCardById(ctx, weightedRandom<string>([
+      { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 50 },
+      { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 50 },
+    ]));
+  },
+};
+
 const 缝合蜘蛛: EnemyDefinition = {
   name: '缝合蜘蛛',
   stats: {
@@ -1341,7 +1415,7 @@ const 梦魇驹: EnemyDefinition = {
     mp: 0,
     minDice: 3,
     maxDice: 7,
-    effects: [{ type: EffectType.SHIELD_BARRIER, stacks: 2, polarity: 'buff' }],
+    effects: [{ type: EffectType.STURDY, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
     NIGHTMARE_STEED_CARD.SNIFF,
@@ -1546,7 +1620,7 @@ const 惩戒傀儡: EnemyDefinition = {
     effects: [
       { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
       { type: EffectType.THORNS, stacks: 1, polarity: 'buff' },
-      { type: EffectType.SHIELD_BARRIER, stacks: 3, polarity: 'buff' },
+      { type: EffectType.STURDY, stacks: 3, polarity: 'buff' },
       { type: EffectType.SELF_REPAIR, stacks: 2, polarity: 'buff' },
     ],
   },
@@ -3215,6 +3289,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [寄生水蛭.name, 寄生水蛭],
   [证词虫.name, 证词虫],
   [SPACE_RIFT_BUG.name, SPACE_RIFT_BUG],
+  [赛琳娜.name, 赛琳娜],
   [缝合蜘蛛.name, 缝合蜘蛛],
   [血蝙蝠.name, 血蝙蝠],
   [血仆.name, 血仆],

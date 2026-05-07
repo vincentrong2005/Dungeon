@@ -186,9 +186,6 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   // 坚固固定减伤
   const sturdy = ctx.defenderEffects.find(e => e.type === EffectType.STURDY)?.stacks ?? 0;
   if (sturdy > 0) { damage -= sturdy; logs.push(`[坚固] -${sturdy}`); }
-  // 屏障固定减伤（持久）
-  const shieldBarrier = ctx.defenderEffects.find(e => e.type === EffectType.SHIELD_BARRIER)?.stacks ?? 0;
-  if (shieldBarrier > 0) { damage -= shieldBarrier; logs.push(`[屏障] -${shieldBarrier}`); }
 
   // 结界的“抵挡并消耗”在 applyDamageToEntity 里处理，这里只记录提示
   if (ctx.defenderEffects.some(e => e.type === EffectType.BARRIER && e.stacks > 0)) {

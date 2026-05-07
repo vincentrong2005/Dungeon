@@ -864,7 +864,7 @@ import {
   triggerSwarmReviveIfNeeded as triggerSwarmReviveIfNeededInAlgorithm,
 } from '../battle/algorithms';
 import { getAllCards, getCardByName } from '../battle/cardRegistry';
-import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
+import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, findEffect, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import {
   resolveRelicMap,
@@ -1187,6 +1187,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.POINT_GROWTH_SMALL]: Layers,
   [ET.MANA_DRAIN]: Battery,
   [ET.MANA_SPRING]: Waves,
+  [ET.VOID_TAINT]: Sparkles,
   [ET.SWARM]: Bug,
   [ET.BLOOD_COCOON]: Heart,
   [ET.INDOMITABLE]: Heart,
@@ -1198,7 +1199,6 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.MEMORY_FOG]: EyeOff,
   [ET.SILENCE]: Ban,
   [ET.STURDY]: Shield,
-  [ET.SHIELD_BARRIER]: ShieldCheck,
   [ET.SHOCK]: Zap,
   [ET.FLAME_ATTACH]: Flame,
   [ET.POISON_ATTACH]: Bug,
@@ -1596,7 +1596,7 @@ const displayEnemyDice = computed(() => {
 const twinEnemyDiceBonus = computed(() => (
   isTwinBattle && dreamControlPercent.value <= 39 ? 2 : 0
 ));
-const effectiveEnemyMinDice = computed(() => Math.max(1, enemyStats.value.minDice + twinEnemyDiceBonus.value));
+const effectiveEnemyMinDice = computed(() => Math.max(0, enemyStats.value.minDice + twinEnemyDiceBonus.value));
 const effectiveEnemyMaxDice = computed(() => Math.max(effectiveEnemyMinDice.value, enemyStats.value.maxDice + twinEnemyDiceBonus.value));
 const canPlayerRerollDice = computed(() => (
   playerDiceRerollCharges.value > 0
@@ -2079,6 +2079,11 @@ const applyDamageToSideWithRelics = (
     if (dreamControlKind) {
       updateDreamControlFromHit(options.sourceSide, side, dreamControlKind, result.actualDamage);
     }
+    accumulateVoidTaintTurnDamage(side, result.actualDamage);
+    const maxHpThreshold = Number.POSITIVE_INFINITY;
+    if (maxHpThreshold > 0 && result.actualDamage > maxHpThreshold) {
+      reduceTargetMaxDiceByVoidTaint(side, oppositeSide(side), '自己单次受到了超过10%最大生命值的伤害');
+    }
   }
   if (!effectiveTrueDamage && result.actualDamage > 0 && !options?.skipCoDamage) {
     const coDamageStacks = getEffectStacks(target, ET.CO_DAMAGE);
@@ -2145,6 +2150,11 @@ const applyDirectHpLossWithRelics = (
     const dreamControlKind = options?.dreamControlKind ?? (options?.isDirectDamage ? 'direct' : undefined);
     if (dreamControlKind) {
       updateDreamControlFromHit(options.sourceSide, side, dreamControlKind, actualDamage);
+    }
+    accumulateVoidTaintTurnDamage(side, actualDamage);
+    const maxHpThreshold = Number.POSITIVE_INFINITY;
+    if (maxHpThreshold > 0 && actualDamage > maxHpThreshold) {
+      reduceTargetMaxDiceByVoidTaint(side, oppositeSide(side), '自己单次受到了超过10%最大生命值的伤害');
     }
   }
   return actualDamage;
@@ -2255,6 +2265,9 @@ const healForSide = (
   if (options?.overflowToArmor && overflowRaw > 0) {
     addArmorForSide(side, overflowRaw);
   }
+  if (sourceSide !== side && (healed > 0 || value > 0)) {
+    reduceTargetMaxDiceByVoidTaint(sourceSide, side, '对方收到了自己的治疗');
+  }
   if (side === 'player' && healed > 0) {
     const reflowCount = getActiveRelicCount('bloodpool_reflow_mark');
     if (reflowCount > 0) {
@@ -2268,6 +2281,82 @@ const healForSide = (
     }
   }
   return { healed, overflow: overflowRaw, convertedDamage: 0 };
+};
+
+const reduceTargetMaxDiceByVoidTaint = (
+  sourceSide: BattleSide,
+  targetSide: BattleSide,
+  reason: string,
+) => {
+  if (sourceSide === targetSide) return 0;
+  const sourceEntity = getEntityBySide(sourceSide);
+  const targetEntity = getEntityBySide(targetSide);
+  const stacks = Math.max(0, getEffectStacks(sourceEntity, ET.VOID_TAINT));
+  if (stacks <= 0) return 0;
+  const beforeMaxDice = targetEntity.maxDice;
+  targetEntity.maxDice = Math.max(targetEntity.minDice, targetEntity.maxDice - stacks);
+  const reduced = Math.max(0, beforeMaxDice - targetEntity.maxDice);
+  if (reduced > 0) {
+    const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
+    const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+    log(`<span class="text-violet-300">${sourceLabel}[虚空浸染] ${reason}，使${targetLabel}最大骰子 ${targetEntity.minDice}~${beforeMaxDice} → ${targetEntity.minDice}~${targetEntity.maxDice}</span>`);
+  }
+  return reduced;
+  if (false && reduced > 0) {
+    const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
+    const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+    log(`<span class="text-violet-300">${sourceLabel}[虚空浸染] ${reason}，使${targetLabel}最小骰子 ${beforeMinDice}~${beforeMaxDice} → ${targetEntity.minDice}~${targetEntity.maxDice}</span>`);
+  }
+  return reduced;
+};
+
+const accumulateVoidTaintTurnDamage = (
+  damagedSide: BattleSide,
+  actualDamage: number,
+) => {
+  if (actualDamage <= 0) return 0;
+  const damagedEntity = getEntityBySide(damagedSide);
+  const voidTaintEffect = findEffect(damagedEntity, ET.VOID_TAINT);
+  if (!voidTaintEffect || damagedEntity.maxHp <= 0) return 0;
+
+  const threshold = Math.max(1, Math.max(1, damagedEntity.hp) * 0.2);
+  if (threshold <= 0) return 0;
+
+  const previousDamage = Math.max(0, Math.floor(voidTaintEffect.runtimeCounter ?? 0));
+  const nextDamage = previousDamage + actualDamage;
+  voidTaintEffect.runtimeCounter = nextDamage;
+
+  const previousTriggers = Math.floor(previousDamage / threshold);
+  const nextTriggers = Math.floor(nextDamage / threshold);
+  const triggerCount = Math.max(0, nextTriggers - previousTriggers);
+  for (let i = 0; i < triggerCount; i += 1) {
+    reduceTargetMaxDiceByVoidTaint(
+      damagedSide,
+      oppositeSide(damagedSide),
+      '自己单回合累计受到了超过20%当前生命值的伤害',
+    );
+  }
+  return triggerCount;
+};
+
+const transferRandomBuffStack = (fromSide: BattleSide, toSide: BattleSide, cardName: string) => {
+  const fromEntity = getEntityBySide(fromSide);
+  const transferableBuffs = fromEntity.effects.filter((effect) => (
+    effect.stacks > 0
+    && EFFECT_REGISTRY[effect.type]?.polarity === 'buff'
+  ));
+  if (transferableBuffs.length <= 0) {
+    return false;
+  }
+
+  const picked = transferableBuffs[Math.floor(Math.random() * transferableBuffs.length)]!;
+  reduceEffectStacks(fromEntity, picked.type, 1);
+  applyStatusEffectWithRelics(toSide, picked.type, 1, { source: `transfer:${cardName}` });
+  const effectName = EFFECT_REGISTRY[picked.type]?.name ?? picked.type;
+  const fromLabel = fromSide === 'player' ? '我方' : '敌方';
+  const toLabel = toSide === 'player' ? '我方' : '敌方';
+  log(`<span class="text-cyan-300">${toLabel}【${cardName}】将${fromLabel}的 1 层【${effectName}】转移给了自己</span>`);
+  return true;
 };
 
 const shouldAllowStatusEffectWithRelics = (
@@ -2335,6 +2424,7 @@ const applyStatusEffectWithRelics = (
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
     lockDecayThisTurn: options?.lockDecayThisTurn,
+    durationTurns: options?.durationTurns,
   });
   const hpLossFromNonLivingConversion = Math.max(0, hpBeforeApply - target.hp);
   if (
@@ -2399,6 +2489,7 @@ const createPlayerLifecycleContext = (
       source: options?.source ?? `relic:${relic.id}`,
       restrictedTypes: options?.restrictedTypes,
       lockDecayThisTurn: options?.lockDecayThisTurn,
+      durationTurns: options?.durationTurns,
     })
   ),
   addArmor: addArmorForSide,
@@ -2883,6 +2974,10 @@ const resolveCardManaDrain = (card: CardData, finalPoint: number): number => {
 
 const getLostHp = (entity: EntityStats): number => Math.max(0, Math.floor(entity.maxHp - entity.hp));
 
+const getSelinaSpaceFoldManaSpend = (entity: EntityStats): number => (
+  Math.max(0, Math.floor(entity.mp / 2))
+);
+
 const isBelowHalfHp = (entity: EntityStats): boolean => (
   entity.maxHp > 0 && (entity.hp * 2) < entity.maxHp
 );
@@ -3060,6 +3155,7 @@ const applyCardEffectsByTrigger = (
       const applied = applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
         restrictedTypes: ce.restrictedTypes,
         source: card.id,
+        durationTurns: ce.durationTurns,
         lockDecayThisTurn: ce.effectType === ET.BIND
           || ce.effectType === ET.SILENCE
           || ce.effectType === ET.STUN
@@ -3129,7 +3225,7 @@ const applyCardEffectsByTrigger = (
       const maxDelta = Math.floor(ce.maxDiceDelta ?? 0);
       let nextMinDice = Math.floor(beforeMinDice * minMultiplier) + minDelta;
       let nextMaxDice = Math.floor(beforeMaxDice * maxMultiplier) + maxDelta;
-      nextMinDice = Math.max(1, nextMinDice);
+      nextMinDice = Math.max(0, nextMinDice);
       nextMaxDice = Math.max(nextMinDice, nextMaxDice);
       targetEntity.minDice = nextMinDice;
       targetEntity.maxDice = nextMaxDice;
@@ -3400,6 +3496,7 @@ const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number =
       lockDecayThisTurn: effect.lockDecayThisTurn,
       restrictedTypes: effect.restrictedTypes ? [...effect.restrictedTypes] : undefined,
       runtimeCounter: effect.runtimeCounter,
+      durationTurnsRemaining: effect.durationTurnsRemaining,
     }));
 
   for (const effect of debuffs) {
@@ -3408,10 +3505,12 @@ const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number =
       source: effect.source,
       lockDecayThisTurn: effect.lockDecayThisTurn,
       restrictedTypes: effect.restrictedTypes,
+      durationTurns: effect.durationTurnsRemaining,
     });
     const transferredEffect = targetStats.effects.find((entry) => entry.type === effect.type);
     if (transferredEffect) {
       transferredEffect.runtimeCounter = effect.runtimeCounter;
+      transferredEffect.durationTurnsRemaining = effect.durationTurnsRemaining;
     }
   }
   return debuffs.length;
@@ -3727,6 +3826,9 @@ const getCardFinalPoint = (
   }
   if (card.id === 'enemy_yustia_trueword_scale_powder') {
     finalPoint += Math.max(0, Math.floor(defender.mp));
+  }
+  if (card.id === 'enemy_selina_space_fold') {
+    finalPoint += getSelinaSpaceFoldManaSpend(attacker);
   }
   if (card.id === 'enemy_nightmare_moth_collective_dreamweave') {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
@@ -5351,6 +5453,10 @@ watch(
       freezeFlowCoreTriggeredThisTurn.value = false;
       modaoStabilizerTriggersThisTurn.value = 0;
       bloodpoolSkinMarkTriggersThisTurn.value = 0;
+      const playerVoidTaint = findEffect(playerStats.value, ET.VOID_TAINT);
+      if (playerVoidTaint) playerVoidTaint.runtimeCounter = 0;
+      const enemyVoidTaint = findEffect(enemyStats.value, ET.VOID_TAINT);
+      if (enemyVoidTaint) enemyVoidTaint.runtimeCounter = 0;
       if (combatState.value.turn === 1) {
         dreamControlPercent.value = DREAM_CONTROL_INITIAL;
         resetTwinTurnSelections();
@@ -5872,7 +5978,10 @@ const resolveCombat = async (
     && !enemyIntentManaSpentThisTurn.value
   ) {
     enemyIntentManaSpentThisTurn.value = true;
-    const canSpend = spendManaWithShock('enemy', resolvedEnemyCard.manaCost, `使用【${resolvedEnemyCard.name}】`);
+    const enemyManaCost = resolvedEnemyCard.id === 'enemy_selina_space_fold'
+      ? getSelinaSpaceFoldManaSpend(enemyStats.value)
+      : resolvedEnemyCard.manaCost;
+    const canSpend = spendManaWithShock('enemy', enemyManaCost, `使用【${resolvedEnemyCard.name}】`);
     if (!canSpend) {
       resolvedEnemyCard = PASS_CARD;
       combatState.value.enemyIntentCard = PASS_CARD;
@@ -6166,7 +6275,10 @@ const resolveCombat = async (
     if (endCombatPending.value) return;
     if (source === 'player' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id) {
       const runtimeCard = withEffectiveManaCost('player', card);
-      const canSpend = spendManaWithShock('player', runtimeCard.manaCost, `使用【${card.name}】`);
+      const playerManaCost = card.id === 'enemy_selina_space_fold'
+        ? getSelinaSpaceFoldManaSpend(attacker)
+        : runtimeCard.manaCost;
+      const canSpend = spendManaWithShock('player', playerManaCost, `使用【${card.name}】`);
       if (!canSpend) {
         log(`<span class="text-red-400">${label}【${card.name}】发动失败：法力已不足。</span>`);
         return;
@@ -7024,6 +7136,25 @@ const resolveCombat = async (
         reduceEffectStacks(defender, ET.INDOMITABLE, 1);
         log(`<span class="text-rose-300">${label}【${card.name}】移除了目标 1 层不屈</span>`);
       }
+      if (card.id === 'enemy_selina_detain') {
+        syncCurrentPointForUi();
+        const consumedMp = Math.max(0, Math.floor(attacker.mp));
+        if (consumedMp > 0) {
+          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+        }
+        const { healed } = healForSide(defenderSide, consumedMp, {
+          sourceSide: source,
+          reason: `卡牌【${card.name}】治疗`,
+        });
+        if (consumedMp > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.MANA_DRAIN, consumedMp, {
+            source: card.id,
+          });
+        }
+        log(`<span class="text-violet-300">${label}【${card.name}】消耗了 ${consumedMp} 点魔力，回复对手 ${healed} 点生命并施加 ${consumedMp} 层法力枯竭</span>`);
+        finalizeAndTrack();
+        return;
+      }
       if (card.id === 'burn_critical_boil') {
         const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
         const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
@@ -7120,6 +7251,13 @@ const resolveCombat = async (
           extraHitCount += 1;
           arcaneLanceBonusHit = true;
           log(`<span class="text-blue-300">${label}【${card.name}】额外消耗4点魔力，追加一次2倍伤害</span>`);
+        }
+      }
+      if (card.id === 'enemy_selina_dimension_strip' && attacker.mp >= 4) {
+        const canConsume = spendManaWithShock(source, 4, `法力变化（${label}【${card.name}】额外结算）`);
+        if (canConsume) {
+          extraHitCount += 1;
+          log(`<span class="text-blue-300">${label}【${card.name}】额外消耗4点魔力，再结算一次</span>`);
         }
       }
       const totalHitCount = baseHitCount + extraHitCount;
@@ -7331,6 +7469,12 @@ const resolveCombat = async (
         );
         triggerObedienceBrandOnDirectHit(source, defenderSide);
         applyHitAttachEffects(source, card, attacker, defenderSide);
+        if (card.type === CardType.PHYSICAL) {
+          reduceTargetMaxDiceByVoidTaint(source, defenderSide, '对方被自己的物理牌命中');
+        }
+        if (card.id === 'enemy_selina_dimension_strip') {
+          transferRandomBuffStack(defenderSide, source, card.name);
+        }
         const reverseBladeBleed = Math.max(0, reverseBladeBleedOnHit.value[defenderSide]);
         if (reverseBladeBleed > 0) {
           const applied = applyStatusEffectWithRelics(source, ET.BLEED, reverseBladeBleed, {

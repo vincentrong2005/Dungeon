@@ -15,16 +15,16 @@ import {
 
 /** 效果触发时机 */
 export type EffectTiming =
-  | 'onTurnStart'    // 回合开始
-  | 'onTurnEnd'      // 回合结束
-  | 'onBeforeDamage'  // 受到伤害前（防御侧）
-  | 'onAfterDamage'  // 受到伤害后
+  | 'onTurnStart' // 回合开始
+  | 'onTurnEnd' // 回合结束
+  | 'onBeforeDamage' // 受到伤害前（防御侧）
+  | 'onAfterDamage' // 受到伤害后
   | 'onBeforeAttack' // 发起攻击前（攻击侧）
-  | 'onAfterAttack'  // 发起攻击后
-  | 'onClash'        // 拼点时
-  | 'onDiceRoll'     // 骰子投掷时
-  | 'onCardPlay'     // 出牌时（检查限制）
-  | 'passive';       // 被动（持续生效，不需显式触发）
+  | 'onAfterAttack' // 发起攻击后
+  | 'onClash' // 拼点时
+  | 'onDiceRoll' // 骰子投掷时
+  | 'onCardPlay' // 出牌时（检查限制）
+  | 'passive'; // 被动（持续生效，不需显式触发）
 
 /** 效果定义（元数据） */
 export interface EffectDefinition {
@@ -213,7 +213,8 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '回合开始时若生命低于50%，按层数回复生命并随机移除等量元素debuff；每累计3层回复计数，自身增加2层生命上限削减',
+    description:
+      '回合开始时若生命低于50%，按层数回复生命并随机移除等量元素debuff；每累计3层回复计数，自身增加2层生命上限削减',
   },
   [EffectType.IRIS_AMBER]: {
     type: EffectType.IRIS_AMBER,
@@ -285,7 +286,8 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: true,
     maxStacks: 0,
-    description: '40层：1层眩晕，70层+：最小/最大点数-1，100层：2层性兴奋与虚弱；超过100层后，每累计20层额外获得1层性兴奋',
+    description:
+      '40层：1层眩晕，70层+：最小/最大点数-1，100层：2层性兴奋与虚弱；超过100层后，每累计20层额外获得1层性兴奋',
   },
   [EffectType.LIVING_ROOM]: {
     type: EffectType.LIVING_ROOM,
@@ -404,6 +406,16 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始时自身增加等量层数的魔力',
   },
+  [EffectType.VOID_TAINT]: {
+    type: EffectType.VOID_TAINT,
+    name: '虚空浸染',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description:
+      '自己单回合累计受到超过20%当前生命值的伤害，或对方收到自己的治疗/被自己的物理牌命中时，对方最大骰子点数-1（不会低于最小骰子点数）',
+  },
   [EffectType.SWARM]: {
     type: EffectType.SWARM,
     name: '群集',
@@ -506,15 +518,6 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   [EffectType.STURDY]: {
     type: EffectType.STURDY,
     name: '坚固',
-    polarity: 'buff',
-    timings: ['onBeforeDamage', 'onTurnEnd'],
-    stackable: true,
-    maxStacks: 0,
-    description: '每次受到伤害时固定减伤，持续1回合并在回合结束清空',
-  },
-  [EffectType.SHIELD_BARRIER]: {
-    type: EffectType.SHIELD_BARRIER,
-    name: '屏障',
     polarity: 'buff',
     timings: ['onBeforeDamage'],
     stackable: true,
@@ -701,9 +704,9 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.SCALE_POWDER,
   EffectType.BARRIER,
   EffectType.STURDY,
-  EffectType.SHIELD_BARRIER,
   EffectType.INDOMITABLE,
   EffectType.MANA_SPRING,
+  EffectType.VOID_TAINT,
   EffectType.REGEN,
   EffectType.SELF_REPAIR,
   EffectType.IRIS_AMBER,
@@ -843,11 +846,7 @@ const ANESTHESIA_DICE_FLAG = 1 << 1;
 const ANESTHESIA_HUNDRED_FLAG = 1 << 2;
 const ANESTHESIA_FLAG_MASK = ANESTHESIA_STUN_FLAG | ANESTHESIA_DICE_FLAG | ANESTHESIA_HUNDRED_FLAG;
 
-function syncAnesthesiaDepthProgress(
-  entity: EntityStats,
-  effect: EffectInstance,
-  logs?: string[],
-): void {
+function syncAnesthesiaDepthProgress(entity: EntityStats, effect: EffectInstance, logs?: string[]): void {
   if (effect.type !== EffectType.ANESTHESIA_DEPTH || effect.stacks <= 0) return;
 
   const runtimeCounter = Math.max(0, Math.floor(effect.runtimeCounter ?? 0));
@@ -863,10 +862,12 @@ function syncAnesthesiaDepthProgress(
   if ((thresholdFlags & ANESTHESIA_DICE_FLAG) === 0 && effect.stacks > 70) {
     const beforeMinDice = entity.minDice;
     const beforeMaxDice = entity.maxDice;
-    entity.minDice = Math.max(1, entity.minDice - 1);
+    entity.minDice = Math.max(0, entity.minDice - 1);
     entity.maxDice = Math.max(entity.minDice, entity.maxDice - 1);
     thresholdFlags |= ANESTHESIA_DICE_FLAG;
-    logs?.push(`[麻醉深度] 首次超过 70 层：最小/最大点数 ${beforeMinDice}-${beforeMaxDice} -> ${entity.minDice}-${entity.maxDice}。`);
+    logs?.push(
+      `[麻醉深度] 首次超过 70 层：最小/最大点数 ${beforeMinDice}-${beforeMaxDice} -> ${entity.minDice}-${entity.maxDice}。`,
+    );
   }
 
   if ((thresholdFlags & ANESTHESIA_HUNDRED_FLAG) === 0 && effect.stacks >= 100) {
@@ -876,9 +877,7 @@ function syncAnesthesiaDepthProgress(
     logs?.push('[麻醉深度] 首次达到 100 层：获得 2 层性兴奋与 2 层虚弱。');
   }
 
-  const currentBonusOrgasmCount = effect.stacks > 100
-    ? Math.floor((effect.stacks - 100) / 20)
-    : 0;
+  const currentBonusOrgasmCount = effect.stacks > 100 ? Math.floor((effect.stacks - 100) / 20) : 0;
   if (currentBonusOrgasmCount > bonusOrgasmCount) {
     const delta = currentBonusOrgasmCount - bonusOrgasmCount;
     applyEffect(entity, EffectType.ORGASM, delta, { source: 'effect:anesthesia_depth' });
@@ -897,7 +896,7 @@ export function applyEffect(
   entity: EntityStats,
   type: EffectType,
   stacks: number = 1,
-  options?: { restrictedTypes?: CardType[]; source?: string; lockDecayThisTurn?: boolean },
+  options?: { restrictedTypes?: CardType[]; source?: string; lockDecayThisTurn?: boolean; durationTurns?: number },
 ): boolean {
   const normalizedStacks = Math.max(0, Math.floor(stacks));
   if (normalizedStacks <= 0) return false;
@@ -954,6 +953,9 @@ export function applyEffect(
         syncAnesthesiaDepthProgress(entity, existing);
       }
     }
+    if (typeof options?.durationTurns === 'number' && Number.isFinite(options.durationTurns)) {
+      existing.durationTurnsRemaining = Math.max(0, Math.floor(options.durationTurns));
+    }
     if (type === EffectType.CORROSION && existing.stacks >= 30) {
       entity.maxHp = 0;
       entity.hp = 0;
@@ -970,11 +972,12 @@ export function applyEffect(
     type,
     stacks: instanceStacks,
     polarity: def.polarity,
-    lockDecayThisTurn: DECAY_GRACE_EFFECT_TYPES.has(type)
-      ? !!options?.lockDecayThisTurn
-      : undefined,
+    lockDecayThisTurn: DECAY_GRACE_EFFECT_TYPES.has(type) ? !!options?.lockDecayThisTurn : undefined,
     restrictedTypes: type === EffectType.BIND ? undefined : options?.restrictedTypes,
     source: options?.source,
+    durationTurnsRemaining: typeof options?.durationTurns === 'number'
+      ? Math.max(0, Math.floor(options.durationTurns))
+      : undefined,
   };
   entity.effects.push(instance);
   if (type === EffectType.ANESTHESIA_DEPTH) {
@@ -1060,7 +1063,9 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     if (poisonAmount >= entity.hp) {
       result.trueDamage += poisonAmount;
       removeEffect(entity, EffectType.POISON_AMOUNT);
-      result.logs.push(`[中毒量] 中毒量(${poisonAmount}) ≥ 当前生命(${entity.hp})，造成 ${poisonAmount} 真实伤害并清空中毒量！`);
+      result.logs.push(
+        `[中毒量] 中毒量(${poisonAmount}) ≥ 当前生命(${entity.hp})，造成 ${poisonAmount} 真实伤害并清空中毒量！`,
+      );
     }
   }
 
@@ -1111,7 +1116,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     const removedByType = new Map<EffectType, number>();
     let remainToRemove = selfRepairStacks;
     while (remainToRemove > 0) {
-      const available = ELEMENTAL_DEBUFF_TYPES.filter((type) => getEffectStacks(entity, type) > 0);
+      const available = ELEMENTAL_DEBUFF_TYPES.filter(type => getEffectStacks(entity, type) > 0);
       if (available.length === 0) break;
       const picked = available[Math.floor(Math.random() * available.length)]!;
       reduceEffectStacks(entity, picked, 1);
@@ -1133,9 +1138,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     const triggerCount = Math.floor(nextCount / 3) - Math.floor(previousCount / 3);
     if (triggerCount > 0) {
       const maxHpReductionStacks = triggerCount * 2;
-      const applied = applyEffect(entity, EffectType.MAX_HP_REDUCTION, maxHpReductionStacks, { source: 'effect:self_repair' });
+      const applied = applyEffect(entity, EffectType.MAX_HP_REDUCTION, maxHpReductionStacks, {
+        source: 'effect:self_repair',
+      });
       if (applied) {
-        result.logs.push(`[自修复] 累计回复计数触发 ${triggerCount} 次：自身获得 ${maxHpReductionStacks} 层生命上限削减。`);
+        result.logs.push(
+          `[自修复] 累计回复计数触发 ${triggerCount} 次：自身获得 ${maxHpReductionStacks} 层生命上限削减。`,
+        );
       }
     }
   }
@@ -1150,12 +1159,12 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   // 元素适应体：有元素debuff时，随机移除2层并回复2点生命
   const elementalAdaptationStacks = getEffectStacks(entity, EffectType.ELEMENTAL_ADAPTATION);
   if (elementalAdaptationStacks > 0) {
-    const hasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some((type) => getEffectStacks(entity, type) > 0);
+    const hasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some(type => getEffectStacks(entity, type) > 0);
     if (hasElementalDebuff) {
       const removedByType = new Map<EffectType, number>();
       let remainToRemove = 2;
       while (remainToRemove > 0) {
-        const available = ELEMENTAL_DEBUFF_TYPES.filter((type) => getEffectStacks(entity, type) > 0);
+        const available = ELEMENTAL_DEBUFF_TYPES.filter(type => getEffectStacks(entity, type) > 0);
         if (available.length === 0) break;
         const picked = available[Math.floor(Math.random() * available.length)]!;
         reduceEffectStacks(entity, picked, 1);
@@ -1178,13 +1187,15 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   // 元素皮层：有元素debuff时，随机移除1层并回复1点生命
   const elementalCortexStacks = getEffectStacks(entity, EffectType.ELEMENTAL_CORTEX);
   if (elementalCortexStacks > 0) {
-    const hasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some((type) => getEffectStacks(entity, type) > 0);
+    const hasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some(type => getEffectStacks(entity, type) > 0);
     if (hasElementalDebuff) {
-      const available = ELEMENTAL_DEBUFF_TYPES.filter((type) => getEffectStacks(entity, type) > 0);
+      const available = ELEMENTAL_DEBUFF_TYPES.filter(type => getEffectStacks(entity, type) > 0);
       if (available.length > 0) {
         const picked = available[Math.floor(Math.random() * available.length)]!;
         reduceEffectStacks(entity, picked, 1);
-        result.logs.push(`[元素皮层] 随机移除元素debuff：${EFFECT_REGISTRY[picked]?.name ?? picked} -1；回复 1 点生命。`);
+        result.logs.push(
+          `[元素皮层] 随机移除元素debuff：${EFFECT_REGISTRY[picked]?.name ?? picked} -1；回复 1 点生命。`,
+        );
       } else {
         result.logs.push('[元素皮层] 回复 1 点生命。');
       }
@@ -1205,7 +1216,9 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
       }
       entity.minDice += 4;
       entity.maxDice += 4;
-      result.logs.push(`[实体化] 完成：清除非实体，生命恢复至上限，骰子范围提升（${entity.minDice}-${entity.maxDice}）。`);
+      result.logs.push(
+        `[实体化] 完成：清除非实体，生命恢复至上限，骰子范围提升（${entity.minDice}-${entity.maxDice}）。`,
+      );
     } else {
       result.logs.push(`[实体化] 层数衰减，剩余 ${materializationEffect.stacks}。`);
     }
@@ -1334,11 +1347,6 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
   }
 
   // 坚固：1回合后清空
-  if (hasEffect(entity, EffectType.STURDY)) {
-    removeEffect(entity, EffectType.STURDY);
-    logs.push(`[坚固] 回合结束后清空。`);
-  }
-
   // 眩晕
   const stunEffect = findEffect(entity, EffectType.STUN);
   if (stunEffect && stunEffect.stacks > 0) {
@@ -1348,6 +1356,35 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     } else {
       reduceEffectStacks(entity, EffectType.STUN);
       logs.push(`[眩晕] 层数衰减。`);
+    }
+  }
+
+  const expiredEffects: EffectType[] = [];
+  for (const effect of entity.effects) {
+    if (typeof effect.durationTurnsRemaining !== 'number') continue;
+    if (!Number.isFinite(effect.durationTurnsRemaining) || effect.durationTurnsRemaining <= 0) continue;
+    effect.durationTurnsRemaining = Math.max(0, effect.durationTurnsRemaining - 1);
+    if (effect.durationTurnsRemaining <= 0) {
+      expiredEffects.push(effect.type);
+    }
+  }
+  for (const effectType of expiredEffects) {
+    removeEffect(entity, effectType);
+    const effectName = EFFECT_REGISTRY_RAW[effectType]?.name ?? effectType;
+    logs.push(`[${effectName}] 持续时间结束。`);
+  }
+
+  const temporaryDisplayEffectTypes: EffectType[] = [EffectType.MEMORY_FOG, EffectType.COGNITIVE_INTERFERENCE];
+  for (const effectType of temporaryDisplayEffectTypes) {
+    const effect = findEffect(entity, effectType);
+    if (!effect || !effect.source?.startsWith('enemy_selina_legacy_')) continue;
+    const remainingTurns = Math.max(0, Math.floor(effect.runtimeCounter ?? 0));
+    if (remainingTurns <= 0) continue;
+    effect.runtimeCounter = remainingTurns - 1;
+    if (effect.runtimeCounter <= 0) {
+      removeEffect(entity, effectType);
+      const effectName = EFFECT_REGISTRY_RAW[effectType]?.name ?? effectType;
+      logs.push(`[${effectName}] 赛琳娜施加的效果持续时间结束。`);
     }
   }
 
@@ -1389,9 +1426,9 @@ export function canPlayCard(
   // 被吞食：基础骰值≤3 时禁用物理/魔法/闪避
   if (hasEffect(entity, EffectType.DEVOUR) && baseRawDice <= 3) {
     if (
-      card.type === '物理' as CardType
-      || card.type === '魔法' as CardType
-      || card.type === '闪避' as CardType
+      card.type === ('物理' as CardType) ||
+      card.type === ('魔法' as CardType) ||
+      card.type === ('闪避' as CardType)
     ) {
       return { allowed: false, reason: `被吞食效果生效（基础骰值≤3），无法使用${card.type}卡牌。` };
     }

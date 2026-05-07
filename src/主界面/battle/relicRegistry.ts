@@ -10,6 +10,7 @@ export interface RelicApplyEffectOptions {
   restrictedTypes?: CardType[];
   source?: string;
   lockDecayThisTurn?: boolean;
+  durationTurns?: number;
 }
 
 interface RelicSharedHookContext {
@@ -263,10 +264,13 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '简易护符',
     rarity: '普通',
     category: '基础',
-    effect: '每回合开始时，给自身增加 1 点护甲',
-    description: '每回合开始时，获得 1 点护甲。',
+    effect: '每两回合开始时，给自身增加 1 点护甲',
+    description: '每两回合开始时，获得 1 点护甲。',
     hooks: {
-      onTurnStart: ({ count, side, addArmor, addLog }) => {
+      onTurnStart: ({ count, side, state, addArmor, addLog }) => {
+        const turnCounter = Math.max(0, Math.floor(Number(state.turnCounter ?? 0))) + 1;
+        state.turnCounter = turnCounter;
+        if (turnCounter % 2 !== 0) return;
         const gained = addArmor(side, count);
         if (gained > 0) {
           addLog(`[简易护符] 获得 ${gained} 点护甲。`);
@@ -301,13 +305,14 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '能量糖果',
     rarity: '普通',
     category: '基础',
-    effect: '每当洗牌（弃牌堆重入抽牌堆）时，回复 1 点魔力',
-    description: '每次洗牌时，回复 1 点魔力。',
+    effect: '每当洗牌（弃牌堆重入抽牌堆）时，回复 1 点魔力与生命',
+    description: '每次洗牌时，回复 1 点魔力与生命。',
     hooks: {
-      onDeckShuffle: ({ count, side, restoreMana, addLog }) => {
+      onDeckShuffle: ({ count, side, restoreMana, heal, addLog }) => {
         const restored = restoreMana(side, count);
-        if (restored > 0) {
-          addLog(`[能量糖果] 洗牌触发，回复 ${restored} 点魔力。`);
+        const { healed } = heal(side, count);
+        if (restored > 0 || healed > 0) {
+          addLog(`[能量糖果] 洗牌触发，回复 ${restored} 点魔力与 ${healed} 点生命。`);
         }
       },
     },

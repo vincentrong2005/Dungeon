@@ -106,6 +106,8 @@ export interface CardEffect {
   fixedValue?: number;
   /** point_scale / max_hp_percent 模式下的系数 */
   scale?: number;
+  /** 持续回合数：仅对 apply_buff 生效，到回合结束时递减，归零后移除 */
+  durationTurns?: number;
 
   // ── modify_dice 专用 ──
   /** 最小骰子点数加减值 */
@@ -287,6 +289,8 @@ export enum EffectType {
   MANA_DRAIN = '法力枯竭',
   /** 魔力源泉 — 每回合开始魔力+层数 */
   MANA_SPRING = '魔力源泉',
+  /** 虚空浸染 — 自己单回合累计受到超过20%当前生命值的伤害，或对方收到自己的治疗/被自己的物理牌命中时，对方最大骰子点数-1（不会低于最小骰子点数） */
+  VOID_TAINT = '虚空浸染',
   /** 群集 — 生命值归零时消耗1层并复活至满血 */
   SWARM = '群集',
   /** 血茧 — 生命值归零时消耗1层并恢复至50%生命 */
@@ -309,10 +313,8 @@ export enum EffectType {
   SILENCE = '禁言',
   /** 被操控 — 仅可使用与对手意图同类型卡牌，每回合结束层数-1 */
   CONTROLLED = '被操控',
-  /** 坚固 — 每次受击固定减伤，持续1回合（回合结束清空） */
+  /** 坚固 — 每次受击固定减伤，不会在回合结束清空 */
   STURDY = '坚固',
-  /** 屏障 — 每次受击固定减伤，不会在回合结束清空 */
-  SHIELD_BARRIER = '屏障',
   /** 电击 — 每次法力减少时，损失等同层数生命并层数减半 */
   SHOCK = '电击',
   /** 火焰附加 — 攻击卡命中后为对手施加燃烧 */
@@ -370,6 +372,8 @@ export interface EffectInstance {
   source?: string;
   /** 运行时计数（可选，供跨回合累计触发次数的效果使用） */
   runtimeCounter?: number;
+  /** 剩余持续回合数（可选，回合结束时递减） */
+  durationTurnsRemaining?: number;
 }
 
 // ── 游戏阶段枚举 ──────────────────────────────────────────────
