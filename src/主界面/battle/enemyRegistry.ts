@@ -1245,8 +1245,8 @@ const SPACE_RIFT_BUG: EnemyDefinition = {
 const 赛琳娜: EnemyDefinition = {
   name: '赛琳娜',
   stats: {
-    hp: 400,
-    maxHp: 400,
+    hp: 380,
+    maxHp: 380,
     mp: 1,
     minDice: 7,
     maxDice: 11,
