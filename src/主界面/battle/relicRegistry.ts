@@ -1273,14 +1273,15 @@ const RELIC_LIST: readonly RelicData[] = [
     effect: '第一回合为双方施加等同于自身最大点数的寒冷，随后每6个回合触发1次',
     description: '第一回合为双方施加等同于自身最大点数的寒冷，随后每6个回合触发1次。',
     hooks: {
-      onTurnStart: ({ count, turn, side, self, addStatusEffect, addLog }) => {
+      onTurnStart: ({ count, turn, side, self, opponent, addStatusEffect, addLog }) => {
         if (turn !== 1 && (turn - 1) % 6 !== 0) return;
-        const stacks = Math.max(0, Math.floor(self.maxDice)) * Math.max(1, Math.floor(count));
-        if (stacks <= 0) return;
+        const selfStacks = Math.max(0, Math.floor(self.maxDice)) * Math.max(1, Math.floor(count));
+        const opponentStacks = Math.max(0, Math.floor(opponent.maxDice)) * Math.max(1, Math.floor(count));
+        if (selfStacks <= 0 && opponentStacks <= 0) return;
         const targetSide: RelicSide = side === 'player' ? 'enemy' : 'player';
-        addStatusEffect(side, EffectType.COLD, stacks, { source: 'relic:yanhan_small_iceberg' });
-        addStatusEffect(targetSide, EffectType.COLD, stacks, { source: 'relic:yanhan_small_iceberg' });
-        addLog(`[小冰山] 为双方施加 ${stacks} 层寒冷。`);
+        addStatusEffect(side, EffectType.COLD, selfStacks, { source: 'relic:yanhan_small_iceberg' });
+        addStatusEffect(targetSide, EffectType.COLD, opponentStacks, { source: 'relic:yanhan_small_iceberg' });
+        addLog(`[小冰山] 我方获得 ${selfStacks} 层寒冷，敌方获得 ${opponentStacks} 层寒冷。`);
       },
     },
   },

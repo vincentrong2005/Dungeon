@@ -1786,6 +1786,10 @@ const nextMagicDoubleCast = ref<Record<'player' | 'enemy', number>>({
   player: 0,
   enemy: 0,
 });
+const nextMagicDoubleCastFreeMana = ref<Record<'player' | 'enemy', number>>({
+  player: 0,
+  enemy: 0,
+});
 const nextTurnMagicCostFree = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
@@ -2047,33 +2051,34 @@ const applyDamageToSideWithRelics = (
     dreamControlKind?: 'direct' | 'status';
   },
 ) => {
+  const damageOptions = options ?? {};
   const incoming = Math.max(0, Math.floor(damage));
   const twinLowControlTrueDamage =
     side === 'player'
-    && options?.sourceSide === 'enemy'
+    && damageOptions.sourceSide === 'enemy'
     && isTwinBattle
     && dreamControlPercent.value <= 24;
   let effectiveTrueDamage = isTrueDamage || twinLowControlTrueDamage;
   let effectiveIncoming = incoming;
-  if (options?.isDirectDamage && options.card?.swarmAttack && isTwinEntity(target)) {
+  if (damageOptions.isDirectDamage && damageOptions.card?.swarmAttack && isTwinEntity(target)) {
     effectiveIncoming = Math.max(0, Math.floor(effectiveIncoming * 2));
   }
   let adjusted = side === 'player'
     ? applyPlayerHemostaticValveDamageCap(effectiveIncoming, reason)
     : effectiveIncoming;
   if (
-    options?.isDirectDamage
-    && options.card?.type === CardType.MAGIC
+    damageOptions.isDirectDamage
+    && damageOptions.card?.type === CardType.MAGIC
     && hasCurrentTurnMagicReflect(side)
   ) {
-    const sourceSide = options.sourceSide;
+    const sourceSide = damageOptions.sourceSide;
     const sourceLabel = sourceSide === 'player' ? '我方' : sourceSide === 'enemy' ? '敌方' : '对手';
     const targetLabel = side === 'player' ? '我方' : '敌方';
     let reflectedDamage = adjusted;
     if (sourceSide === 'player') {
       reflectedDamage = applyPlayerSkinMarkDamageReduction(reflectedDamage, '棱镜魔法反弹');
     }
-    log(`<span class="text-cyan-300">${targetLabel}[棱镜魔法] 免疫了来自${sourceLabel}【${options.card.name}】的法术伤害</span>`);
+    log(`<span class="text-cyan-300">${targetLabel}[棱镜魔法] 免疫了来自${sourceLabel}【${damageOptions.card.name}】的法术伤害</span>`);
     if (sourceSide && reflectedDamage > 0) {
       const reflectedSide = oppositeSide(side);
       const reflectedTarget = getEntityBySide(reflectedSide);
@@ -2083,7 +2088,7 @@ const applyDamageToSideWithRelics = (
         reflectedDamage,
         effectiveTrueDamage,
         '棱镜魔法反弹',
-        { sourceSide: side, isDirectDamage: true, card: options.card },
+        { sourceSide: side, isDirectDamage: true, card: damageOptions.card },
       );
       if (actualReflectedDamage > 0) {
         pushFloatingNumber(reflectedSide, actualReflectedDamage, effectiveTrueDamage ? 'true' : 'magic', '-');
@@ -2100,11 +2105,11 @@ const applyDamageToSideWithRelics = (
     }
     return { actualDamage: 0, logs: [] };
   }
-  if (options?.isDirectDamage) {
+  if (damageOptions.isDirectDamage) {
     const directDamageResult = triggerPlayerRelicBeforeDirectDamageHooks(
-      options.sourceSide,
+      damageOptions.sourceSide,
       side,
-      options.card,
+      damageOptions.card,
       adjusted,
       effectiveTrueDamage,
       reason,
@@ -2115,24 +2120,24 @@ const applyDamageToSideWithRelics = (
   const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
   const result = applyDamageToEntity(target, adjusted, effectiveTrueDamage, {
     disableRevive: shouldDisableReviveForSide(side),
-    swarmAttack: !!options?.card?.swarmAttack,
+    swarmAttack: !!damageOptions.card?.swarmAttack,
   });
   addDamageHitTakenThisCombat(side, result.actualDamage);
-  if (options?.isDirectDamage) {
+  if (damageOptions.isDirectDamage) {
     addDirectDamageTakenThisTurn(side, result.actualDamage);
   }
   const wasLethalDamage = hpBeforeDamage > 0 && result.actualDamage >= hpBeforeDamage;
   triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, {
-    ...options,
+    ...damageOptions,
     wasLethal: wasLethalDamage,
   });
-  if (options?.isDirectDamage) {
-    triggerBloodlineLifesteal(options.sourceSide, result.actualDamage, reason);
+  if (damageOptions.isDirectDamage) {
+    triggerBloodlineLifesteal(damageOptions.sourceSide, result.actualDamage, reason);
   }
   if (result.actualDamage > 0) {
-    const dreamControlKind = options?.dreamControlKind ?? (options?.isDirectDamage ? 'direct' : undefined);
+    const dreamControlKind = damageOptions.dreamControlKind ?? (damageOptions.isDirectDamage ? 'direct' : undefined);
     if (dreamControlKind) {
-      updateDreamControlFromHit(options.sourceSide, side, dreamControlKind, result.actualDamage);
+      updateDreamControlFromHit(damageOptions.sourceSide, side, dreamControlKind, result.actualDamage);
     }
     accumulateVoidTaintTurnDamage(side, result.actualDamage);
     const maxHpThreshold = Number.POSITIVE_INFINITY;
@@ -2140,7 +2145,7 @@ const applyDamageToSideWithRelics = (
       reduceTargetMaxDiceByVoidTaint(side, oppositeSide(side), '自己单次受到了超过10%最大生命值的伤害');
     }
   }
-  if (!effectiveTrueDamage && result.actualDamage > 0 && !options?.skipCoDamage) {
+  if (!effectiveTrueDamage && result.actualDamage > 0 && !damageOptions.skipCoDamage) {
     const coDamageStacks = getEffectStacks(target, ET.CO_DAMAGE);
     if (coDamageStacks > 0) {
       const reflectedSide = oppositeSide(side);
@@ -2181,6 +2186,7 @@ const applyDirectHpLossWithRelics = (
   reason: string,
   options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean; dreamControlKind?: 'direct' | 'status' },
 ): number => {
+  const damageOptions = options ?? {};
   const incoming = Math.max(0, Math.floor(damage));
   if (incoming <= 0) return 0;
   const adjusted = side === 'player'
@@ -2190,21 +2196,21 @@ const applyDirectHpLossWithRelics = (
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
   addDamageHitTakenThisCombat(side, actualDamage);
-  if (options?.isDirectDamage) {
+  if (damageOptions.isDirectDamage) {
     addDirectDamageTakenThisTurn(side, actualDamage);
   }
   const wasLethalDamage = before > 0 && actualDamage >= before;
   triggerBloodpoolHeartMarkByDamage(side, actualDamage, reason, {
-    ...options,
+    ...damageOptions,
     wasLethal: wasLethalDamage,
   });
-  if (options?.isDirectDamage) {
-    triggerBloodlineLifesteal(options.sourceSide, actualDamage, reason);
+  if (damageOptions.isDirectDamage) {
+    triggerBloodlineLifesteal(damageOptions.sourceSide, actualDamage, reason);
   }
   if (actualDamage > 0) {
-    const dreamControlKind = options?.dreamControlKind ?? (options?.isDirectDamage ? 'direct' : undefined);
+    const dreamControlKind = damageOptions.dreamControlKind ?? (damageOptions.isDirectDamage ? 'direct' : undefined);
     if (dreamControlKind) {
-      updateDreamControlFromHit(options.sourceSide, side, dreamControlKind, actualDamage);
+      updateDreamControlFromHit(damageOptions.sourceSide, side, dreamControlKind, actualDamage);
     }
     accumulateVoidTaintTurnDamage(side, actualDamage);
     const maxHpThreshold = Number.POSITIVE_INFINITY;
@@ -4068,6 +4074,17 @@ const formatPointValue = (value: number): string => {
   return rounded.toFixed(2).replace(/\.?0+$/, '');
 };
 
+const getPlayerCardContextForEnemyPointPreview = (): CardData | null => {
+  const selectedOrPreviewed = combatState.value.playerSelectedCard ?? playerPreviewCardForPointContext.value;
+  if (selectedOrPreviewed) return selectedOrPreviewed;
+  if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return null;
+  return combatState.value.playerHand.find((handCard) => {
+    if (handCard.id === PASS_CARD.id || handCard.traits.combo) return false;
+    const runtimeCard = withEffectiveManaCost('player', handCard);
+    return canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice).allowed;
+  }) ?? null;
+};
+
 const shouldApplyAmplificationStarPointBonus = (source: BattleSide, card: CardData): boolean => {
   if (getActiveRelicCount('basic_amplification_star') <= 0) return false;
   if (getActiveRelicCount('basic_shriveled_hand') > 0) return false;
@@ -4075,7 +4092,7 @@ const shouldApplyAmplificationStarPointBonus = (source: BattleSide, card: CardDa
   if (source === 'player') {
     return !card.traits.combo;
   }
-  const playerCard = combatState.value.playerSelectedCard ?? playerPreviewCardForPointContext.value;
+  const playerCard = getPlayerCardContextForEnemyPointPreview();
   return !!playerCard && playerCard.id !== PASS_CARD.id && !playerCard.traits.combo;
 };
 
@@ -5394,9 +5411,7 @@ const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
     twinDirectComboResolving.value = false;
     if (!endCombatPending.value && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
       combatState.value.playerSelectedCard = null;
-      if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) {
-        combatState.value.phase = CombatPhase.PLAYER_INPUT;
-      }
+      combatState.value.phase = CombatPhase.PLAYER_INPUT;
     }
   }
 };
@@ -5726,6 +5741,8 @@ watch(
         enemyStats.value.swarmHealReduction = 0;
         nextMagicDoubleCast.value.player = 0;
         nextMagicDoubleCast.value.enemy = 0;
+        nextMagicDoubleCastFreeMana.value.player = 0;
+        nextMagicDoubleCastFreeMana.value.enemy = 0;
         nextTurnMagicCostFree.value.player = 0;
         nextTurnMagicCostFree.value.enemy = 0;
         nextTurnMagicPointBonus.value = {
@@ -6178,6 +6195,16 @@ const handleSkipTurn = () => {
   log('<span class="text-gray-400">你选择了跳过当前回合。</span>');
 };
 
+const isPhysicalMagicPair = (card1: CardData, card2: CardData): boolean => (
+  (card1.type === CardType.PHYSICAL && card2.type === CardType.MAGIC)
+  || (card1.type === CardType.MAGIC && card2.type === CardType.PHYSICAL)
+);
+
+const isSameRuleClash = (card1: CardData, card2: CardData): boolean => (
+  card1.type === card2.type
+  || (getActiveRelicCount('basic_magic_ring') > 0 && isPhysicalMagicPair(card1, card2))
+);
+
 // Clashable check
 const isClashable = (card1: CardData, card2: CardData): boolean => {
   const t1 = card1.type;
@@ -6190,11 +6217,7 @@ const isClashable = (card1: CardData, card2: CardData): boolean => {
 
   if (t1 === CardType.PHYSICAL && t2 === CardType.PHYSICAL) return true;
   if (t1 === CardType.MAGIC && t2 === CardType.MAGIC) return true;
-  if (
-    getActiveRelicCount('basic_magic_ring') > 0
-    && ((t1 === CardType.PHYSICAL && t2 === CardType.MAGIC)
-      || (t1 === CardType.MAGIC && t2 === CardType.PHYSICAL))
-  ) {
+  if (getActiveRelicCount('basic_magic_ring') > 0 && isPhysicalMagicPair(card1, card2)) {
     return true;
   }
   if (t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC)) return true;
@@ -6409,7 +6432,7 @@ const resolveCombat = async (
 
     let successfulDodger: BattleSide | null = null;
 
-    if (resolvedPlayerCard.type === resolvedEnemyCard.type) {
+    if (isSameRuleClash(resolvedPlayerCard, resolvedEnemyCard)) {
       if (pClashPoint > eClashPoint) {
         eSuccess = false;
         clashWinner = 'player';
@@ -6550,7 +6573,12 @@ const resolveCombat = async (
   }
 
   // Execution Phase - use algorithms.ts for proper damage calculation
-  const executeCard = async (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
+  const executeCard = async (
+    source: 'player' | 'enemy',
+    card: CardData,
+    baseDice: number,
+    executeOptions: { skipManaCost?: boolean } = {},
+  ) => {
     if (endCombatPending.value) return;
     const attacker = source === 'player' ? playerStats.value : enemyStats.value;
     const defender = source === 'player' ? enemyStats.value : playerStats.value;
@@ -6576,7 +6604,7 @@ const resolveCombat = async (
     }
     await playResolvedCardAnimation(source, card);
     if (endCombatPending.value) return;
-    if (source === 'player' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id) {
+    if (source === 'player' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id && !executeOptions.skipManaCost) {
       const runtimeCard = withEffectiveManaCost('player', card);
       const playerManaCost = card.id === 'enemy_selina_space_fold'
         ? getSelinaSpaceFoldManaSpend(attacker)
@@ -6586,6 +6614,8 @@ const resolveCombat = async (
         log(`<span class="text-red-400">${label}【${card.name}】发动失败：法力已不足。</span>`);
         return;
       }
+    } else if (source === 'player' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id && executeOptions.skipManaCost) {
+      logRelicMessage(`[星之核] 【${card.name}】额外结算不再消耗法力。`);
     }
     if (card.excape) {
       const sourceLabel = source === 'player' ? '我方' : '敌方';
@@ -8267,7 +8297,8 @@ const resolveCombat = async (
       const starCoreState = getRelicRuntimeState('burn_star_core');
       if (starCoreCount > 0 && starCoreState['firstMagicResolved'] !== true) {
         starCoreState['firstMagicResolved'] = true;
-        nextMagicDoubleCast.value.player += Math.max(1, Math.floor(starCoreCount));
+        nextMagicDoubleCast.value.player += 1;
+        nextMagicDoubleCastFreeMana.value.player += 1;
         logRelicMessage('[星之核] 本场第一张法术牌将额外结算一次。');
       }
     }
@@ -8306,13 +8337,18 @@ const resolveCombat = async (
     if (pending <= 0) return;
 
     nextMagicDoubleCast.value[action.source] = pending - 1;
+    const freeManaPending = Math.max(0, nextMagicDoubleCastFreeMana.value[action.source]);
+    const skipExtraManaCost = freeManaPending > 0;
+    if (skipExtraManaCost) {
+      nextMagicDoubleCastFreeMana.value[action.source] = freeManaPending - 1;
+    }
     const sourceLabel = action.source === 'player' ? '我方' : '敌方';
     log(`<span class="text-sky-300">${sourceLabel}[复咒] 下一张魔法额外结算一次</span>`);
     if (endCombatPending.value) return;
 
     await wait(320);
     if (endCombatPending.value) return;
-    await executeCard(action.source, action.card, action.baseDice);
+    await executeCard(action.source, action.card, action.baseDice, { skipManaCost: skipExtraManaCost });
   };
 
   const shouldRunSimultaneousVisuals = (

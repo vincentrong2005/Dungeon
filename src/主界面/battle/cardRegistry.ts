@@ -822,7 +822,7 @@ const 临界沸腾: CardData = {
   description: '以2:1比例消耗目标寒冷/燃烧，并造成4倍所消耗燃烧层数的真实伤害',
 };
 
-/** 炭化转化：清除自身燃烧并按层数回魔（结算逻辑在 CombatView 中） */
+/** 炭化转化：清除自身燃烧并按层数回魔，连击（结算逻辑在 CombatView 中） */
 const 炭化转化: CardData = {
   id: 'burn_char_convert',
   name: '炭化转化',
@@ -832,9 +832,9 @@ const 炭化转化: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
+  traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '清除自身燃烧并按层数回复魔力',
+  description: '清除自身燃烧并按层数回复魔力，连击',
 };
 
 /** 大日焚：施加燃烧并使目标燃烧翻倍（翻倍逻辑在 CombatView） */
