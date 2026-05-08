@@ -106,6 +106,9 @@
           :style="dreamControlBarStyle"
           @mouseenter="showDreamControlHelp"
           @mouseleave="hideDreamControlHelp"
+          @touchstart.passive="handleDreamControlTouchStart"
+          @touchend="handleDreamControlTouchEnd"
+          @touchcancel="handleDreamControlTouchEnd"
         >
           <div class="mb-1 flex items-center justify-between text-[10px] tracking-wide text-fuchsia-100/85">
             <span>梦境控制权</span>
@@ -877,12 +880,14 @@ import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, find
 import { getEnemyByName } from '../battle/enemyRegistry';
 import {
   resolveRelicMap,
+  type RelicActiveSkillHookContext,
   type RelicAfterBurnDamageTakenHookContext,
   type RelicApplyEffectOptions,
   type RelicBeforeApplyEffectHookContext,
   type RelicBurnDamageHookContext,
   type RelicData,
   type RelicDiceClickHookContext,
+  type RelicDirectDamageHookContext,
   type RelicHitHookContext,
   type RelicLifecycleHookContext,
   type RelicPointHookContext,
@@ -1532,6 +1537,23 @@ const showDreamControlHelp = () => {
 const hideDreamControlHelp = () => {
   dreamControlHelpVisible.value = false;
 };
+let dreamControlTouchTimer: ReturnType<typeof setTimeout> | null = null;
+const handleDreamControlTouchStart = () => {
+  if (!isTwinBattle) return;
+  if (dreamControlTouchTimer) clearTimeout(dreamControlTouchTimer);
+  dreamControlTouchTimer = setTimeout(() => {
+    dreamControlHelpVisible.value = true;
+  }, 360);
+};
+const handleDreamControlTouchEnd = () => {
+  if (dreamControlTouchTimer) {
+    clearTimeout(dreamControlTouchTimer);
+    dreamControlTouchTimer = null;
+  }
+  setTimeout(() => {
+    dreamControlHelpVisible.value = false;
+  }, 1600);
+};
 const queuePlayerLethalNegativeStatus = (negativeStatus: string, reason: string) => {
   const normalized = negativeStatus.trim();
   if (!normalized) return;
@@ -1744,6 +1766,10 @@ const directDamageTakenThisTurn = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
+const damageHitTakenThisTurn = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
 const damageHitTakenThisCombat = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
@@ -1785,6 +1811,8 @@ const previousTurnManaSnapshot = ref<Record<BattleSide, number>>({
   player: Math.max(0, Math.floor(playerStats.value.mp)),
   enemy: Math.max(0, Math.floor(enemyStats.value.mp)),
 });
+const playerPlayedPhysicalOrMagicThisTurn = ref(false);
+const playerPreviewCardForPointContext = ref<CardData | null>(null);
 
 const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
 
@@ -1881,10 +1909,15 @@ const addDamageHitTakenThisCombat = (side: BattleSide, actualDamage: number) => 
   const value = Math.max(0, Math.floor(actualDamage));
   if (value <= 0) return;
   damageHitTakenThisCombat.value[side] += 1;
+  damageHitTakenThisTurn.value[side] += 1;
 };
 
 const getDamageHitTakenThisCombat = (side: BattleSide): number => (
   Math.max(0, Math.floor(damageHitTakenThisCombat.value[side] ?? 0))
+);
+
+const getDamageHitTakenThisTurn = (side: BattleSide): number => (
+  Math.max(0, Math.floor(damageHitTakenThisTurn.value[side] ?? 0))
 );
 
 const applyTwinDreamControlThresholds = () => {
@@ -2020,12 +2053,12 @@ const applyDamageToSideWithRelics = (
     && options?.sourceSide === 'enemy'
     && isTwinBattle
     && dreamControlPercent.value <= 24;
-  const effectiveTrueDamage = isTrueDamage || twinLowControlTrueDamage;
+  let effectiveTrueDamage = isTrueDamage || twinLowControlTrueDamage;
   let effectiveIncoming = incoming;
   if (options?.isDirectDamage && options.card?.swarmAttack && isTwinEntity(target)) {
     effectiveIncoming = Math.max(0, Math.floor(effectiveIncoming * 2));
   }
-  const adjusted = side === 'player'
+  let adjusted = side === 'player'
     ? applyPlayerHemostaticValveDamageCap(effectiveIncoming, reason)
     : effectiveIncoming;
   if (
@@ -2050,7 +2083,7 @@ const applyDamageToSideWithRelics = (
         reflectedDamage,
         effectiveTrueDamage,
         '棱镜魔法反弹',
-        { sourceSide: side, isDirectDamage: true },
+        { sourceSide: side, isDirectDamage: true, card: options.card },
       );
       if (actualReflectedDamage > 0) {
         pushFloatingNumber(reflectedSide, actualReflectedDamage, effectiveTrueDamage ? 'true' : 'magic', '-');
@@ -2066,6 +2099,18 @@ const applyDamageToSideWithRelics = (
       }
     }
     return { actualDamage: 0, logs: [] };
+  }
+  if (options?.isDirectDamage) {
+    const directDamageResult = triggerPlayerRelicBeforeDirectDamageHooks(
+      options.sourceSide,
+      side,
+      options.card,
+      adjusted,
+      effectiveTrueDamage,
+      reason,
+    );
+    adjusted = directDamageResult.damage;
+    effectiveTrueDamage = directDamageResult.isTrueDamage;
   }
   const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
   const result = applyDamageToEntity(target, adjusted, effectiveTrueDamage, {
@@ -2237,6 +2282,10 @@ const healForSide = (
     if (healAmpCount > 0) {
       value = Math.max(0, Math.floor(value * (1 + 0.25 * healAmpCount)));
     }
+    const lifePendantCount = getActiveRelicCount('basic_life_pendant');
+    if (lifePendantCount > 0) {
+      value += lifePendantCount;
+    }
   }
   const target = getEntityBySide(side);
   if (isTwinEntity(target)) {
@@ -2382,6 +2431,9 @@ const shouldAllowStatusEffectWithRelics = (
       self: playerStats.value,
       opponent: enemyStats.value,
       state,
+      turn: combatState.value.turn,
+      playedPhysicalOrMagicThisTurn: playerPlayedPhysicalOrMagicThisTurn.value,
+      previousTurnMana: previousTurnManaSnapshot.value.player,
       addLog: logRelicMessage,
       hasRelic: hasActiveRelic,
       getRelicCount: getActiveRelicCount,
@@ -2390,6 +2442,7 @@ const shouldAllowStatusEffectWithRelics = (
       ),
       addArmor: addArmorForSide,
       restoreMana: restoreManaForSide,
+      spendMana: spendManaWithShock,
       heal: healForSide,
       addRerollCharges: changeRerollCharges,
       getRerollCharges,
@@ -2485,6 +2538,9 @@ const createPlayerLifecycleContext = (
   self: playerStats.value,
   opponent: enemyStats.value,
   state,
+  turn: combatState.value.turn,
+  playedPhysicalOrMagicThisTurn: playerPlayedPhysicalOrMagicThisTurn.value,
+  previousTurnMana: previousTurnManaSnapshot.value.player,
   addLog: logRelicMessage,
   hasRelic: hasActiveRelic,
   getRelicCount: getActiveRelicCount,
@@ -2498,6 +2554,7 @@ const createPlayerLifecycleContext = (
   ),
   addArmor: addArmorForSide,
   restoreMana: restoreManaForSide,
+  spendMana: spendManaWithShock,
   heal: healForSide,
   addRerollCharges: changeRerollCharges,
   getRerollCharges,
@@ -2599,6 +2656,56 @@ const triggerPlayerRelicHitHooks = (
     };
     relic.hooks?.onAfterHitDealt?.(ctx);
     relic.hooks?.onAfterHitTaken?.(ctx);
+  });
+};
+
+const triggerPlayerRelicBeforeDirectDamageHooks = (
+  sourceSide: RelicSide | undefined,
+  targetSide: RelicSide,
+  card: CardData | undefined,
+  damage: number,
+  isTrueDamage: boolean,
+  reason: string,
+) => {
+  let currentDamage = Math.max(0, Math.floor(damage));
+  let currentTrueDamage = isTrueDamage;
+  const source = sourceSide ? getEntityBySide(sourceSide) : undefined;
+  const target = getEntityBySide(targetSide);
+
+  forEachPlayerRelic((entry, relic, state) => {
+    const hook = relic.hooks?.onBeforeDirectDamage;
+    if (!hook) return;
+    const shared = createPlayerLifecycleContext(relic, entry.count, state);
+    const ctx: RelicDirectDamageHookContext = {
+      ...shared,
+      sourceSide,
+      targetSide,
+      source,
+      target,
+      card,
+      damage: currentDamage,
+      isTrueDamage: currentTrueDamage,
+      reason,
+    };
+    hook(ctx);
+    currentDamage = Math.max(0, Math.floor(ctx.damage));
+    currentTrueDamage = !!ctx.isTrueDamage;
+  });
+
+  return { damage: currentDamage, isTrueDamage: currentTrueDamage };
+};
+
+const triggerPlayerRelicAfterActiveSkillHooks = (skill: ActiveSkillData) => {
+  forEachPlayerRelic((entry, relic, state) => {
+    const hook = relic.hooks?.onAfterActiveSkill;
+    if (!hook) return;
+    const shared = createPlayerLifecycleContext(relic, entry.count, state);
+    const ctx: RelicActiveSkillHookContext = {
+      ...shared,
+      skill,
+      rerollSelfDice: () => rerollSideDiceByActiveSkill('player', relic.name),
+    };
+    hook(ctx);
   });
 };
 
@@ -3781,13 +3888,16 @@ const getCardFinalPoint = (
 ) => {
   const attacker = source === 'player' ? playerStats.value : enemyStats.value;
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
+  const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
 
-  let finalPoint = calculateFinalPoint({
-    baseDice,
-    card,
-    entityEffects: attacker.effects,
-    relicModifiers: NO_RELIC_MOD,
-  });
+  let finalPoint = shriveledHandActive
+    ? baseDice + card.calculation.addition * 2
+    : calculateFinalPoint({
+        baseDice,
+        card,
+        entityEffects: attacker.effects,
+        relicModifiers: NO_RELIC_MOD,
+      });
 
   // 卡牌专属点数修正：敌方每有2层燃烧，点数+1
   if (card.id === 'burn_inferno_judgement') {
@@ -3899,11 +4009,27 @@ const getCardFinalPoint = (
   if (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24) {
     finalPoint *= 1.5;
   }
+  if (
+    source === 'enemy'
+    && getActiveRelicCount('burn_circling_glow') > 0
+    && (getEffectStacks(playerStats.value, ET.COLD) > 0 || getEffectStacks(enemyStats.value, ET.COLD) > 0)
+  ) {
+    finalPoint -= getActiveRelicCount('burn_circling_glow');
+  }
 
   if (source === 'player') {
     forEachPlayerRelic((entry, relic, state) => {
       const hook = relic.hooks?.modifyFinalPoint;
       if (!hook) return;
+      if (
+        shriveledHandActive
+        && (relic.id === 'modao_witch_hat'
+          || relic.id === 'basic_silver_mirror'
+          || relic.id === 'burn_will_o_wisp_chain')
+      ) {
+        return;
+      }
+      const beforeRelicPoint = finalPoint;
       const ctx: RelicPointHookContext = {
         count: entry.count,
         side: 'player',
@@ -3918,8 +4044,15 @@ const getCardFinalPoint = (
         hasRelic: hasActiveRelic,
         getRelicCount: getActiveRelicCount,
       };
-      finalPoint = hook(ctx);
+      const nextPoint = hook(ctx);
+      finalPoint = shriveledHandActive
+        ? beforeRelicPoint + (nextPoint - beforeRelicPoint) * 2
+        : nextPoint;
     });
+  }
+
+  if (shouldApplyAmplificationStarPointBonus(source, card)) {
+    finalPoint *= getAmplificationStarPointMultiplier();
   }
 
   if (card.id === 'modao_staff_strike') {
@@ -3935,8 +4068,23 @@ const formatPointValue = (value: number): string => {
   return rounded.toFixed(2).replace(/\.?0+$/, '');
 };
 
+const shouldApplyAmplificationStarPointBonus = (source: BattleSide, card: CardData): boolean => {
+  if (getActiveRelicCount('basic_amplification_star') <= 0) return false;
+  if (getActiveRelicCount('basic_shriveled_hand') > 0) return false;
+  if (card.id === PASS_CARD.id) return false;
+  if (source === 'player') {
+    return !card.traits.combo;
+  }
+  const playerCard = combatState.value.playerSelectedCard ?? playerPreviewCardForPointContext.value;
+  return !!playerCard && playerCard.id !== PASS_CARD.id && !playerCard.traits.combo;
+};
+
+const getAmplificationStarPointMultiplier = () => (
+  Math.pow(1.5, Math.max(1, getActiveRelicCount('basic_amplification_star')))
+);
+
 const formatRelicPointDelta = (relicId: string, before: number, after: number): string => {
-  if (relicId === 'modao_witch_hat' && Math.abs(before) > 0.0001) {
+  if ((relicId === 'modao_witch_hat' || relicId === 'basic_amplification_star') && Math.abs(before) > 0.0001) {
     return `x${formatPointValue(after / before)}（${formatPointValue(before)}→${formatPointValue(after)}）`;
   }
   const delta = after - before;
@@ -3952,18 +4100,23 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
   const attacker = source === 'player' ? playerStats.value : enemyStats.value;
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
   const lines: string[] = [];
+  const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
 
   lines.push(`原始：${baseDice}`);
-  let finalPoint = calculateFinalPoint({
-    baseDice,
-    card,
-    entityEffects: attacker.effects,
-    relicModifiers: NO_RELIC_MOD,
-  });
+  let finalPoint = shriveledHandActive
+    ? baseDice + card.calculation.addition * 2
+    : calculateFinalPoint({
+        baseDice,
+        card,
+        entityEffects: attacker.effects,
+        relicModifiers: NO_RELIC_MOD,
+      });
   const multiplierText = formatPointValue(card.calculation.multiplier);
   const addition = card.calculation.addition;
   const additionText = addition >= 0 ? `+${addition}` : `${addition}`;
-  lines.push(`卡牌修正 x${multiplierText} ${additionText} => ${finalPoint}`);
+  lines.push(shriveledHandActive
+    ? `干瘪之手：卡牌乘法不触发，加减触发2次 ${additionText}x2 => ${finalPoint}`
+    : `卡牌修正 x${multiplierText} ${additionText} => ${finalPoint}`);
 
   if (card.id === 'burn_inferno_judgement') {
     const bonus = Math.floor(getEffectStacks(defender, ET.BURN));
@@ -4123,11 +4276,28 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     finalPoint *= 1.5;
     lines.push(`梦境控制权（<=24%）x1.5 => ${formatPointValue(finalPoint)}`);
   }
+  if (
+    source === 'enemy'
+    && getActiveRelicCount('burn_circling_glow') > 0
+    && (getEffectStacks(playerStats.value, ET.COLD) > 0 || getEffectStacks(enemyStats.value, ET.COLD) > 0)
+  ) {
+    const delta = getActiveRelicCount('burn_circling_glow');
+    finalPoint -= delta;
+    lines.push(`环绕火光（存在寒冷）-${delta} => ${formatPointValue(finalPoint)}`);
+  }
 
   if (source === 'player') {
     forEachPlayerRelic((entry, relic, state) => {
       const hook = relic.hooks?.modifyFinalPoint;
       if (!hook) return;
+      if (
+        shriveledHandActive
+        && (relic.id === 'modao_witch_hat'
+          || relic.id === 'basic_silver_mirror'
+          || relic.id === 'burn_will_o_wisp_chain')
+      ) {
+        return;
+      }
       const before = finalPoint;
       const ctx: RelicPointHookContext = {
         count: entry.count,
@@ -4143,10 +4313,19 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
         hasRelic: hasActiveRelic,
         getRelicCount: getActiveRelicCount,
       };
-      finalPoint = hook(ctx);
+      const nextPoint = hook(ctx);
+      finalPoint = shriveledHandActive
+        ? before + (nextPoint - before) * 2
+        : nextPoint;
       if (Math.abs(finalPoint - before) < 0.0001) return;
       lines.push(`${relic.name} ${formatRelicPointDelta(relic.id, before, finalPoint)} => ${formatPointValue(finalPoint)}`);
     });
+  }
+
+  if (shouldApplyAmplificationStarPointBonus(source, card)) {
+    const before = finalPoint;
+    finalPoint *= getAmplificationStarPointMultiplier();
+    lines.push(`增幅星 ${formatRelicPointDelta('basic_amplification_star', before, finalPoint)} => ${formatPointValue(finalPoint)}`);
   }
 
   if (card.id === 'modao_staff_strike' && finalPoint < baseDice) {
@@ -4164,6 +4343,7 @@ const getCardPreviewPoint = (source: 'player' | 'enemy', card: CardData, baseDic
 
 const handlePlayerCardHoverStart = (card: CardData) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  playerPreviewCardForPointContext.value = card;
   previewPlayerDice.value = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
   playerDicePreviewCardName.value = card.name;
   playerDicePreviewLines.value = buildCardPreviewLines('player', card, combatState.value.playerBaseDice);
@@ -4174,6 +4354,7 @@ const handlePlayerCardHoverEnd = () => {
   previewPlayerDice.value = null;
   playerDicePreviewCardName.value = '';
   playerDicePreviewLines.value = [];
+  playerPreviewCardForPointContext.value = null;
 };
 
 const handlePlayerCardTouchStart = (card: CardData) => {
@@ -4181,6 +4362,7 @@ const handlePlayerCardTouchStart = (card: CardData) => {
   if (hoverPreviewTimer) clearTimeout(hoverPreviewTimer);
   hoverPreviewTimer = setTimeout(() => {
     if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+    playerPreviewCardForPointContext.value = card;
     previewPlayerDice.value = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
     playerDicePreviewCardName.value = card.name;
     playerDicePreviewLines.value = buildCardPreviewLines('player', card, combatState.value.playerBaseDice);
@@ -4196,6 +4378,7 @@ const handlePlayerCardTouchEnd = () => {
   previewPlayerDice.value = null;
   playerDicePreviewCardName.value = '';
   playerDicePreviewLines.value = [];
+  playerPreviewCardForPointContext.value = null;
 };
 
 const rollDiceInRange = (min: number, max: number) => {
@@ -4203,6 +4386,46 @@ const rollDiceInRange = (min: number, max: number) => {
   const high = Math.floor(Math.max(min, max));
   if (high <= low) return low;
   return Math.floor(Math.random() * (high - low + 1)) + low;
+};
+
+const rollPlayerDiceInRange = (min: number, max: number) => {
+  const low = Math.floor(Math.min(min, max));
+  const high = Math.floor(Math.max(min, max));
+  if (getActiveRelicCount('basic_eerie_orb') > 0 && high > low) {
+    return Math.random() < 0.5 ? low : high;
+  }
+  return rollDiceInRange(low, high);
+};
+
+const applyCheatSilverCoinToPlayerReroll = (value: number): number => {
+  if (getActiveRelicCount('basic_cheat_silver_coin') <= 0) return value;
+  return 6;
+};
+
+const triggerPlayerAfterRerollRelics = (before: number, after: number) => {
+  void before;
+  const glassCount = getActiveRelicCount('basic_colored_glass_ball');
+  if (glassCount > 0 && enemyStats.value.hp > 0) {
+    const damage = 2 * glassCount;
+    const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, damage, false, '异色玻璃球', {
+      sourceSide: 'player',
+      isDirectDamage: true,
+    });
+    if (actualDamage > 0) {
+      pushFloatingNumber('enemy', actualDamage, 'physical', '-');
+    }
+    logRelicMessage(`[异色玻璃球] 重掷后造成 ${actualDamage} 点伤害。`);
+  }
+  const puddingCount = getActiveRelicCount('basic_pudding');
+  if (puddingCount > 0) {
+    const { healed } = healForSide('player', puddingCount);
+    if (healed > 0) {
+      logRelicMessage(`[布丁] 重掷后回复 ${healed} 点生命。`);
+    }
+  }
+  if (getActiveRelicCount('basic_cheat_silver_coin') > 0 && after !== 6) {
+    logRelicMessage('[作弊银币] 重掷结果固定为 6。');
+  }
 };
 
 const handlePlayerDiceClick = () => {
@@ -4221,7 +4444,7 @@ const handlePlayerDiceClick = () => {
       minDice: playerStats.value.minDice,
       maxDice: playerStats.value.maxDice,
       state,
-      roll: rollDiceInRange,
+      roll: rollPlayerDiceInRange,
       consumeRerollCharge,
       getRerollCharges,
       addLog: logRelicMessage,
@@ -4232,17 +4455,19 @@ const handlePlayerDiceClick = () => {
   if (rerolled === null) {
     if (getRerollCharges('player') < chargesBeforeHooks) return;
     if (!consumeRerollCharge('player', 1)) return;
-    rerolled = rollDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
+    rerolled = rollPlayerDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
     log(`<span class="text-amber-300">[基础重掷] 消耗1次重掷，剩余 ${getRerollCharges('player')} 次。</span>`);
   }
 
   const before = combatState.value.playerBaseDice;
   const rerolledRaw = Math.max(0, Math.floor(rerolled));
   playerTurnRawDice.value = rerolledRaw;
-  const after = consumeChargeOnRoll(playerStats.value, '我方', rerolledRaw);
+  const afterCharge = consumeChargeOnRoll(playerStats.value, '我方', rerolledRaw);
+  const after = applyCheatSilverCoinToPlayerReroll(afterCharge);
   combatState.value.playerBaseDice = after;
   previewPlayerDice.value = null;
   log(`<span class="text-amber-200">我方骰子重掷：${before} → ${after}</span>`);
+  triggerPlayerAfterRerollRelics(before, after);
 };
 
 const canPreviewEnemyDice = () => {
@@ -4670,6 +4895,12 @@ watch(
 );
 
 const activeSkillCooldownRemaining = (idx: number): number => {
+  const skill = normalizedPlayerActiveSkills.value[idx];
+  const clockCount = getActiveRelicCount('basic_acceleration_clock');
+  if (clockCount > 0 && skill && Math.max(0, Math.floor(skill.Cooldown)) <= 1) {
+    const usedThisTurn = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0));
+    if (usedThisTurn < 2) return 0;
+  }
   const runtime = activeSkillRuntime.value[idx];
   if (!runtime) return 0;
   return Math.max(0, runtime.nextAvailableTurn - combatState.value.turn);
@@ -4685,6 +4916,10 @@ const activeSkillDisabledReason = (idx: number): string | null => {
   const runtime = activeSkillRuntime.value[idx];
   const cooldown = activeSkillCooldownRemaining(idx);
   if (cooldown > 0) return `冷却中（剩余${cooldown}回合）`;
+  if (getActiveRelicCount('basic_acceleration_clock') > 0 && Math.max(0, Math.floor(skill.Cooldown)) <= 1) {
+    const usedThisTurn = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0));
+    if (usedThisTurn >= 2) return '本回合已达到最大使用次数（2）';
+  }
 
   const maxUses = Math.max(0, Math.floor(skill.maxUses ?? 0));
   if (maxUses > 0 && runtime && runtime.usedCount >= maxUses) {
@@ -4736,22 +4971,27 @@ const getActiveSkillStatusText = (slot: ActiveSkillSlotView): string => {
   return reason ? '不可用' : '可用';
 };
 
-const rerollSideDiceByActiveSkill = (side: BattleSide, skillName: string) => {
+const rerollSideDiceByActiveSkill = (side: BattleSide, skillName: string): { before: number; after: number } => {
   const stats = side === 'player' ? playerStats.value : enemyStats.value;
   const before = side === 'player' ? combatState.value.playerBaseDice : combatState.value.enemyBaseDice;
-  const rawRoll = rollDiceInRange(stats.minDice, stats.maxDice);
-  const after = consumeChargeOnRoll(stats, side === 'player' ? '我方' : '敌方', rawRoll);
+  const rawRoll = side === 'player'
+    ? rollPlayerDiceInRange(stats.minDice, stats.maxDice)
+    : rollDiceInRange(stats.minDice, stats.maxDice);
+  const afterCharge = consumeChargeOnRoll(stats, side === 'player' ? '我方' : '敌方', rawRoll);
+  const after = side === 'player' ? applyCheatSilverCoinToPlayerReroll(afterCharge) : afterCharge;
 
   if (side === 'player') {
     playerTurnRawDice.value = rawRoll;
     combatState.value.playerBaseDice = after;
     log(`<span class="text-zinc-200">主动【${skillName}】重掷我方骰子：${before} → ${after}</span>`);
-    return;
+    triggerPlayerAfterRerollRelics(before, after);
+    return { before, after };
   }
 
   enemyTurnRawDice.value = rawRoll;
   combatState.value.enemyBaseDice = after;
   log(`<span class="text-zinc-200">主动【${skillName}】重掷敌方骰子：${before} → ${after}</span>`);
+  return { before, after };
 };
 
 const useActiveSkill = (idx: number) => {
@@ -5035,9 +5275,10 @@ const useActiveSkill = (idx: number) => {
     if (skill.id === 'active_basic_infinite_amp_magic' || skill.id === 'active_basic_slot_machine') {
       runtime.manaTaxThisTurn += 1;
     }
-    const cooldown = Math.max(0, Math.floor(skill.Cooldown));
+    const cooldown = Math.max(0, Math.floor(skill.Cooldown) - getActiveRelicCount('basic_acceleration_clock'));
     runtime.nextAvailableTurn = cooldown > 0 ? combatState.value.turn + cooldown : combatState.value.turn;
   }
+  triggerPlayerRelicAfterActiveSkillHooks(skill);
 };
 
 const handCardClass = (card: CardData) => {
@@ -5399,6 +5640,7 @@ const startTurn = () => {
   isRolling.value = true;
   shatteringTarget.value = null;
   showClashAnimation.value = false;
+  playerPlayedPhysicalOrMagicThisTurn.value = false;
   triggerPlayerRelicLifecycleHooks('onTurnStart');
   const pulseMarkCount = getActiveRelicCount('bloodpool_pulse_mark');
   if (pulseMarkCount > 0 && playerStats.value.hp > 0) {
@@ -5430,7 +5672,7 @@ const startTurn = () => {
 
   setTimeout(() => {
     if (endCombatPending.value) return;
-    const pRawRoll = Math.floor(Math.random() * (playerStats.value.maxDice - playerStats.value.minDice + 1)) + playerStats.value.minDice;
+    const pRawRoll = rollPlayerDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
     const eRawRoll = Math.floor(Math.random() * (effectiveEnemyMaxDice.value - effectiveEnemyMinDice.value + 1)) + effectiveEnemyMinDice.value;
     const pRoll = consumeChargeOnRoll(playerStats.value, '我方', pRawRoll);
     const eRoll = consumeChargeOnRoll(enemyStats.value, '敌方', eRawRoll);
@@ -5453,6 +5695,7 @@ watch(
      if (phase === CombatPhase.TURN_START) {
       playerDamageTakenThisTurn.value = 0;
       directDamageTakenThisTurn.value = { player: 0, enemy: 0 };
+      damageHitTakenThisTurn.value = { player: 0, enemy: 0 };
       freezePumpTriggersThisTurn.value = 0;
       freezeFlowCoreTriggeredThisTurn.value = false;
       modaoStabilizerTriggersThisTurn.value = 0;
@@ -5947,6 +6190,13 @@ const isClashable = (card1: CardData, card2: CardData): boolean => {
 
   if (t1 === CardType.PHYSICAL && t2 === CardType.PHYSICAL) return true;
   if (t1 === CardType.MAGIC && t2 === CardType.MAGIC) return true;
+  if (
+    getActiveRelicCount('basic_magic_ring') > 0
+    && ((t1 === CardType.PHYSICAL && t2 === CardType.MAGIC)
+      || (t1 === CardType.MAGIC && t2 === CardType.PHYSICAL))
+  ) {
+    return true;
+  }
   if (t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC)) return true;
   if (t2 === CardType.DODGE && (t1 === CardType.PHYSICAL || t1 === CardType.MAGIC)) return true;
   return false;
@@ -5977,6 +6227,13 @@ const resolveCombat = async (
   let resolvedEnemyCard = eCard;
   resolvedEnemyCard = withEffectiveManaCost('enemy', resolvedEnemyCard);
   if (
+    !isEnemyComboPrelude
+    && resolvedPlayerCard.id !== PASS_CARD.id
+    && (resolvedPlayerCard.type === CardType.PHYSICAL || resolvedPlayerCard.type === CardType.MAGIC)
+  ) {
+    playerPlayedPhysicalOrMagicThisTurn.value = true;
+  }
+  if (
     resolvedEnemyCard.type === CardType.MAGIC
     && resolvedEnemyCard.id !== PASS_CARD.id
     && !enemyIntentManaSpentThisTurn.value
@@ -5997,6 +6254,16 @@ const resolveCombat = async (
   resolvedEnemyCard = withFirstUseLightningAmbushBonus('enemy', resolvedEnemyCard);
   resolvedPlayerCard = withIgnoreDodgeBuffOnAttackCard('player', resolvedPlayerCard);
   resolvedEnemyCard = withIgnoreDodgeBuffOnAttackCard('enemy', resolvedEnemyCard);
+  if (
+    getActiveRelicCount('modao_tracking_mark') > 0
+    && resolvedPlayerCard.type === CardType.MAGIC
+    && getCardPreviewPoint('player', resolvedPlayerCard, pDice) >= 10
+    && !resolvedPlayerCard.ignoreDodge
+  ) {
+    resolvedPlayerCard = cloneCardForBattle(resolvedPlayerCard);
+    resolvedPlayerCard.ignoreDodge = true;
+    logRelicMessage('[追踪印记] 法术最终点数不低于10，本次无视闪避。');
+  }
 
   if (resolvedPlayerCard.traits.combo) {
     comboUiMaskBridge.value = true;
@@ -6044,8 +6311,13 @@ const resolveCombat = async (
     }
     const targetLabel = target === 'player' ? '我方' : '敌方';
     const targetStats = target === 'player' ? playerStats.value : enemyStats.value;
-    const rerolledRaw = rollDiceInRange(targetStats.minDice, targetStats.maxDice);
-    const rerolled = consumeChargeOnRoll(targetStats, targetLabel, rerolledRaw);
+    const rerolledRaw = target === 'player'
+      ? rollPlayerDiceInRange(targetStats.minDice, targetStats.maxDice)
+      : rollDiceInRange(targetStats.minDice, targetStats.maxDice);
+    const rerolledCharge = consumeChargeOnRoll(targetStats, targetLabel, rerolledRaw);
+    const rerolled = target === 'player'
+      ? applyCheatSilverCoinToPlayerReroll(rerolledCharge)
+      : rerolledCharge;
     const before = target === 'player' ? resolvedPlayerDice : resolvedEnemyDice;
 
     if (target === 'player') {
@@ -6056,6 +6328,9 @@ const resolveCombat = async (
       combatState.value.enemyBaseDice = rerolled;
     }
     log(`<span class="text-amber-300">${sourceLabel}【${card.name}】触发重掷：${targetLabel}骰子 ${before} → ${rerolled}</span>`);
+    if (target === 'player') {
+      triggerPlayerAfterRerollRelics(before, rerolled);
+    }
   };
   rerollByTrait('player', resolvedPlayerCard);
   rerollByTrait('enemy', resolvedEnemyCard);
@@ -6076,6 +6351,20 @@ const resolveCombat = async (
     const label = side === 'player' ? '我方' : '敌方';
     const burnStacks = getEffectStacks(target, ET.BURN);
     if (burnStacks <= 0) return;
+    if (side === 'enemy') {
+      const purpleLightCount = getActiveRelicCount('burn_gloom_purple_light');
+      if (purpleLightCount > 0) {
+        const trueDamage = burnStacks * 2 * purpleLightCount;
+        const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, trueDamage, true, '幽幽紫光', {
+          sourceSide: 'player',
+          isDirectDamage: true,
+        });
+        if (actualDamage > 0) {
+          pushFloatingNumber('enemy', actualDamage, 'true', '-');
+        }
+        logRelicMessage(`[幽幽紫光] 敌方燃烧即将消失，造成 ${actualDamage} 点真实伤害。`);
+      }
+    }
     removeEffect(target, ET.BURN);
     log(`<span class="text-orange-300">${reason} ${label}燃烧清空（${burnStacks}层）。</span>`);
   };
@@ -6085,6 +6374,12 @@ const resolveCombat = async (
   }
   if (playerSkippedTurn) {
     clearBurnForSide('enemy', '我方跳过回合。');
+  }
+  if (playerSkippedTurn) {
+    const lanternCount = getActiveRelicCount('burn_flame_lantern');
+    if (lanternCount > 0 && applyStatusEffectWithRelics('enemy', ET.BURN, 2 * lanternCount, { source: 'relic:burn_flame_lantern' })) {
+      logRelicMessage(`[火焰灯笼] 跳过回合后，对敌方施加 ${2 * lanternCount} 层燃烧。`);
+    }
   }
 
   applyToxinSpreadOnPhysicalPlay('player', resolvedPlayerCard);
@@ -6180,6 +6475,10 @@ const resolveCombat = async (
     if (clashWinner === 'enemy') {
       changeRerollCharges('player', 1);
       log('<span class="text-amber-300">拼点失败：重掷次数 +1</span>');
+      const lanternCount = getActiveRelicCount('burn_flame_lantern');
+      if (lanternCount > 0 && applyStatusEffectWithRelics('enemy', ET.BURN, 2 * lanternCount, { source: 'relic:burn_flame_lantern' })) {
+        logRelicMessage(`[火焰灯笼] 拼点失败后，对敌方施加 ${2 * lanternCount} 层燃烧。`);
+      }
     }
 
     if (clashWinner === 'player') {
@@ -7448,7 +7747,22 @@ const resolveCombat = async (
           }
         }
 
+        const coldBeforeConsume = getEffectStacks(attacker, ET.COLD);
         const coldLogs = consumeColdAfterDealingDamage(attacker, actualDamage);
+        if (source === 'enemy' && coldBeforeConsume > 0) {
+          const ghostBoneCount = getActiveRelicCount('yanhan_ghost_bone');
+          const ghostBoneDamage = Math.floor(coldBeforeConsume / 3) * ghostBoneCount;
+          if (ghostBoneDamage > 0) {
+            const { actualDamage: ghostBoneActualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, ghostBoneDamage, true, '幽灵骨', {
+              sourceSide: 'player',
+              isDirectDamage: true,
+            });
+            if (ghostBoneActualDamage > 0) {
+              pushFloatingNumber('enemy', ghostBoneActualDamage, 'true', '-');
+            }
+            logRelicMessage(`[幽灵骨] 敌方触发寒冷，造成 ${ghostBoneActualDamage} 点伤害。`);
+          }
+        }
         for (const coldLog of coldLogs) {
           log(`<span class="text-sky-300 text-[9px]">${label}: ${coldLog}</span>`);
         }
@@ -7945,7 +8259,48 @@ const resolveCombat = async (
   queue.sort((a, b) => typePriority(b.type) - typePriority(a.type));
 
   const executeActionWithMagicEcho = async (action: ActionEntry) => {
+    const manaCostBeforeUse = action.source === 'player' && action.type === CardType.MAGIC
+      ? getEffectiveManaCost('player', action.card)
+      : 0;
+    if (action.source === 'player' && action.type === CardType.MAGIC && action.card.id !== PASS_CARD.id) {
+      const starCoreCount = getActiveRelicCount('burn_star_core');
+      const starCoreState = getRelicRuntimeState('burn_star_core');
+      if (starCoreCount > 0 && starCoreState['firstMagicResolved'] !== true) {
+        starCoreState['firstMagicResolved'] = true;
+        nextMagicDoubleCast.value.player += Math.max(1, Math.floor(starCoreCount));
+        logRelicMessage('[星之核] 本场第一张法术牌将额外结算一次。');
+      }
+    }
     await executeCard(action.source, action.card, action.baseDice);
+    if (action.source === 'player' && action.card.id !== PASS_CARD.id) {
+      if (action.type === CardType.MAGIC) {
+        const fluorescentCount = getActiveRelicCount('modao_fluorescent_pendant');
+        if (fluorescentCount > 0) {
+          getRelicRuntimeState('modao_fluorescent_pendant')['physicalReductionThisTurn'] = 4 * fluorescentCount;
+          logRelicMessage(`[荧光吊坠] 本回合受到的物理伤害 -${4 * fluorescentCount}。`);
+        }
+        const woodenStaffCount = getActiveRelicCount('modao_wooden_staff');
+        if (woodenStaffCount > 0) {
+          const state = getRelicRuntimeState('modao_wooden_staff');
+          const before = Math.max(0, Math.floor(Number(state['magicPointBonus'] ?? 0)));
+          const after = Math.min(4, before + woodenStaffCount);
+          state['magicPointBonus'] = after;
+          if (after > before) {
+            logRelicMessage(`[原木法杖] 本场战斗法术卡牌点数 +${after}。`);
+          }
+        }
+        const cycleNeedleCount = getActiveRelicCount('basic_cycle_needle');
+        if (cycleNeedleCount > 0 && manaCostBeforeUse > 0 && Math.random() < 0.5) {
+          const restored = restoreManaForSide('player', manaCostBeforeUse);
+          if (restored > 0) {
+            logRelicMessage(`[循环针] 返还 ${restored} 点法力。`);
+          }
+        }
+      }
+      if (action.source === 'player' && action.type !== CardType.ACTIVE) {
+        getRelicRuntimeState('basic_silver_mirror')['previousPlayedCardId'] = action.card.id;
+      }
+    }
     if (action.type !== CardType.MAGIC) return;
     const pending = Math.max(0, nextMagicDoubleCast.value[action.source]);
     if (pending <= 0) return;
@@ -8021,8 +8376,52 @@ const resolveCombat = async (
   }
 
   // End-of-turn effect processing (armor halving, stun clear, etc.)
+  getRelicRuntimeState('modao_rune_capacitor')['damageBoostStacksBeforeTurnEnd'] =
+    Math.max(0, getEffectStacks(playerStats.value, ET.DAMAGE_BOOST));
   const playerArmorBeforeEnd = getEffectStacks(playerStats.value, ET.ARMOR);
   const enemyArmorBeforeEnd = getEffectStacks(enemyStats.value, ET.ARMOR);
+  const parryShieldCount = getActiveRelicCount('basic_parry_shield');
+  if (parryShieldCount > 0 && playerArmorBeforeEnd >= 6) {
+    const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, 4 * parryShieldCount, false, '招架盾', {
+      sourceSide: 'player',
+      isDirectDamage: true,
+    });
+    if (actualDamage > 0) {
+      pushFloatingNumber('enemy', actualDamage, 'physical', '-');
+    }
+    logRelicMessage(`[招架盾] 回合结束护甲 ${playerArmorBeforeEnd}，造成 ${actualDamage} 点伤害。`);
+  }
+  const drainRuneCount = getActiveRelicCount('modao_drain_rune');
+  if (drainRuneCount > 0 && enemyStats.value.mp > playerStats.value.mp) {
+    const drainedResult = changeManaWithShock('enemy', -drainRuneCount, '汲取符文');
+    const drained = Math.max(0, -drainedResult.actualDelta);
+    const restored = restoreManaForSide('player', drained);
+    if (drained > 0 || restored > 0) {
+      logRelicMessage(`[汲取符文] 汲取 ${drained} 点法力，回复 ${restored} 点法力。`);
+    }
+  }
+  const lightningOrbCount = getActiveRelicCount('modao_lightning_orb');
+  if (lightningOrbCount > 0) {
+    let gainedBoost = 0;
+    for (let i = 0; i < lightningOrbCount; i += 1) {
+      if (!spendManaWithShock('player', 2, '闪电魔球')) break;
+      if (applyStatusEffectWithRelics('player', ET.DAMAGE_BOOST, 1, { source: 'relic:modao_lightning_orb' })) {
+        gainedBoost += 1;
+      }
+    }
+    if (gainedBoost > 0) {
+      logRelicMessage(`[闪电魔球] 消耗魔力，获得 ${gainedBoost} 层增伤。`);
+    }
+  }
+  const ghostHandCount = getActiveRelicCount('yanhan_ghost_hand');
+  if (ghostHandCount > 0 && playerDamageTakenThisTurn.value <= 0) {
+    const stacks = Math.max(1, ghostHandCount);
+    applyStatusEffectWithRelics('enemy', ET.COLD, stacks, { source: 'relic:yanhan_ghost_hand' });
+    applyStatusEffectWithRelics('enemy', ET.FATIGUE, stacks, { source: 'relic:yanhan_ghost_hand' });
+    logRelicMessage(`[幽灵手] 本回合未受伤，对敌方施加 ${stacks} 层寒冷与疲劳。`);
+  }
+  getRelicRuntimeState('burn_will_o_wisp_chain')['nextTurnPointBoost'] =
+    getDamageHitTakenThisTurn('enemy') >= 2;
   const playerSkipArmorDecay = armorDecaySkippedThisTurn.value.player;
   const enemySkipArmorDecay = armorDecaySkippedThisTurn.value.enemy;
   const pEndLogs = processOnTurnEnd(playerStats.value);
@@ -8083,7 +8482,7 @@ const resolveCombat = async (
   }
 
   const reverseShellCount = getActiveRelicCount('yanhan_reverse_phase_shell');
-  if (reverseShellCount > 0 && playerDamageTakenThisTurn.value >= 10) {
+  if (reverseShellCount > 0 && playerDamageTakenThisTurn.value >= 4) {
     const coldStacks = 2 * reverseShellCount;
     if (applyStatusEffectWithRelics('enemy', ET.COLD, coldStacks, { source: 'relic:yanhan_reverse_phase_shell' })) {
       logRelicMessage(`[反相壳层] 本回合累计受伤 ${playerDamageTakenThisTurn.value}，对敌方施加 ${coldStacks} 层寒冷。`);
