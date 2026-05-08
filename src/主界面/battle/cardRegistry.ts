@@ -822,7 +822,7 @@ const 临界沸腾: CardData = {
   description: '以2:1比例消耗目标寒冷/燃烧，并造成4倍所消耗燃烧层数的真实伤害',
 };
 
-/** 炭化转化：清除自身燃烧并按层数回魔，连击（结算逻辑在 CombatView 中） */
+/** 炭化转化：清除自身燃烧与寒冷并按层数回复护甲，连击（结算逻辑在 CombatView 中） */
 const 炭化转化: CardData = {
   id: 'burn_char_convert',
   name: '炭化转化',
@@ -834,7 +834,7 @@ const 炭化转化: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '清除自身燃烧并按层数回复魔力，连击',
+  description: '清除自身燃烧与寒冷并按层数回复护甲，连击',
 };
 
 /** 大日焚：施加燃烧并使目标燃烧翻倍（翻倍逻辑在 CombatView） */
@@ -855,7 +855,7 @@ const 大日焚: CardData = {
   description: '消耗8MP，附加0.5倍点数燃烧并使对手燃烧层数翻倍',
 };
 
-/** 火遁：闪避成功后施加0.7倍点数燃烧 */
+/** 火遁：闪避成功后施加1层燃烧 */
 const 火遁: CardData = {
   id: 'burn_fire_dodge',
   name: '火遁',
@@ -872,11 +872,11 @@ const 火遁: CardData = {
       kind: 'apply_buff',
       effectType: EffectType.BURN,
       target: 'enemy',
-      valueMode: 'point_scale',
-      scale: 0.7,
+      valueMode: 'fixed',
+      fixedValue: 1,
     },
   ],
-  description: '闪避，若闪避成功则施加0.7倍点数的燃烧',
+  description: '闪避，若闪避成功则施加1层燃烧',
 };
 
 // ── 严寒体系卡牌 ────────────────────────────────────────────────

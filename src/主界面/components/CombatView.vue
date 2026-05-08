@@ -1781,6 +1781,7 @@ const modaoStabilizerTriggersThisTurn = ref(0);
 const bloodpoolSkinMarkTriggersThisTurn = ref(0);
 const bloodpoolFirstBleedFeastTriggered = ref(false);
 const bloodpoolCriticalReboundTriggered = ref(false);
+const flowingLightRingConsumed = ref(false);
 const nonLivingConversionGuard = new Set<string>();
 const nextMagicDoubleCast = ref<Record<'player' | 'enemy', number>>({
   player: 0,
@@ -1912,8 +1913,23 @@ const updateDreamControlFromHit = (
 const addDamageHitTakenThisCombat = (side: BattleSide, actualDamage: number) => {
   const value = Math.max(0, Math.floor(actualDamage));
   if (value <= 0) return;
+  const before = Math.max(0, Math.floor(damageHitTakenThisCombat.value[side] ?? 0));
   damageHitTakenThisCombat.value[side] += 1;
   damageHitTakenThisTurn.value[side] += 1;
+  if (side === 'player') {
+    const kidneyMarkCount = getActiveRelicCount('bloodpool_kidney_mark');
+    if (kidneyMarkCount > 0) {
+      const beforeTriggers = Math.floor(before / 3);
+      const afterTriggers = Math.floor(damageHitTakenThisCombat.value[side] / 3);
+      const triggerCount = Math.max(0, afterTriggers - beforeTriggers);
+      if (triggerCount > 0) {
+        const stacks = triggerCount * kidneyMarkCount;
+        if (applyStatusEffectWithRelics('player', ET.DAMAGE_BOOST, stacks, { source: 'relic:bloodpool_kidney_mark' })) {
+          logRelicMessage(`[肾印记] 已受伤 ${damageHitTakenThisCombat.value[side]} 次，获得 ${stacks} 层增伤。`);
+        }
+      }
+    }
+  }
 };
 
 const getDamageHitTakenThisCombat = (side: BattleSide): number => (
@@ -1963,6 +1979,21 @@ const applyPlayerHemostaticValveDamageCap = (rawDamage: number, reason: string):
     logRelicMessage(`[凝血限流阀] ${reason}伤害由 ${damage} 限制为 ${capped}。`);
   }
   return capped;
+};
+
+const applyPlayerLiverMarkDamageReduction = (rawDamage: number, reason: string): number => {
+  const damage = Math.max(0, Math.floor(rawDamage));
+  if (damage <= 0) return 0;
+  const liverMarkCount = getActiveRelicCount('bloodpool_liver_mark');
+  if (liverMarkCount <= 0) return damage;
+  const lostHp = Math.max(0, Math.floor(playerStats.value.maxHp - playerStats.value.hp));
+  const reduced = Math.floor(lostHp / 20) * liverMarkCount;
+  if (reduced <= 0) return damage;
+  const nextDamage = Math.max(0, damage - reduced);
+  if (nextDamage < damage) {
+    logRelicMessage(`[肝印记] ${reason}按已损失生命 ${lostHp}，伤害 -${damage - nextDamage}。`);
+  }
+  return nextDamage;
 };
 
 const shouldSkipHeartMarkTrigger = (reason: string): boolean => (
@@ -2066,6 +2097,9 @@ const applyDamageToSideWithRelics = (
   let adjusted = side === 'player'
     ? applyPlayerHemostaticValveDamageCap(effectiveIncoming, reason)
     : effectiveIncoming;
+  if (side === 'player') {
+    adjusted = applyPlayerLiverMarkDamageReduction(adjusted, reason);
+  }
   if (
     damageOptions.isDirectDamage
     && damageOptions.card?.type === CardType.MAGIC
@@ -2190,7 +2224,7 @@ const applyDirectHpLossWithRelics = (
   const incoming = Math.max(0, Math.floor(damage));
   if (incoming <= 0) return 0;
   const adjusted = side === 'player'
-    ? applyPlayerHemostaticValveDamageCap(incoming, reason)
+    ? applyPlayerLiverMarkDamageReduction(applyPlayerHemostaticValveDamageCap(incoming, reason), reason)
     : incoming;
   const before = target.hp;
   target.hp = Math.max(0, target.hp - adjusted);
@@ -2329,6 +2363,15 @@ const healForSide = (
   }
   if (options?.overflowToArmor && overflowRaw > 0) {
     addArmorForSide(side, overflowRaw);
+  }
+  if (side === 'player' && overflowRaw > 0) {
+    const fatMarkCount = getActiveRelicCount('bloodpool_fat_mark');
+    if (fatMarkCount > 0) {
+      const tempMaxHpGain = Math.max(0, Math.floor(overflowRaw * 0.5 * fatMarkCount));
+      if (tempMaxHpGain > 0 && applyStatusEffectWithRelics('player', ET.TEMP_MAX_HP, tempMaxHpGain, { source: 'relic:bloodpool_fat_mark' })) {
+        logRelicMessage(`[脂肪印记] 溢出治疗 ${overflowRaw} 点，转化为 ${tempMaxHpGain} 点临时生命上限。`);
+      }
+    }
   }
   if (sourceSide !== side && (healed > 0 || value > 0)) {
     reduceTargetMaxDiceByVoidTaint(sourceSide, side, '对方收到了自己的治疗');
@@ -3103,6 +3146,34 @@ const isAboveHalfHp = (entity: EntityStats): boolean => (
   entity.maxHp > 0 && (entity.hp * 2) > entity.maxHp
 );
 
+const applyBloodpoolRedHeadbandPointBonus = (
+  side: BattleSide,
+  card: CardData,
+  entity: EntityStats,
+  currentPoint: number,
+  isPreview: boolean,
+): number => {
+  if (side !== 'player') return currentPoint;
+  const count = getActiveRelicCount('bloodpool_red_headband');
+  if (count <= 0 || card.id === PASS_CARD.id) return currentPoint;
+  const shriveledHandActive = getActiveRelicCount('basic_shriveled_hand') > 0;
+  let nextPoint = currentPoint;
+  const bleedBonus = getEffectStacks(entity, ET.BLEED) > 0 ? count : 0;
+  if (bleedBonus > 0) {
+    nextPoint += shriveledHandActive ? bleedBonus * 2 : bleedBonus;
+    if (!isPreview) {
+      logRelicMessage(`[红色头带] 拥有流血，点数 +${shriveledHandActive ? bleedBonus * 2 : bleedBonus}。`);
+    }
+  }
+  if (!shriveledHandActive && isBelowHalfHp(entity)) {
+    nextPoint *= 1.3;
+    if (!isPreview) {
+      logRelicMessage('[红色头带] 生命低于50%，点数 x1.3。');
+    }
+  }
+  return nextPoint;
+};
+
 const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   const base = Math.max(0, Math.floor(card.manaCost ?? 0));
   if (card.type !== CardType.MAGIC) return base;
@@ -3163,7 +3234,12 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
   }
 
   const bleedSourceSide: BattleSide = targetSide === 'player' ? 'enemy' : 'player';
-  const { actualDamage, logs: bleedLogs } = applyDamageToSideWithRelics(targetSide, target, bleedStacks, true, '流血', {
+  const horrorRecordCount = getActiveRelicCount('bloodpool_horror_record');
+  const vulnerableBonus = horrorRecordCount > 0
+    ? Math.max(0, getEffectStacks(target, ET.VULNERABLE)) * horrorRecordCount
+    : 0;
+  const bleedDamage = bleedStacks + vulnerableBonus;
+  const { actualDamage, logs: bleedLogs } = applyDamageToSideWithRelics(targetSide, target, bleedDamage, true, '流血', {
     sourceSide: bleedSourceSide,
     dreamControlKind: targetSide === 'enemy' ? 'status' : undefined,
   });
@@ -3171,6 +3247,9 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
     pushFloatingNumber(targetSide, actualDamage, 'true', '-');
   }
   log(`<span class="text-rose-300">[流血] ${reason}触发：${targetLabel}受到 ${actualDamage} 点真实伤害。</span>`);
+  if (vulnerableBonus > 0) {
+    logRelicMessage(`[惊悚唱片] ${targetLabel}易伤使本次流血伤害 +${vulnerableBonus}。`);
+  }
   for (const dl of bleedLogs) {
     const normalized = dl.startsWith('受到') ? `${targetLabel}${dl}` : dl;
     log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
@@ -3198,6 +3277,18 @@ const applyBloodbladeAttachOnClash = (sourceSide: BattleSide, targetSide: Battle
   applyStatusEffectWithRelics(targetSide, ET.BLEED, stacks, { source: 'effect:bloodblade_attach', lockDecayThisTurn: true });
   const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
   log(`<span class="text-rose-300">${sourceLabel}[血刃附加] 为对方施加了 ${stacks} 层流血。</span>`);
+};
+
+const applyEerieStatueOnPlayerActionCard = (card: CardData) => {
+  const statueCount = getActiveRelicCount('bloodpool_eerie_statue');
+  if (statueCount <= 0 || card.id === PASS_CARD.id || card.type === CardType.ACTIVE) return;
+  const stacks = Math.max(1, Math.floor(statueCount));
+  if (applyStatusEffectWithRelics('enemy', ET.BLEED, stacks, {
+    source: 'relic:bloodpool_eerie_statue',
+    lockDecayThisTurn: true,
+  })) {
+    logRelicMessage(`[诡异雕像] 使用行动牌【${card.name}】，对敌方施加 ${stacks} 层流血。`);
+  }
 };
 
 const applyLightningAttachOnDodge = (dodgerSide: BattleSide, targetSide: BattleSide) => {
@@ -4055,6 +4146,8 @@ const getCardFinalPoint = (
         ? beforeRelicPoint + (nextPoint - beforeRelicPoint) * 2
         : nextPoint;
     });
+
+    finalPoint = applyBloodpoolRedHeadbandPointBonus(source, card, attacker, finalPoint, isPreview);
   }
 
   if (shouldApplyAmplificationStarPointBonus(source, card)) {
@@ -4337,6 +4430,12 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       if (Math.abs(finalPoint - before) < 0.0001) return;
       lines.push(`${relic.name} ${formatRelicPointDelta(relic.id, before, finalPoint)} => ${formatPointValue(finalPoint)}`);
     });
+
+    const beforeRedHeadband = finalPoint;
+    finalPoint = applyBloodpoolRedHeadbandPointBonus(source, card, attacker, finalPoint, true);
+    if (Math.abs(finalPoint - beforeRedHeadband) >= 0.0001) {
+      lines.push(`红色头带 ${formatRelicPointDelta('bloodpool_red_headband', beforeRedHeadband, finalPoint)} => ${formatPointValue(finalPoint)}`);
+    }
   }
 
   if (shouldApplyAmplificationStarPointBonus(source, card)) {
@@ -4417,6 +4516,30 @@ const rollPlayerDiceInRange = (min: number, max: number) => {
 const applyCheatSilverCoinToPlayerReroll = (value: number): number => {
   if (getActiveRelicCount('basic_cheat_silver_coin') <= 0) return value;
   return 6;
+};
+
+const canApplyFlowingLightRingCombo = (card: CardData): boolean => (
+  getActiveRelicCount('basic_flowing_light_ring') > 0
+  && !flowingLightRingConsumed.value
+  && card.id !== PASS_CARD.id
+  && card.type === CardType.FUNCTION
+);
+
+const applyFlowingLightRingComboIfNeeded = (card: CardData): CardData => {
+  if (!canApplyFlowingLightRingCombo(card)) return card;
+  flowingLightRingConsumed.value = true;
+  const nextCard = cloneCardForBattle(card);
+  nextCard.traits = { ...nextCard.traits, combo: true };
+  logRelicMessage(`[流光指环] 本场战斗第一张功能牌【${card.name}】获得连击。`);
+  return nextCard;
+};
+
+const previewFlowingLightRingCombo = (card: CardData): CardData => {
+  if (!canApplyFlowingLightRingCombo(card)) return card;
+  return {
+    ...card,
+    traits: { ...card.traits, combo: true },
+  };
 };
 
 const triggerPlayerAfterRerollRelics = (before: number, after: number) => {
@@ -5386,18 +5509,19 @@ const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
     unlockCardManaCost(card);
     return;
   }
+  const playedCard = applyFlowingLightRingComboIfNeeded(played);
 
   clearDicePreview();
-  showPlayerPlayedCard(played);
+  showPlayerPlayedCard(playedCard);
   addFatigueDegree(1);
-  combatState.value.discardPile.push(played);
-  combatState.value.playerSelectedCard = played;
+  combatState.value.discardPile.push(playedCard);
+  combatState.value.playerSelectedCard = playedCard;
   twinDirectComboResolving.value = true;
   combatState.value.phase = CombatPhase.RESOLUTION;
 
   try {
     await resolveCombat(
-      played,
+      playedCard,
       PASS_CARD,
       combatState.value.playerBaseDice,
       combatState.value.enemyBaseDice,
@@ -5408,6 +5532,7 @@ const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
     );
   } finally {
     unlockCardManaCost(played);
+    unlockCardManaCost(playedCard);
     twinDirectComboResolving.value = false;
     if (!endCombatPending.value && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
       combatState.value.playerSelectedCard = null;
@@ -5469,8 +5594,11 @@ const resolveTwinCombatSequence = async () => {
       if (handIndex >= 0) {
         const [played] = combatState.value.playerHand.splice(handIndex, 1);
         if (played) {
-          playerCardToResolve = played;
-          combatState.value.discardPile.push(played);
+          playerCardToResolve = applyFlowingLightRingComboIfNeeded(played);
+          if (playerCardToResolve !== played) {
+            unlockCardManaCost(played);
+          }
+          combatState.value.discardPile.push(playerCardToResolve);
         }
       } else {
         playerCardToResolve = PASS_CARD;
@@ -5724,6 +5852,7 @@ watch(
         resetTwinTurnSelections();
         bloodpoolFirstBleedFeastTriggered.value = false;
         bloodpoolCriticalReboundTriggered.value = false;
+        flowingLightRingConsumed.value = false;
         battleCardFirstUseConsumed.value = { player: {}, enemy: {} };
         battleCardPointBonus.value = { player: {}, enemy: {} };
         turnPointModifier.value = { player: 0, enemy: 0 };
@@ -5997,6 +6126,13 @@ watch(
               burnIsTrueDamage,
               combatState.value.turn,
             );
+            const paintingCount = getActiveRelicCount('bloodpool_eerie_miniature_painting');
+            if (targetSide === 'enemy' && paintingCount > 0 && enemyStats.value.hp > 0) {
+              for (let i = 0; i < paintingCount; i += 1) {
+                const damage = triggerBleedProc('enemy', `[诡异微型画作] 燃烧触发联动（${i + 1}/${paintingCount}）`);
+                if (damage <= 0 || enemyStats.value.hp <= 0) break;
+              }
+            }
           }
           const reviveResult = triggerSwarmReviveIfNeeded(stats.value);
           for (const reviveLog of reviveResult.logs) {
@@ -6075,7 +6211,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (combatState.value.playerHand[handIdx] !== card) return;
 
   if (isTwinBattle) {
-    const runtimeCard = withEffectiveManaCost('player', card);
+    const runtimeCard = previewFlowingLightRingCombo(withEffectiveManaCost('player', card));
     if (runtimeCard.traits.combo) {
       const allowedTypes = getTwinDirectComboAllowedTypes();
       const controlledExpectedType = allowedTypes.length === 1 ? allowedTypes[0] : null;
@@ -6135,7 +6271,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     return;
   }
 
-  const runtimeCard = withEffectiveManaCost('player', card);
+  const runtimeCard = previewFlowingLightRingCombo(withEffectiveManaCost('player', card));
   const controlledExpectedType = (() => {
     if (getEffectStacks(playerStats.value, ET.CONTROLLED) <= 0) return null;
     const intentCard = combatState.value.enemyIntentCard;
@@ -6164,11 +6300,15 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     unlockCardManaCost(card);
     return;
   }
+  const playedCard = applyFlowingLightRingComboIfNeeded(played);
+  if (playedCard !== played) {
+    unlockCardManaCost(played);
+  }
   clearDicePreview();
-  showPlayerPlayedCard(played);
+  showPlayerPlayedCard(playedCard);
   addFatigueDegree(1);
-  combatState.value.discardPile.push(played);
-  combatState.value.playerSelectedCard = played;
+  combatState.value.discardPile.push(playedCard);
+  combatState.value.playerSelectedCard = playedCard;
   combatState.value.phase = CombatPhase.RESOLUTION;
 };
 
@@ -6492,8 +6632,10 @@ const resolveCombat = async (
       triggerBleedProc('player', '拼点阶段');
     }
     const enemyBleedStacksOnClash = Math.max(0, getEffectStacks(enemyStats.value, ET.BLEED));
-    if (enemyBleedStacksOnClash > 0) {
+    if (enemyBleedStacksOnClash > 0 && getActiveRelicCount('bloodpool_eerie_statue') <= 0) {
       triggerBleedProc('enemy', '拼点阶段');
+    } else if (enemyBleedStacksOnClash > 0) {
+      logRelicMessage('[诡异雕像] 拼点阶段不触发敌方流血。');
     }
     if (clashWinner === 'enemy') {
       changeRerollCharges('player', 1);
@@ -6501,6 +6643,16 @@ const resolveCombat = async (
       const lanternCount = getActiveRelicCount('burn_flame_lantern');
       if (lanternCount > 0 && applyStatusEffectWithRelics('enemy', ET.BURN, 2 * lanternCount, { source: 'relic:burn_flame_lantern' })) {
         logRelicMessage(`[火焰灯笼] 拼点失败后，对敌方施加 ${2 * lanternCount} 层燃烧。`);
+      }
+      const resonanceCount = getActiveRelicCount('bloodpool_halfline_resonance');
+      if (resonanceCount > 0) {
+        const bleedStacks = 3 * resonanceCount;
+        if (applyStatusEffectWithRelics('enemy', ET.BLEED, bleedStacks, {
+          source: 'relic:bloodpool_halfline_resonance',
+          lockDecayThisTurn: true,
+        })) {
+          logRelicMessage(`[半阈共振核] 拼点失败，对敌方施加 ${bleedStacks} 层流血。`);
+        }
       }
     }
 
@@ -6601,6 +6753,9 @@ const resolveCombat = async (
     }
     if (card.id !== PASS_CARD.id) {
       log(`${label}使用了【${card.name}】`);
+    }
+    if (source === 'player') {
+      applyEerieStatueOnPlayerActionCard(card);
     }
     await playResolvedCardAnimation(source, card);
     if (endCombatPending.value) return;
@@ -7192,15 +7347,29 @@ const resolveCombat = async (
 
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
       if (card.id === 'burn_char_convert') {
-        const burned = getEffectStacks(attacker, ET.BURN);
+        const burned = Math.max(0, getEffectStacks(attacker, ET.BURN));
+        const chilled = Math.max(0, getEffectStacks(attacker, ET.COLD));
+        const totalConverted = burned + chilled;
         syncCurrentPointForUi();
         if (burned > 0) {
           removeEffect(attacker, ET.BURN);
-          attacker.mp += burned;
-          pushFloatingNumber(source, burned, 'mana', '+');
-          log(`<span class="text-blue-400">${label}【${card.name}】清除了 ${burned} 层燃烧并回复了 ${burned} 点魔力</span>`);
+        }
+        if (chilled > 0) {
+          removeEffect(attacker, ET.COLD);
+        }
+        if (totalConverted > 0) {
+          const armorBefore = Math.max(0, getEffectStacks(attacker, ET.ARMOR));
+          applyStatusEffectWithRelics(source, ET.ARMOR, totalConverted, { source: card.id });
+          const armorGained = Math.max(0, getEffectStacks(attacker, ET.ARMOR) - armorBefore);
+          if (armorGained > 0) {
+            pushFloatingNumber(source, armorGained, 'shield', '+');
+            if (source === 'player') {
+              handlePlayerArmorGainFromSingleEvent(armorGained, `卡牌【${card.name}】`);
+            }
+          }
+          log(`<span class="text-cyan-300">${label}【${card.name}】清除了 ${burned} 层燃烧与 ${chilled} 层寒冷，并回复了 ${armorGained} 点护甲</span>`);
         } else {
-          log(`<span class="text-gray-400">${label}【${card.name}】未检测到燃烧层数</span>`);
+          log(`<span class="text-gray-400">${label}【${card.name}】未检测到燃烧或寒冷层数</span>`);
         }
         finalizeAndTrack();
         return;
@@ -7815,6 +7984,20 @@ const resolveCombat = async (
           adjustedDamage,
           actualDamage,
         );
+        const bloodstainedBladeCount = getActiveRelicCount('bloodpool_bloodstained_blade');
+        if (
+          bloodstainedBladeCount > 0
+          && source === 'player'
+          && defenderSide === 'enemy'
+          && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
+          && actualDamage > 0
+          && enemyStats.value.hp > 0
+        ) {
+          for (let i = 0; i < bloodstainedBladeCount; i += 1) {
+            const bleedDamage = triggerBleedProc('enemy', `[染血刃] 命中触发（${i + 1}/${bloodstainedBladeCount}）`);
+            if (bleedDamage <= 0 || enemyStats.value.hp <= 0) break;
+          }
+        }
         triggerObedienceBrandOnDirectHit(source, defenderSide);
         applyHitAttachEffects(source, card, attacker, defenderSide);
         if (card.type === CardType.PHYSICAL) {
@@ -8460,6 +8643,7 @@ const resolveCombat = async (
     getDamageHitTakenThisTurn('enemy') >= 2;
   const playerSkipArmorDecay = armorDecaySkippedThisTurn.value.player;
   const enemySkipArmorDecay = armorDecaySkippedThisTurn.value.enemy;
+  const enemyPoisonStacksBeforeEnd = Math.max(0, getEffectStacks(enemyStats.value, ET.POISON));
   const pEndLogs = processOnTurnEnd(playerStats.value);
   const eEndLogs = processOnTurnEnd(enemyStats.value);
   if (playerSkipArmorDecay) {
@@ -8477,6 +8661,29 @@ const resolveCombat = async (
       applyStatusEffectWithRelics('enemy', ET.ARMOR, enemyArmorBeforeEnd - enemyArmorAfterDecay, {
         source: 'basic_guard',
       });
+    }
+  }
+  const liverMarkCount = getActiveRelicCount('bloodpool_liver_mark');
+  if (liverMarkCount > 0) {
+    const poisonAmountStacks = Math.max(0, getEffectStacks(playerStats.value, ET.POISON_AMOUNT));
+    const reduced = Math.min(poisonAmountStacks, liverMarkCount);
+    if (reduced > 0) {
+      reduceEffectStacks(playerStats.value, ET.POISON_AMOUNT, reduced);
+      logRelicMessage(`[肝印记] 回合结束，中毒量 -${reduced}。`);
+    }
+  }
+  const paintingCount = getActiveRelicCount('bloodpool_eerie_miniature_painting');
+  if (paintingCount > 0 && enemyPoisonStacksBeforeEnd > 0 && enemyStats.value.hp > 0) {
+    for (let i = 0; i < paintingCount; i += 1) {
+      const damage = triggerBleedProc('enemy', `[诡异微型画作] 中毒触发联动（${i + 1}/${paintingCount}）`);
+      if (damage <= 0 || enemyStats.value.hp <= 0) break;
+    }
+  }
+  const statueCount = getActiveRelicCount('bloodpool_eerie_statue');
+  if (statueCount > 0 && enemyStats.value.hp > 0) {
+    for (let i = 0; i < statueCount; i += 1) {
+      const damage = triggerBleedProc('enemy', `[诡异雕像] 回合结束触发（${i + 1}/${statueCount}）`);
+      if (damage <= 0 || enemyStats.value.hp <= 0) break;
     }
   }
   if (temporaryBarrierToRemoveAtTurnEnd.value > 0) {

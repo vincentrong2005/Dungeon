@@ -250,6 +250,32 @@ const RELIC_LIST: readonly RelicData[] = [
     },
   },
   {
+    id: 'basic_flowing_light_ring',
+    name: '流光指环',
+    rarity: '传奇',
+    category: '基础',
+    effect: '战斗中打出的第一张功能牌连击',
+    description: '战斗中打出的第一张功能牌连击。',
+  },
+  {
+    id: 'basic_four_color_notebook',
+    name: '四色笔记',
+    rarity: '传奇',
+    category: '基础',
+    effect: '打出物理/魔法/功能牌时点数+1，打出闪避牌时点数-1',
+    description: '打出物理、魔法、功能牌时，点数+1；打出闪避牌时，点数-1。',
+    hooks: {
+      modifyFinalPoint: ({ card, currentPoint, count }) => {
+        const stacks = Math.max(0, Math.floor(count));
+        if (card.type === CardType.DODGE) return currentPoint - stacks;
+        if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC || card.type === CardType.FUNCTION) {
+          return currentPoint + stacks;
+        }
+        return currentPoint;
+      },
+    },
+  },
+  {
     id: 'mana_residue',
     name: '魔力残渣',
     rarity: '普通',
@@ -1421,6 +1447,56 @@ const RELIC_LIST: readonly RelicData[] = [
     },
   },
   {
+    id: 'bloodpool_fat_mark',
+    name: '脂肪印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '战斗开始时回复30%生命上限；溢出治疗的50%转化为临时生命上限',
+    description: '战斗开始时，回复30%生命上限的生命。回复生命时，溢出的生命回复会转化为50%临时生命上限。',
+    hooks: {
+      onBattleStart: ({ count, side, self, heal, addLog }) => {
+        const amount = Math.max(0, Math.floor(self.maxHp * 0.3 * Math.max(1, Math.floor(count))));
+        const { healed, overflow } = heal(side, amount);
+        addLog(`[脂肪印记] 战斗开始回复 ${healed} 点生命${overflow > 0 ? `，溢出 ${overflow} 点` : ''}。`);
+      },
+    },
+  },
+  {
+    id: 'bloodpool_kidney_mark',
+    name: '肾印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '每受伤3次，获得1层增伤',
+    description: '每受伤3次，获得1层增伤。',
+  },
+  {
+    id: 'bloodpool_lung_mark',
+    name: '肺印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '被敌方卡牌命中并失去生命时，回复1点法力并获得1点护甲',
+    description: '被敌方卡牌命中并失去生命时，回复1点法力并获得1点护甲。',
+    hooks: {
+      onAfterHitTaken: ({ count, side, targetSide, sourceSide, card, actualDamage, restoreMana, addArmor, addLog }) => {
+        if (targetSide !== side || sourceSide === side) return;
+        if (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC) return;
+        if (actualDamage <= 0) return;
+        const stacks = Math.max(1, Math.floor(count));
+        const restored = restoreMana(side, stacks);
+        const armorGained = addArmor(side, stacks);
+        addLog(`[肺印记] 受击失去生命，回复 ${restored} 点法力并获得 ${armorGained} 点护甲。`);
+      },
+    },
+  },
+  {
+    id: 'bloodpool_liver_mark',
+    name: '肝印记',
+    rarity: '稀有',
+    category: '血池',
+    effect: '回合结束减少1点中毒量；每损失20点生命值受到的伤害-1',
+    description: '每回合结束时减少1点中毒量，每损失20点生命值受到的伤害-1。',
+  },
+  {
     id: 'bloodpool_stomach_mark',
     name: '胃印记',
     rarity: '稀有',
@@ -1532,8 +1608,90 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '半阈共振核',
     rarity: '传奇',
     category: '血池',
-    effect: '自身生命跨越50%阈值时触发敌方流血一次',
-    description: '每次你的生命值在50%阈值上下跨越时，立即触发一次敌方流血伤害。',
+    effect: '拼点失败时对对方施加3层流血；自身生命跨越50%阈值时触发敌方流血一次',
+    description: '拼点失败时对对方施加3层流血，每次你的生命值在50%阈值上下跨越时，立即触发一次敌方流血伤害。',
+  },
+  {
+    id: 'bloodpool_red_headband',
+    name: '红色头带',
+    rarity: '传奇',
+    category: '血池',
+    effect: '拥有流血时最终点数+1，生命低于50%时最终点数*1.3',
+    description: '拥有流血时，最终点数+1，生命低于50%时，最终点数*1.3。',
+  },
+  {
+    id: 'bloodpool_eerie_miniature_painting',
+    name: '诡异微型画作',
+    rarity: '传奇',
+    category: '血池',
+    effect: '战斗开始时对对方施加4层流血；对方触发燃烧或中毒时触发1次流血',
+    description: '战斗开始时对对方施加4层流血，当对方触发燃烧或中毒时，触发1次流血效果。',
+    hooks: {
+      onBattleStart: ({ count, side, addStatusEffect, addLog }) => {
+        const targetSide: RelicSide = side === 'player' ? 'enemy' : 'player';
+        const stacks = 4 * Math.max(1, Math.floor(count));
+        if (addStatusEffect(targetSide, EffectType.BLEED, stacks, {
+          source: 'relic:bloodpool_eerie_miniature_painting',
+          lockDecayThisTurn: true,
+        })) {
+          addLog(`[诡异微型画作] 战斗开始，对敌方施加 ${stacks} 层流血。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'bloodpool_eerie_statue',
+    name: '诡异雕像',
+    rarity: '传奇',
+    category: '血池',
+    effect: '使用行动牌时对对方施加1层流血；拼点不再触发对方流血；回合结束触发1次对方流血',
+    description: '使用行动牌时对对方施加1层流血，拼点不再触发对方流血效果，回合结束时触发1次对方的流血效果。',
+  },
+  {
+    id: 'bloodpool_horror_record',
+    name: '惊悚唱片',
+    rarity: '传奇',
+    category: '血池',
+    effect: '回合开始时对双方施加1层流血；流血会被易伤影响',
+    description: '回合开始时对双方施加1层流血，流血现在会被易伤影响。',
+    hooks: {
+      onTurnStart: ({ count, addStatusEffect, addLog }) => {
+        const stacks = Math.max(1, Math.floor(count));
+        const playerApplied = addStatusEffect('player', EffectType.BLEED, stacks, {
+          source: 'relic:bloodpool_horror_record',
+          lockDecayThisTurn: true,
+        });
+        const enemyApplied = addStatusEffect('enemy', EffectType.BLEED, stacks, {
+          source: 'relic:bloodpool_horror_record',
+          lockDecayThisTurn: true,
+        });
+        if (playerApplied || enemyApplied) {
+          addLog(`[惊悚唱片] 回合开始，对双方施加 ${stacks} 层流血。`);
+        }
+      },
+    },
+  },
+  {
+    id: 'bloodpool_bloodstained_blade',
+    name: '染血刃',
+    rarity: '传奇',
+    category: '血池',
+    effect: '被物理/魔法牌命中时为对方施加1层流血；使用物理/魔法牌命中时触发1次对方流血',
+    description: '被物理/魔法牌命中时为对方施加1层流血，使用物理/魔法牌命中时触发1次对方的流血。',
+    hooks: {
+      onAfterHitTaken: ({ count, side, targetSide, sourceSide, card, attemptedDamage, addStatusEffect, addLog }) => {
+        if (targetSide !== side || !sourceSide || sourceSide === side) return;
+        if (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC) return;
+        if (attemptedDamage <= 0) return;
+        const stacks = Math.max(1, Math.floor(count));
+        if (addStatusEffect(sourceSide, EffectType.BLEED, stacks, {
+          source: 'relic:bloodpool_bloodstained_blade',
+          lockDecayThisTurn: true,
+        })) {
+          addLog(`[染血刃] 被命中时，为对方施加 ${stacks} 层流血。`);
+        }
+      },
+    },
   },
   {
     id: 'bloodpool_fetal_cocoon',
