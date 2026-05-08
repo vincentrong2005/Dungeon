@@ -100,6 +100,13 @@
             :active="isVariableUpdateOpen"
             @click="openVariableUpdate"
           />
+          <SidebarIcon
+            :icon="Info"
+            label="词条与状态"
+            tooltip-side="left"
+            :active="isGlossaryReferenceOpen"
+            @click="isGlossaryReferenceOpen = true"
+          />
         </div>
 
         <!-- Main Content Area -->
@@ -2371,6 +2378,7 @@
             <div v-else class="variable-update-empty">当前楼层没有检测到变量更新标签。</div>
           </div>
         </DungeonModal>
+        <GlossaryReferenceModal :is-open="isGlossaryReferenceOpen" @close="isGlossaryReferenceOpen = false" />
 
         <!-- Shop Overlay -->
         <Transition name="combat-fade">
@@ -2397,16 +2405,16 @@
                     :key="item.key"
                     type="button"
                     class="shop-item-card"
-                    :class="{ 'is-sold': item.sold }"
+                    :class="{
+                      'is-sold': item.sold,
+                      'is-awaiting-confirm': isTouchViewport && pendingShopProductKey === item.key && !item.sold,
+                    }"
                     :disabled="item.sold || shopBuying"
-                    @click="buyShopProduct(item)"
+                    @click="handleShopProductClick($event, item)"
                     @mouseenter="showShopProductTooltip($event, item)"
                     @mouseleave="hideRelicTooltip"
                     @focus="showShopProductTooltip($event, item)"
                     @blur="hideRelicTooltip"
-                    @touchstart.passive="handleShopProductTouchStart($event, item)"
-                    @touchend="handleRelicTouchEnd"
-                    @touchcancel="handleRelicTouchEnd"
                   >
                     <div class="shop-item-icon-wrap">
                       <Box class="shop-item-icon" />
@@ -2415,6 +2423,12 @@
                       <Coins class="size-3.5" />
                       <span>{{ item.finalPrice }}</span>
                     </div>
+                    <span
+                      v-if="isTouchViewport && pendingShopProductKey === item.key && !item.sold"
+                      class="shop-item-confirm-hint"
+                    >
+                      再次点击购买
+                    </span>
                   </button>
 
                   <div
@@ -2826,6 +2840,7 @@
               @end-combat="handleCombatEnd"
               @open-deck="activeModal = 'deck'"
               @open-relics="openInventoryModal('relics')"
+              @open-glossary="isGlossaryReferenceOpen = true"
             />
             <!-- Exit combat button -->
             <button
@@ -2869,6 +2884,7 @@ import {
   Coins,
   Dices,
   FileText,
+  Info,
   Lock,
   Map as MapIcon,
   Maximize,
@@ -2904,6 +2920,7 @@ import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 import DungeonModal from './DungeonModal.vue';
+import GlossaryReferenceModal from './GlossaryReferenceModal.vue';
 import OpeningInfoEntryView from './OpeningInfoEntryView.vue';
 import SaveLoadPanel from './SaveLoadPanel.vue';
 
@@ -3074,6 +3091,7 @@ const dismissLandscapeHint = () => {
   landscapeHintDismissed.value = true;
 };
 const isVariableUpdateOpen = ref(false);
+const isGlossaryReferenceOpen = ref(false);
 const isStatusOpen = ref(true);
 const showCombat = ref(false);
 const combatEnemyName = ref('');
@@ -3101,6 +3119,7 @@ const chestRewardCountFixed = ref<number | null>(null);
 const chestCloseCount = ref(0);
 const chestForceMimicNextOpen = ref(false);
 const pendingChestRewardIndex = ref<number | null>(null);
+const pendingShopProductKey = ref<string | null>(null);
 const idolPortalChoices = ref<PortalChoice[]>([]);
 const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
 const idolDiceValue = ref(1);
@@ -3161,6 +3180,7 @@ let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let chestCloseLongPressTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardConfirmTimer: ReturnType<typeof setTimeout> | null = null;
+let shopProductConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
 let hotSpringCleanseTimer: ReturnType<typeof setTimeout> | null = null;
 let idolRollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -6434,8 +6454,49 @@ const showShopProductTooltip = (event: MouseEvent | FocusEvent, item: ShopProduc
   showRelicTooltip(event, toRelicTooltipEntry(item.relic));
 };
 
-const handleShopProductTouchStart = (event: TouchEvent, item: ShopProduct) => {
-  handleRelicTouchStart(event, toRelicTooltipEntry(item.relic));
+const clearShopProductConfirmTimer = () => {
+  if (!shopProductConfirmTimer) return;
+  clearTimeout(shopProductConfirmTimer);
+  shopProductConfirmTimer = null;
+};
+
+const resetShopProductConfirmation = (hideTooltip = true) => {
+  clearShopProductConfirmTimer();
+  pendingShopProductKey.value = null;
+  if (hideTooltip) {
+    hideRelicTooltip();
+  }
+};
+
+const previewShopProductForTouch = (target: HTMLElement, item: ShopProduct) => {
+  clearShopProductConfirmTimer();
+  showRelicTooltipForTarget(target, toRelicTooltipEntry(item.relic));
+  pendingShopProductKey.value = item.key;
+  shopProductConfirmTimer = setTimeout(() => {
+    if (pendingShopProductKey.value === item.key) {
+      pendingShopProductKey.value = null;
+      hideRelicTooltip();
+    }
+    shopProductConfirmTimer = null;
+  }, 2200);
+};
+
+const handleShopProductClick = (event: MouseEvent, item: ShopProduct) => {
+  if (!isTouchViewport.value) {
+    buyShopProduct(item);
+    return;
+  }
+
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) return;
+
+  if (pendingShopProductKey.value === item.key) {
+    resetShopProductConfirmation(false);
+    buyShopProduct(item);
+    return;
+  }
+
+  previewShopProductForTouch(target, item);
 };
 
 const generateShopProducts = () => {
@@ -6491,6 +6552,7 @@ const getCurrentShopSessionKey = (): string => {
 };
 
 const resetShopSession = () => {
+  resetShopProductConfirmation();
   shopSessionKey.value = null;
   shopProducts.value = [];
   shopSpentGold.value = 0;
@@ -6503,6 +6565,7 @@ const resetShopSession = () => {
 
 const openShopView = () => {
   hideRelicTooltip();
+  resetShopProductConfirmation(false);
   clearShopRobTimer();
   shopBuying.value = false;
   const nextSessionKey = getCurrentShopSessionKey();
@@ -6528,6 +6591,7 @@ const openShopView = () => {
 
 const closeShopView = () => {
   hideRelicTooltip();
+  resetShopProductConfirmation(false);
   clearShopRobTimer();
   shopBuying.value = false;
   shopRobbing.value = false;
@@ -6740,6 +6804,7 @@ const useHotSpringCleanse = () => {
 
 onUnmounted(() => {
   clearShopRobTimer();
+  clearShopProductConfirmTimer();
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
@@ -10565,6 +10630,7 @@ onBeforeUnmount(() => {
 }
 
 .shop-item-card {
+  position: relative;
   border: 0;
   border-radius: 0.55rem;
   background: transparent;
@@ -10585,6 +10651,11 @@ onBeforeUnmount(() => {
 .shop-item-card:hover {
   transform: translateY(-1px) scale(1.02);
   filter: brightness(1.04);
+}
+
+.shop-item-card.is-awaiting-confirm .shop-item-icon {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 16px rgba(251, 191, 36, 0.9)) drop-shadow(0 0 28px rgba(245, 158, 11, 0.48));
 }
 
 .shop-item-card.is-sold {
@@ -10613,6 +10684,25 @@ onBeforeUnmount(() => {
   color: rgba(255, 237, 213, 0.96);
   background: rgba(38, 22, 11, 0.82);
   font-size: 10px;
+}
+
+.shop-item-confirm-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0.08rem;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 9999px;
+  background: rgba(15, 10, 6, 0.92);
+  color: rgba(255, 235, 170, 0.98);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  box-shadow:
+    0 0 12px rgba(245, 158, 11, 0.28),
+    0 4px 14px rgba(0, 0, 0, 0.26);
+  pointer-events: none;
 }
 
 .shop-panel-foot {

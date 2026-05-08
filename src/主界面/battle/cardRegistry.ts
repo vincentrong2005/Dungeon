@@ -7327,7 +7327,7 @@ const 冰锥: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '对方每有2点寒冷点数额外+1，清除对方的寒冷，造成1倍最终点数伤害',
+  description: '对方每有3点寒冷点数额外+1，造成1倍最终点数伤害',
 };
 
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([

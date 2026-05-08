@@ -49,6 +49,14 @@
         <Box class="size-6" />
         <span class="sr-only">物品</span>
       </button>
+      <button
+        class="w-12 h-12 bg-[#252030]/90 border border-amber-300/25 rounded-xl text-amber-200 flex items-center justify-center hover:bg-[#3a2d36] hover:border-amber-300/50 active:scale-95 transition-all shadow-lg shadow-amber-950/20"
+        title="词条与状态说明"
+        @click="emit('openGlossary')"
+      >
+        <Info class="size-6" />
+        <span class="sr-only">词条与状态</span>
+      </button>
       <div
         v-if="settingsOpen"
         class="mt-1 w-52 bg-[#1a1520]/95 border border-white/10 rounded-xl p-3 text-xs text-dungeon-paper shadow-xl backdrop-blur-md"
@@ -839,6 +847,7 @@ import {
   EyeOff,
   Flame,
   Heart,
+  Info,
   Layers,
   Leaf,
   Link2,
@@ -922,6 +931,7 @@ const emit = defineEmits<{
   endCombat: [outcome: 'win' | 'lose' | 'escape', finalStats: EntityStats, logs: string[], negativeEffects: string[]];
   openDeck: [];
   openRelics: [];
+  openGlossary: [];
 }>();
 
 const gameStore = useGameStore();
@@ -2300,12 +2310,6 @@ const reduceTargetMaxDiceByVoidTaint = (
     const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
     const targetLabel = targetSide === 'player' ? '我方' : '敌方';
     log(`<span class="text-violet-300">${sourceLabel}[虚空浸染] ${reason}，使${targetLabel}最大骰子 ${targetEntity.minDice}~${beforeMaxDice} → ${targetEntity.minDice}~${targetEntity.maxDice}</span>`);
-  }
-  return reduced;
-  if (false && reduced > 0) {
-    const sourceLabel = sourceSide === 'player' ? '我方' : '敌方';
-    const targetLabel = targetSide === 'player' ? '我方' : '敌方';
-    log(`<span class="text-violet-300">${sourceLabel}[虚空浸染] ${reason}，使${targetLabel}最小骰子 ${beforeMinDice}~${beforeMaxDice} → ${targetEntity.minDice}~${targetEntity.maxDice}</span>`);
   }
   return reduced;
 };
@@ -3790,7 +3794,7 @@ const getCardFinalPoint = (
     finalPoint += Math.floor(getEffectStacks(defender, ET.BURN));
   }
   if (card.id === 'yanhan_ice_spike') {
-    finalPoint += Math.floor(getEffectStacks(defender, ET.COLD) / 2);
+    finalPoint += Math.floor(getEffectStacks(defender, ET.COLD) / 3);
   }
   if (card.id === 'bloodpool_pulse_fist') {
     const hpValue = Math.max(0, Math.floor(attacker.hp));
@@ -3969,7 +3973,7 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     }
   }
   if (card.id === 'yanhan_ice_spike') {
-    const bonus = Math.floor(getEffectStacks(defender, ET.COLD) / 2);
+    const bonus = Math.floor(getEffectStacks(defender, ET.COLD) / 3);
     if (bonus > 0) {
       finalPoint += bonus;
       lines.push(`冰锥 +${bonus} => ${finalPoint}`);
@@ -7553,14 +7557,6 @@ const resolveCombat = async (
           }
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】未造成伤害，未获得临时生命上限</span>`);
-        }
-      }
-
-      if (card.id === 'yanhan_ice_spike') {
-        const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
-        if (coldStacks > 0) {
-          removeEffect(defender, ET.COLD);
-          log(`<span class="text-sky-300">${label}【${card.name}】清除了敌方 ${coldStacks} 层寒冷。</span>`);
         }
       }
 
