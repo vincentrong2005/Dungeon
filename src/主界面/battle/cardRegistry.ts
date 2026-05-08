@@ -1031,13 +1031,13 @@ const 零界裁定: CardData = {
   category: '严寒',
   rarity: '稀有',
   manaCost: 6,
-  calculation: { multiplier: 1.0, addition: 0 },
+  calculation: { multiplier: 1.5, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '若敌方寒冷≥10则消耗10层寒冷并施加眩晕1回合，同时独立施加1倍点数寒冷',
+  description: '点数*1.5，若敌方寒冷≥10则消耗10层寒冷并施加眩晕1回合，同时独立施加1倍点数寒冷',
 };
 
 /** 霜爆：施加寒冷并按目标寒冷层数造成伤害（伤害逻辑在 CombatView） */
