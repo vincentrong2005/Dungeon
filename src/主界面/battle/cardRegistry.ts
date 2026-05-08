@@ -725,7 +725,7 @@ const 灼魂飞弹: CardData = {
   type: CardType.MAGIC,
   category: '燃烧',
   rarity: '普通',
-  manaCost: 4,
+  manaCost: 3,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
@@ -788,7 +788,7 @@ const 炎狱判决: CardData = {
   description: '敌方每有2层燃烧点数额外+1，随后造成1倍最终点数伤害',
 };
 
-/** 炼狱波及：自身燃烧+1，自身结界+1，连击*/
+/** 炼狱波及：自身燃烧+1，自身结界+1*/
 const 炼狱波及: CardData = {
   id: 'burn_hell_waves',
   name: '炼狱波及',
@@ -798,12 +798,12 @@ const 炼狱波及: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'none', draw: false },
+  traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
     { kind: 'apply_buff', effectType: EffectType.BARRIER, target: 'self', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '自身燃烧+1，自身结界+1，连击',
+  description: '自身燃烧+1，自身结界+1',
 };
 
 /** 临界沸腾：按2:1消耗目标寒冷/燃烧并造成真实伤害（结算逻辑在 CombatView 中） */
