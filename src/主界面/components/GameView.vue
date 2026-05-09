@@ -3190,6 +3190,13 @@ let inputWaitingDotsTimer: number | null = null;
 const inputPlaceholder = computed(() =>
   gameStore.isGenerating ? `等待回复中${'.'.repeat(inputWaitingDotsStep.value)}` : '输入你的行动',
 );
+const scrollStoryTextToBottom = () => {
+  nextTick(() => {
+    const container = storyTextContainerRef.value;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  });
+};
 type ButtonCompletionMenuKey = 'special' | 'leave' | 'rebirth';
 const buttonCompletionMenuRef = ref<HTMLElement | null>(null);
 const optionCompletionMenuOpen = ref(false);
@@ -7791,6 +7798,14 @@ onMounted(() => {
     }, 420);
   }
 });
+
+watch(
+  () => gameStore.fastActionEvents.length,
+  (count, previousCount) => {
+    if (!gameStore.fastModeEnabled || count <= previousCount) return;
+    scrollStoryTextToBottom();
+  },
+);
 
 watch(
   () => gameStore.isGenerating,
