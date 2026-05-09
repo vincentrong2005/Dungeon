@@ -442,7 +442,7 @@ const DOROTHY_CARD = {
 const VERONICA_CARD = {
   BARBED_FLURRY: 'enemy_veronica_barbed_flurry',
   BONE_WHIP_BIND: 'enemy_veronica_bone_whip_bind',
-  BLOOD_DEBT_STRIKE: 'bloodpool_blood_debt_strike',
+  BLOODTHIRSTY_HEAVY_STRIKE: 'enemy_veronica_bloodthirsty_heavy_strike',
   TORMENT_CYCLE: 'enemy_veronica_torment_cycle',
   BERSERK: 'enemy_veronica_berserk',
 } as const;
@@ -2511,7 +2511,7 @@ const 维罗妮卡: EnemyDefinition = {
   deck: buildDeckById([
     VERONICA_CARD.BARBED_FLURRY,
     VERONICA_CARD.BONE_WHIP_BIND,
-    VERONICA_CARD.BLOOD_DEBT_STRIKE,
+    VERONICA_CARD.BLOODTHIRSTY_HEAVY_STRIKE,
     VERONICA_CARD.TORMENT_CYCLE,
     VERONICA_CARD.BERSERK,
   ]),
@@ -2527,7 +2527,7 @@ const 维罗妮卡: EnemyDefinition = {
     }
 
     if (ctx.enemyStats.mp >= 6 && playerHasBleed) {
-      const chosen = weightedRandom<string>([
+      const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'veronicaLastSelectedCardId', [
         { value: VERONICA_CARD.BARBED_FLURRY, weight: 30 },
         { value: VERONICA_CARD.BONE_WHIP_BIND, weight: 20 },
         { value: VERONICA_CARD.TORMENT_CYCLE, weight: 50 },
@@ -2536,15 +2536,15 @@ const 维罗妮卡: EnemyDefinition = {
     }
 
     if (hpRatio < 0.75) {
-      const chosen = weightedRandom<string>([
+      const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'veronicaLastSelectedCardId', [
         { value: VERONICA_CARD.BARBED_FLURRY, weight: 40 },
         { value: VERONICA_CARD.BONE_WHIP_BIND, weight: 30 },
-        { value: VERONICA_CARD.BLOOD_DEBT_STRIKE, weight: 30 },
+        { value: VERONICA_CARD.BLOODTHIRSTY_HEAVY_STRIKE, weight: 30 },
       ]);
       return pickCardById(ctx, chosen);
     }
 
-    const chosen = weightedRandom<string>([
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'veronicaLastSelectedCardId', [
       { value: VERONICA_CARD.BARBED_FLURRY, weight: 60 },
       { value: VERONICA_CARD.BONE_WHIP_BIND, weight: 40 },
     ]);

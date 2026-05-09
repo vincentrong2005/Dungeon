@@ -4476,6 +4476,22 @@ const 骨鞭缠绕: CardData = {
   description: '点数+1，造成0.5倍点数伤害，并施加0.5倍点数流血与1层束缚',
 };
 
+/** 嗜血重击：造成1倍点数伤害；每损失9点生命，点数+1；固定施加3层流血 */
+const 嗜血重击: CardData = {
+  id: 'enemy_veronica_bloodthirsty_heavy_strike',
+  name: '嗜血重击',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害；每损失9点生命，点数+1，固定施加3层流血',
+};
+
 /** 折磨循环：消耗6MP，点数*2，造成0.2倍点数伤害，2连击，并结算目标流血1次（结算逻辑在 CombatView） */
 const 折磨循环: CardData = {
   id: 'enemy_veronica_torment_cycle',
@@ -7547,6 +7563,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [罚站.name, 罚站],
   [倒刺乱舞.name, 倒刺乱舞],
   [骨鞭缠绕.name, 骨鞭缠绕],
+  [嗜血重击.name, 嗜血重击],
   [折磨循环.name, 折磨循环],
   [狂暴化.name, 狂暴化],
   [震动感知.name, 震动感知],

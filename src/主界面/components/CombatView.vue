@@ -4039,10 +4039,11 @@ const getCardFinalPoint = (
       finalPoint += executionerPuppetPointModifier.value;
     }
   }
-  // 血债重击：自身每损失3点生命，点数+1
-  if (card.id === 'bloodpool_blood_debt_strike') {
+  // 血债重击/嗜血重击：自身每损失指定生命，点数+1
+  if (card.id === 'bloodpool_blood_debt_strike' || card.id === 'enemy_veronica_bloodthirsty_heavy_strike') {
+    const divisor = card.id === 'enemy_veronica_bloodthirsty_heavy_strike' ? 9 : 3;
     const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
-    finalPoint += Math.floor(lostHp / 3);
+    finalPoint += Math.floor(lostHp / divisor);
   }
   if (card.id === 'enemy_stitched_spider_pack_hunt') {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
@@ -4287,12 +4288,13 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       }
     }
   }
-  if (card.id === 'bloodpool_blood_debt_strike') {
+  if (card.id === 'bloodpool_blood_debt_strike' || card.id === 'enemy_veronica_bloodthirsty_heavy_strike') {
+    const divisor = card.id === 'enemy_veronica_bloodthirsty_heavy_strike' ? 9 : 3;
     const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
-    const bonus = Math.floor(lostHp / 3);
+    const bonus = Math.floor(lostHp / divisor);
     if (bonus > 0) {
       finalPoint += bonus;
-      lines.push(`血债重击（已损失${lostHp}） +${bonus} => ${finalPoint}`);
+      lines.push(`${card.name}（已损失${lostHp}） +${bonus} => ${finalPoint}`);
     }
   }
   if (card.id === 'enemy_silk_puppet_cooperative_subdue') {
@@ -8312,7 +8314,7 @@ const resolveCombat = async (
           log(`<span class="text-gray-400">${label}【${card.name}】对手当前无燃烧，未触发翻倍</span>`);
         }
       }
-      if (card.id === 'bloodpool_blood_debt_strike') {
+      if (card.id === 'bloodpool_blood_debt_strike' || card.id === 'enemy_veronica_bloodthirsty_heavy_strike') {
         const bleedStacks = 3;
         if (applyStatusEffectWithRelics(defenderSide, ET.BLEED, bleedStacks, { source: card.id, lockDecayThisTurn: true })) {
           log(`<span class="text-rose-300">${label}【${card.name}】施加 ${bleedStacks} 层流血</span>`);
