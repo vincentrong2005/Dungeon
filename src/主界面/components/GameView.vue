@@ -897,6 +897,14 @@
               </div>
               <div class="map-hero__chips">
                 <div class="map-hero__chip">
+                  <span class="map-hero__chip-label">当前楼层</span>
+                  <span class="map-hero__chip-value">{{ mapCurrentFloorLabel }}</span>
+                </div>
+                <div class="map-hero__chip">
+                  <span class="map-hero__chip-label">当前区域</span>
+                  <span class="map-hero__chip-value">{{ mapCurrentAreaLabel }}</span>
+                </div>
+                <div class="map-hero__chip">
                   <span class="map-hero__chip-label">已走房间</span>
                   <span class="map-hero__chip-value">{{ currentFloorPath.length }}</span>
                 </div>
@@ -912,6 +920,10 @@
             </section>
             <div class="map-toolbar">
               <div class="map-summary">
+                <span>楼层：<span class="map-summary-highlight">{{ mapCurrentFloorLabel }}</span></span>
+                <span class="map-summary-divider">|</span>
+                <span>区域：<span class="map-summary-highlight">{{ mapCurrentAreaLabel }}</span></span>
+                <span class="map-summary-divider">|</span>
                 <span>本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房</span>
                 <span class="map-summary-divider">|</span>
                 <span>统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房</span>
@@ -1278,7 +1290,7 @@
         <DungeonModal
           title="魔法帽"
           :is-open="activeModal === 'magicHat'"
-          panel-class="max-w-3xl"
+          panel-class="max-w-5xl"
           @close="activeModal = null"
         >
           <div class="magic-hat-layout">
@@ -1371,18 +1383,34 @@
               </div>
             </section>
 
-            <section class="magic-hat-section">
+            <section class="magic-hat-section magic-hat-growth-section">
               <div class="magic-hat-section__head magic-hat-section__head--compact">
                 <div>
-                  <div class="magic-hat-section__title">起始增幅</div>
+                  <div class="magic-hat-section__title">成长调节</div>
                   <div class="magic-hat-section__subtitle">
-                    这部分决定你每次开局的底子，技能点会永久消耗。
+                    起始增幅写入当前楼层变量；局外成长跨存档保存在本地。
                   </div>
                 </div>
-                <div class="magic-hat-points-card">
-                  <span class="magic-hat-points-card__label">技能点存量</span>
-                  <span class="magic-hat-points-card__value">{{ magicHatSkillPoints }}</span>
+                <div class="magic-hat-growth-actions">
+                  <div class="magic-hat-points-card">
+                    <span class="magic-hat-points-card__label">技能点存量</span>
+                    <span class="magic-hat-points-card__value">{{ magicHatSkillPoints }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="magic-hat-reset-btn"
+                    :disabled="isUpgradingMagicHat || magicHatResetRefund <= 0"
+                    @click="resetMagicHatGrowths"
+                  >
+                    <span>重置成长</span>
+                    <small>{{ magicHatResetRefund > 0 ? `返还 ${magicHatResetRefund} 技能点` : '没有可重置项' }}</small>
+                  </button>
                 </div>
+              </div>
+
+              <div class="magic-hat-growth-subhead">
+                <div class="magic-hat-growth-subhead__title">起始增幅</div>
+                <div class="magic-hat-growth-subhead__text">决定每次开局的基础数值。</div>
               </div>
 
               <div class="magic-hat-track-grid">
@@ -1433,6 +1461,64 @@
                     <span class="magic-hat-track-card__action-label">{{ track.isMax ? '已满级' : '立即升级' }}</span>
                     <span class="magic-hat-track-card__action-cost">
                       {{ track.isMax ? '该项已封顶' : `消耗 ${track.nextCost} 技能点` }}
+                    </span>
+                  </button>
+                </article>
+              </div>
+
+              <div class="magic-hat-growth-subhead">
+                <div class="magic-hat-growth-subhead__title">局外成长</div>
+                <div class="magic-hat-growth-subhead__text">永久解锁，跨存档保留。</div>
+              </div>
+
+              <div class="magic-hat-track-grid">
+                <article
+                  v-for="growth in magicHatMetaGrowthCards"
+                  :key="`magic-hat-growth-${growth.id}`"
+                  class="magic-hat-track-card"
+                  :class="getMagicHatMetaGrowthClass(growth.id)"
+                >
+                  <div class="magic-hat-track-card__top">
+                    <div>
+                      <div class="magic-hat-track-card__kicker">{{ growth.kicker }}</div>
+                      <div class="magic-hat-track-card__title">{{ growth.label }}</div>
+                    </div>
+                    <div class="magic-hat-track-card__rune">{{ growth.rune }}</div>
+                  </div>
+
+                  <div class="magic-hat-track-card__stats">
+                    <div class="magic-hat-track-card__stat">
+                      <span class="magic-hat-track-card__stat-label">状态</span>
+                      <span class="magic-hat-track-card__stat-value">{{ growth.owned ? '已解锁' : '未解锁' }}</span>
+                    </div>
+                    <div class="magic-hat-track-card__stat">
+                      <span class="magic-hat-track-card__stat-label">价格</span>
+                      <span class="magic-hat-track-card__stat-value">{{ growth.cost }}</span>
+                    </div>
+                  </div>
+
+                  <div class="magic-hat-track-card__bar">
+                    <div
+                      class="magic-hat-track-card__bar-fill"
+                      :class="growth.barClass"
+                      :style="{ width: growth.owned ? '100%' : '0%' }"
+                    ></div>
+                  </div>
+
+                  <div class="magic-hat-track-card__hint">
+                    {{ growth.description }}
+                  </div>
+
+                  <button
+                    type="button"
+                    class="magic-hat-track-card__action"
+                    :class="{ 'is-disabled': growth.owned }"
+                    :disabled="isUpgradingMagicHat || growth.owned"
+                    @click="unlockMagicHatMetaGrowth(growth.id)"
+                  >
+                    <span class="magic-hat-track-card__action-label">{{ growth.owned ? '已拥有' : '立即解锁' }}</span>
+                    <span class="magic-hat-track-card__action-cost">
+                      {{ growth.owned ? '永久生效' : `消耗 ${growth.cost} 技能点` }}
                     </span>
                   </button>
                 </article>
@@ -3677,6 +3763,58 @@ const buildInventoryUpdateFields = (overrides: Partial<CarriedInventoryPayload> 
   携带的物品: buildCarriedInventoryPayload(overrides),
 });
 
+const cloneRelicInventoryMap = (baseInventory: Record<string, number>): Record<string, number> => {
+  const next: Record<string, number> = {};
+  for (const [name, value] of Object.entries(baseInventory)) {
+    const count = Math.max(0, Math.floor(Number(value ?? 0)));
+    if (!name || count <= 0) continue;
+    next[name] = count;
+  }
+  return next;
+};
+
+const addRelicByIdToInventory = (relicId: string, baseInventory: Record<string, number>): Record<string, number> => {
+  const relic = getRelicById(relicId);
+  return relic ? buildNextRelicInventory(relic, baseInventory) : baseInventory;
+};
+
+const removeOneRelicByIdFromInventory = (
+  relicId: string,
+  baseInventory: Record<string, number>,
+): Record<string, number> => {
+  const relic = getRelicById(relicId);
+  if (!relic) return cloneRelicInventoryMap(baseInventory);
+
+  const nextRelics = cloneRelicInventoryMap(baseInventory);
+  const candidateNames = [relic.name, relic.id, ...(LEGACY_RELIC_NAMES_BY_ID[relic.id] ?? [])];
+  for (const name of candidateNames) {
+    const current = Math.max(0, Math.floor(Number(nextRelics[name] ?? 0)));
+    if (current <= 0) continue;
+    if (current === 1) {
+      delete nextRelics[name];
+    } else {
+      nextRelics[name] = current - 1;
+    }
+    break;
+  }
+  return nextRelics;
+};
+
+const buildStartingRelicInventoryForMetaGrowths = (
+  baseInventory: Record<string, number> = {},
+  growthIds: Iterable<string> = magicHatMetaGrowths.value,
+): Record<string, number> => {
+  const growthSet = new Set(growthIds);
+  let nextRelics = { ...baseInventory };
+  if (growthSet.has('immunity')) {
+    nextRelics = addRelicByIdToInventory('sanctuary_amulet', nextRelics);
+  }
+  if (growthSet.has('expansion')) {
+    nextRelics = addRelicByIdToInventory('base_rainbow_card', nextRelics);
+  }
+  return nextRelics;
+};
+
 const openPlayerPortraitUploadDialog = () => {
   playerPortraitUploadInputRef.value?.click();
 };
@@ -4019,6 +4157,7 @@ const isUpdatingStartingActiveSkills = ref(false);
 const isUpgradingMagicHat = ref(false);
 const isUpdatingMagicHatDifficulty = ref(false);
 type MagicHatUpgradeType = 'hp' | 'mp' | 'gold';
+type MagicHatMetaGrowthType = 'immunity' | 'expansion' | 'world';
 type MagicHatTrackView = {
   id: MagicHatUpgradeType;
   label: string;
@@ -4031,6 +4170,16 @@ type MagicHatTrackView = {
   progressPercent: number;
   barClass: string;
 };
+interface MagicHatMetaGrowthCard {
+  id: MagicHatMetaGrowthType;
+  label: string;
+  kicker: string;
+  rune: string;
+  cost: number;
+  description: string;
+  owned: boolean;
+  barClass: string;
+}
 const MAGIC_HAT_DIFFICULTY_BLURBS: Record<DifficultyOption, string> = {
   简单: '进入战斗回满血，敌人血量降低，适合稳妥铺垫。',
   普通: '标准试炼节奏，敌我都不额外倾斜。',
@@ -4042,6 +4191,49 @@ const MAGIC_HAT_TRACK_META: Record<MagicHatUpgradeType, { kicker: string; rune: 
   hp: { kicker: '容错', rune: '血' },
   mp: { kicker: '启动', rune: '魔' },
   gold: { kicker: '成型', rune: '财' },
+};
+const MAGIC_HAT_META_GROWTH_CONFIG: Array<Omit<MagicHatMetaGrowthCard, 'owned'>> = [
+  {
+    id: 'immunity',
+    label: '豁免权',
+    kicker: '庇护',
+    rune: '免',
+    cost: 5,
+    description: '开局自动获得 1 个庇护符，每次重生后也会重新获得。',
+    barClass: 'bg-gradient-to-r from-emerald-500/85 to-teal-300/85',
+  },
+  {
+    id: 'expansion',
+    label: '扩容',
+    kicker: '奖池',
+    rune: '扩',
+    cost: 8,
+    description: '开局自动获得 1 个彩虹卡牌，每次重生后也会重新获得。',
+    barClass: 'bg-gradient-to-r from-fuchsia-500/85 to-cyan-300/85',
+  },
+  {
+    id: 'world',
+    label: '世界',
+    kicker: '旅途',
+    rune: '界',
+    cost: 20,
+    description: '每进入一个房间，随机在最大生命值、初始魔量、金币中增加 1 点。',
+    barClass: 'bg-gradient-to-r from-violet-500/85 to-amber-300/85',
+  },
+];
+const MAGIC_HAT_META_GROWTH_IDS = new Set<MagicHatMetaGrowthType>(
+  MAGIC_HAT_META_GROWTH_CONFIG.map(growth => growth.id),
+);
+const normalizeMagicHatMetaGrowths = (value: unknown): MagicHatMetaGrowthType[] => {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value.filter(
+        (item): item is MagicHatMetaGrowthType =>
+          typeof item === 'string' && MAGIC_HAT_META_GROWTH_IDS.has(item as MagicHatMetaGrowthType),
+      ),
+    ),
+  );
 };
 const getMagicHatDifficultyBlurb = (difficulty: DifficultyOption) => MAGIC_HAT_DIFFICULTY_BLURBS[difficulty];
 const getMagicHatDifficultyClass = (difficulty: DifficultyOption) => {
@@ -4061,6 +4253,7 @@ const getMagicHatDifficultyClass = (difficulty: DifficultyOption) => {
 const getMagicHatTrackClass = (type: MagicHatUpgradeType) => `is-${type}`;
 const getMagicHatTrackKicker = (type: MagicHatUpgradeType) => MAGIC_HAT_TRACK_META[type].kicker;
 const getMagicHatTrackRune = (type: MagicHatUpgradeType) => MAGIC_HAT_TRACK_META[type].rune;
+const getMagicHatMetaGrowthClass = (type: MagicHatMetaGrowthType) => `is-growth-${type}`;
 const getSafeInt = (value: unknown, fallback: number) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -4095,6 +4288,26 @@ const magicHatDifficultyPreviewLines = computed(() =>
   getDifficultyPreviewLines(magicHatDifficulty.value, magicHatDifficultyFloor.value),
 );
 const magicHatSkillPoints = computed(() => getSafeInt(gameStore.statData.$技能点, 0));
+const magicHatMetaGrowths = computed<MagicHatMetaGrowthType[]>(() =>
+  normalizeMagicHatMetaGrowths(gameStore.statData.$局外成长),
+);
+const magicHatMetaGrowthSet = computed(() => new Set(magicHatMetaGrowths.value));
+const hasMagicHatMetaGrowth = (id: MagicHatMetaGrowthType) => magicHatMetaGrowthSet.value.has(id);
+const magicHatMetaGrowthCards = computed<MagicHatMetaGrowthCard[]>(() =>
+  MAGIC_HAT_META_GROWTH_CONFIG.map(growth => ({
+    ...growth,
+    owned: hasMagicHatMetaGrowth(growth.id),
+  })),
+);
+const getMagicHatMetaGrowthCost = (id: MagicHatMetaGrowthType): number =>
+  MAGIC_HAT_META_GROWTH_CONFIG.find(growth => growth.id === id)?.cost ?? 0;
+const MAGIC_HAT_HP_COSTS = [1, 3, 6, 10, 15] as const;
+const MAGIC_HAT_MP_COSTS = [5, 10, 15] as const;
+const MAGIC_HAT_GOLD_COSTS = [2, 4, 6, 8, 10] as const;
+const sumMagicHatCosts = (costs: readonly number[], level: number): number => {
+  const safeLevel = Math.max(0, Math.min(costs.length, Math.floor(level)));
+  return costs.slice(0, safeLevel).reduce((sum, cost) => sum + cost, 0);
+};
 const magicHatTracks = computed<MagicHatTrackView[]>(() => {
   const hpValue = readInitialMaxHpForUpgrade();
   const mpValue = Math.max(1, getSafeInt(gameStore.statData.$初始魔量, 1));
@@ -4116,7 +4329,7 @@ const magicHatTracks = computed<MagicHatTrackView[]>(() => {
       currentLevel: hpLevel,
       maxLevel: 5,
       nextValue: hpIsMax ? hpValue : 20 + (hpLevel + 1) * 2,
-      nextCost: hpIsMax ? 0 : [1, 3, 6, 10, 15][hpLevel]!,
+      nextCost: hpIsMax ? 0 : MAGIC_HAT_HP_COSTS[hpLevel]!,
       isMax: hpIsMax,
       progressPercent: (hpLevel / 5) * 100,
       barClass: 'bg-gradient-to-r from-rose-500/85 to-red-400/85',
@@ -4128,7 +4341,7 @@ const magicHatTracks = computed<MagicHatTrackView[]>(() => {
       currentLevel: mpLevel,
       maxLevel: 3,
       nextValue: mpIsMax ? mpValue : 1 + (mpLevel + 1),
-      nextCost: mpIsMax ? 0 : [5, 10, 15][mpLevel]!,
+      nextCost: mpIsMax ? 0 : MAGIC_HAT_MP_COSTS[mpLevel]!,
       isMax: mpIsMax,
       progressPercent: (mpLevel / 3) * 100,
       barClass: 'bg-gradient-to-r from-sky-500/85 to-blue-400/85',
@@ -4140,13 +4353,27 @@ const magicHatTracks = computed<MagicHatTrackView[]>(() => {
       currentLevel: goldLevel,
       maxLevel: 5,
       nextValue: goldIsMax ? goldValue : (goldLevel + 1) * 2,
-      nextCost: goldIsMax ? 0 : [2, 4, 6, 8, 10][goldLevel]!,
+      nextCost: goldIsMax ? 0 : MAGIC_HAT_GOLD_COSTS[goldLevel]!,
       isMax: goldIsMax,
       progressPercent: (goldLevel / 5) * 100,
       barClass: 'bg-gradient-to-r from-amber-500/85 to-yellow-300/85',
     },
   ];
 });
+const magicHatStartUpgradeRefund = computed(() => {
+  const hpLevel = calcUpgradeLevel(readInitialMaxHpForUpgrade(), 20, 2, 5);
+  const mpLevel = calcUpgradeLevel(Math.max(1, getSafeInt(gameStore.statData.$初始魔量, 1)), 1, 1, 3);
+  const goldLevel = calcUpgradeLevel(getSafeInt(gameStore.statData.$初始金币, 0), 0, 2, 5);
+  return (
+    sumMagicHatCosts(MAGIC_HAT_HP_COSTS, hpLevel)
+    + sumMagicHatCosts(MAGIC_HAT_MP_COSTS, mpLevel)
+    + sumMagicHatCosts(MAGIC_HAT_GOLD_COSTS, goldLevel)
+  );
+});
+const magicHatMetaGrowthRefund = computed(() =>
+  magicHatMetaGrowths.value.reduce((sum, id) => sum + getMagicHatMetaGrowthCost(id), 0),
+);
+const magicHatResetRefund = computed(() => magicHatStartUpgradeRefund.value + magicHatMetaGrowthRefund.value);
 const openMagicBookModal = () => {
   if (!canEditMagicBooks.value) return;
   magicBooksNavTab.value = 'books';
@@ -4280,6 +4507,75 @@ const upgradeMagicHatStat = async (id: MagicHatUpgradeType) => {
   }
 
   toastr.info(`${track.label} 已升级至 ${track.nextValue}。`);
+};
+const unlockMagicHatMetaGrowth = async (id: MagicHatMetaGrowthType) => {
+  if (!canEditMagicBooks.value) return;
+  if (isUpgradingMagicHat.value) return;
+
+  const growth = magicHatMetaGrowthCards.value.find(item => item.id === id);
+  if (!growth || growth.owned) return;
+
+  if (magicHatSkillPoints.value < growth.cost) {
+    toastr.warning('技能点不足，无法解锁。');
+    return;
+  }
+
+  const nextGrowths = normalizeMagicHatMetaGrowths([...magicHatMetaGrowths.value, id]);
+  const updates: Record<string, any> = {
+    $技能点: magicHatSkillPoints.value - growth.cost,
+    $局外成长: nextGrowths,
+  };
+
+  isUpgradingMagicHat.value = true;
+  const ok = await gameStore.updateStatDataFields(updates);
+  isUpgradingMagicHat.value = false;
+  if (!ok) {
+    toastr.warning('解锁失败，请稍后重试。');
+    return;
+  }
+
+  toastr.success(`已解锁局外成长【${growth.label}】。`);
+};
+const resetMagicHatGrowths = async () => {
+  if (!canEditMagicBooks.value) return;
+  if (isUpgradingMagicHat.value) return;
+
+  const refund = magicHatResetRefund.value;
+  if (refund <= 0) {
+    toastr.info('当前没有可重置的成长项。');
+    return;
+  }
+
+  let nextRelics = inventoryRelicMap.value;
+  if (hasMagicHatMetaGrowth('immunity')) {
+    nextRelics = removeOneRelicByIdFromInventory('sanctuary_amulet', nextRelics);
+  }
+  if (hasMagicHatMetaGrowth('expansion')) {
+    nextRelics = removeOneRelicByIdFromInventory('base_rainbow_card', nextRelics);
+  }
+
+  const updates: Record<string, any> = {
+    $技能点: magicHatSkillPoints.value + refund,
+    $初始血量上限: 20,
+    $初始魔量: 1,
+    $初始金币: 0,
+    $局外成长: [],
+    _血量上限: 20,
+    _血量: Math.min(Math.max(1, getSafeInt(gameStore.statData._血量, 20)), 20),
+    $魔量: Math.min(Math.max(1, getSafeInt(gameStore.statData.$魔量, 1)), 1),
+    _金币: Math.max(0, getSafeInt(gameStore.statData._金币, 0) - getSafeInt(gameStore.statData.$初始金币, 0)),
+    ...buildInventoryUpdateFields({ _圣遗物: nextRelics }),
+  };
+
+  isUpgradingMagicHat.value = true;
+  const ok = await gameStore.updateStatDataFields(updates);
+  isUpgradingMagicHat.value = false;
+  if (!ok) {
+    toastr.warning('重置失败，请稍后重试。');
+    return;
+  }
+
+  toastr.success(`已重置魔法帽成长，并返还 ${refund} 技能点。`);
 };
 const cardByNameForTest = computed(() => {
   const map = new Map<string, CardData>();
@@ -5576,6 +5872,14 @@ const mapDragPointerId = ref<number | null>(null);
 const mapDragStartClient = ref({ x: 0, y: 0 });
 const mapDragStartOffset = ref({ x: 0, y: 0 });
 const mapZoomPercent = computed(() => `${Math.round(mapScale.value * 100)}%`);
+const mapCurrentFloorLabel = computed(() => {
+  const floor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
+  return `第 ${floor} 层`;
+});
+const mapCurrentAreaLabel = computed(() => {
+  const area = ((gameStore.statData._当前区域 as string) || '').trim();
+  return area || '未记录';
+});
 const mapCurrentRoomLabel = computed(() => currentFloorPath.value[currentFloorPath.value.length - 1] ?? '未记录');
 
 const mapPathNodes = computed<MapPathNodeView[]>(() => {
@@ -6455,7 +6759,6 @@ const sendCombatNarrativeOnce = (
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
   if (
     gameStore.fastModeEnabled &&
-    narrative.context !== 'shopRobbery' &&
     narrative.context !== 'combatTest'
   ) {
     if (narrative.outcome === 'lose' || isFastModeSyncRoomType(roomType)) {
@@ -6908,7 +7211,7 @@ const exitShop = () => {
   const purchasedText = purchased.map(item => `${item.name}（${item.rarity}）`).join('，');
   const purchaseText = `<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`;
   if (gameStore.fastModeEnabled) {
-    void gameStore.queueFastAction({ type: 'shopBuy', text: purchaseText });
+    void gameStore.flushFastActions(purchaseText);
     return;
   }
   gameStore.sendAction(purchaseText);
@@ -8290,15 +8593,49 @@ interface QueuedPortalAction {
   pendingStatDataFields?: Record<string, any>;
 }
 
+const normalizePendingStatDataFields = (fields: Record<string, any>): Record<string, any> | undefined =>
+  Object.keys(fields).length > 0 ? fields : undefined;
+
+const buildWorldMetaGrowthPendingFields = (): Record<string, any> | undefined => {
+  if (!hasMagicHatMetaGrowth('world')) return undefined;
+
+  const roll = Math.floor(Math.random() * 3);
+  if (roll === 0) {
+    return {
+      _血量上限: Math.max(1, toNonNegativeInt(gameStore.statData._血量上限, 1)) + 1,
+    };
+  }
+  if (roll === 1) {
+    const nextInitialMp = Math.max(1, toNonNegativeInt(gameStore.statData.$初始魔量, 1)) + 1;
+    return {
+      $初始魔量: nextInitialMp,
+      $魔量: Math.max(toNonNegativeInt(gameStore.statData.$魔量, 1) + 1, nextInitialMp),
+    };
+  }
+  return {
+    _金币: Math.max(0, toNonNegativeInt(gameStore.statData._金币, 0)) + 1,
+  };
+};
+
 const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
+  const worldGrowthPendingFields = buildWorldMetaGrowthPendingFields();
   if (portal.isFloorTransition) {
     const currentRoomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
-    const pendingStatDataFields = currentRoomType === '领主房'
+    const currentArea = ((gameStore.statData._当前区域 as string) || '').trim();
+    let pendingStatDataFields = currentRoomType === '领主房'
       ? {
           // 仅写入“下一层 user 楼层”的待应用变量，不直接修改当前领主房楼层。
           _血量: nextFloorRecoveryHpAfterLord.value,
         }
       : undefined;
+    if (currentArea === '魔女的小窝') {
+      pendingStatDataFields = {
+        ...(pendingStatDataFields ?? {}),
+        ...buildInventoryUpdateFields({
+          _圣遗物: buildStartingRelicInventoryForMetaGrowths(inventoryRelicMap.value),
+        }),
+      };
+    }
     // 记录待应用变量：进入新区域，首个房间为宝箱房，重置房间计数
     gameStore.setPendingPortalChanges({
       area: portal.areaName!,
@@ -8316,7 +8653,10 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
       enterText,
       targetRoomType: '宝箱房',
       actionText: `<user>选择了继续前进，${enterText}`,
-      pendingStatDataFields,
+      pendingStatDataFields: normalizePendingStatDataFields({
+        ...(pendingStatDataFields ?? {}),
+        ...(worldGrowthPendingFields ?? {}),
+      }),
     };
   }
 
@@ -8344,6 +8684,12 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
     const maxHp = Math.max(1, displayMaxHp.value);
     pendingStatDataFields = {
       _血量: maxHp,
+    };
+  }
+  if (worldGrowthPendingFields) {
+    pendingStatDataFields = {
+      ...(pendingStatDataFields ?? {}),
+      ...worldGrowthPendingFields,
     };
   }
 
@@ -11984,6 +12330,82 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 1px 0 rgba(255, 236, 201, 0.06);
 }
 
+.magic-hat-growth-section {
+  overflow: visible;
+}
+
+.magic-hat-growth-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+
+.magic-hat-reset-btn {
+  display: inline-flex;
+  min-width: 8.8rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(248, 113, 113, 0.36);
+  background: rgba(69, 10, 10, 0.28);
+  color: rgba(254, 202, 202, 0.96);
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.magic-hat-reset-btn:hover:not(:disabled),
+.magic-hat-reset-btn:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: rgba(248, 113, 113, 0.66);
+  background: rgba(127, 29, 29, 0.34);
+}
+
+.magic-hat-reset-btn:disabled {
+  cursor: not-allowed;
+  border-color: rgba(115, 115, 115, 0.3);
+  background: rgba(38, 38, 38, 0.42);
+  color: rgba(214, 211, 209, 0.42);
+}
+
+.magic-hat-reset-btn span {
+  font-family: 'Cinzel', serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+}
+
+.magic-hat-reset-btn small {
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.magic-hat-growth-subhead {
+  margin-top: 1rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.12);
+  padding-top: 0.9rem;
+}
+
+.magic-hat-growth-subhead__title {
+  color: rgba(255, 229, 184, 0.95);
+  font-family: 'Cinzel', serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+}
+
+.magic-hat-growth-subhead__text {
+  color: rgba(231, 223, 212, 0.58);
+  font-size: 0.76rem;
+}
+
 .magic-hat-difficulty-layout {
   margin-top: 1rem;
   display: grid;
@@ -12264,6 +12686,24 @@ onBeforeUnmount(() => {
 .magic-hat-track-card.is-gold {
   background:
     radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 30%),
+    rgba(11, 9, 7, 0.76);
+}
+
+.magic-hat-track-card.is-growth-immunity {
+  background:
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 30%),
+    rgba(11, 9, 7, 0.76);
+}
+
+.magic-hat-track-card.is-growth-expansion {
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 30%),
+    rgba(11, 9, 7, 0.76);
+}
+
+.magic-hat-track-card.is-growth-world {
+  background:
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 30%),
     rgba(11, 9, 7, 0.76);
 }
 

@@ -104,6 +104,13 @@
       "default": 0,
       "type": "number"
     },
+    "$局外成长": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "_技能": {
       "default": [
         "",

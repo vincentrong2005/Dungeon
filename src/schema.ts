@@ -28,6 +28,7 @@ export const Schema = z.object({
   $初始魔量: z.coerce.number().prefault(1),
   $初始金币: z.coerce.number().prefault(0),
   $技能点: z.coerce.number().prefault(0),
+  $局外成长: z.array(z.string()).prefault([]),
   _技能: z.array(z.string()).length(9).prefault(['', '', '', '', '', '', '', '', '']),
   $负面状态: z.array(z.string()).prefault([]),
   $被动: z.string().prefault(''),
