@@ -2781,6 +2781,15 @@
                   </div>
                   <div class="flex items-center gap-2">
                     <button
+                      v-if="victoryRewardStage !== 'pick'"
+                      class="inline-flex items-center gap-1.5 px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50 disabled:opacity-50"
+                      :disabled="rewardApplying"
+                      @click="returnToVictoryRewardPick"
+                    >
+                      <ArrowLeft class="size-4" />
+                      <span>返回</span>
+                    </button>
+                    <button
                       v-if="canRefreshVictoryReward"
                       class="px-4 py-2 rounded border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 disabled:opacity-50"
                       :disabled="rewardApplying"
@@ -2949,7 +2958,7 @@
             <button
               v-if="canExitCurrentCombat"
               class="absolute top-4 right-4 z-[110] px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
-              @click="showCombat = false"
+              @click="exitCurrentCombatOverlay"
             >
               ✕ 退出战斗
             </button>
@@ -2980,6 +2989,7 @@
 
 <script setup lang="ts">
 import {
+  ArrowLeft,
   Book,
   BookOpen,
   Box,
@@ -6299,6 +6309,13 @@ const markCurrentSpecialConsumed = () => {
   gameStore.hideManualButtonCompletion('special');
 };
 
+const restoreCurrentSpecialOption = () => {
+  consumedSpecialRoomFingerprint.value = '';
+  if (!gameStore.hasOptionE && currentRoomSpecialOptionConfig.value) {
+    gameStore.showManualButtonCompletion('special');
+  }
+};
+
 const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => {
   if (isCurrentSpecialConsumed.value) return null;
   if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
@@ -6588,6 +6605,12 @@ const exitVictoryRewardFlow = () => {
 const pickVictoryRewardCard = (card: VictoryRewardItem) => {
   selectedVictoryRewardCard.value = card;
   victoryRewardStage.value = isActiveSkillReward(card) ? 'replaceActive' : 'replaceDeck';
+};
+
+const returnToVictoryRewardPick = () => {
+  if (rewardApplying.value) return;
+  selectedVictoryRewardCard.value = null;
+  victoryRewardStage.value = 'pick';
 };
 
 const replaceDeckCardWithReward = (idx: number) => {
@@ -6933,6 +6956,15 @@ const preparePlayerForCombatStart = async (roomTypeOverride?: string): Promise<b
   const currentHp = toNonNegativeInt(gameStore.statData._血量, fullHp);
   if (currentHp >= fullHp) return true;
   return await gameStore.updateStatDataFields({ _血量: fullHp });
+};
+
+const exitCurrentCombatOverlay = () => {
+  showCombat.value = false;
+  combatTestStartAt999CurrentBattle.value = false;
+  if (activeCombatContext.value === 'normal' && isCombatRoomContext.value) {
+    restoreCurrentSpecialOption();
+  }
+  activeCombatContext.value = 'normal';
 };
 
 const launchCombat = async (
