@@ -6317,9 +6317,9 @@ const restoreCurrentSpecialOption = () => {
 };
 
 const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => {
+  if (isShopContext.value) return ROOM_TYPE_CONFIG['商店房'];
   if (isCurrentSpecialConsumed.value) return null;
   if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
-  if (isShopContext.value) return ROOM_TYPE_CONFIG['商店房'];
   const roomType = gameStore.statData._当前房间类型 as string;
   if (!roomType) return null;
   if (roomType === '事件房' || roomType === '陷阱房') return null;
@@ -6339,7 +6339,7 @@ const optionCompletionMenuItems = computed<
     key: 'special',
     label: '当前房间特殊选项',
     marker: 'E',
-    disabled: !currentRoomSpecialOptionConfig.value,
+    disabled: false,
   },
   {
     key: 'leave',
@@ -7444,13 +7444,13 @@ const startCombatFromSpecialOption = async () => {
 };
 
 const handleSpecialOption = async () => {
+  if (isShopContext.value) {
+    openShopView();
+    return;
+  }
   markCurrentSpecialConsumed();
   if (isTreasureRoomContext.value) {
     openChestView();
-    return;
-  }
-  if (isShopContext.value) {
-    openShopView();
     return;
   }
   if (isHotSpringRoomContext.value) {
