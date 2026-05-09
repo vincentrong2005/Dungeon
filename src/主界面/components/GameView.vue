@@ -1651,7 +1651,28 @@
               <h3 class="settings-section-title">AI回复</h3>
               <div class="space-y-4">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">启用流式传输</label>
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>启用流式传输</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('streamingEnabled')"
+                      @mouseleave="closeSettingsHelp('streamingEnabled')"
+                      @focus="openSettingsHelp('streamingEnabled')"
+                      @blur="closeSettingsHelp('streamingEnabled')"
+                      @touchstart.passive="startSettingsHelpTouch('streamingEnabled')"
+                      @touchend="endSettingsHelpTouch('streamingEnabled')"
+                      @touchcancel="endSettingsHelpTouch('streamingEnabled')"
+                      @click.stop.prevent="toggleSettingsHelp('streamingEnabled')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'streamingEnabled'" class="settings-help-popover">
+                        {{ settingsHelpText.streamingEnabled }}
+                      </div>
+                    </Transition>
+                  </div>
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
@@ -1669,7 +1690,28 @@
                 </div>
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">禁止匹配思维链内XML标签</label>
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>禁止匹配思维链内XML标签</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('forbidMatchingXmlInsideThink')"
+                      @mouseleave="closeSettingsHelp('forbidMatchingXmlInsideThink')"
+                      @focus="openSettingsHelp('forbidMatchingXmlInsideThink')"
+                      @blur="closeSettingsHelp('forbidMatchingXmlInsideThink')"
+                      @touchstart.passive="startSettingsHelpTouch('forbidMatchingXmlInsideThink')"
+                      @touchend="endSettingsHelpTouch('forbidMatchingXmlInsideThink')"
+                      @touchcancel="endSettingsHelpTouch('forbidMatchingXmlInsideThink')"
+                      @click.stop.prevent="toggleSettingsHelp('forbidMatchingXmlInsideThink')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'forbidMatchingXmlInsideThink'" class="settings-help-popover">
+                        {{ settingsHelpText.forbidMatchingXmlInsideThink }}
+                      </div>
+                    </Transition>
+                  </div>
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
@@ -1687,7 +1729,28 @@
                 </div>
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">按钮补全</label>
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>按钮补全</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('buttonCompletion')"
+                      @mouseleave="closeSettingsHelp('buttonCompletion')"
+                      @focus="openSettingsHelp('buttonCompletion')"
+                      @blur="closeSettingsHelp('buttonCompletion')"
+                      @touchstart.passive="startSettingsHelpTouch('buttonCompletion')"
+                      @touchend="endSettingsHelpTouch('buttonCompletion')"
+                      @touchcancel="endSettingsHelpTouch('buttonCompletion')"
+                      @click.stop.prevent="toggleSettingsHelp('buttonCompletion')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'buttonCompletion'" class="settings-help-popover">
+                        {{ settingsHelpText.buttonCompletion }}
+                      </div>
+                    </Transition>
+                  </div>
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
@@ -1705,7 +1768,28 @@
                 </div>
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">剧情精简模式</label>
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>剧情精简模式</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('fastMode')"
+                      @mouseleave="closeSettingsHelp('fastMode')"
+                      @focus="openSettingsHelp('fastMode')"
+                      @blur="closeSettingsHelp('fastMode')"
+                      @touchstart.passive="startSettingsHelpTouch('fastMode')"
+                      @touchend="endSettingsHelpTouch('fastMode')"
+                      @touchcancel="endSettingsHelpTouch('fastMode')"
+                      @click.stop.prevent="toggleSettingsHelp('fastMode')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'fastMode'" class="settings-help-popover">
+                        {{ settingsHelpText.fastMode }}
+                      </div>
+                    </Transition>
+                  </div>
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
@@ -4853,6 +4937,10 @@ type TextSettingsState = {
 
 type SettingsNavTab = 'text' | 'music' | 'ai' | 'summary';
 type SettingsHelpKey =
+  | 'streamingEnabled'
+  | 'forbidMatchingXmlInsideThink'
+  | 'buttonCompletion'
+  | 'fastMode'
   | 'autoSummaryEnabled'
   | 'summaryVisibleWindow'
   | 'manualSummary'
@@ -5120,6 +5208,14 @@ watch(settingsNavTab, tab => {
 const activeSettingsHelp = ref<SettingsHelpKey | null>(null);
 let settingsHelpTouchTimer: number | null = null;
 const settingsHelpText: Record<SettingsHelpKey, string> = {
+  streamingEnabled:
+    '开启后，AI回复会边生成边显示预览文本，不必等完整回复结束才看到内容；关闭后只在生成完成后显示最终回复。',
+  forbidMatchingXmlInsideThink:
+    '开启后，系统解析 <status>、<options>、<sum> 等 XML 标签时，会忽略思维链内容里的同名标签，避免把AI思考过程中的示例标签误当成正式结果。',
+  buttonCompletion:
+    '开启后，输入框会根据当前可选项提供按钮式补全，方便快速选择剧情选项或行动；关闭后只保留手动输入。',
+  fastMode:
+    '开启后，部分行动会进入剧情精简模式：系统先快速记录已结算事件和变量变化，再把简化后的经过交给AI承认并续写，可减少长剧情消耗与等待时间。',
   autoSummaryEnabled:
     '关闭后不会再把每层楼的 <sum> 自动写入总结条目，并且会清空该条目内容，从而停止这部分提示词注入；重新打开后会按历史楼层重新生成。',
   summaryVisibleWindow:
