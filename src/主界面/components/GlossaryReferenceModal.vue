@@ -292,10 +292,20 @@
             <div class="glossary-reference-title">卡牌词条</div>
             <div class="glossary-reference-subtitle">卡牌说明中出现的通用规则</div>
           </div>
-          <span class="glossary-reference-count">{{ termEntries.length }}</span>
+          <div class="glossary-reference-head-actions">
+            <button
+              type="button"
+              class="glossary-reference-layout-btn"
+              :class="{ active: referenceLayout === 'readable' }"
+              @click="toggleReferenceLayout"
+            >
+              {{ referenceLayout === 'readable' ? '紧凑布局' : '大字布局' }}
+            </button>
+            <span class="glossary-reference-count">{{ termEntries.length }}</span>
+          </div>
         </div>
 
-        <div class="glossary-reference-grid">
+        <div class="glossary-reference-grid" :class="{ 'is-readable': referenceLayout === 'readable' }">
           <article
             v-for="entry in termEntries"
             :key="entry.key"
@@ -314,30 +324,64 @@
             <div class="glossary-reference-title">已解锁状态</div>
             <div class="glossary-reference-subtitle">来自魔女的收藏中已记录的状态</div>
           </div>
-          <span class="glossary-reference-count">{{ unlockedEffectEntries.length }}</span>
+          <div class="glossary-reference-head-actions">
+            <button
+              type="button"
+              class="glossary-reference-layout-btn"
+              :class="{ active: referenceLayout === 'readable' }"
+              @click="toggleReferenceLayout"
+            >
+              {{ referenceLayout === 'readable' ? '紧凑布局' : '大字布局' }}
+            </button>
+            <span class="glossary-reference-count">{{ unlockedEffectEntries.length }}</span>
+          </div>
         </div>
 
-        <div v-if="unlockedEffectEntries.length > 0" class="glossary-reference-grid">
-          <article
-            v-for="entry in unlockedEffectEntries"
-            :key="entry.type"
-            class="glossary-reference-card"
-            :class="toneClass(entry.polarity)"
-          >
-            <div class="glossary-reference-effect-title">
-              <span class="glossary-reference-effect-icon">
+        <div v-if="unlockedEffectEntries.length > 0">
+          <div class="glossary-reference-status-index" aria-label="状态索引">
+            <button
+              v-for="entry in unlockedEffectEntries"
+              :key="`index-${entry.type}`"
+              type="button"
+              class="glossary-reference-status-index-btn"
+              @click="scrollToStatus(entry.type)"
+            >
+              <span class="glossary-reference-status-index-icon">
                 <i
                   v-if="entry.faClass"
-                  :class="[entry.faClass, 'text-[14px] leading-none']"
+                  :class="[entry.faClass, 'text-[12px] leading-none']"
                   :style="entry.faStyle"
                   aria-hidden="true"
                 ></i>
                 <span v-else>{{ entry.name.slice(0, 1) }}</span>
               </span>
               <span>{{ entry.name }}</span>
-            </div>
-            <p class="glossary-reference-card-desc">{{ entry.description || '暂无说明' }}</p>
-          </article>
+            </button>
+          </div>
+
+          <div class="glossary-reference-grid" :class="{ 'is-readable': referenceLayout === 'readable' }">
+            <article
+              v-for="entry in unlockedEffectEntries"
+              :id="statusEntryId(entry.type)"
+              :key="entry.type"
+              class="glossary-reference-card"
+              :class="toneClass(entry.polarity)"
+            >
+              <div class="glossary-reference-effect-title">
+                <span class="glossary-reference-effect-icon">
+                  <i
+                    v-if="entry.faClass"
+                    :class="[entry.faClass, 'text-[14px] leading-none']"
+                    :style="entry.faStyle"
+                    aria-hidden="true"
+                  ></i>
+                  <span v-else>{{ entry.name.slice(0, 1) }}</span>
+                </span>
+                <span>{{ entry.name }}</span>
+              </div>
+              <p class="glossary-reference-card-desc">{{ entry.description || '暂无说明' }}</p>
+            </article>
+          </div>
         </div>
         <div v-else class="glossary-reference-empty">
           尚未记录任何状态。战斗中遇到状态后会自动加入这里。
@@ -359,6 +403,7 @@ const props = defineProps<{ isOpen: boolean }>();
 defineEmits<{ close: [] }>();
 
 type ReferenceTab = 'tutorial' | 'terms' | 'status';
+type ReferenceLayout = 'compact' | 'readable';
 
 const tabs: Array<{ id: ReferenceTab; label: string }> = [
   { id: 'tutorial', label: '战斗教程' },
@@ -366,6 +411,7 @@ const tabs: Array<{ id: ReferenceTab; label: string }> = [
   { id: 'status', label: '已解锁状态' },
 ];
 const activeTab = ref<ReferenceTab>('tutorial');
+const referenceLayout = ref<ReferenceLayout>('compact');
 const tutorialSections = ['界面速览', '卡牌类型', '拼点机制', '主动技能', '状态栏'];
 const cardTypeGuides = [
   { name: '物理', tone: 'physical', cost: '0', icon: 'fa-solid fa-khanda', short: '直接攻击，常靠点数胜负。' },
@@ -395,6 +441,7 @@ const statusMetrics = [
 const allTraitEntries = (): CardGlossaryEntry[] => {
   const baseTraits: CardTraits = {
     combo: true,
+    firstCombo: true,
     reroll: 'self',
     draw: true,
     unplayable: true,
@@ -463,6 +510,16 @@ const toneClass = (polarity?: EffectPolarity | 'trait') => {
   if (polarity === 'mixed') return 'glossary-reference-card--mixed';
   if (polarity === 'special') return 'glossary-reference-card--special';
   return 'glossary-reference-card--trait';
+};
+
+const toggleReferenceLayout = () => {
+  referenceLayout.value = referenceLayout.value === 'compact' ? 'readable' : 'compact';
+};
+
+const statusEntryId = (type: string) => `glossary-status-${type}`;
+
+const scrollToStatus = (type: string) => {
+  document.getElementById(statusEntryId(type))?.scrollIntoView({ block: 'start', behavior: 'smooth' });
 };
 
 watch(
@@ -562,10 +619,45 @@ watch(
   text-align: center;
 }
 
+.glossary-reference-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.glossary-reference-layout-btn {
+  min-height: 2rem;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 0.42rem;
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(253, 230, 138, 0.76);
+  font-size: 0.74rem;
+  line-height: 1;
+  padding: 0 0.68rem;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.glossary-reference-layout-btn:hover,
+.glossary-reference-layout-btn.active {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(146, 64, 14, 0.3);
+  color: rgba(255, 247, 237, 0.96);
+}
+
 .glossary-reference-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   gap: 0.65rem;
+}
+
+.glossary-reference-grid.is-readable {
+  grid-template-columns: 1fr;
+  gap: 0.72rem;
 }
 
 .glossary-reference-card {
@@ -576,6 +668,12 @@ watch(
   background: rgba(0, 0, 0, 0.24);
   padding: 0.72rem 0.78rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  scroll-margin-top: 0.75rem;
+}
+
+.glossary-reference-grid.is-readable .glossary-reference-card {
+  min-height: auto;
+  padding: 0.88rem 0.95rem;
 }
 
 .glossary-reference-card--buff {
@@ -608,6 +706,11 @@ watch(
   font-weight: 700;
 }
 
+.glossary-reference-grid.is-readable .glossary-reference-card-title,
+.glossary-reference-grid.is-readable .glossary-reference-effect-title {
+  font-size: 1.02rem;
+}
+
 .glossary-reference-effect-icon {
   display: inline-flex;
   width: 1.45rem;
@@ -626,6 +729,78 @@ watch(
   color: rgba(255, 237, 213, 0.72);
   font-size: 0.76rem;
   line-height: 1.55;
+}
+
+.glossary-reference-grid.is-readable .glossary-reference-card-desc {
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
+.glossary-reference-status-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  margin-bottom: 0.78rem;
+}
+
+.glossary-reference-status-index-btn {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 0.42rem;
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 237, 213, 0.78);
+  font-size: 0.74rem;
+  padding: 0 0.58rem;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.glossary-reference-status-index-btn:hover,
+.glossary-reference-status-index-btn:focus-visible {
+  outline: none;
+  border-color: rgba(251, 191, 36, 0.48);
+  background: rgba(251, 191, 36, 0.1);
+  color: rgba(255, 247, 237, 0.96);
+}
+
+.glossary-reference-status-index-icon {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(253, 230, 138, 0.9);
+  font-size: 0.66rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .glossary-reference-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .glossary-reference-head-actions {
+    justify-content: space-between;
+  }
+
+  .glossary-reference-layout-btn {
+    min-height: 2.25rem;
+    font-size: 0.82rem;
+  }
+
+  .glossary-reference-status-index-btn {
+    min-height: 2.2rem;
+    font-size: 0.82rem;
+  }
 }
 
 .glossary-reference-empty {

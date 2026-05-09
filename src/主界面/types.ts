@@ -42,6 +42,8 @@ export type RerollTarget = 'self' | 'enemy' | 'none';
 export interface CardTraits {
   /** 连击：打出后不消耗本回合常规行动次数 */
   combo: boolean;
+  /** 首发连击：本场战斗第一次打出该卡牌时视为连击 */
+  firstCombo?: boolean;
   /** 重掷目标 */
   reroll: RerollTarget;
   /** 过牌：配合连击实现快速过牌 */

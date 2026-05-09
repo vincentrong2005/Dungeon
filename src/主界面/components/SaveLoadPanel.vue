@@ -13,7 +13,7 @@
             class="save-load-order-btn"
             :class="sortOrder === 'desc' ? 'is-active' : ''"
             type="button"
-            @click="sortOrder = 'desc'"
+            @click="setSortOrder('desc')"
           >
             倒序
           </button>
@@ -21,14 +21,14 @@
             class="save-load-order-btn"
             :class="sortOrder === 'asc' ? 'is-active' : ''"
             type="button"
-            @click="sortOrder = 'asc'"
+            @click="setSortOrder('asc')"
           >
             正序
           </button>
         </div>
       </div>
 
-      <div class="save-load-list custom-scrollbar">
+      <div ref="listEl" class="save-load-list custom-scrollbar">
         <button
           v-for="entry in sortedEntries"
           :key="entry.messageId"
@@ -115,10 +115,19 @@ const emit = defineEmits<{
 const gameStore = useGameStore();
 const confirmTarget = ref<number | null>(null);
 const sortOrder = ref<'asc' | 'desc'>('desc');
+const listEl = ref<HTMLElement | null>(null);
 const sortedEntries = computed(() => {
   const direction = sortOrder.value === 'asc' ? 1 : -1;
   return [...props.entries].sort((a, b) => (a.messageId - b.messageId) * direction);
 });
+
+function setSortOrder(order: 'asc' | 'desc') {
+  if (sortOrder.value === order) return;
+  sortOrder.value = order;
+  nextTick(() => {
+    listEl.value?.scrollTo({ top: 0, behavior: 'auto' });
+  });
+}
 
 function handleRollback(messageId: number) {
   confirmTarget.value = messageId;

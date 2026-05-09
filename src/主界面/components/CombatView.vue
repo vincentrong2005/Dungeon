@@ -1578,8 +1578,8 @@ const turnPointModifier = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
-const blankOfBlankActiveThisTurn = ref(false);
-const blankOfBlankBonusThisTurn = ref(0);
+const blankOfBlankActiveThisTurn = ref<Record<BattleSide, boolean>>({ player: false, enemy: false });
+const blankOfBlankBonusThisTurn = ref<Record<BattleSide, number>>({ player: 0, enemy: 0 });
 const armorDecaySkippedThisTurn = ref<Record<BattleSide, boolean>>({
   player: false,
   enemy: false,
@@ -4110,7 +4110,7 @@ const getCardFinalPoint = (
   if (card.id === 'modao_rune_greatsword') {
     finalPoint += countMagicCardsInDeckForSide(source) * 2;
   }
-  finalPoint += Math.max(0, blankOfBlankBonusThisTurn.value);
+  finalPoint += Math.max(0, blankOfBlankBonusThisTurn.value[source] ?? 0);
   finalPoint += Math.floor(turnPointModifier.value[source] ?? 0);
   if (card.type === CardType.MAGIC) {
     finalPoint += getCurrentTurnMagicPointBonus(source);
@@ -4373,9 +4373,10 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       lines.push(`符文大剑（牌库法术 ${magicCardCount}）+${bonus} => ${finalPoint}`);
     }
   }
-  if (blankOfBlankBonusThisTurn.value > 0) {
-    finalPoint += blankOfBlankBonusThisTurn.value;
-    lines.push(`空白的空白（本回合累计）+${blankOfBlankBonusThisTurn.value} => ${finalPoint}`);
+  const blankOfBlankBonus = Math.max(0, blankOfBlankBonusThisTurn.value[source] ?? 0);
+  if (blankOfBlankBonus > 0) {
+    finalPoint += blankOfBlankBonus;
+    lines.push(`空白的空白（本回合累计）+${blankOfBlankBonus} => ${finalPoint}`);
   }
   if ((turnPointModifier.value[source] ?? 0) !== 0) {
     const delta = Math.floor(turnPointModifier.value[source] ?? 0);
@@ -4555,6 +4556,22 @@ const previewFlowingLightRingCombo = (card: CardData): CardData => {
     ...card,
     traits: { ...card.traits, combo: true },
   };
+};
+
+const applyFirstComboIfNeeded = (side: BattleSide, card: CardData): CardData => {
+  if (!card.traits.firstCombo || card.traits.combo || card.id === PASS_CARD.id) return card;
+  if (battleCardFirstUseConsumed.value[side][card.id] === true) return card;
+
+  const nextCard = cloneCardForBattle(card);
+  nextCard.traits = { ...nextCard.traits, combo: true };
+  const sourceLabel = side === 'player' ? '我方' : '敌方';
+  log(`<span class="text-indigo-300">${sourceLabel}【${card.name}】首发连击，本次打出视为连击。</span>`);
+  return nextCard;
+};
+
+const markFirstComboUseIfNeeded = (side: BattleSide, card: CardData) => {
+  if (!card.traits.firstCombo || card.id === PASS_CARD.id) return;
+  markBattleCardFirstUse(side, card.id);
 };
 
 const triggerPlayerAfterRerollRelics = (before: number, after: number) => {
@@ -5796,8 +5813,8 @@ const startTurn = () => {
   armorDecaySkippedThisTurn.value.enemy = false;
   turnPointModifier.value.player = 0;
   turnPointModifier.value.enemy = 0;
-  blankOfBlankActiveThisTurn.value = false;
-  blankOfBlankBonusThisTurn.value = 0;
+  blankOfBlankActiveThisTurn.value = { player: false, enemy: false };
+  blankOfBlankBonusThisTurn.value = { player: 0, enemy: 0 };
   temporaryBarrierToRemoveAtTurnEnd.value = 0;
   reverseBladeBleedOnHit.value = { player: 0, enemy: 0 };
   activeSkillTurnUseCount.value = {};
@@ -5919,8 +5936,8 @@ watch(
         battleCardFirstUseConsumed.value = { player: {}, enemy: {} };
         battleCardPointBonus.value = { player: {}, enemy: {} };
         turnPointModifier.value = { player: 0, enemy: 0 };
-        blankOfBlankActiveThisTurn.value = false;
-        blankOfBlankBonusThisTurn.value = 0;
+        blankOfBlankActiveThisTurn.value = { player: false, enemy: false };
+        blankOfBlankBonusThisTurn.value = { player: 0, enemy: 0 };
         armorDecaySkippedThisTurn.value = { player: false, enemy: false };
         temporaryBarrierToRemoveAtTurnEnd.value = 0;
         reverseBladeBleedOnHit.value = { player: 0, enemy: 0 };
@@ -6478,6 +6495,8 @@ const resolveCombat = async (
 
   resolvedPlayerCard = withFirstUseLightningAmbushBonus('player', resolvedPlayerCard);
   resolvedEnemyCard = withFirstUseLightningAmbushBonus('enemy', resolvedEnemyCard);
+  resolvedPlayerCard = applyFirstComboIfNeeded('player', resolvedPlayerCard);
+  resolvedEnemyCard = applyFirstComboIfNeeded('enemy', resolvedEnemyCard);
   resolvedPlayerCard = withIgnoreDodgeBuffOnAttackCard('player', resolvedPlayerCard);
   resolvedEnemyCard = withIgnoreDodgeBuffOnAttackCard('enemy', resolvedEnemyCard);
   if (
@@ -7000,10 +7019,11 @@ const resolveCombat = async (
         const nextBonus = increaseBattleCardPointBonus(source, card.id, 2, 4);
         log(`<span class="text-amber-300">${label}【${card.name}】本场战斗点数加成提升至 +${nextBonus}</span>`);
       }
-      if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value) {
-        blankOfBlankBonusThisTurn.value += 1;
-        log(`<span class="text-cyan-300">【空白的空白】使本回合所有卡牌点数额外 +${blankOfBlankBonusThisTurn.value}</span>`);
+      if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value[source]) {
+        blankOfBlankBonusThisTurn.value[source] += 1;
+        log(`<span class="text-cyan-300">【空白的空白】使${label}本回合卡牌点数额外 +${blankOfBlankBonusThisTurn.value[source]}</span>`);
       }
+      markFirstComboUseIfNeeded(source, card);
       applyCardExtraAttributes();
       queueCardNegativeEffectForPlayer(source, card);
       applyInsertTrait(source, card);
@@ -7606,8 +7626,8 @@ const resolveCombat = async (
       }
       if (card.id === 'basic_blank_of_blank') {
         syncCurrentPointForUi();
-        blankOfBlankActiveThisTurn.value = true;
-        log(`<span class="text-cyan-300">${label}【${card.name}】使本回合每出1张牌，所有卡牌点数 +1</span>`);
+        blankOfBlankActiveThisTurn.value[source] = true;
+        log(`<span class="text-cyan-300">${label}【${card.name}】使本回合每出1张牌，${label}卡牌点数 +1</span>`);
         finalizeAndTrack();
         return;
       }

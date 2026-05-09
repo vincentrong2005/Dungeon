@@ -20,6 +20,7 @@ interface CardKeywordInput {
 
 const TRAIT_LABELS = {
   combo: '连击',
+  firstCombo: '首发连击',
   draw: '过牌',
   unplayable: '无法打出',
   destroyOnClashWin: '销毁',
@@ -31,6 +32,8 @@ const getTraitDescription = (traits: CardTraits, key: keyof typeof TRAIT_LABELS)
   switch (key) {
     case 'combo':
       return '打出后不消耗本回合常规行动次数。';
+    case 'firstCombo':
+      return '本场战斗第一次打出该卡牌时视为连击，之后恢复为普通结算。';
     case 'draw':
       return '打出后额外抽1张牌，通常与连击联动。';
     case 'unplayable':
@@ -88,6 +91,15 @@ export const getCardTraitGlossaryEntries = (traits: CardTraits | null | undefine
       key: 'trait:combo',
       label: TRAIT_LABELS.combo,
       description: getTraitDescription(traits, 'combo'),
+      source: 'trait',
+      polarity: 'trait',
+    });
+  }
+  if (traits.firstCombo) {
+    entries.push({
+      key: 'trait:firstCombo',
+      label: TRAIT_LABELS.firstCombo,
+      description: getTraitDescription(traits, 'firstCombo'),
       source: 'trait',
       polarity: 'trait',
     });
