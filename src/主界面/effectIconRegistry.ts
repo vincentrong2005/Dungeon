@@ -8,6 +8,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.POISON]: 'fa-solid fa-virus',
   [ET.POISON_AMOUNT]: 'fa-solid fa-bacterium',
   [ET.CORROSION]: 'fa-brands fa-cloudscale',
+  [ET.CORRODE]: 'fa-solid fa-explosion',
   [ET.BURN]: 'fa-solid fa-fire',
   [ET.BLEED]: 'fa-solid fa-droplet',
   [ET.VULNERABLE]: 'fa-brands fa-linode',

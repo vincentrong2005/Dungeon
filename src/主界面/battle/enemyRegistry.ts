@@ -111,6 +111,9 @@ const MUXINLAN_CARD = {
   TAKE_IT: 'enemy_muxinlan_take_it',
   PREMIUM: 'enemy_muxinlan_premium_shield',
   AMBUSH: 'enemy_muxinlan_set_ambush',
+  CORROSIVE_LIQUID: 'enemy_muxinlan_corrosive_liquid',
+  CORRUPT: 'enemy_muxinlan_corrupt',
+  SUBLIMATION: 'enemy_muxinlan_sublimation',
 } as const;
 
 const MIMIC_CARD = {
@@ -596,6 +599,8 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
         { type: EffectType.BLOODBLADE_ATTACH, stacks: 1, polarity: 'buff' },
         { type: EffectType.LIGHTNING_ATTACH, stacks: 1, polarity: 'buff' },
         { type: EffectType.ELEMENTAL_ADAPTATION, stacks: 1, polarity: 'buff' },
+        { type: EffectType.INDOMITABLE, stacks: 1, polarity: 'buff' },
+        { type: EffectType.POINT_GROWTH_BIG, stacks: 1, polarity: 'buff' },
       ],
     },
     deck: buildDeckById([
@@ -608,6 +613,9 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
       MUXINLAN_CARD.TAKE_IT,
       MUXINLAN_CARD.PREMIUM,
       MUXINLAN_CARD.AMBUSH,
+      MUXINLAN_CARD.CORROSIVE_LIQUID,
+      MUXINLAN_CARD.CORRUPT,
+      MUXINLAN_CARD.SUBLIMATION,
     ]),
     selectCard(ctx: EnemyAIContext) {
       if (!ctx.flags.muxinlanOpenedWithCunning) {
@@ -616,30 +624,47 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
       }
 
       const getStacks = (t: EffectType) => ctx.playerStats.effects.find(e => e.type === t)?.stacks ?? 0;
+      const playerCards = [
+        ...(ctx.playerHand ?? []),
+        ...(ctx.playerDeck ?? []),
+        ...(ctx.playerDiscard ?? []),
+      ];
+      const playerCurseCount = playerCards.filter(card => card.type === CardType.CURSE).length;
+      if (ctx.enemyStats.hp < ctx.enemyStats.maxHp * 0.1 && playerCurseCount >= 2) {
+        return pickCardById(ctx, MUXINLAN_CARD.SUBLIMATION);
+      }
+
       const elementalTotal = ELEMENTAL_DEBUFF_TYPES.reduce((sum, type) => sum + getStacks(type), 0);
       if (elementalTotal >= 12) {
         return pickCardById(ctx, MUXINLAN_CARD.LIQUIDATION);
       }
 
+      if (ctx.turn > 0 && ctx.turn % 8 === 0) {
+        return pickCardById(ctx, MUXINLAN_CARD.CORRUPT);
+      }
+
+      const playerArmor = getStacks(EffectType.ARMOR);
       if (ctx.enemyStats.mp > 4) {
         const highMpPool = [
-          MUXINLAN_CARD.REAGENT,
-          MUXINLAN_CARD.LIQUID_FIRE,
-          MUXINLAN_CARD.SLIME,
-          MUXINLAN_CARD.FORCED,
-          MUXINLAN_CARD.AMBUSH,
-        ] as const;
-        const chosen = highMpPool[Math.floor(Math.random() * highMpPool.length)]!;
+          { value: MUXINLAN_CARD.REAGENT, weight: 30 },
+          { value: MUXINLAN_CARD.LIQUID_FIRE, weight: 10 },
+          { value: MUXINLAN_CARD.SLIME, weight: 20 },
+          { value: MUXINLAN_CARD.FORCED, weight: 20 },
+          { value: MUXINLAN_CARD.AMBUSH, weight: 20 },
+          ...(playerArmor >= 10 ? [{ value: MUXINLAN_CARD.CORROSIVE_LIQUID, weight: 50 }] : []),
+        ];
+        const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'muxinlanLastWeightedCardId', highMpPool);
         return pickCardById(ctx, chosen);
       }
 
       const lowMpPool = [
-        MUXINLAN_CARD.FORCED,
-        MUXINLAN_CARD.TAKE_IT,
-        MUXINLAN_CARD.PREMIUM,
-        MUXINLAN_CARD.AMBUSH,
-      ] as const;
-      const chosen = lowMpPool[Math.floor(Math.random() * lowMpPool.length)]!;
+        { value: MUXINLAN_CARD.FORCED, weight: 25 },
+        { value: MUXINLAN_CARD.TAKE_IT, weight: 25 },
+        { value: MUXINLAN_CARD.PREMIUM, weight: 25 },
+        { value: MUXINLAN_CARD.AMBUSH, weight: 25 },
+        ...(playerArmor >= 10 ? [{ value: MUXINLAN_CARD.CORROSIVE_LIQUID, weight: 50 }] : []),
+      ];
+      const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'muxinlanLastWeightedCardId', lowMpPool);
       return pickCardById(ctx, chosen);
     },
   };

@@ -6589,7 +6589,7 @@ const 炼金废料: CardData = {
   description: '点数-2，连击，过牌',
 };
 
-/** 惑心咒：开局仅使用一次，为对手施加虚实不明与敌意隐藏（结算逻辑在 CombatView） */
+/** 惑心咒：开局仅使用一次，为对手施加虚实不明（结算逻辑在 CombatView） */
 const 惑心咒: CardData = {
   id: 'enemy_muxinlan_cunning',
   name: '惑心咒',
@@ -6601,13 +6601,13 @@ const 惑心咒: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '为对手施加1层虚实不明与1层敌意隐藏',
+  description: '为对手施加1层虚实不明',
 };
 
-/** 强制收购：造成0.5倍最终点数的伤害，销毁 */
-const 强制收购: CardData = {
+/** 损毁：造成0.5倍最终点数的伤害，销毁 */
+const 损毁: CardData = {
   id: 'enemy_muxinlan_forced_acquisition',
-  name: '强制收购',
+  name: '损毁',
   type: CardType.PHYSICAL,
   category: '敌人',
   rarity: '普通',
@@ -6636,7 +6636,7 @@ const 清算: CardData = {
   description: '点数*2，移除对方所有元素debuff，每移除1层造成2点真实伤害',
 };
 
-/** 不稳定试剂：点数*1.5，造成0.4倍最终点数伤害，3连击；每次命中随机附加一种元素debuff 1层（结算逻辑在 CombatView） */
+/** 不稳定试剂：点数*1.5，造成0.2倍最终点数伤害，5连击；每次命中随机附加一种元素debuff 1层（结算逻辑在 CombatView） */
 const 不稳定试剂: CardData = {
   id: 'enemy_muxinlan_unstable_reagent',
   name: '不稳定试剂',
@@ -6645,14 +6645,14 @@ const 不稳定试剂: CardData = {
   rarity: '普通',
   manaCost: 4,
   calculation: { multiplier: 1.5, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
-  hitCount: 3,
+  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
+  hitCount: 5,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.5，造成0.4倍最终点数伤害，3连击；每次命中随机附加1层元素debuff',
+  description: '点数*1.5，造成0.2倍最终点数伤害，5连击；每次命中随机附加1层元素debuff',
 };
 
-/** 液态火：施加1倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧（结算逻辑在 CombatView） */
+/** 液态火：施加0.6倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧（结算逻辑在 CombatView） */
 const 液态火: CardData = {
   id: 'enemy_muxinlan_liquid_fire',
   name: '液态火',
@@ -6664,7 +6664,7 @@ const 液态火: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '施加1倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧',
+  description: '施加0.6倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧',
 };
 
 /** 活化粘液：点数+3，随机将对方一种已有元素debuff层数翻倍（结算逻辑在 CombatView） */
@@ -6712,7 +6712,7 @@ const 溢价护盾: CardData = {
   description: '增加自身1层共损与x点魔力，x为对方魔力值',
 };
 
-/** 设下埋伏：点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加一层法力枯竭 */
+/** 设下埋伏：点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加一层法力枯竭；若对方使用闪避，则施加1层易伤 */
 const 设下埋伏: CardData = {
   id: 'enemy_muxinlan_set_ambush',
   name: '设下埋伏',
@@ -6733,7 +6733,52 @@ const 设下埋伏: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加1层法力枯竭',
+  description: '点数*0.5，闪避。闪避成功或对方跳过回合，则施加1层法力枯竭；若对方使用闪避，则施加1层易伤',
+};
+
+/** 腐蚀液：清空对方护甲，施加1层腐蚀（结算逻辑在 CombatView） */
+const 腐蚀液: CardData = {
+  id: 'enemy_muxinlan_corrosive_liquid',
+  name: '腐蚀液',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '清空对方护甲，并施加1层腐蚀',
+};
+
+/** 腐化：将对方随机一张未打出的手牌腐化为炼金废料，自身获得1层坚固（结算逻辑在 CombatView） */
+const 腐化: CardData = {
+  id: 'enemy_muxinlan_corrupt',
+  name: '腐化',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [{ kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 1 }],
+  description: '将对方随机一张未打出的手牌腐化为炼金废料，自身获得1层坚固',
+};
+
+/** 升华：移除对方手牌、抽牌堆与弃牌堆中的所有诅咒牌，每移除1张回复自身10%最大生命值（结算逻辑在 CombatView） */
+const 升华: CardData = {
+  id: 'enemy_muxinlan_sublimation',
+  name: '升华',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '移除对方所有诅咒牌，每移除1张回复自身10%最大生命值',
 };
 
 // ── 卡牌注册表 ──────────────────────────────────────────────────
@@ -7666,7 +7711,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [回复.name, 回复],
   [炼金废料.name, 炼金废料],
   [惑心咒.name, 惑心咒],
-  [强制收购.name, 强制收购],
+  [损毁.name, 损毁],
   [清算.name, 清算],
   [不稳定试剂.name, 不稳定试剂],
   [液态火.name, 液态火],
@@ -7674,6 +7719,9 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [等价交换.name, 等价交换],
   [溢价护盾.name, 溢价护盾],
   [设下埋伏.name, 设下埋伏],
+  [腐蚀液.name, 腐蚀液],
+  [腐化.name, 腐化],
+  [升华.name, 升华],
   [PATROL_BAT_CLAW_REND.name, PATROL_BAT_CLAW_REND],
   [PATROL_BAT_METAL_SCREECH.name, PATROL_BAT_METAL_SCREECH],
   [PATROL_BAT_MARK.name, PATROL_BAT_MARK],

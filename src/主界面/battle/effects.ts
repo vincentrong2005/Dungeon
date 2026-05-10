@@ -107,6 +107,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '达到30层时，目标生命上限归零并立即死亡（无视复活）',
   },
+  [EffectType.CORRODE]: {
+    type: EffectType.CORRODE,
+    name: '腐蚀',
+    polarity: 'debuff',
+    timings: ['onTurnEnd', 'passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '获得护甲时，获得等量中毒量。每回合结束层数-1',
+  },
   [EffectType.BURN]: {
     type: EffectType.BURN,
     name: '燃烧',
@@ -691,6 +700,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.SHOCK,
   EffectType.TEMPERATURE_DIFF,
   EffectType.CORROSION,
+  EffectType.CORRODE,
   EffectType.VULNERABLE,
   EffectType.BRAND_MARK,
   EffectType.DAMAGE_BOOST,
@@ -812,6 +822,7 @@ const DECAY_GRACE_EFFECT_TYPES = new Set<EffectType>([
   EffectType.STUN,
   EffectType.CONTROLLED,
   EffectType.BLEED,
+  EffectType.CORRODE,
   EffectType.CO_DAMAGE,
 ]);
 
@@ -1309,6 +1320,18 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     } else {
       reduceEffectStacks(entity, EffectType.CO_DAMAGE);
       logs.push('[共损] 层数衰减。');
+    }
+  }
+
+  // 腐蚀
+  const corrodeEffect = findEffect(entity, EffectType.CORRODE);
+  if (corrodeEffect && corrodeEffect.stacks > 0) {
+    if (corrodeEffect.lockDecayThisTurn) {
+      corrodeEffect.lockDecayThisTurn = false;
+      logs.push('[腐蚀] 新施加，本回合不衰减。');
+    } else {
+      reduceEffectStacks(entity, EffectType.CORRODE);
+      logs.push('[腐蚀] 层数衰减。');
     }
   }
 

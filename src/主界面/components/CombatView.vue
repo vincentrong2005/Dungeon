@@ -1177,6 +1177,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.POISON]: Bug,
   [ET.POISON_AMOUNT]: Droplet,
   [ET.CORROSION]: Droplet,
+  [ET.CORRODE]: TriangleAlert,
   [ET.BURN]: Flame,
   [ET.BLEED]: Droplet,
   [ET.VULNERABLE]: TriangleAlert,
@@ -2283,12 +2284,24 @@ const handlePlayerArmorGainFromSingleEvent = (amount: number, source: string) =>
   logRelicMessage(`[冻流泵芯] ${source}单次获得护甲≥5，额外回复 ${restored} 点魔力。`);
 };
 
+const applyCorrodeOnArmorGain = (side: RelicSide, amount: number, source: string) => {
+  const gained = Math.max(0, Math.floor(amount));
+  if (gained <= 0) return;
+  const target = getEntityBySide(side);
+  if (getEffectStacks(target, ET.CORRODE) <= 0) return;
+  const applied = applyEffect(target, ET.POISON_AMOUNT, gained, { source: 'effect:corrode' });
+  if (!applied) return;
+  const label = side === 'player' ? '我方' : '敌方';
+  log(`<span class="text-lime-300">${label}[腐蚀] ${source}获得 ${gained} 点护甲，获得 ${gained} 点中毒量。</span>`);
+};
+
 const addArmorForSide = (side: RelicSide, amount: number): number => {
   const value = Math.max(0, Math.floor(amount));
   if (value <= 0) return 0;
   const target = getEntityBySide(side);
   const added = applyEffect(target, ET.ARMOR, value, { source: 'relic' }) ? value : 0;
   if (added > 0) {
+    applyCorrodeOnArmorGain(side, added, '圣遗物');
     pushFloatingNumber(side, added, 'shield', '+');
     if (side === 'player') {
       handlePlayerArmorGainFromSingleEvent(added, '圣遗物');
@@ -2541,12 +2554,17 @@ const applyStatusEffectWithRelics = (
     return false;
   }
   const hpBeforeApply = target.hp;
+  const armorBeforeApply = effectType === ET.ARMOR ? getEffectStacks(target, ET.ARMOR) : 0;
   const applied = applyEffect(target, effectType, value, {
     restrictedTypes: options?.restrictedTypes,
     source: options?.source,
     lockDecayThisTurn: options?.lockDecayThisTurn,
     durationTurns: options?.durationTurns,
   });
+  if (applied && effectType === ET.ARMOR) {
+    const armorGained = Math.max(0, getEffectStacks(target, ET.ARMOR) - armorBeforeApply);
+    applyCorrodeOnArmorGain(side, armorGained, options?.source ? `因 ${options.source} ` : '');
+  }
   const hpLossFromNonLivingConversion = Math.max(0, hpBeforeApply - target.hp);
   if (
     !applied
@@ -3384,6 +3402,7 @@ const applyCardEffectsByTrigger = (
           || ce.effectType === ET.STUN
           || ce.effectType === ET.CONTROLLED
           || ce.effectType === ET.BLEED
+          || ce.effectType === ET.CORRODE
           || ce.effectType === ET.CO_DAMAGE,
       });
       if (!applied) {
@@ -5632,7 +5651,9 @@ const selectEnemyTwinCards = (): [CardData, CardData] => {
       enemyStats: enemyStats.value,
       playerStats: playerStats.value,
       deck: combatState.value.enemyDeck,
-      playerHand: combatState.value.playerHand.slice(0, 3),
+      playerHand: combatState.value.playerHand,
+      playerDeck: combatState.value.playerDeck,
+      playerDiscard: combatState.value.discardPile,
       turn: combatState.value.turn,
       flags: aiFlags,
     };
@@ -5744,7 +5765,9 @@ function selectEnemyCard(): CardData {
       enemyStats: enemyStats.value,
       playerStats: playerStats.value,
       deck: combatState.value.enemyDeck,
-      playerHand: combatState.value.playerHand.slice(0, 3),
+      playerHand: combatState.value.playerHand,
+      playerDeck: combatState.value.playerDeck,
+      playerDiscard: combatState.value.discardPile,
       turn: combatState.value.turn,
       flags: aiFlags,
     };
@@ -7196,7 +7219,7 @@ const resolveCombat = async (
     }
 
     if (card.id === 'enemy_muxinlan_liquid_fire') {
-      const appliedCold = Math.max(0, Math.floor(finalPoint));
+      const appliedCold = Math.max(0, Math.floor(finalPoint * 0.6));
       if (appliedCold > 0) {
         applyStatusEffectWithRelics(defenderSide, ET.COLD, appliedCold, { source: card.id });
         log(`<span class="text-sky-300">${label}【${card.name}】施加了 ${appliedCold} 层寒冷</span>`);
@@ -7247,8 +7270,76 @@ const resolveCombat = async (
 
     if (card.id === 'enemy_muxinlan_cunning') {
       applyStatusEffectWithRelics(defenderSide, ET.PEEP_FORBIDDEN, 1, { source: card.id });
-      applyStatusEffectWithRelics(defenderSide, ET.COGNITIVE_INTERFERENCE, 1, { source: card.id });
-      log(`<span class="text-violet-300">${label}【${card.name}】使对手陷入虚实不明与敌意隐藏</span>`);
+      log(`<span class="text-violet-300">${label}【${card.name}】使对手陷入虚实不明</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_set_ambush' && source === 'enemy' && resolvedPlayerCard.type === CardType.DODGE) {
+      applyStatusEffectWithRelics('player', ET.VULNERABLE, 1, { source: card.id });
+      log(`<span class="text-amber-300">${label}【${card.name}】看穿闪避，使我方获得 1 层易伤</span>`);
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_corrosive_liquid') {
+      const armorStacks = Math.max(0, getEffectStacks(defender, ET.ARMOR));
+      if (armorStacks > 0) {
+        removeEffect(defender, ET.ARMOR);
+        log(`<span class="text-lime-300">${label}【${card.name}】清空了目标 ${armorStacks} 点护甲</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】目标没有护甲可清空</span>`);
+      }
+      applyStatusEffectWithRelics(defenderSide, ET.CORRODE, 1, { source: card.id, lockDecayThisTurn: true });
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_corrupt') {
+      const waste = getCardByName('炼金废料');
+      const targetHand = defenderSide === 'player' ? combatState.value.playerHand : [];
+      if (waste && targetHand.length > 0) {
+        const pickedIndex = Math.floor(Math.random() * targetHand.length);
+        const beforeName = targetHand[pickedIndex]?.name ?? '未知卡牌';
+        targetHand.splice(pickedIndex, 1, cloneCardForBattle(waste));
+        log(`<span class="text-lime-300">${label}【${card.name}】将未打出的【${beforeName}】腐化为【炼金废料】</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未找到可腐化的未打出手牌</span>`);
+      }
+      applyStatusEffectWithRelics(source, ET.STURDY, 1, { source: card.id });
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_muxinlan_sublimation') {
+      const isCurse = (entry: CardData) => entry.type === CardType.CURSE;
+      const removeCurses = (cards: CardData[]) => {
+        const removed = cards.filter(isCurse).length;
+        return { removed, kept: cards.filter(cardEntry => !isCurse(cardEntry)) };
+      };
+      let removedTotal = 0;
+      if (defenderSide === 'player') {
+        const hand = removeCurses(combatState.value.playerHand);
+        combatState.value.playerHand = hand.kept;
+        removedTotal += hand.removed;
+
+        const deck = removeCurses(combatState.value.playerDeck);
+        combatState.value.playerDeck = deck.kept;
+        removedTotal += deck.removed;
+
+        const discard = removeCurses(combatState.value.discardPile);
+        combatState.value.discardPile = discard.kept;
+        removedTotal += discard.removed;
+      }
+      const healEach = Math.max(0, Math.floor(attacker.maxHp * 0.1));
+      let healedTotal = 0;
+      for (let i = 0; i < removedTotal; i += 1) {
+        healedTotal += healForSide(source, healEach, {
+          sourceSide: source,
+          reason: `卡牌【${card.name}】治疗`,
+        }).healed;
+      }
+      log(`<span class="text-emerald-300">${label}【${card.name}】移除了 ${removedTotal} 张诅咒牌，回复 ${healedTotal} 点生命</span>`);
       finalizeAndTrack();
       return;
     }

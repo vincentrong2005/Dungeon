@@ -225,6 +225,8 @@ export enum EffectType {
   POISON_AMOUNT = '\u4e2d\u6bd2\u91cf',
   /** 侵蚀 — 达到30层时将目标生命上限归0（无视复活） */
   CORROSION = '侵蚀',
+  /** 腐蚀 — 获得护甲时获得等量中毒量，每回合结束层数-1 */
+  CORRODE = '腐蚀',
   /** 燃烧 — 每回合固定减少生命 */
   BURN = '燃烧',
   /** 流血 — 拼点时造成真实伤害 */
@@ -501,6 +503,10 @@ export interface EnemyAIContext {
   deck: CardData[];
   /** 玩家当前手牌（最多传入3张用于读心类逻辑） */
   playerHand?: readonly CardData[];
+  /** 玩家抽牌堆 */
+  playerDeck?: readonly CardData[];
+  /** 玩家弃牌堆 */
+  playerDiscard?: readonly CardData[];
   /** 当前回合数 */
   turn: number;
   /**
