@@ -1347,7 +1347,7 @@ const 血债重击: CardData = {
   description: '自伤3并造成1倍点数伤害；每损失3点生命，点数+1，固定施加3层流血',
 };
 
-/** 赤痕爆裂：点数*2，造成2倍伤害；触发对方1次流血并赋予0.5倍点数流血，自身流血+2 */
+/** 赤痕爆裂：点数*2，造成1倍伤害；触发对方1次流血并赋予0.5倍点数流血，自身流血+2 */
 const 赤痕爆裂: CardData = {
   id: 'bloodpool_scar_burst',
   name: '赤痕爆裂',
@@ -1356,13 +1356,13 @@ const 赤痕爆裂: CardData = {
   rarity: '稀有',
   manaCost: 6,
   calculation: { multiplier: 2.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 2, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 1, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '消耗6MP，点数*2，造成2倍伤害，触发对方1次流血并赋予0.5倍点数流血，自身流血+2',
+  description: '消耗6MP，点数*2，造成1倍伤害，触发对方1次流血并赋予0.5倍点数流血，自身流血+2',
 };
 
 /** 血位倒转：互换双方当前生命百分比 */

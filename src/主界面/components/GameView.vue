@@ -2845,6 +2845,65 @@
           </div>
         </Transition>
 
+        <!-- Chest Mimic Relic Drop Overlay -->
+        <Transition name="combat-fade">
+          <div v-if="showMimicRelicDropView" class="absolute inset-0 z-[102] bg-black/90">
+            <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
+              <div
+                class="mimic-drop-panel w-full max-w-xl rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]"
+              >
+                <div class="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-heading text-xl text-dungeon-gold">宝箱怪掉落</div>
+                    <div class="text-xs text-dungeon-paper/65 mt-1">选择是否带走这件圣遗物</div>
+                  </div>
+                </div>
+
+                <button
+                  v-if="mimicRelicDropEntry"
+                  type="button"
+                  class="mimic-drop-relic"
+                  @mouseenter="showRelicTooltip($event, mimicRelicDropEntry)"
+                  @mouseleave="hideRelicTooltip"
+                  @focus="showRelicTooltip($event, mimicRelicDropEntry)"
+                  @blur="hideRelicTooltip"
+                  @touchstart.passive="handleRelicTouchStart($event, mimicRelicDropEntry)"
+                  @touchend="handleRelicTouchEnd"
+                  @touchcancel="handleRelicTouchEnd"
+                >
+                  <Box class="mimic-drop-icon" />
+                  <div class="mimic-drop-copy">
+                    <div class="mimic-drop-name">{{ mimicRelicDropEntry.name }}</div>
+                    <div class="mimic-drop-meta">
+                      {{ formatRarityLabel(mimicRelicDropRelic?.rarity ?? '普通') }} · {{ mimicRelicDropEntry.category }}
+                    </div>
+                    <div class="mimic-drop-effect">{{ mimicRelicDropEntry.effect }}</div>
+                  </div>
+                </button>
+
+                <div class="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50 disabled:opacity-50"
+                    :disabled="mimicRelicDropApplying"
+                    @click="skipMimicRelicDrop"
+                  >
+                    放弃
+                  </button>
+                  <button
+                    type="button"
+                    class="px-4 py-2 rounded border border-dungeon-gold/55 bg-dungeon-gold/10 text-dungeon-gold hover:bg-dungeon-gold/15 disabled:opacity-50"
+                    :disabled="mimicRelicDropApplying || !mimicRelicDropRelic"
+                    @click="acceptMimicRelicDrop"
+                  >
+                    带走
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
         <!-- Victory Card Reward Overlay -->
         <Transition name="combat-fade">
           <div v-if="showVictoryRewardView" class="absolute inset-0 z-[102] bg-black/90">
@@ -3366,6 +3425,9 @@ type VictoryRewardStage = 'pick' | 'replaceDeck' | 'replaceActive';
 const victoryRewardStage = ref<VictoryRewardStage>('pick');
 const victoryRewardOptions = ref<VictoryRewardItem[]>([]);
 const selectedVictoryRewardCard = ref<VictoryRewardItem | null>(null);
+const showMimicRelicDropView = ref(false);
+const mimicRelicDropRelic = ref<RelicData | null>(null);
+const mimicRelicDropApplying = ref(false);
 const rewardApplying = ref(false);
 const rewardRefreshUsed = ref(false);
 const rewardIsNormalEnemy = ref(false);
@@ -3480,13 +3542,18 @@ interface PersistedVictoryState {
   isNormalEnemy: boolean;
 }
 
+interface PersistedMimicRelicDropState {
+  relicId: string;
+}
+
 interface PersistedOverlaySnapshot {
   version: 1;
-  active: 'none' | 'shop' | 'chest' | 'idol' | 'victoryReward';
+  active: 'none' | 'shop' | 'chest' | 'idol' | 'victoryReward' | 'mimicRelicDrop';
   shop?: PersistedShopState;
   chest?: PersistedChestState;
   idol?: PersistedIdolState;
   victory?: PersistedVictoryState;
+  mimicRelicDrop?: PersistedMimicRelicDropState;
 }
 
 const OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v1';
@@ -5027,6 +5094,18 @@ const chestRewardEntries = computed<RelicEntryView[]>(() =>
     description: relic.description ?? relic.effect ?? '',
   })),
 );
+const mimicRelicDropEntry = computed<RelicEntryView | null>(() => {
+  const relic = mimicRelicDropRelic.value;
+  if (!relic) return null;
+  return {
+    name: relic.name,
+    count: 1,
+    rarity: relic.rarity,
+    category: relic.category,
+    effect: relic.effect,
+    description: relic.description ?? relic.effect ?? '',
+  };
+});
 
 const clearRelicTooltipTimers = () => {
   if (relicTooltipLongPressTimer) {
@@ -6459,6 +6538,9 @@ const resetTransientUiState = () => {
   isVariableUpdateOpen.value = false;
   showCombat.value = false;
   showVictoryRewardView.value = false;
+  showMimicRelicDropView.value = false;
+  mimicRelicDropRelic.value = null;
+  mimicRelicDropApplying.value = false;
   closeShopView();
   closeChestView();
   closeIdolView();
@@ -6495,13 +6577,16 @@ const isButtonCompletionTargetVisible = (target: ButtonCompletionMenuKey): boole
 const handleOptionCompletionItemClick = async (target: ButtonCompletionMenuKey) => {
   if (gameStore.isGenerating) return;
 
-  if (target === 'special' && !currentRoomSpecialOptionConfig.value) {
+  if (target === 'special' && !resolveCurrentRoomSpecialOptionConfig(true)) {
     closeOptionCompletionMenu();
     toastr.warning('当前房间没有可补全的特殊选项。');
     return;
   }
 
   const wasVisible = isButtonCompletionTargetVisible(target);
+  if (target === 'special') {
+    consumedSpecialRoomFingerprint.value = '';
+  }
   gameStore.showManualButtonCompletion(target);
 
   if (target === 'leave') {
@@ -6627,15 +6712,17 @@ const restoreCurrentSpecialOption = () => {
   }
 };
 
-const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => {
+const resolveCurrentRoomSpecialOptionConfig = (ignoreConsumed = false): RoomConfig | null => {
   if (isShopContext.value) return ROOM_TYPE_CONFIG['商店房'];
-  if (isCurrentSpecialConsumed.value) return null;
+  if (!ignoreConsumed && isCurrentSpecialConsumed.value) return null;
   if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
   const roomType = gameStore.statData._当前房间类型 as string;
   if (!roomType) return null;
   if (roomType === '事件房' || roomType === '陷阱房') return null;
   return ROOM_TYPE_CONFIG[roomType] ?? null;
-});
+};
+
+const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => resolveCurrentRoomSpecialOptionConfig());
 
 // E option: no button for 事件房 / 陷阱房
 const specialOptionConfig = computed<RoomConfig | null>(() => {
@@ -6730,7 +6817,8 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
   return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
 };
 
-const isFastModeSyncRoomType = (roomType: string): boolean => roomType === '商店房' || roomType === '领主房';
+const isFastModeSyncRoomType = (roomType: string): boolean =>
+  roomType === '商店房' || roomType === '领主房' || roomType === '陷阱房';
 
 const submitGameAction = async (text: string, targetRoomType: string, type = 'action') => {
   if (!gameStore.fastModeEnabled) {
@@ -6906,6 +6994,13 @@ const finalizeVictoryRewardFlow = () => {
   if (!narrative) return;
   if (narrative.context === 'shopRobbery') return;
   sendCombatNarrativeOnce(narrative, narrative.text);
+};
+
+const continuePostCombatRewardFlow = () => {
+  const hasRewardOptions = startVictoryRewardFlow();
+  if (!hasRewardOptions) {
+    finalizeVictoryRewardFlow();
+  }
 };
 
 const exitVictoryRewardFlow = () => {
@@ -7584,6 +7679,13 @@ const rollChestRewardRarity = (): RelicData['rarity'] => {
   return '传奇';
 };
 
+const rollChestMimicRelicDropRarity = (): RelicData['rarity'] => {
+  const rarityRoll = Math.random();
+  if (rarityRoll < 0.7) return '普通';
+  if (rarityRoll < 0.95) return '稀有';
+  return '传奇';
+};
+
 const rollChestRewardCount = (): number => (Math.random() < 0.8 ? 1 : 2);
 
 const pickChestRewardRelics = (count: number): RelicData[] => {
@@ -7612,6 +7714,55 @@ const pickChestRewardRelics = (count: number): RelicData[] => {
   }
 
   return picked;
+};
+
+const pickChestMimicRelicDrop = (): RelicData | null => {
+  const targetRarity = rollChestMimicRelicDropRarity();
+  const candidatePool = [...selectableRelicPool.value];
+  if (candidatePool.length === 0) return null;
+  return pickOne(candidatePool.filter(relic => relic.rarity === targetRarity)) ?? pickOne(candidatePool);
+};
+
+const startMimicRelicDropFlow = (relic: RelicData): void => {
+  mimicRelicDropRelic.value = relic;
+  mimicRelicDropApplying.value = false;
+  showMimicRelicDropView.value = true;
+  recordEncounteredRelics([relic.id]);
+};
+
+const finishMimicRelicDropFlow = () => {
+  showMimicRelicDropView.value = false;
+  mimicRelicDropRelic.value = null;
+  mimicRelicDropApplying.value = false;
+  hideRelicTooltip();
+  continuePostCombatRewardFlow();
+};
+
+const acceptMimicRelicDrop = () => {
+  if (mimicRelicDropApplying.value) return;
+  const relic = mimicRelicDropRelic.value;
+  if (!relic) {
+    finishMimicRelicDropFlow();
+    return;
+  }
+
+  mimicRelicDropApplying.value = true;
+  const nextRelics = buildNextRelicInventory(relic);
+  gameStore.mergePendingStatDataChanges(buildInventoryUpdateFields({ _圣遗物: nextRelics }));
+  if (pendingCombatNarrative.value) {
+    pendingCombatNarrative.value.text += `\n<user>宝箱怪额外掉落了圣遗物${relic.name}（${formatRarityLabel(relic.rarity)}），<user>选择将其带走。`;
+  }
+  toastr.success(`获得圣遗物：${relic.name}（${formatRarityLabel(relic.rarity)}）`);
+  finishMimicRelicDropFlow();
+};
+
+const skipMimicRelicDrop = () => {
+  if (mimicRelicDropApplying.value) return;
+  const relic = mimicRelicDropRelic.value;
+  if (relic && pendingCombatNarrative.value) {
+    pendingCombatNarrative.value.text += `\n<user>宝箱怪额外掉落了圣遗物${relic.name}（${formatRarityLabel(relic.rarity)}），但<user>没有带走。`;
+  }
+  finishMimicRelicDropFlow();
 };
 
 const queueChestMimicCombatTransition = () => {
@@ -7831,6 +7982,15 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
       },
     };
   }
+  if (showMimicRelicDropView.value && mimicRelicDropRelic.value) {
+    return {
+      version: 1,
+      active: 'mimicRelicDrop',
+      mimicRelicDrop: {
+        relicId: mimicRelicDropRelic.value.id,
+      },
+    };
+  }
   if (showVictoryRewardView.value) {
     return {
       version: 1,
@@ -7991,6 +8151,19 @@ const restoreOverlaySnapshot = () => {
       return;
     }
 
+    if (parsed.active === 'mimicRelicDrop' && parsed.mimicRelicDrop) {
+      const relic = relicByIdMap.value.get(parsed.mimicRelicDrop.relicId) ?? getRelicById(parsed.mimicRelicDrop.relicId);
+      if (!relic) {
+        localStorage.removeItem(OVERLAY_STATE_KEY);
+        return;
+      }
+      mimicRelicDropRelic.value = relic;
+      mimicRelicDropApplying.value = false;
+      showMimicRelicDropView.value = true;
+      recordEncounteredRelics([relic.id]);
+      return;
+    }
+
     if (parsed.active === 'victoryReward' && parsed.victory) {
       const victoryData = parsed.victory as PersistedVictoryState & {
         optionCardIds?: string[];
@@ -8035,6 +8208,7 @@ watch(
     showShopView,
     showIdolView,
     showVictoryRewardView,
+    showMimicRelicDropView,
     chestStage,
     chestRolling,
     chestRewardRelics,
@@ -8060,6 +8234,8 @@ watch(
     victoryRewardStage,
     victoryRewardOptions,
     selectedVictoryRewardCard,
+    mimicRelicDropRelic,
+    mimicRelicDropApplying,
     rewardRefreshUsed,
     rewardIsNormalEnemy,
   ],
@@ -9008,10 +9184,16 @@ const handleCombatEnd = async (
     }
   }
 
-  const hasRewardOptions = startVictoryRewardFlow();
-  if (!hasRewardOptions) {
-    finalizeVictoryRewardFlow();
+  if (context === 'chestMimic' && enemyName === '宝箱怪') {
+    const droppedRelic = pickChestMimicRelicDrop();
+    if (droppedRelic) {
+      startMimicRelicDropFlow(droppedRelic);
+      console.log('[Combat] Result:', 'WIN');
+      return;
+    }
   }
+
+  continuePostCombatRewardFlow();
   console.log('[Combat] Result:', 'WIN');
 };
 
@@ -11190,6 +11372,68 @@ onBeforeUnmount(() => {
   transform: scale(0.82);
   filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.45)) drop-shadow(0 0 16px rgba(245, 158, 11, 0.25))
     drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+}
+
+.mimic-drop-panel {
+  transform: scale(1.18);
+}
+
+.mimic-drop-relic {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 4.6rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  border: 1px solid rgba(120, 75, 34, 0.62);
+  border-radius: 0.65rem;
+  background:
+    linear-gradient(145deg, rgba(26, 15, 8, 0.88), rgba(14, 9, 6, 0.9)),
+    radial-gradient(circle at 18% 10%, rgba(251, 191, 36, 0.14), transparent 58%);
+  padding: 1rem;
+  text-align: left;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    filter 0.2s ease;
+}
+
+.mimic-drop-relic:hover,
+.mimic-drop-relic:focus-visible {
+  border-color: rgba(251, 191, 36, 0.72);
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.mimic-drop-icon {
+  width: 4.2rem;
+  height: 4.2rem;
+  color: rgba(252, 211, 77, 0.95);
+  filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.48)) drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+}
+
+.mimic-drop-copy {
+  min-width: 0;
+}
+
+.mimic-drop-name {
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  color: rgba(251, 191, 36, 0.98);
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.mimic-drop-meta {
+  margin-top: 0.18rem;
+  color: rgba(255, 243, 214, 0.62);
+  font-size: 0.76rem;
+}
+
+.mimic-drop-effect {
+  margin-top: 0.55rem;
+  color: rgba(255, 243, 214, 0.88);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .shop-panel {

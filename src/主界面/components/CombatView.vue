@@ -1364,7 +1364,7 @@ watch(
   { deep: true },
 );
 
-// 用于“被吞食”判定：记录当前用于出牌限制判定的裸骰点数（重掷后同步更新）
+// 记录本回合未经过充能/银币等修正的掷骰值，供主动技重掷与点数调整同步使用。
 const playerTurnRawDice = ref(1);
 const enemyTurnRawDice = ref(1);
 
@@ -5789,7 +5789,7 @@ function selectEnemyCard(): CardData {
   }
 
   const runtimeCard = withEffectiveManaCost('enemy', selectedCard);
-  const check = canPlayCard(enemyStats.value, runtimeCard, enemyTurnRawDice.value);
+  const check = canPlayCard(enemyStats.value, runtimeCard, combatState.value.enemyBaseDice);
   if (!check.allowed) {
     log(`<span class="text-gray-400">敌方无法出牌：${check.reason ?? '本回合跳过。'}</span>`);
     return PASS_CARD;
@@ -6320,7 +6320,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     if (runtimeCard.traits.combo) {
       const allowedTypes = getTwinDirectComboAllowedTypes();
       const controlledExpectedType = allowedTypes.length === 1 ? allowedTypes[0] : null;
-      const check = canPlayCard(playerStats.value, runtimeCard, playerTurnRawDice.value, {
+      const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
         controlledExpectedType,
       });
       const controlledReason = check.allowed ? getTwinDirectComboControlledReason(runtimeCard) : null;
@@ -6353,7 +6353,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
       if (!intentCard || intentCard.id === PASS_CARD.id) return null;
       return intentCard.type;
     })();
-    const check = canPlayCard(playerStats.value, runtimeCard, playerTurnRawDice.value, {
+    const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
       controlledExpectedType,
     });
     if (!check.allowed) {
@@ -6383,7 +6383,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     if (!intentCard || intentCard.id === PASS_CARD.id) return null;
     return intentCard.type;
   })();
-  const check = canPlayCard(playerStats.value, runtimeCard, playerTurnRawDice.value, {
+  const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
     controlledExpectedType,
   });
   if (!check.allowed) {
@@ -6747,10 +6747,6 @@ const resolveCombat = async (
     if (clashWinner === 'enemy') {
       changeRerollCharges('player', 1);
       log('<span class="text-amber-300">拼点失败：重掷次数 +1</span>');
-      const lanternCount = getActiveRelicCount('burn_flame_lantern');
-      if (lanternCount > 0 && applyStatusEffectWithRelics('enemy', ET.BURN, 2 * lanternCount, { source: 'relic:burn_flame_lantern' })) {
-        logRelicMessage(`[火焰灯笼] 拼点失败后，对敌方施加 ${2 * lanternCount} 层燃烧。`);
-      }
       const resonanceCount = getActiveRelicCount('bloodpool_halfline_resonance');
       if (resonanceCount > 0) {
         const bleedStacks = 3 * resonanceCount;
@@ -6767,6 +6763,12 @@ const resolveCombat = async (
       clearBurnForSide('player', '拼点胜利。');
     } else if (clashWinner === 'enemy') {
       clearBurnForSide('enemy', '拼点胜利。');
+    }
+    if (clashWinner === 'enemy') {
+      const lanternCount = getActiveRelicCount('burn_flame_lantern');
+      if (lanternCount > 0 && applyStatusEffectWithRelics('enemy', ET.BURN, 2 * lanternCount, { source: 'relic:burn_flame_lantern' })) {
+        logRelicMessage(`[火焰灯笼] 拼点失败后，对敌方施加 ${2 * lanternCount} 层燃烧。`);
+      }
     }
     if (clashWinner === 'player') {
       const pointMarkCount = getActiveRelicCount('bloodpool_clash_point_mark');
