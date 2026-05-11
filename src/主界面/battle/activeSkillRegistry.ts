@@ -244,6 +244,52 @@ const 活性储存: ActiveSkillData = {
   description: '自伤50%当前生命值并储存，再次使用则返还等量生命值',
 };
 
+const 解毒剂: ActiveSkillData = {
+  id: 'active_alchemy_antidote',
+  name: '解毒剂',
+  type: CardType.ACTIVE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 2,
+  Cooldown: 8,
+  description: '清除自身所有负面状态，每清除1层回复1点生命',
+};
+
+const 提纯: ActiveSkillData = {
+  id: 'active_alchemy_purify',
+  name: '提纯',
+  type: CardType.ACTIVE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 2,
+  maxUses: 3,
+  description: '在本场战斗中移除手牌中的一张牌，每场战斗限3次。',
+};
+
+const 物质分解: ActiveSkillData = {
+  id: 'active_alchemy_decompose',
+  name: '物质分解',
+  type: CardType.ACTIVE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 2,
+  maxUses: 3,
+  description: '随机使一张非诅咒手牌在本场战斗中变为炼金废料，获得2金币，回复5生命。每场战斗限3次。',
+};
+
+const 增值: ActiveSkillData = {
+  id: 'active_alchemy_appreciate',
+  name: '增值',
+  type: CardType.ACTIVE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 3,
+  Cooldown: 8,
+  description: '选择一张手牌，将其一张复制品在本场战斗中置入弃牌堆。',
+};
+
 const ACTIVE_SKILL_REGISTRY: readonly ActiveSkillData[] = [
   重来问号,
   你也重来问号,
@@ -267,6 +313,10 @@ const ACTIVE_SKILL_REGISTRY: readonly ActiveSkillData[] = [
   悲喜交加,
   恶魔契约,
   活性储存,
+  解毒剂,
+  提纯,
+  物质分解,
+  增值,
 ];
 
 const LEGACY_ACTIVE_SKILL_NAME_ALIASES: ReadonlyMap<string, string> = new Map<string, string>([

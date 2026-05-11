@@ -2091,8 +2091,8 @@ const 温蒂尼: EnemyDefinition = {
   name: '温蒂尼',
   defeatNegativeStatus: '[被侵蚀]',
   stats: {
-    hp: 35,
-    maxHp: 35,
+    hp: 40,
+    maxHp: 40,
     mp: 0,
     minDice: 3,
     maxDice: 8,

@@ -1,7 +1,7 @@
 ﻿import { CardType, EffectType, type CardData, type EntityStats } from '../types';
 
 export type RelicRarity = '普通' | '稀有' | '传奇';
-export type RelicCategory = '基础' | '魔导' | '燃烧' | '严寒' | '血池';
+export type RelicCategory = '基础' | '魔导' | '燃烧' | '严寒' | '血池' | '炼金';
 
 export type RelicSide = 'player' | 'enemy';
 export type RelicFloatKind = 'shield' | 'mana' | 'heal';
@@ -918,10 +918,10 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '黑沙漏',
     rarity: '稀有',
     category: '燃烧',
-    effect: '回合开始时，施加1层温差、燃烧与寒冷',
-    description: '回合开始时，施加1层温差、燃烧与寒冷。',
+    effect: '战斗开始时，施加1层温差、燃烧与寒冷',
+    description: '战斗开始时，施加1层温差、燃烧与寒冷。',
     hooks: {
-      onTurnStart: ({ count, side, addStatusEffect }) => {
+      onBattleStart: ({ count, side, addStatusEffect }) => {
         const targetSide: RelicSide = side === 'player' ? 'enemy' : 'player';
         const stacks = Math.max(1, Math.floor(count));
         addStatusEffect(targetSide, EffectType.TEMPERATURE_DIFF, stacks, { source: 'relic:burn_black_hourglass' });
@@ -1277,6 +1277,28 @@ const RELIC_LIST: readonly RelicData[] = [
     category: '魔导',
     effect: '每回合结束时，消耗1MP造成2点伤害',
     description: '每回合结束时，若有足够魔力则消耗1点魔力并对敌方造成2点伤害。',
+  },
+  {
+    id: 'modao_healing_doll',
+    name: '治疗玩偶',
+    rarity: '稀有',
+    category: '魔导',
+    effect: '回合开始时，生命低于50%且魔力足够时消耗3MP回复5点生命，每场战斗限2次',
+    description: '回合开始时，若自身生命低于50%且魔力足够，消耗3点魔力回复5点生命。每场战斗限2次。',
+    hooks: {
+      onBattleStart: ({ state }) => {
+        state['triggeredThisCombat'] = 0;
+      },
+      onTurnStart: ({ side, self, state, spendMana, heal, addLog }) => {
+        const triggered = Math.max(0, Math.floor(Number(state['triggeredThisCombat'] ?? 0)));
+        if (triggered >= 2) return;
+        if (self.maxHp <= 0 || self.hp * 2 >= self.maxHp) return;
+        if (!spendMana(side, 3, '治疗玩偶')) return;
+        state['triggeredThisCombat'] = triggered + 1;
+        const { healed } = heal(side, 5);
+        addLog(`[治疗玩偶] 消耗3点魔力，回复 ${healed} 点生命（${triggered + 1}/2）。`);
+      },
+    },
   },
   {
     id: 'modao_witch_hat',
@@ -1771,6 +1793,124 @@ const RELIC_LIST: readonly RelicData[] = [
     category: '血池',
     effect: '战斗中首次生命低于一半时，回复10点生命',
     description: '每场战斗中，第一次生命值低于50%时，立即回复10点生命。',
+  },
+  {
+    id: 'alchemy_chromatic_mushroom',
+    name: '幻彩菇',
+    rarity: '稀有',
+    category: '炼金',
+    effect: '对敌方单次施加元素负面时最低2层；牌组无重复时最低3层',
+    description: '对敌方单次施加元素负面状态时，层数不会低于2；若牌组中没有重复卡牌，则不会低于3。',
+    uniqueAcquisition: true,
+  },
+  {
+    id: 'alchemy_five_color_potion',
+    name: '五色药剂',
+    rarity: '稀有',
+    category: '炼金',
+    effect: '牌组无重复时，战斗开始获得1层元素附加',
+    description: '若牌组中没有重复卡牌，战斗开始时获得1层元素附加。',
+  },
+  {
+    id: 'alchemy_five_color_paint',
+    name: '五色颜料',
+    rarity: '稀有',
+    category: '炼金',
+    effect: '手牌有3种不同类型时，非连击牌点数*1.5',
+    description: '出牌时若手牌中有3种不同类型的卡牌，非连击牌最终点数乘以1.5。',
+    uniqueAcquisition: true,
+  },
+  {
+    id: 'alchemy_midas_hand',
+    name: '点金手',
+    rarity: '传奇',
+    category: '炼金',
+    effect: '获得黑手印；牌组无重复时，战斗开始将诅咒牌变为随机稀有牌',
+    description: '获得时强制将一张牌替换为黑手印。若牌组中没有重复卡牌，战斗开始时将牌组中的所有诅咒牌临时变为随机稀有牌。',
+  },
+  {
+    id: 'alchemy_perfume_bottle',
+    name: '香水瓶',
+    rarity: '稀有',
+    category: '炼金',
+    effect: '牌组无重复时，战斗开始随机使一张非诅咒牌出牌点数翻倍',
+    description: '若牌组中没有重复卡牌，战斗开始时随机选定牌组中的一张非诅咒牌；本场战斗打出该牌时点数翻倍。',
+    uniqueAcquisition: true,
+  },
+  {
+    id: 'alchemy_five_color_ring',
+    name: '五色环',
+    rarity: '传奇',
+    category: '炼金',
+    effect: '牌组有4/5种卡牌类型时，最终点数*1.2/*1.5',
+    description: '若牌组中拥有4种卡牌类型，最终点数乘以1.2；若拥有5种卡牌类型，则乘以1.5（诅咒牌也计入类型）。',
+  },
+  {
+    id: 'alchemy_black_residue',
+    name: '黑色残渣',
+    rarity: '稀有',
+    category: '炼金',
+    effect: '获得肮脏；抽到诅咒牌时，对敌方造成等同原始点数的真实伤害',
+    description: '获得时强制将一张牌替换为肮脏。每当抽到诅咒牌时，对敌方造成等同我方原始点数的真实伤害。',
+    uniqueAcquisition: true,
+  },
+  {
+    id: 'alchemy_golden_apple',
+    name: '金苹果',
+    rarity: '稀有',
+    category: '炼金',
+    effect: '打出稀有牌点数+3；打出非稀有牌点数-2',
+    description: '打出稀有牌时最终点数+3；打出非稀有牌时最终点数-2。',
+    hooks: {
+      modifyFinalPoint: ({ card, currentPoint, count, isPreview, addLog }) => {
+        if (card.id === 'pass') return currentPoint;
+        const delta = card.rarity === '稀有' ? 3 * count : -2 * count;
+        if (!isPreview) {
+          addLog(`[金苹果] ${card.rarity === '稀有' ? '稀有牌' : '非稀有牌'}点数 ${delta >= 0 ? '+' : ''}${delta}。`);
+        }
+        return currentPoint + delta;
+      },
+    },
+  },
+  {
+    id: 'alchemy_voodoo_doll',
+    name: '巫毒娃娃',
+    rarity: '传奇',
+    category: '炼金',
+    effect: '牌组每2张诅咒牌点数+1；手牌每有1张诅咒牌点数+1',
+    description: '牌组中每有2张诅咒牌，最终点数+1；手牌中每有1张诅咒牌，最终点数+1。',
+  },
+  {
+    id: 'alchemy_rainbow_grass',
+    name: '彩虹草',
+    rarity: '稀有',
+    category: '炼金',
+    effect: '敌方每种负面状态使伤害牌伤害+1；自身每种负面状态使受到的伤害牌伤害-1',
+    description: '使用伤害牌时，敌方每有1种负面状态，本次伤害+1；受到伤害牌攻击时，自身每有1种负面状态，本次伤害-1。',
+  },
+  {
+    id: 'alchemy_dizzy_fruit',
+    name: '晕晕果',
+    rarity: '传奇',
+    category: '炼金',
+    effect: '回合开始时，使敌方负面状态层数至少等同自身对应负面状态层数',
+    description: '每回合开始时，同步自身负面状态到敌方，使敌方对应负面状态层数至少等同自身。',
+  },
+  {
+    id: 'alchemy_white_silk',
+    name: '白丝',
+    rarity: '传奇',
+    category: '炼金',
+    effect: '连击牌获得抽牌效果',
+    description: '所有连击牌获得抽牌效果。',
+  },
+  {
+    id: 'alchemy_black',
+    name: '黑色',
+    rarity: '传奇',
+    category: '炼金',
+    effect: '每回合第一张连击牌效果触发2次，但不会额外触发抽牌',
+    description: '每回合打出的第一张连击牌效果触发2次，但不会额外触发抽牌。',
   },
 ];
 

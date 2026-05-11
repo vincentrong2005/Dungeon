@@ -1308,7 +1308,14 @@ const 逆刃: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'point_scale', scale: 1.0, durationTurns: 1 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.STURDY,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+      durationTurns: 1,
+    },
   ],
   description: '自身获得1倍点数的坚固（持续1回合），本回合被击中时施加对方4层流血',
 };
@@ -1466,6 +1473,296 @@ const 血契护壁: CardData = {
   ],
   selfDamage: 3,
   description: '自伤3点生命，获得1.5倍点数护甲，连击',
+};
+
+// ── 炼金体系卡牌 ────────────────────────────────────────────────
+
+/** 异况超量：对方每有1种负面状态，点数+1 */
+const 异况超量: CardData = {
+  id: 'alchemy_abnormal_overload',
+  name: '异况超量',
+  type: CardType.PHYSICAL,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '对方每有1种负面状态，点数+1。造成1倍点数物理伤害',
+};
+
+/** 辉金打击：按本场战斗牌库稀有/诅咒数量获得加成 */
+const 辉金打击: CardData = {
+  id: 'alchemy_gilded_strike',
+  name: '辉金打击',
+  type: CardType.PHYSICAL,
+  category: '炼金',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '牌库中每有一张稀有牌，点数+2，造成1倍点数伤害。牌库中每有一张诅咒牌，施加2层燃烧。',
+};
+
+/** 五色花：施加五种元素状态 */
+const 五色花: CardData = {
+  id: 'alchemy_five_color_flower',
+  name: '五色花',
+  type: CardType.MAGIC,
+  category: '炼金',
+  rarity: '稀有',
+  manaCost: 8,
+  calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '消耗8MP，点数+3，施加0.5倍点数的所有元素状态',
+};
+
+/** 激发：触发元素持续伤害 */
+const 激发: CardData = {
+  id: 'alchemy_stimulate',
+  name: '激发',
+  type: CardType.MAGIC,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗3MP，触发一次对方的燃烧、中毒、流血和雷电',
+};
+
+/** 剧毒粘液：中毒附加，手牌中受击时自毒 */
+const 剧毒粘液: CardData = {
+  id: 'alchemy_venomous_slime',
+  name: '剧毒粘液',
+  type: CardType.MAGIC,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 6 },
+  ],
+  description: '消耗2MP，施加6层中毒，若这张牌处于手牌中且被敌方击中时，自身施加6层中毒',
+};
+
+/** 金色闪光：群攻，多段，无视闪避 */
+const 金色闪光: CardData = {
+  id: 'alchemy_golden_flash',
+  name: '金色闪光',
+  type: CardType.MAGIC,
+  category: '炼金',
+  rarity: '稀有',
+  manaCost: 8,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  ignoreDodge: true,
+  swarmAttack: true,
+  description: '消耗8MP，造成1倍点数伤害，手牌中每有一张稀有卡牌额外造成1次伤害，群攻，无视闪避。',
+};
+
+const 创建药剂 = (
+  id: string,
+  name: string,
+  effectType: EffectType | null,
+  effectName: string,
+  options: { rare?: boolean; combo?: boolean; firstCombo?: boolean } = {},
+): CardData => ({
+  id,
+  name,
+  type: CardType.FUNCTION,
+  category: '炼金',
+  rarity: options.rare ? '稀有' : '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: options.combo ?? false, firstCombo: options.firstCombo ?? false, reroll: 'none', draw: false },
+  cardEffects: effectType
+    ? [{ kind: 'apply_buff', effectType, target: 'self', valueMode: 'fixed', fixedValue: 1 }]
+    : [],
+  description: `获得1层${effectName}${options.firstCombo ? '，首发连击' : options.combo ? '，连击' : ''}`,
+});
+
+const 剧毒药剂 = 创建药剂('alchemy_poison_potion', '剧毒药剂', EffectType.POISON_ATTACH, '毒素附加', { firstCombo: true });
+const 撕裂药剂 = 创建药剂('alchemy_rend_potion', '撕裂药剂', EffectType.BLOODBLADE_ATTACH, '血刃附加', { firstCombo: true });
+const 燃烧药剂 = 创建药剂('alchemy_burning_potion', '燃烧药剂', EffectType.FLAME_ATTACH, '火焰附加', { firstCombo: true });
+const 冰霜药剂 = 创建药剂('alchemy_frost_potion', '冰霜药剂', EffectType.FROST_ATTACH, '冰霜附加', { firstCombo: true });
+const 雷霆药剂 = 创建药剂('alchemy_thunder_potion', '雷霆药剂', EffectType.LIGHTNING_ATTACH, '雷电附加', { firstCombo: true });
+
+const 回复药剂: CardData = {
+  id: 'alchemy_recovery_potion',
+  name: '回复药剂',
+  type: CardType.FUNCTION,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, firstCombo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '回复0.5倍点数生命与魔力，首发连击',
+};
+
+const 增效药剂: CardData = {
+  id: 'alchemy_empower_potion',
+  name: '增效药剂',
+  type: CardType.FUNCTION,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '？？？，连击',
+};
+
+const 增效剧毒药剂 = 创建药剂('alchemy_enhanced_poison_potion', '增效剧毒药剂', EffectType.POISON_ATTACH, '毒素附加', { rare: true, combo: true });
+const 增效撕裂药剂 = 创建药剂('alchemy_enhanced_rend_potion', '增效撕裂药剂', EffectType.BLOODBLADE_ATTACH, '血刃附加', { rare: true, combo: true });
+const 增效燃烧药剂 = 创建药剂('alchemy_enhanced_burning_potion', '增效燃烧药剂', EffectType.FLAME_ATTACH, '火焰附加', { rare: true, combo: true });
+const 增效冰霜药剂 = 创建药剂('alchemy_enhanced_frost_potion', '增效冰霜药剂', EffectType.FROST_ATTACH, '冰霜附加', { rare: true, combo: true });
+const 增效雷霆药剂 = 创建药剂('alchemy_enhanced_thunder_potion', '增效雷霆药剂', EffectType.LIGHTNING_ATTACH, '雷电附加', { rare: true, combo: true });
+
+const 增效回复药剂: CardData = {
+  ...回复药剂,
+  id: 'alchemy_enhanced_recovery_potion',
+  name: '增效回复药剂',
+  rarity: '稀有',
+  traits: { combo: true, reroll: 'none', draw: false },
+  description: '回复0.5倍点数生命与魔力，连击',
+};
+
+const 混合药剂 = 创建药剂('alchemy_mixed_potion', '混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { rare: true, combo: true });
+
+const 催化剂: CardData = {
+  id: 'alchemy_catalyst',
+  name: '催化剂',
+  type: CardType.FUNCTION,
+  category: '炼金',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '本回合对敌方施加的元素负面层数翻倍，不可叠加。连击，使用两次后，移除。',
+};
+
+const 魔女香水: CardData = {
+  id: 'alchemy_witch_perfume',
+  name: '魔女香水',
+  type: CardType.FUNCTION,
+  category: '炼金',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, firstCombo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若牌组中没有相同的牌，随机使牌组中一张非诅咒牌打出时获得点数*2的效果，不可叠加。首发连击。',
+};
+
+const 大炼成: CardData = {
+  id: 'alchemy_grand_synthesis',
+  name: '大炼成',
+  type: CardType.FUNCTION,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, firstCombo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '在本场战斗绑定牌库中的一张卡牌，使其获得打出时点数+1的效果，可叠加。首发连击。',
+};
+
+const 伪装: CardData = {
+  id: 'alchemy_camouflage',
+  name: '伪装',
+  type: CardType.DODGE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，抽到这张牌时，对方原始点数-1，闪避',
+};
+
+const 虚无: CardData = {
+  id: 'alchemy_void',
+  name: '虚无',
+  type: CardType.CURSE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
+  cardEffects: [],
+  description: '战斗开始时失去2点魔力并移除自身',
+};
+
+const 黑手印: CardData = {
+  id: 'alchemy_black_handprint',
+  name: '黑手印',
+  type: CardType.CURSE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
+  cardEffects: [],
+  description: '无法打出',
+};
+
+const 肮脏: CardData = {
+  id: 'alchemy_dirty',
+  name: '肮脏',
+  type: CardType.CURSE,
+  category: '炼金',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.POISON,
+      target: 'self',
+      valueMode: 'max_hp_percent',
+      scale: 0.15,
+    },
+  ],
+  description: '获得15%最大生命值的中毒，然后移除自身',
 };
 
 // ── 敌人卡牌定义 ────────────────────────────────────────────────
@@ -2602,7 +2899,8 @@ const SELINA_DIMENSION_STRIP: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成1倍点数伤害，并随机将对方的一层增益转移到自身。若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次',
+  description:
+    '造成1倍点数伤害，并随机将对方的一层增益转移到自身。若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次',
 };
 
 /** 空间折叠：消耗一半魔力并增加等量点数，造成固定5点伤害，对方骰子最小值-1 */
@@ -2617,9 +2915,7 @@ const SELINA_SPACE_FOLD: CardData = {
   damageLogic: { mode: 'fixed', value: 5 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'modify_dice', target: 'enemy', valueMode: 'fixed', fixedValue: 0, minDiceDelta: -1 },
-  ],
+  cardEffects: [{ kind: 'modify_dice', target: 'enemy', valueMode: 'fixed', fixedValue: 0, minDiceDelta: -1 }],
   description: '消耗一半魔力并增加等量点数，造成固定5点伤害，对方骰子最小值-1',
 };
 
@@ -2651,8 +2947,22 @@ const SELINA_HOSPITALITY: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'heal', target: 'enemy', valueMode: 'fixed', fixedValue: 10 },
-    { kind: 'apply_buff', effectType: EffectType.MEMORY_FOG, target: 'enemy', valueMode: 'fixed', fixedValue: 1, durationTurns: 3 },
-    { kind: 'apply_buff', effectType: EffectType.COGNITIVE_INTERFERENCE, target: 'enemy', valueMode: 'fixed', fixedValue: 1, durationTurns: 3 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.MEMORY_FOG,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+      durationTurns: 3,
+    },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.COGNITIVE_INTERFERENCE,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+      durationTurns: 3,
+    },
   ],
   description: '回复对方10点生命值，为对方施加3回合的视野模糊与敌意隐藏',
 };
@@ -3199,7 +3509,7 @@ const DREAM_DEMON_TWIN_MISA_GATHER_NET: CardData = {
   description: '点数+10，造成0.2倍点数伤害，3连击',
 };
 
-/** 弥纱·噩梦主宰：点数x10，造成10倍点数真实伤害，无视防御 */
+/** 弥纱·噩梦主宰：点数x10，造成10倍点数真实伤害，无视闪避 */
 const DREAM_DEMON_TWIN_MISA_NIGHTMARE_DOMINATION: CardData = {
   id: 'enemy_dream_demon_twin_misa_nightmare_domination',
   name: '弥纱·噩梦主宰',
@@ -3212,7 +3522,8 @@ const DREAM_DEMON_TWIN_MISA_NIGHTMARE_DOMINATION: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数x10，造成10倍点数真实伤害，无视防御',
+  ignoreDodge: true,
+  description: '点数x10，造成10倍点数真实伤害，无视闪避',
 };
 
 /** 弥音·娇蛮践踏：造成1倍点数伤害并施加1层易伤，销毁 */
@@ -5113,7 +5424,13 @@ const FLESH_WALL_WORM_SLIME_SPIT: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
-    { kind: 'apply_buff', effectType: EffectType.ANESTHESIA_DEPTH, target: 'enemy', valueMode: 'fixed', fixedValue: 10 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.ANESTHESIA_DEPTH,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 10,
+    },
   ],
   description: '施加3层电击与10层麻醉深度',
 };
@@ -5129,9 +5446,7 @@ const FLESH_WALL_WORM_FLESH_WALL_BREATH: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 },
-  ],
+  cardEffects: [{ kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 }],
   description: '回复自身2倍点数血量',
 };
 
@@ -5182,7 +5497,13 @@ const FLESH_WALL_WORM_RHYTHMIC_PRESS: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ANESTHESIA_DEPTH, target: 'enemy', valueMode: 'fixed', fixedValue: 20 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.ANESTHESIA_DEPTH,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 20,
+    },
     { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
     { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
@@ -6223,7 +6544,7 @@ const 虚伪笑容: CardData = {
   description: '闪避，闪避成功或对方跳过回合后，为自己施加2倍点数的蓄力',
 };
 
-/** 植物统御：造成0.5倍点数伤害并施加99层束缚 */
+/** 植物统御：点数+2，造成0.5倍点数伤害并施加2层束缚 */
 const 植物统御: CardData = {
   id: 'enemy_rose_plant_dominion',
   name: '植物统御',
@@ -6231,7 +6552,7 @@ const 植物统御: CardData = {
   category: '敌人',
   rarity: '普通',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
+  calculation: { multiplier: 1.0, addition: 2 },
   damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
@@ -6241,10 +6562,10 @@ const 植物统御: CardData = {
       effectType: EffectType.BIND,
       target: 'enemy',
       valueMode: 'fixed',
-      fixedValue: 99,
+      fixedValue: 2,
     },
   ],
-  description: '造成0.5倍点数伤害并施加99层束缚',
+  description: '点数+2，造成0.5倍点数伤害并施加2层束缚',
 };
 
 /** 王志鞭挞：造成1倍点数伤害，若目标有束缚则伤害+2（结算逻辑在 CombatView） */
@@ -6582,11 +6903,11 @@ const 炼金废料: CardData = {
   category: '敌人',
   rarity: '普通',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: -2 },
+  calculation: { multiplier: 1.0, addition: -3 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: true },
   cardEffects: [],
-  description: '点数-2，连击，过牌',
+  description: '点数-3，连击，过牌。暂时无用的废料。',
 };
 
 /** 惑心咒：开局仅使用一次，为对手施加虚实不明（结算逻辑在 CombatView） */
@@ -6612,15 +6933,15 @@ const 损毁: CardData = {
   category: '敌人',
   rarity: '普通',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
+  calculation: { multiplier: 0.4, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false, destroyOnClashWin: true },
   cardEffects: [],
-  description: '造成0.5倍最终点数的伤害，销毁',
+  description: '点数*0.4，造成0.5倍最终点数的伤害，销毁',
 };
 
-/** 清算：点数*2，移除对方所有元素debuff并按层数造成真实伤害（结算逻辑在 CombatView） */
+/** 清算：点数*2，移除对方所有元素debuff并按层数造成真实伤害，无视闪避（结算逻辑在 CombatView） */
 const 清算: CardData = {
   id: 'enemy_muxinlan_liquidation',
   name: '清算',
@@ -6633,7 +6954,8 @@ const 清算: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*2，移除对方所有元素debuff，每移除1层造成2点真实伤害',
+  ignoreDodge: true,
+  description: '点数*2，移除对方所有元素debuff，每移除1层造成2点真实伤害，无视闪避',
 };
 
 /** 不稳定试剂：点数*1.5，造成0.2倍最终点数伤害，5连击；每次命中随机附加一种元素debuff 1层（结算逻辑在 CombatView） */
@@ -6762,7 +7084,9 @@ const 腐化: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [{ kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 1 }],
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
   description: '将对方随机一张未打出的手牌腐化为炼金废料，自身获得1层坚固',
 };
 
@@ -6815,7 +7139,14 @@ const 法力涌动: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
-    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 2, durationTurns: 1 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.STURDY,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 2,
+      durationTurns: 1,
+    },
   ],
   description: '回复1倍点数的魔力，获得2层坚固（持续1回合）',
 };
@@ -7509,6 +7840,33 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [血影回身.name, 血影回身],
   [血幕回避.name, 血幕回避],
   [血契护壁.name, 血契护壁],
+  [异况超量.name, 异况超量],
+  [辉金打击.name, 辉金打击],
+  [五色花.name, 五色花],
+  [激发.name, 激发],
+  [剧毒粘液.name, 剧毒粘液],
+  [金色闪光.name, 金色闪光],
+  [剧毒药剂.name, 剧毒药剂],
+  [撕裂药剂.name, 撕裂药剂],
+  [燃烧药剂.name, 燃烧药剂],
+  [冰霜药剂.name, 冰霜药剂],
+  [雷霆药剂.name, 雷霆药剂],
+  [回复药剂.name, 回复药剂],
+  [增效药剂.name, 增效药剂],
+  [增效剧毒药剂.name, 增效剧毒药剂],
+  [增效撕裂药剂.name, 增效撕裂药剂],
+  [增效燃烧药剂.name, 增效燃烧药剂],
+  [增效冰霜药剂.name, 增效冰霜药剂],
+  [增效雷霆药剂.name, 增效雷霆药剂],
+  [增效回复药剂.name, 增效回复药剂],
+  [混合药剂.name, 混合药剂],
+  [催化剂.name, 催化剂],
+  [魔女香水.name, 魔女香水],
+  [大炼成.name, 大炼成],
+  [伪装.name, 伪装],
+  [虚无.name, 虚无],
+  [黑手印.name, 黑手印],
+  [肮脏.name, 肮脏],
   [滑腻触手.name, 滑腻触手],
   [灵巧长舌.name, 灵巧长舌],
   [血盆大口.name, 血盆大口],

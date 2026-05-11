@@ -659,6 +659,12 @@
             >
               {{ getTwinTargetLabel(getTwinPlayerSelectionSlot(card)) }}
             </div>
+            <div
+              v-if="activeHandSelectionMode"
+              class="pointer-events-none absolute -right-2 -top-2 z-20 flex size-9 items-center justify-center rounded-full border border-red-300/80 bg-red-950/95 text-red-100 shadow-lg shadow-red-950/40"
+            >
+              <XIcon class="size-6" />
+            </div>
             <DungeonCard
               :card="getDisplayHandCard(card)"
               :mask-level="playerHandMaskLevel"
@@ -685,11 +691,11 @@
               type="button"
               class="rounded-xl transition-all"
               :class="[
-                activeSkillDisabledReason(slot.idx)
+                activeSkillButtonDisabled(slot.idx)
                   ? 'opacity-80 cursor-not-allowed grayscale-[0.2]'
                   : 'hover:-translate-y-1 hover:shadow-[0_0_24px_rgba(255,255,255,0.16)] active:scale-[0.98]',
               ]"
-              :disabled="Boolean(activeSkillDisabledReason(slot.idx))"
+              :disabled="activeSkillButtonDisabled(slot.idx)"
               @click="useActiveSkill(slot.idx)"
             >
               <ActiveSkillCard
@@ -697,8 +703,40 @@
                 :mana-cost="slot.manaCost"
                 size="compact"
                 :footer-right-text="slot.skill ? getActiveSkillStatusText(slot) : ''"
-                :footer-right-tone="activeSkillDisabledReason(slot.idx) ? 'warning' : 'success'"
+                :footer-right-tone="activeSkillButtonDisabled(slot.idx) ? 'warning' : 'success'"
               />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="alchemyPendingGrandSynthesis"
+        class="absolute inset-0 z-[120] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
+      >
+        <div class="w-full max-w-4xl rounded-lg border border-dungeon-gold/40 bg-[#171018]/95 p-4 shadow-2xl">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div class="text-sm font-bold text-dungeon-gold">大炼成</div>
+              <div class="mt-1 text-xs text-dungeon-paper/70">选择本场战斗要绑定并强化的卡牌</div>
+            </div>
+            <button
+              type="button"
+              class="rounded border border-dungeon-brown/60 px-3 py-1.5 text-xs text-dungeon-paper/80 hover:border-dungeon-gold/60"
+              @click="cancelAlchemyGrandSynthesis"
+            >
+              取消
+            </button>
+          </div>
+          <div class="grid max-h-[62vh] grid-cols-2 gap-3 overflow-y-auto pr-1 md:grid-cols-4">
+            <button
+              v-for="entry in alchemyGrandSynthesisChoices"
+              :key="`alchemy-grand-${entry.card.id}-${entry.index}`"
+              type="button"
+              class="rounded border border-dungeon-brown/50 bg-black/20 p-2 transition-colors hover:border-dungeon-gold/70"
+              @click="confirmAlchemyGrandSynthesis(entry.card)"
+            >
+              <DungeonCard :card="entry.card" disabled />
             </button>
           </div>
         </div>
@@ -839,69 +877,69 @@
 
 <script setup lang="ts">
 import {
-  Ban,
-  Battery,
-  Bone,
-  Box,
-  Brain,
-  Bug,
-  Droplet,
-  Eye,
-  EyeOff,
-  Flame,
-  Heart,
-  Info,
-  Layers,
-  Leaf,
-  Link2,
-  Scroll,
-  Settings2,
-  Shield,
-  ShieldCheck,
-  Skull,
-  Snowflake,
-  Sparkles,
-  Sword,
-  Trash2,
-  TriangleAlert,
-  Waves,
-  X as XIcon,
-  Zap,
+    Ban,
+    Battery,
+    Bone,
+    Box,
+    Brain,
+    Bug,
+    Droplet,
+    Eye,
+    EyeOff,
+    Flame,
+    Heart,
+    Info,
+    Layers,
+    Leaf,
+    Link2,
+    Scroll,
+    Settings2,
+    Shield,
+    ShieldCheck,
+    Skull,
+    Snowflake,
+    Sparkles,
+    Sword,
+    Trash2,
+    TriangleAlert,
+    Waves,
+    X as XIcon,
+    Zap,
 } from 'lucide-vue-next';
 import {
-  applyDamageToEntity,
-  calculateFinalDamage,
-  calculateFinalPoint,
-  consumeColdAfterDealingDamage,
-  triggerSwarmReviveIfNeeded as triggerSwarmReviveIfNeededInAlgorithm,
+    applyDamageToEntity,
+    calculateFinalDamage,
+    calculateFinalPoint,
+    consumeColdAfterDealingDamage,
+    triggerSwarmReviveIfNeeded as triggerSwarmReviveIfNeededInAlgorithm,
 } from '../battle/algorithms';
 import { getAllCards, getCardByName } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, findEffect, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import {
-  resolveRelicMap,
-  type RelicActiveSkillHookContext,
-  type RelicAfterBurnDamageTakenHookContext,
-  type RelicApplyEffectOptions,
-  type RelicBeforeApplyEffectHookContext,
-  type RelicBurnDamageHookContext,
-  type RelicData,
-  type RelicDiceClickHookContext,
-  type RelicDirectDamageHookContext,
-  type RelicHitHookContext,
-  type RelicLifecycleHookContext,
-  type RelicPointHookContext,
-  type RelicSide,
-  type ResolvedRelicEntry,
+    resolveRelicMap,
+    type RelicActiveSkillHookContext,
+    type RelicAfterBurnDamageTakenHookContext,
+    type RelicApplyEffectOptions,
+    type RelicBeforeApplyEffectHookContext,
+    type RelicBurnDamageHookContext,
+    type RelicData,
+    type RelicDiceClickHookContext,
+    type RelicDirectDamageHookContext,
+    type RelicHitHookContext,
+    type RelicLifecycleHookContext,
+    type RelicPointHookContext,
+    type RelicSide,
+    type ResolvedRelicEntry,
 } from '../battle/relicRegistry';
 import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
 import {
-  HELL_STARTING_DEBUFFS,
-  getDifficultyHpMultiplier,
-  getLordTurnBoostInterval,
-  normalizeDifficulty,
-  shouldApplyHellStartingDebuff,
-  shouldGrantLordTurnBoost,
+    HELL_STARTING_DEBUFFS,
+    getDifficultyHpMultiplier,
+    getLordTurnBoostInterval,
+    normalizeDifficulty,
+    shouldApplyHellStartingDebuff,
+    shouldGrantLordTurnBoost,
 } from '../difficulty';
 import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { getFloorNumberForArea } from '../floor';
@@ -933,7 +971,7 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-  endCombat: [outcome: 'win' | 'lose' | 'escape', finalStats: EntityStats, logs: string[], negativeEffects: string[]];
+  endCombat: [outcome: 'win' | 'lose' | 'escape', finalStats: EntityStats, logs: string[], negativeEffects: string[], goldDelta?: number];
   openDeck: [];
   openRelics: [];
   openGlossary: [];
@@ -1224,6 +1262,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.FROST_ATTACH]: Snowflake,
   [ET.BLOODBLADE_ATTACH]: Droplet,
   [ET.LIGHTNING_ATTACH]: Zap,
+  [ET.ELEMENT_ATTACH]: Sparkles,
   [ET.THORNS]: Leaf,
   [ET.BLOODLINE]: Heart,
   [ET.CONTRACT_CURSE]: Skull,
@@ -1575,6 +1614,31 @@ const battleCardPointBonus = ref<Record<BattleSide, Record<string, number>>>({
   player: {},
   enemy: {},
 });
+const alchemyPerfumePointDoubleCardIds = ref<Record<BattleSide, Record<string, boolean>>>({
+  player: {},
+  enemy: {},
+});
+const alchemyBlackComboTriggeredThisTurn = ref(false);
+const alchemyCatalystActiveThisTurn = ref<Record<BattleSide, boolean>>({
+  player: false,
+  enemy: false,
+});
+const alchemyCatalystUseCount = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
+const alchemyGrandSynthesisBoundCardId = ref<Record<BattleSide, string | null>>({
+  player: null,
+  enemy: null,
+});
+const alchemyGrandSynthesisPointBonus = ref<Record<BattleSide, Record<string, number>>>({
+  player: {},
+  enemy: {},
+});
+const alchemyPendingGrandSynthesis = ref<{ card: CardData; handIdx: number } | null>(null);
+const activeHandSelectionMode = ref<null | 'purify' | 'appreciate'>(null);
+const activeHandSelectionSkillIdx = ref<number | null>(null);
+const pendingAlchemyGoldDelta = ref(0);
 const turnPointModifier = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
@@ -2544,7 +2608,22 @@ const applyStatusEffectWithRelics = (
   stacks: number,
   options?: RelicApplyEffectOptions,
 ): boolean => {
-  const value = Math.max(0, Math.floor(stacks));
+  const catalystOwner: BattleSide | null = side === 'enemy'
+    ? 'player'
+    : (side === 'player' ? 'enemy' : null);
+  const catalystDoubled = Boolean(
+    catalystOwner
+    && alchemyCatalystActiveThisTurn.value[catalystOwner]
+    && ELEMENTAL_DEBUFF_TYPES.includes(effectType),
+  );
+  let value = Math.max(0, Math.floor(stacks) * (catalystDoubled ? 2 : 1));
+  if (side === 'enemy' && ELEMENTAL_DEBUFF_TYPES.includes(effectType)) {
+    const chromaticMushroomCount = getActiveRelicCount('alchemy_chromatic_mushroom');
+    if (chromaticMushroomCount > 0) {
+      const minimumStacks = hasNoDuplicateBattleCardsForSide('player') ? 3 : 2;
+      value = Math.max(value, minimumStacks);
+    }
+  }
   if (value <= 0) return false;
   if (!shouldAllowStatusEffectWithRelics(side, effectType, value, options)) return false;
   const target = getEntityBySide(side);
@@ -2594,6 +2673,10 @@ const applyStatusEffectWithRelics = (
       const label = side === 'player' ? '我方' : '敌方';
       log(`<span class="text-fuchsia-300">${label}[双生] 收到禁言后，自身获得了 1 层虚弱。</span>`);
     }
+  }
+  if (applied && catalystDoubled) {
+    const label = catalystOwner === 'player' ? '我方' : '敌方';
+    log(`<span class="text-yellow-300">${label}[催化剂] 元素负面层数翻倍：${Math.floor(stacks)} → ${value}。</span>`);
   }
   if (applied && side === 'enemy' && effectType === ET.COLD) {
     const sourceTag = options?.source ?? '';
@@ -2909,14 +2992,21 @@ const resolveTargetSide = (source: BattleSide, target: 'self' | 'enemy') => {
   return source === 'player' ? 'enemy' : 'player';
 };
 
-const removeCardsById = (cards: CardData[], cardId: string): CardData[] => (
-  cards.filter((card) => card.id !== cardId)
-);
-
 const removeSingleCardById = (cards: CardData[], cardId: string): CardData[] => {
   let removed = false;
   return cards.filter((card) => {
     if (!removed && card.id === cardId) {
+      removed = true;
+      return false;
+    }
+    return true;
+  });
+};
+
+const removeSingleCardReference = (cards: CardData[], target: CardData): CardData[] => {
+  let removed = false;
+  return cards.filter((card) => {
+    if (!removed && card === target) {
       removed = true;
       return false;
     }
@@ -2962,13 +3052,16 @@ const applyInsertTrait = (source: BattleSide, card: CardData) => {
 const destroyOpponentCardByTrait = (winnerSide: BattleSide, loserCard: CardData) => {
   if (loserCard.id === PASS_CARD.id) return;
   if (winnerSide === 'player') {
-    combatState.value.enemyDeck = removeCardsById(combatState.value.enemyDeck, loserCard.id);
-    combatState.value.enemyDiscard = removeCardsById(combatState.value.enemyDiscard, loserCard.id);
+    combatState.value.enemyDeck = removeSingleCardReference(combatState.value.enemyDeck, loserCard);
+    combatState.value.enemyDiscard = removeSingleCardReference(combatState.value.enemyDiscard, loserCard);
+    if (combatState.value.enemyIntentCard === loserCard) {
+      combatState.value.enemyIntentCard = null;
+    }
   } else {
-    combatState.value.playerDeck = removeCardsById(combatState.value.playerDeck, loserCard.id);
-    combatState.value.playerHand = removeCardsById(combatState.value.playerHand, loserCard.id);
-    combatState.value.discardPile = removeCardsById(combatState.value.discardPile, loserCard.id);
-    if (combatState.value.playerSelectedCard?.id === loserCard.id) {
+    combatState.value.playerDeck = removeSingleCardReference(combatState.value.playerDeck, loserCard);
+    combatState.value.playerHand = removeSingleCardReference(combatState.value.playerHand, loserCard);
+    combatState.value.discardPile = removeSingleCardReference(combatState.value.discardPile, loserCard);
+    if (combatState.value.playerSelectedCard === loserCard) {
       combatState.value.playerSelectedCard = null;
     }
   }
@@ -3765,6 +3858,92 @@ const countDistinctDebuffTypes = (entity: EntityStats): number => {
   return new Set(debuffTypes).size;
 };
 
+const hasNoDuplicateBattleCardsForSide = (side: BattleSide, currentCard?: CardData): boolean => {
+  const seen = new Set<string>();
+  for (const card of collectCardsForSide(side, currentCard)) {
+    if (card.id === PASS_CARD.id) continue;
+    if (seen.has(card.id)) return false;
+    seen.add(card.id);
+  }
+  return true;
+};
+
+const countDistinctCardTypesForSide = (side: BattleSide, currentCard?: CardData): number => {
+  const types = collectCardsForSide(side, currentCard)
+    .filter(card => card.id !== PASS_CARD.id && card.type !== CardType.ACTIVE)
+    .map(card => card.type);
+  return new Set(types).size;
+};
+
+const countHandCardTypesForSide = (side: BattleSide, currentCard?: CardData): number => {
+  const cards = side === 'player' ? [...combatState.value.playerHand] : [];
+  if (currentCard && currentCard.id !== PASS_CARD.id) cards.push(currentCard);
+  return new Set(cards.map(card => card.type)).size;
+};
+
+const getRandomRareBattleCard = (): CardData | null => {
+  const rarePool = getAllCards().filter(card => (
+    card.category !== '敌人'
+    && card.type !== CardType.ACTIVE
+    && card.type !== CardType.CURSE
+    && card.rarity === '稀有'
+  ));
+  if (rarePool.length <= 0) return null;
+  return cloneCardForBattle(rarePool[Math.floor(Math.random() * rarePool.length)]!);
+};
+
+const applyAlchemyBattleStartRelics = () => {
+  if (hasNoDuplicateBattleCardsForSide('player')) {
+    const fiveColorPotionCount = getActiveRelicCount('alchemy_five_color_potion');
+    if (fiveColorPotionCount > 0 && applyStatusEffectWithRelics('player', ET.ELEMENT_ATTACH, fiveColorPotionCount, { source: 'relic:alchemy_five_color_potion' })) {
+      logRelicMessage(`[五色药剂] 牌组无重复，获得 ${fiveColorPotionCount} 层元素附加。`);
+    }
+
+    const midasHandCount = getActiveRelicCount('alchemy_midas_hand');
+    if (midasHandCount > 0) {
+      let transformed = 0;
+      combatState.value.playerDeck = combatState.value.playerDeck.map(card => {
+        if (card.type !== CardType.CURSE) return card;
+        const replacement = getRandomRareBattleCard();
+        if (!replacement) return card;
+        transformed += 1;
+        return replacement;
+      });
+      if (transformed > 0) {
+        logRelicMessage(`[点金手] 牌组无重复，将 ${transformed} 张诅咒牌转化为随机稀有牌。`);
+      }
+    }
+
+    const perfumeBottleCount = getActiveRelicCount('alchemy_perfume_bottle');
+    if (perfumeBottleCount > 0) {
+      const candidates = collectUniqueCombatCardsForSide('player').filter(card => card.type !== CardType.CURSE);
+      const picked = candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+      if (picked) {
+        alchemyPerfumePointDoubleCardIds.value.player[picked.id] = true;
+        logRelicMessage(`[香水瓶] 牌组无重复，使【${picked.name}】本场战斗打出时点数 x2。`);
+      }
+    }
+  }
+};
+
+const applyAlchemyDizzyFruitOnTurnStart = () => {
+  const dizzyFruitCount = getActiveRelicCount('alchemy_dizzy_fruit');
+  if (dizzyFruitCount <= 0) return;
+  const synced: string[] = [];
+  for (const effect of playerStats.value.effects) {
+    if (effect.stacks <= 0 || EFFECT_REGISTRY[effect.type]?.polarity !== 'debuff') continue;
+    const enemyStacks = getEffectStacks(enemyStats.value, effect.type);
+    const delta = Math.max(0, Math.floor(effect.stacks - enemyStacks));
+    if (delta <= 0) continue;
+    if (applyStatusEffectWithRelics('enemy', effect.type, delta, { source: 'relic:alchemy_dizzy_fruit' })) {
+      synced.push(`${EFFECT_REGISTRY[effect.type]?.name ?? effect.type}+${delta}`);
+    }
+  }
+  if (synced.length > 0) {
+    logRelicMessage(`[晕晕果] 同步敌方负面状态：${synced.join('，')}。`);
+  }
+};
+
 const replacePlayerHandWithRandomRareCards = (count: number): CardData[] => {
   const rarePool = getAllCards().filter(card => card.category !== '敌人' && card.type !== CardType.ACTIVE && card.rarity === '稀有');
   const nextHand: CardData[] = [];
@@ -3787,6 +3966,49 @@ const collectCardsForSide = (side: BattleSide, currentCard?: CardData): CardData
   }
   if (currentCard) cards.push(currentCard);
   return cards;
+};
+
+const collectUniqueCombatCardsForSide = (side: BattleSide): CardData[] => {
+  const seen = new Set<string>();
+  const result: CardData[] = [];
+  for (const card of collectCardsForSide(side)) {
+    if (card.id === PASS_CARD.id || seen.has(card.id)) continue;
+    seen.add(card.id);
+    result.push(card);
+  }
+  return result;
+};
+
+const countBattleCardsForSide = (
+  side: BattleSide,
+  currentCard: CardData | undefined,
+  predicate: (card: CardData) => boolean,
+): number => {
+  const cards = side === 'player'
+    ? [...combatState.value.playerHand, ...combatState.value.playerDeck, ...combatState.value.discardPile]
+    : [...combatState.value.enemyDeck, ...combatState.value.enemyDiscard];
+  const selected = side === 'player' ? combatState.value.playerSelectedCard : combatState.value.enemyIntentCard;
+  if (selected && !cards.includes(selected)) cards.push(selected);
+  if (currentCard && !cards.includes(currentCard)) cards.push(currentCard);
+  return cards.filter(predicate).length;
+};
+
+const getAlchemyGoldenFlashHitCount = (source: BattleSide, card: CardData): number => {
+  if (card.id !== 'alchemy_golden_flash') return Math.max(1, Math.floor(card.hitCount ?? 1));
+  const hand = source === 'player' ? combatState.value.playerHand : [];
+  const rareInHand = hand.filter(entry => entry.rarity === '稀有').length + (card.rarity === '稀有' ? 1 : 0);
+  return Math.max(1, 1 + rareInHand);
+};
+
+const alchemyGrandSynthesisChoices = computed(() => (
+  collectUniqueCombatCardsForSide('player').map((card, index) => ({ card, index }))
+));
+
+const increaseAlchemyGrandSynthesisPointBonus = (side: BattleSide, cardId: string, amount: number) => {
+  const current = Math.max(0, Math.floor(alchemyGrandSynthesisPointBonus.value[side][cardId] ?? 0));
+  const next = Math.max(0, current + Math.floor(amount));
+  alchemyGrandSynthesisPointBonus.value[side][cardId] = next;
+  return next;
 };
 
 const countMagicCardsInDeckForSide = (side: BattleSide): number => {
@@ -4130,6 +4352,51 @@ const getCardFinalPoint = (
   if (card.id === 'modao_rune_greatsword') {
     finalPoint += countMagicCardsInDeckForSide(source) * 2;
   }
+  if (card.id === 'alchemy_abnormal_overload') {
+    finalPoint += countDistinctDebuffTypes(defender);
+  }
+  if (card.id === 'alchemy_gilded_strike') {
+    const rareCount = countBattleCardsForSide(source, card, entry => entry.rarity === '稀有');
+    finalPoint += rareCount * 2;
+  }
+  if (source === 'player' && getActiveRelicCount('alchemy_five_color_paint') > 0 && !card.traits.combo) {
+    const handTypeCount = countHandCardTypesForSide(source, card);
+    if (handTypeCount >= 3) {
+      finalPoint *= 1.5;
+      if (!isPreview) {
+        logRelicMessage(`[五色颜料] 手牌类型达到 ${handTypeCount} 种，非连击牌点数 x1.5。`);
+      }
+    }
+  }
+  if (source === 'player' && getActiveRelicCount('alchemy_five_color_ring') > 0) {
+    const typeCount = countDistinctCardTypesForSide(source, card);
+    if (typeCount >= 5) {
+      finalPoint *= 1.5;
+      if (!isPreview) {
+        logRelicMessage('[五色环] 牌组拥有5种卡牌类型，点数 x1.5。');
+      }
+    } else if (typeCount >= 4) {
+      finalPoint *= 1.2;
+      if (!isPreview) {
+        logRelicMessage('[五色环] 牌组拥有4种卡牌类型，点数 x1.2。');
+      }
+    }
+  }
+  if (source === 'player' && getActiveRelicCount('alchemy_voodoo_doll') > 0) {
+    const curseDeckBonus = Math.floor(countBattleCardsForSide(source, card, entry => entry.type === CardType.CURSE) / 2);
+    const curseHandBonus = combatState.value.playerHand.filter(entry => entry.type === CardType.CURSE).length;
+    const bonus = (curseDeckBonus + curseHandBonus) * getActiveRelicCount('alchemy_voodoo_doll');
+    if (bonus > 0) {
+      finalPoint += bonus;
+      if (!isPreview) {
+        logRelicMessage(`[巫毒娃娃] 诅咒牌使点数 +${bonus}。`);
+      }
+    }
+  }
+  const grandSynthesisBonus = Math.max(0, Math.floor(alchemyGrandSynthesisPointBonus.value[source][card.id] ?? 0));
+  if (grandSynthesisBonus > 0) {
+    finalPoint += grandSynthesisBonus;
+  }
   finalPoint += Math.max(0, blankOfBlankBonusThisTurn.value[source] ?? 0);
   finalPoint += Math.floor(turnPointModifier.value[source] ?? 0);
   if (card.type === CardType.MAGIC) {
@@ -4187,6 +4454,10 @@ const getCardFinalPoint = (
 
   if (shouldApplyAmplificationStarPointBonus(source, card)) {
     finalPoint *= getAmplificationStarPointMultiplier();
+  }
+
+  if (alchemyPerfumePointDoubleCardIds.value[source][card.id]) {
+    finalPoint *= 2;
   }
 
   if (card.id === 'modao_staff_strike') {
@@ -4394,6 +4665,52 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       lines.push(`符文大剑（牌库法术 ${magicCardCount}）+${bonus} => ${finalPoint}`);
     }
   }
+  if (card.id === 'alchemy_abnormal_overload') {
+    const debuffTypeCount = countDistinctDebuffTypes(defender);
+    if (debuffTypeCount > 0) {
+      finalPoint += debuffTypeCount;
+      lines.push(`异况超量（负面状态种类${debuffTypeCount}）+${debuffTypeCount} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'alchemy_gilded_strike') {
+    const rareCount = countBattleCardsForSide(source, card, entry => entry.rarity === '稀有');
+    const bonus = rareCount * 2;
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`辉金打击（稀有牌${rareCount}）+${bonus} => ${finalPoint}`);
+    }
+  }
+  if (source === 'player' && getActiveRelicCount('alchemy_five_color_paint') > 0 && !card.traits.combo) {
+    const handTypeCount = countHandCardTypesForSide(source, card);
+    if (handTypeCount >= 3) {
+      finalPoint *= 1.5;
+      lines.push(`五色颜料（手牌类型${handTypeCount}）x1.5 => ${formatPointValue(finalPoint)}`);
+    }
+  }
+  if (source === 'player' && getActiveRelicCount('alchemy_five_color_ring') > 0) {
+    const typeCount = countDistinctCardTypesForSide(source, card);
+    if (typeCount >= 5) {
+      finalPoint *= 1.5;
+      lines.push(`五色环（卡牌类型${typeCount}）x1.5 => ${formatPointValue(finalPoint)}`);
+    } else if (typeCount >= 4) {
+      finalPoint *= 1.2;
+      lines.push(`五色环（卡牌类型${typeCount}）x1.2 => ${formatPointValue(finalPoint)}`);
+    }
+  }
+  if (source === 'player' && getActiveRelicCount('alchemy_voodoo_doll') > 0) {
+    const curseDeckBonus = Math.floor(countBattleCardsForSide(source, card, entry => entry.type === CardType.CURSE) / 2);
+    const curseHandBonus = combatState.value.playerHand.filter(entry => entry.type === CardType.CURSE).length;
+    const bonus = (curseDeckBonus + curseHandBonus) * getActiveRelicCount('alchemy_voodoo_doll');
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`巫毒娃娃（诅咒牌）+${bonus} => ${formatPointValue(finalPoint)}`);
+    }
+  }
+  const grandSynthesisBonus = Math.max(0, Math.floor(alchemyGrandSynthesisPointBonus.value[source][card.id] ?? 0));
+  if (grandSynthesisBonus > 0) {
+    finalPoint += grandSynthesisBonus;
+    lines.push(`大炼成绑定 +${grandSynthesisBonus} => ${finalPoint}`);
+  }
   const blankOfBlankBonus = Math.max(0, blankOfBlankBonusThisTurn.value[source] ?? 0);
   if (blankOfBlankBonus > 0) {
     finalPoint += blankOfBlankBonus;
@@ -4479,6 +4796,11 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     const before = finalPoint;
     finalPoint *= getAmplificationStarPointMultiplier();
     lines.push(`增幅星 ${formatRelicPointDelta('basic_amplification_star', before, finalPoint)} => ${formatPointValue(finalPoint)}`);
+  }
+
+  if (alchemyPerfumePointDoubleCardIds.value[source][card.id]) {
+    finalPoint *= 2;
+    lines.push(`魔女香水 x2 => ${formatPointValue(finalPoint)}`);
   }
 
   if (card.id === 'modao_staff_strike' && finalPoint < baseDice) {
@@ -5020,6 +5342,7 @@ const applyUnseeableAura = (ownerSide: BattleSide, reason: 'battle_start' | 'tur
 };
 
 triggerPlayerRelicLifecycleHooks('onBattleStart');
+applyAlchemyBattleStartRelics();
 applyMvuNegativeStatusesOnBattleStart();
 applyDifficultyBattleStartEffects();
 applyUnseeableAura('player', 'battle_start');
@@ -5096,6 +5419,32 @@ const applyOnDrawCardEffects = (drawn: CardData[]) => {
         log(`<span class="text-blue-300">【${card.name}】被抽到：魔力消耗 ${beforeCost} → ${afterCost}</span>`);
       }
     }
+    if (card.id === 'alchemy_camouflage') {
+      const before = combatState.value.enemyBaseDice;
+      combatState.value.enemyBaseDice = Math.max(0, combatState.value.enemyBaseDice - 1);
+      enemyTurnRawDice.value = Math.max(0, enemyTurnRawDice.value - 1);
+      log(`<span class="text-lime-300">【${card.name}】被抽到：敌方原始点数 ${before} → ${combatState.value.enemyBaseDice}</span>`);
+    }
+    if (card.type === CardType.CURSE) {
+      const blackResidueCount = getActiveRelicCount('alchemy_black_residue');
+      if (blackResidueCount > 0 && enemyStats.value.hp > 0) {
+        const trueDamage = Math.max(0, Math.floor(combatState.value.playerBaseDice)) * blackResidueCount;
+        if (trueDamage > 0) {
+          const { actualDamage, logs: damageLogs } = applyDamageToSideWithRelics('enemy', enemyStats.value, trueDamage, true, '黑色残渣', {
+            sourceSide: 'player',
+            isDirectDamage: true,
+          });
+          if (actualDamage > 0) {
+            pushFloatingNumber('enemy', actualDamage, 'true', '-');
+          }
+          logRelicMessage(`[黑色残渣] 抽到诅咒牌【${card.name}】，造成 ${actualDamage} 点真实伤害。`);
+          for (const damageLog of damageLogs) {
+            const normalized = damageLog.startsWith('受到') ? `敌方${damageLog}` : damageLog;
+            log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+          }
+        }
+      }
+    }
   }
 };
 
@@ -5124,6 +5473,8 @@ const resetActiveSkillRuntime = () => {
   vitalStorageHp.value = 0;
   reverseBladeBleedOnHit.value = { player: 0, enemy: 0 };
   instantFreezeClearColdAtTurnEnd.value = false;
+  activeHandSelectionMode.value = null;
+  activeHandSelectionSkillIdx.value = null;
 };
 
 watch(
@@ -5192,6 +5543,19 @@ const activeSkillDisabledReason = (idx: number): string | null => {
   return null;
 };
 
+const activeSkillButtonDisabled = (idx: number): boolean => {
+  const skill = normalizedPlayerActiveSkills.value[idx];
+  if (!skill) return true;
+  if (
+    activeHandSelectionMode.value
+    && activeHandSelectionSkillIdx.value === idx
+    && (skill.id === 'active_alchemy_purify' || skill.id === 'active_alchemy_appreciate')
+  ) {
+    return false;
+  }
+  return Boolean(activeSkillDisabledReason(idx));
+};
+
 const playerActiveSkillSlots = computed<ActiveSkillSlotView[]>(() => normalizedPlayerActiveSkills.value.map((skill, idx) => ({
   idx,
   skill,
@@ -5209,6 +5573,78 @@ const getActiveSkillStatusText = (slot: ActiveSkillSlotView): string => {
   if (reason === '魔力不足') return '缺蓝';
   if (!slot.skill) return '未装备';
   return reason ? '不可用' : '可用';
+};
+
+const commitActiveSkillUse = (idx: number, skill: ActiveSkillData) => {
+  const runtime = activeSkillRuntime.value[idx];
+  if (runtime) {
+    runtime.usedCount += 1;
+    activeSkillTurnUseCount.value[skill.id] = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0)) + 1;
+    if (skill.id === 'active_basic_infinite_amp_magic' || skill.id === 'active_basic_slot_machine') {
+      runtime.manaTaxThisTurn += 1;
+    }
+    const cooldown = Math.max(0, Math.floor(skill.Cooldown) - getActiveRelicCount('basic_acceleration_clock'));
+    runtime.nextAvailableTurn = cooldown > 0 ? combatState.value.turn + cooldown : combatState.value.turn;
+  }
+  triggerPlayerRelicAfterActiveSkillHooks(skill);
+};
+
+const clearActiveHandSelection = () => {
+  activeHandSelectionMode.value = null;
+  activeHandSelectionSkillIdx.value = null;
+};
+
+const handleActiveHandSelection = (card: CardData, handIdx: number): boolean => {
+  const mode = activeHandSelectionMode.value;
+  const skillIdx = activeHandSelectionSkillIdx.value;
+  if (!mode || skillIdx === null) return false;
+  const skill = normalizedPlayerActiveSkills.value[skillIdx];
+  if (!skill) {
+    clearActiveHandSelection();
+    return true;
+  }
+
+  const manaCost = getActiveSkillManaCost(skillIdx);
+  if (manaCost > 0) {
+    const ok = spendManaWithShock('player', manaCost, `使用主动【${skill.name}】`);
+    if (!ok) {
+      log(`<span class="text-red-400">主动【${skill.name}】使用失败：魔力不足。</span>`);
+      return true;
+    }
+  }
+
+  if (mode === 'purify') {
+    const [removed] = combatState.value.playerHand.splice(handIdx, 1);
+    log(`<span class="text-yellow-300">主动【${skill.name}】：本场战斗中移除了【${removed?.name ?? card.name}】。</span>`);
+  } else if (mode === 'appreciate') {
+    combatState.value.discardPile.push(cloneCardForBattle(card));
+    log(`<span class="text-yellow-300">主动【${skill.name}】：复制【${card.name}】并置入弃牌堆。</span>`);
+  }
+
+  clearActiveHandSelection();
+  commitActiveSkillUse(skillIdx, skill);
+  return true;
+};
+
+const cancelAlchemyGrandSynthesis = () => {
+  alchemyPendingGrandSynthesis.value = null;
+  log('<span class="text-gray-400">【大炼成】已取消绑定选择。</span>');
+};
+
+const confirmAlchemyGrandSynthesis = (targetCard: CardData) => {
+  const pending = alchemyPendingGrandSynthesis.value;
+  if (!pending) return;
+  const sourceCard = pending.card;
+  const currentIdx = combatState.value.playerHand.findIndex(card => card === sourceCard);
+  if (currentIdx < 0) {
+    alchemyPendingGrandSynthesis.value = null;
+    log('<span class="text-gray-400">【大炼成】原卡牌已不在手牌中，绑定取消。</span>');
+    return;
+  }
+  alchemyGrandSynthesisBoundCardId.value.player = targetCard.id;
+  alchemyPendingGrandSynthesis.value = null;
+  log(`<span class="text-yellow-300">【大炼成】绑定【${targetCard.name}】。</span>`);
+  handleCardSelect(sourceCard, currentIdx);
 };
 
 const rerollSideDiceByActiveSkill = (side: BattleSide, skillName: string): { before: number; after: number } => {
@@ -5237,9 +5673,25 @@ const rerollSideDiceByActiveSkill = (side: BattleSide, skillName: string): { bef
 const useActiveSkill = (idx: number) => {
   const skill = normalizedPlayerActiveSkills.value[idx];
   if (!skill) return;
+  if (
+    activeHandSelectionMode.value
+    && activeHandSelectionSkillIdx.value === idx
+    && (skill.id === 'active_alchemy_purify' || skill.id === 'active_alchemy_appreciate')
+  ) {
+    clearActiveHandSelection();
+    log(`<span class="text-gray-400">主动【${skill.name}】：已退出选择。</span>`);
+    return;
+  }
   const disabledReason = activeSkillDisabledReason(idx);
   if (disabledReason) {
     log(`<span class="text-gray-400">主动【${skill.name}】无法使用：${disabledReason}</span>`);
+    return;
+  }
+
+  if (skill.id === 'active_alchemy_purify' || skill.id === 'active_alchemy_appreciate') {
+    activeHandSelectionMode.value = skill.id === 'active_alchemy_purify' ? 'purify' : 'appreciate';
+    activeHandSelectionSkillIdx.value = idx;
+    log(`<span class="text-yellow-300">主动【${skill.name}】：请选择一张手牌。</span>`);
     return;
   }
 
@@ -5503,22 +5955,49 @@ const useActiveSkill = (idx: number) => {
       log(`<span class="text-rose-300">主动【${skill.name}】：储存了 ${vitalStorageHp.value} 点生命。</span>`);
       break;
     }
+    case 'active_alchemy_antidote': {
+      const removable = playerStats.value.effects.filter(effect => (
+        effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff'
+      ));
+      const clearedStacks = removable.reduce((sum, effect) => sum + Math.max(0, Math.floor(effect.stacks)), 0);
+      for (const effect of removable) {
+        removeEffect(playerStats.value, effect.type);
+      }
+      const { healed } = healForSide('player', clearedStacks, {
+        reason: `主动【${skill.name}】治疗`,
+      });
+      log(`<span class="text-emerald-300">主动【${skill.name}】：清除了 ${clearedStacks} 层负面状态，回复 ${healed} 点生命。</span>`);
+      break;
+    }
+    case 'active_alchemy_decompose': {
+      const candidates = combatState.value.playerHand
+        .map((entry, handIdx) => ({ entry, handIdx }))
+        .filter(({ entry }) => entry.type !== CardType.CURSE);
+      if (candidates.length <= 0) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：当前没有可分解的非诅咒手牌。</span>`);
+        break;
+      }
+      const picked = candidates[Math.floor(Math.random() * candidates.length)]!;
+      const waste = getCardByName('炼金废料');
+      if (!waste) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：未找到炼金废料。</span>`);
+        break;
+      }
+      const beforeName = picked.entry.name;
+      combatState.value.playerHand.splice(picked.handIdx, 1, cloneCardForBattle(waste));
+      pendingAlchemyGoldDelta.value += 2;
+      const { healed } = healForSide('player', 5, {
+        reason: `主动【${skill.name}】治疗`,
+      });
+      log(`<span class="text-yellow-300">主动【${skill.name}】：将【${beforeName}】变为【炼金废料】，获得2金币，回复 ${healed} 点生命。</span>`);
+      break;
+    }
     default:
       log(`<span class="text-gray-400">主动【${skill.name}】尚未实现效果。</span>`);
       break;
   }
 
-  const runtime = activeSkillRuntime.value[idx];
-  if (runtime) {
-    runtime.usedCount += 1;
-    activeSkillTurnUseCount.value[skill.id] = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0)) + 1;
-    if (skill.id === 'active_basic_infinite_amp_magic' || skill.id === 'active_basic_slot_machine') {
-      runtime.manaTaxThisTurn += 1;
-    }
-    const cooldown = Math.max(0, Math.floor(skill.Cooldown) - getActiveRelicCount('basic_acceleration_clock'));
-    runtime.nextAvailableTurn = cooldown > 0 ? combatState.value.turn + cooldown : combatState.value.turn;
-  }
-  triggerPlayerRelicAfterActiveSkillHooks(skill);
+  commitActiveSkillUse(idx, skill);
 };
 
 const handCardClass = (card: CardData) => {
@@ -5888,7 +6367,9 @@ const startTurn = () => {
   shatteringTarget.value = null;
   showClashAnimation.value = false;
   playerPlayedPhysicalOrMagicThisTurn.value = false;
+  alchemyBlackComboTriggeredThisTurn.value = false;
   triggerPlayerRelicLifecycleHooks('onTurnStart');
+  applyAlchemyDizzyFruitOnTurnStart();
   const pulseMarkCount = getActiveRelicCount('bloodpool_pulse_mark');
   if (pulseMarkCount > 0 && playerStats.value.hp > 0) {
     const pulseDamage = Math.max(0, pulseMarkCount * 2);
@@ -5943,6 +6424,7 @@ watch(
       playerDamageTakenThisTurn.value = 0;
       directDamageTakenThisTurn.value = { player: 0, enemy: 0 };
       damageHitTakenThisTurn.value = { player: 0, enemy: 0 };
+      alchemyCatalystActiveThisTurn.value = { player: false, enemy: false };
       freezePumpTriggersThisTurn.value = 0;
       freezeFlowCoreTriggeredThisTurn.value = false;
       microFloatingCannonTriggeredThisTurn.value = false;
@@ -5960,6 +6442,14 @@ watch(
         flowingLightRingConsumed.value = false;
         battleCardFirstUseConsumed.value = { player: {}, enemy: {} };
         battleCardPointBonus.value = { player: {}, enemy: {} };
+        alchemyPerfumePointDoubleCardIds.value = { player: {}, enemy: {} };
+        alchemyGrandSynthesisPointBonus.value = { player: {}, enemy: {} };
+        alchemyGrandSynthesisBoundCardId.value = { player: null, enemy: null };
+        alchemyCatalystUseCount.value = { player: 0, enemy: 0 };
+        alchemyPendingGrandSynthesis.value = null;
+        activeHandSelectionMode.value = null;
+        activeHandSelectionSkillIdx.value = null;
+        pendingAlchemyGoldDelta.value = 0;
         turnPointModifier.value = { player: 0, enemy: 0 };
         blankOfBlankActiveThisTurn.value = { player: false, enemy: false };
         blankOfBlankBonusThisTurn.value = { player: 0, enemy: 0 };
@@ -5983,6 +6473,13 @@ watch(
           player: { turn: 0, amount: 0 },
           enemy: { turn: 0, amount: 0 },
         };
+        const voidCards = combatState.value.playerDeck.filter(card => card.id === 'alchemy_void').length;
+        if (voidCards > 0) {
+          combatState.value.playerDeck = combatState.value.playerDeck.filter(card => card.id !== 'alchemy_void');
+          const beforeMp = playerStats.value.mp;
+          changeManaWithShock('player', -2 * voidCards, '虚无开局移除');
+          log(`<span class="text-violet-300">【虚无】战斗开始移除 ${voidCards} 张，魔力 ${beforeMp} → ${playerStats.value.mp}。</span>`);
+        }
         currentTurnMagicReflect.value = { player: 0, enemy: 0 };
         currentTurnManaSnapshot.value = {
           player: Math.max(0, Math.floor(playerStats.value.mp)),
@@ -6314,6 +6811,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   if (handIdx < 0 || handIdx >= combatState.value.playerHand.length) return;
   if (combatState.value.playerHand[handIdx] !== card) return;
+  if (handleActiveHandSelection(card, handIdx)) return;
 
   if (isTwinBattle) {
     const runtimeCard = previewFlowingLightRingCombo(withEffectiveManaCost('player', card));
@@ -6395,6 +6893,11 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
     triggerInvalidCardShake(card);
     log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+    return;
+  }
+  if (card.id === 'alchemy_grand_synthesis' && alchemyGrandSynthesisBoundCardId.value.player === null) {
+    alchemyPendingGrandSynthesis.value = { card, handIdx };
+    log('<span class="text-yellow-300">【大炼成】请选择本场战斗绑定的卡牌。</span>');
     return;
   }
   lockCardManaCost('player', card);
@@ -7523,6 +8026,54 @@ const resolveCombat = async (
       return;
     }
 
+    if (card.id === 'alchemy_stimulate') {
+      const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
+      if (burnStacks > 0) {
+        const vulnerableStacks = getEffectStacks(defender, ET.VULNERABLE);
+        const temperatureDiffStacks = getEffectStacks(defender, ET.TEMPERATURE_DIFF);
+        const burnDamage = burnStacks + Math.max(0, vulnerableStacks) + Math.max(0, temperatureDiffStacks);
+        const { actualDamage, logs: burnLogs } = applyDamageToSideWithRelics(
+          defenderSide,
+          defender,
+          burnDamage,
+          false,
+          `卡牌【${card.name}】触发燃烧`,
+          { sourceSide: source, isDirectDamage: true },
+        );
+        if (actualDamage > 0) {
+          pushFloatingNumber(defenderSide, actualDamage, 'magic', '-');
+        }
+        log(`<span class="text-orange-300">${label}【${card.name}】触发燃烧：造成 ${actualDamage} 点伤害。</span>`);
+        for (const burnLog of burnLogs) {
+          const normalized = burnLog.startsWith('受到') ? `${defenderLabel}${burnLog}` : burnLog;
+          log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+        }
+      }
+
+      const poisonStacks = Math.max(0, getEffectStacks(defender, ET.POISON));
+      if (poisonStacks > 0) {
+        applyStatusEffectWithRelics(defenderSide, ET.POISON_AMOUNT, poisonStacks, { source: card.id });
+        applyImmediatePoisonAmountLethalCheck(defenderSide);
+        log(`<span class="text-emerald-300">${label}【${card.name}】触发中毒：中毒量 +${poisonStacks}。</span>`);
+      }
+
+      const bleedDamage = triggerBleedProc(defenderSide, `${label}【${card.name}】`);
+      if (bleedDamage > 0) {
+        triggerPlayerRelicHitHooks(source, defenderSide, card, finalPoint, 1, 1, bleedDamage, bleedDamage);
+      }
+      const shockDamage = triggerShockProc(defenderSide, `${label}【${card.name}】`);
+      if (shockDamage > 0) {
+        triggerPlayerRelicHitHooks(source, defenderSide, card, finalPoint, 1, 1, shockDamage, shockDamage);
+      }
+
+      const reviveResult = triggerSwarmReviveIfNeeded(defender);
+      for (const reviveLog of reviveResult.logs) {
+        log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+      }
+      finalizeAndTrack();
+      return;
+    }
+
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
       if (card.id === 'burn_char_convert') {
         const burned = Math.max(0, getEffectStacks(attacker, ET.BURN));
@@ -7584,6 +8135,59 @@ const resolveCombat = async (
           log(`<span class="text-cyan-300">${label}【${card.name}】消耗了 ${consumedCold} 层寒冷并回复 ${healed} 点生命</span>`);
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】敌方没有可整流的寒冷</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'alchemy_catalyst') {
+        syncCurrentPointForUi();
+        if (alchemyCatalystActiveThisTurn.value[source]) {
+          log(`<span class="text-gray-400">${label}【${card.name}】本回合已生效，不可叠加。</span>`);
+        } else {
+          alchemyCatalystActiveThisTurn.value[source] = true;
+          log(`<span class="text-yellow-300">${label}【${card.name}】生效：本回合对敌方施加的元素负面层数翻倍。</span>`);
+        }
+        alchemyCatalystUseCount.value[source] = Math.max(0, Math.floor(alchemyCatalystUseCount.value[source] ?? 0)) + 1;
+        if (alchemyCatalystUseCount.value[source] >= 2) {
+          applyPurgeTraitAfterUse(source, { ...card, traits: { ...card.traits, purgeOnUse: true } });
+        }
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'alchemy_witch_perfume') {
+        syncCurrentPointForUi();
+        const candidates = collectUniqueCombatCardsForSide(source).filter(entry => entry.type !== CardType.CURSE);
+        const allCards = source === 'player'
+          ? [...combatState.value.playerHand, ...combatState.value.playerDeck, ...combatState.value.discardPile]
+          : [...combatState.value.enemyDeck, ...combatState.value.enemyDiscard];
+        const hasDuplicate = new Set(allCards.map(entry => entry.id)).size !== allCards.length;
+        if (hasDuplicate) {
+          log(`<span class="text-gray-400">${label}【${card.name}】未生效：牌组中存在相同的牌。</span>`);
+        } else if (candidates.length <= 0) {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可附香的非诅咒牌。</span>`);
+        } else {
+          const picked = candidates[Math.floor(Math.random() * candidates.length)]!;
+          alchemyPerfumePointDoubleCardIds.value[source][picked.id] = true;
+          log(`<span class="text-yellow-300">${label}【${card.name}】使【${picked.name}】本场战斗打出时点数 x2。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'alchemy_grand_synthesis') {
+        syncCurrentPointForUi();
+        let targetId = alchemyGrandSynthesisBoundCardId.value[source];
+        if (!targetId) {
+          const candidates = collectUniqueCombatCardsForSide(source);
+          const picked = candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+          targetId = picked?.id ?? null;
+          alchemyGrandSynthesisBoundCardId.value[source] = targetId;
+        }
+        if (targetId) {
+          const nextBonus = increaseAlchemyGrandSynthesisPointBonus(source, targetId, 1);
+          const targetName = collectUniqueCombatCardsForSide(source).find(entry => entry.id === targetId)?.name ?? targetId;
+          log(`<span class="text-yellow-300">${label}【${card.name}】使【${targetName}】本场战斗打出时点数 +${nextBonus}</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可绑定卡牌。</span>`);
         }
         finalizeAndTrack();
         return;
@@ -7896,7 +8500,7 @@ const resolveCombat = async (
         applyCardEffects();
       }
       const burnStacksOnDefender = getEffectStacks(defender, ET.BURN);
-      const baseHitCount = Math.max(1, Math.floor(card.hitCount ?? 1));
+      const baseHitCount = getAlchemyGoldenFlashHitCount(source, card);
       const defenderSwarmStacks = Math.max(0, getEffectStacks(defender, ET.SWARM));
       let extraHitCount = card.id === 'enemy_moth_swarm_burst'
         ? Math.max(0, getEffectStacks(attacker, ET.SWARM))
@@ -8038,7 +8642,7 @@ const resolveCombat = async (
           ? attacker.effects.filter(effect => effect.type !== ET.DAMAGE_BOOST)
           : attacker.effects;
 
-        const { damage, isTrueDamage, logs: dmgLogs } = calculateFinalDamage({
+        const damageResult = calculateFinalDamage({
           finalPoint,
           card: cardForCalculation,
           attackerEffects: attackerEffectsForDamage,
@@ -8046,6 +8650,26 @@ const resolveCombat = async (
           relicModifiers: NO_RELIC_MOD,
           isTrueDamage: forceTrueDamage,
         });
+        let damage = damageResult.damage;
+        const isTrueDamage = damageResult.isTrueDamage;
+        const dmgLogs = damageResult.logs;
+        const rainbowGrassCount = getActiveRelicCount('alchemy_rainbow_grass');
+        if (rainbowGrassCount > 0 && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)) {
+          if (source === 'player') {
+            const bonus = countDistinctDebuffTypes(defender) * rainbowGrassCount;
+            if (bonus > 0) {
+              damage += bonus;
+              logRelicMessage(`[彩虹草] 敌方负面状态种类使本次伤害 +${bonus}。`);
+            }
+          } else if (defenderSide === 'player') {
+            const reduction = countDistinctDebuffTypes(defender) * rainbowGrassCount;
+            if (reduction > 0) {
+              const beforeDamage = damage;
+              damage = Math.max(0, damage - reduction);
+              logRelicMessage(`[彩虹草] 自身负面状态种类使本次受到的伤害 ${beforeDamage}→${damage}。`);
+            }
+          }
+        }
         const adjustedDamage = defenderSide === 'player'
           ? applyPlayerSkinMarkDamageReduction(damage, `${defenderLabel}受击`)
           : damage;
@@ -8217,9 +8841,26 @@ const resolveCombat = async (
             }
           }
         }
+        if (
+          source === 'enemy'
+          && defenderSide === 'player'
+          && actualDamage > 0
+          && combatState.value.playerHand.some(handCard => handCard.id === 'alchemy_venomous_slime')
+        ) {
+          applyStatusEffectWithRelics('player', ET.POISON, 6, { source: 'card:alchemy_venomous_slime_in_hand' });
+          log('<span class="text-emerald-300">手牌中的【剧毒粘液】被击中触发：自身获得 6 层中毒。</span>');
+        }
         if (defender.hp <= 0) break;
         if (totalHitCount > 1 && hit < totalHitCount - 1) {
           await wait(100);
+        }
+      }
+      if (card.id === 'alchemy_gilded_strike') {
+        const curseCount = countBattleCardsForSide(source, card, entry => entry.type === CardType.CURSE);
+        const burnStacks = curseCount * 2;
+        if (burnStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.BURN, burnStacks, { source: card.id });
+          log(`<span class="text-orange-300">${label}【${card.name}】按牌库诅咒牌施加 ${burnStacks} 层燃烧。</span>`);
         }
       }
       if (card.id === 'modao_magic_sword' && modaoMagicSwordTotalDamage > 0) {
@@ -8667,6 +9308,21 @@ const resolveCombat = async (
       }
     }
     await executeCard(action.source, action.card, action.baseDice);
+    if (
+      action.source === 'player'
+      && action.card.id !== PASS_CARD.id
+      && action.card.traits.combo
+      && getActiveRelicCount('alchemy_black') > 0
+      && !alchemyBlackComboTriggeredThisTurn.value
+      && playerStats.value.hp > 0
+      && enemyStats.value.hp > 0
+    ) {
+      alchemyBlackComboTriggeredThisTurn.value = true;
+      logRelicMessage(`[黑色] 本回合第一张连击牌【${action.card.name}】额外结算一次。`);
+      await wait(320);
+      if (endCombatPending.value) return;
+      await executeCard(action.source, action.card, action.baseDice, { skipManaCost: action.type === CardType.MAGIC });
+    }
     if (action.source === 'player' && action.card.id !== PASS_CARD.id) {
       if (action.type === CardType.MAGIC) {
         const fluorescentCount = getActiveRelicCount('modao_fluorescent_pendant');
@@ -8738,7 +9394,7 @@ const resolveCombat = async (
 
   // 连击：本次打出后，若带 draw 则补抽 1 张；并允许继续从剩余手牌出牌
   if (resolvedPlayerCard.traits.combo) {
-    if (resolvedPlayerCard.traits.draw) {
+    if (resolvedPlayerCard.traits.draw || getActiveRelicCount('alchemy_white_silk') > 0) {
       const { drawn, newDeck, newDiscard } = drawCards(1, combatState.value.playerDeck, combatState.value.discardPile);
       applyOnDrawCardEffects(drawn);
       combatState.value.playerDeck = newDeck;
@@ -8943,7 +9599,7 @@ const resolveCombat = async (
         dollDamage,
         dollIsTrueDamage,
         '魔法玩偶',
-        { sourceSide: 'player', isDirectDamage: true },
+        { sourceSide: 'player', isDirectDamage: true, card: MAGIC_DOLL_DAMAGE_CARD },
       );
       if (actualDamage > 0) {
         pushFloatingNumber('enemy', actualDamage, 'magic', '-');
@@ -8956,6 +9612,9 @@ const resolveCombat = async (
       for (const dl of dollApplyLogs) {
         const normalized = dl.startsWith('受到') ? `敌方${dl}` : dl;
         log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+      }
+      if (actualDamage > 0) {
+        triggerMicroFloatingCannonDamage('player', 'enemy');
       }
       if (enemyStats.value.hp <= 0) break;
     }
@@ -9044,7 +9703,14 @@ const runEndCombatSequence = async (outcome: CombatOutcome) => {
     pendingCardNegativeEffects.value.push(negativeStatus);
     log(`<span class="text-fuchsia-300">我方战败于【${enemyDisplayName}】，获得负面状态：${negativeStatus}</span>`);
   }
-  emit('endCombat', outcome, finalPlayerStats, [...combatState.value.logs], [...pendingCardNegativeEffects.value]);
+  emit(
+    'endCombat',
+    outcome,
+    finalPlayerStats,
+    [...combatState.value.logs],
+    [...pendingCardNegativeEffects.value],
+    pendingAlchemyGoldDelta.value,
+  );
 };
 
 watch(

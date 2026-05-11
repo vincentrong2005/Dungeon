@@ -605,6 +605,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每次成功闪避时为对手施加电击',
   },
+  [EffectType.ELEMENT_ATTACH]: {
+    type: EffectType.ELEMENT_ATTACH,
+    name: '元素附加',
+    polarity: 'buff',
+    timings: ['onTurnStart'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合开始时为对手施加随机元素异常',
+  },
   [EffectType.THORNS]: {
     type: EffectType.THORNS,
     name: '荆棘',
@@ -726,6 +735,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.POISON_ATTACH,
   EffectType.BLOODBLADE_ATTACH,
   EffectType.LIGHTNING_ATTACH,
+  EffectType.ELEMENT_ATTACH,
   EffectType.BLOOD_COCOON,
   EffectType.ORGASM,
   EffectType.BIND,
@@ -1279,6 +1289,16 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (frostAttachStacks > 0) {
     result.applyToOpponent.push({ type: EffectType.COLD, stacks: frostAttachStacks });
     result.logs.push(`[冰霜附加] 为对手施加 ${frostAttachStacks} 层寒冷。`);
+  }
+
+  // 元素附加
+  const elementAttachStacks = getEffectStacks(entity, EffectType.ELEMENT_ATTACH);
+  if (elementAttachStacks > 0) {
+    const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
+    result.applyToOpponent.push({ type: picked, stacks: elementAttachStacks });
+    result.logs.push(
+      `[元素附加] 为对手施加 ${elementAttachStacks} 层${EFFECT_REGISTRY_RAW[picked]?.name ?? picked}。`,
+    );
   }
 
   return result;

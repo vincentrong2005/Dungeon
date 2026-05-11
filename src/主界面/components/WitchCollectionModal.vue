@@ -80,7 +80,18 @@
               </div>
 
               <div v-else-if="activeTab === 'enemies' || activeTab === 'lords'" class="enemy-grid">
-                <article v-for="enemy in pagedEnemyLikeEntries" :key="enemy.name" class="entry-card enemy-card">
+                <article
+                  v-for="enemy in pagedEnemyLikeEntries"
+                  :key="enemy.name"
+                  class="entry-card enemy-card"
+                  :class="{ 'enemy-card--expanded': expandedEnemyName === enemy.name }"
+                  tabindex="0"
+                  role="button"
+                  :aria-expanded="expandedEnemyName === enemy.name"
+                  @click="toggleEnemyCardDetails(enemy.name)"
+                  @keydown.enter.prevent="toggleEnemyCardDetails(enemy.name)"
+                  @keydown.space.prevent="toggleEnemyCardDetails(enemy.name)"
+                >
                   <div class="enemy-head">
                     <button
                       type="button"
@@ -88,7 +99,7 @@
                       :class="{ 'portrait--clickable': canPreviewPortrait(enemy.name) }"
                       :disabled="!canPreviewPortrait(enemy.name)"
                       :aria-label="canPreviewPortrait(enemy.name) ? `放大查看${enemy.name}立绘` : `${enemy.name}立绘不可用`"
-                      @click="openPortraitPreview(enemy.name)"
+                      @click.stop="openPortraitPreview(enemy.name)"
                     >
                       <img
                         v-if="encounteredEnemyNames.has(enemy.name) && !portraitErrorMap[enemy.name]"
@@ -121,6 +132,29 @@
                         : '卡牌：???'
                     }}
                   </p>
+                  <div
+                    v-if="encounteredEnemyNames.has(enemy.name)"
+                    class="enemy-card-toggle-hint"
+                  >
+                    {{ expandedEnemyName === enemy.name ? '点击收起卡牌详情' : '点击查看卡牌详情' }}
+                  </div>
+                  <div
+                    v-if="expandedEnemyName === enemy.name && encounteredEnemyNames.has(enemy.name)"
+                    class="enemy-deck-detail"
+                  >
+                    <DungeonCard
+                      v-for="(card, idx) in enemy.deckCards"
+                      :key="`enemy-${enemy.name}-card-${card.id}-${idx}`"
+                      :card="card"
+                      :disabled="true"
+                    />
+                    <div
+                      v-if="enemy.deckCards.length === 0"
+                      class="enemy-deck-empty"
+                    >
+                      暂无卡牌
+                    </div>
+                  </div>
                 </article>
               </div>
 
@@ -171,7 +205,7 @@ import { getAllRelics } from '../battle/relicRegistry';
 import { loadCodexState } from '../codexStore';
 import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
-import { CardType, EffectType as ET, type EffectType } from '../types';
+import { CardData, CardType, type EffectType } from '../types';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
 
@@ -204,6 +238,7 @@ const activeTab = ref<TabId>('cards');
 const currentPage = ref(1);
 const flipName = ref<'flip-next' | 'flip-prev'>('flip-next');
 const codex = ref(loadCodexState());
+const expandedEnemyName = ref<string | null>(null);
 
 const cardFilter = ref('全部');
 const relicFilter = ref('全部');
@@ -425,6 +460,16 @@ const getEnemyLocationLabel = (
   if (encountered) return `${formatEnemyFloorLabel(enemy.floorLabel)} · ${enemy.areaLabel}`;
   return `${formatEnemyFloorLabel(enemy.floorLabel)} · ???`;
 };
+const uniqueEnemyDeckCards = (cards: CardData[] | undefined): CardData[] => {
+  const seen = new Set<string>();
+  const result: CardData[] = [];
+  for (const card of cards ?? []) {
+    if (seen.has(card.id)) continue;
+    seen.add(card.id);
+    result.push(card);
+  }
+  return result;
+};
 
 const allEnemyEntries = computed(() => (
   getAllEnemyNames().map((name) => {
@@ -448,6 +493,7 @@ const allEnemyEntries = computed(() => (
         maxDice: stats.maxDice,
       },
       deckCardNames: def?.deck?.map((card) => card.name) ?? [],
+      deckCards: uniqueEnemyDeckCards(def?.deck),
     };
   }).sort((a, b) => {
     if (a.floor !== b.floor) return a.floor - b.floor;
@@ -523,11 +569,17 @@ const pagedEnemies = computed(() => filteredEnemies.value.slice(pageStart.value,
 const pagedLords = computed(() => filteredLords.value.slice(pageStart.value, pageEnd.value));
 const pagedEnemyLikeEntries = computed(() => (activeTab.value === 'lords' ? pagedLords.value : pagedEnemies.value));
 
+const toggleEnemyCardDetails = (name: string): void => {
+  if (!encounteredEnemyNames.value.has(name)) return;
+  expandedEnemyName.value = expandedEnemyName.value === name ? null : name;
+};
+
 const setMainTab = (tab: TabId) => {
   if (activeTab.value === tab) return;
   activeTab.value = tab;
   flipName.value = 'flip-next';
   currentPage.value = 1;
+  expandedEnemyName.value = null;
 };
 const setFilter = (key: string) => {
   if (activeTab.value === 'cards') cardFilter.value = key;
@@ -537,16 +589,19 @@ const setFilter = (key: string) => {
   if (activeTab.value === 'status') statusFilter.value = key as '全部' | StatusKind;
   flipName.value = 'flip-next';
   currentPage.value = 1;
+  expandedEnemyName.value = null;
 };
 const prevPage = () => {
   if (currentPage.value <= 1) return;
   flipName.value = 'flip-prev';
   currentPage.value -= 1;
+  expandedEnemyName.value = null;
 };
 const nextPage = () => {
   if (currentPage.value >= totalPages.value) return;
   flipName.value = 'flip-next';
   currentPage.value += 1;
+  expandedEnemyName.value = null;
 };
 
 watch(totalPages, (pages) => {
@@ -632,6 +687,7 @@ watch(
   (open) => {
     if (!open) {
       closePortraitPreview();
+      expandedEnemyName.value = null;
       return;
     }
     refreshCodex();
@@ -643,6 +699,7 @@ watch(
 
 watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   closePortraitPreview();
+  expandedEnemyName.value = null;
   if (!props.isOpen) return;
   void ensurePortraits();
 });
@@ -887,6 +944,21 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   transform: translateY(-1px);
 }
 
+.enemy-card {
+  cursor: pointer;
+}
+
+.enemy-card:focus-visible {
+  outline: 1px solid rgba(212, 175, 55, 0.72);
+  outline-offset: 2px;
+}
+
+.enemy-card--expanded {
+  grid-column: span 2;
+  border-color: rgba(212, 175, 55, 0.58);
+  box-shadow: 0 0 18px rgba(212, 175, 55, 0.16), 0 2px 10px rgba(0, 0, 0, 0.34);
+}
+
 .entry-title {
   color: rgba(255, 248, 220, 0.95);
   font-size: 0.88rem;
@@ -907,6 +979,30 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   color: rgba(240, 220, 190, 0.68);
   font-size: 0.75rem;
   line-height: 1.05rem;
+}
+
+.enemy-card-toggle-hint {
+  margin-top: 0.35rem;
+  color: rgba(212, 175, 55, 0.78);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.enemy-deck-detail {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(212, 175, 55, 0.18);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.65rem;
+  justify-items: center;
+}
+
+.enemy-deck-empty {
+  grid-column: 1 / -1;
+  color: rgba(240, 220, 190, 0.58);
+  font-size: 0.75rem;
+  padding: 0.8rem 0;
 }
 
 /* ── Effect Row ── */

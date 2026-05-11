@@ -1138,28 +1138,44 @@
                   :key="`magic-book-${bookName}`"
                   type="button"
                   class="magic-book-card"
-                  :class="{ 'is-equipped': carriedMagicBookSet.has(bookName) }"
+                  :class="{ 'is-equipped': carriedMagicBookSet.has(bookName), 'is-locked': isMagicBookLocked(bookName) }"
                   :disabled="isUpdatingMagicBooks"
                   @click="toggleMagicBook(bookName)"
                 >
                   <div
                     class="magic-book-card__cover"
-                    :class="carriedMagicBookSet.has(bookName) ? 'border-dungeon-gold/60' : 'border-dungeon-brown/60'"
+                    :class="
+                      isMagicBookLocked(bookName)
+                        ? 'border-slate-500/55'
+                        : carriedMagicBookSet.has(bookName)
+                          ? 'border-dungeon-gold/60'
+                          : 'border-dungeon-brown/60'
+                    "
                   >
                     <img
                       :src="getMagicBookCoverUrl(bookName)"
                       :alt="`${bookName} 魔法书封面`"
                       class="magic-book-card__image"
                       :class="
-                        carriedMagicBookSet.has(bookName) ? 'brightness-100 saturate-110' : 'brightness-50 saturate-60'
+                        isMagicBookLocked(bookName)
+                          ? 'brightness-35 saturate-0'
+                          : carriedMagicBookSet.has(bookName)
+                            ? 'brightness-100 saturate-110'
+                            : 'brightness-50 saturate-60'
                       "
                       loading="lazy"
                     />
                     <div class="magic-book-card__shade"></div>
                     <div class="magic-book-card__header">
                       <span class="magic-book-card__badge">
-                        {{ carriedMagicBookSet.has(bookName) ? '已携带' : '待装配' }}
+                        {{ isMagicBookLocked(bookName) ? '未解锁' : carriedMagicBookSet.has(bookName) ? '已携带' : '待装配' }}
                       </span>
+                    </div>
+                    <div
+                      v-if="isMagicBookLocked(bookName)"
+                      class="magic-book-card__lock"
+                    >
+                      挑战过商人后解锁
                     </div>
                     <div class="magic-book-card__title-wrap">
                       <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
@@ -1168,7 +1184,7 @@
                   <div class="magic-book-card__footer">
                     <span class="magic-book-card__footer-title">{{ bookName }}</span>
                     <span class="magic-book-card__footer-action">
-                      {{ carriedMagicBookSet.has(bookName) ? '点击卸下' : '点击携带' }}
+                      {{ isMagicBookLocked(bookName) ? '解锁条件' : carriedMagicBookSet.has(bookName) ? '点击卸下' : '点击携带' }}
                     </span>
                   </div>
                 </button>
@@ -3026,10 +3042,17 @@
                       :key="`reward-replace-${entry.idx}`"
                       type="button"
                       class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                      :class="[
+                        rewardDeckShakeIdx === entry.idx ? 'reward-invalid-shake' : '',
+                        getRewardDeckFusionName(entry) ? 'border-lime-300/70 shadow-[0_0_18px_rgba(190,242,100,0.16)]' : '',
+                      ]"
                       :disabled="rewardApplying"
                       @click="replaceDeckCardWithReward(entry.idx)"
                     >
-                      <div class="text-[11px] text-dungeon-paper/65 mb-2">槽位 {{ entry.idx + 1 }}</div>
+                      <div class="mb-2 flex items-center justify-between gap-2 text-[11px] text-dungeon-paper/65">
+                        <span>槽位 {{ entry.idx + 1 }}</span>
+                        <span v-if="getRewardDeckFusionName(entry)" class="text-lime-200">融合为 {{ getRewardDeckFusionName(entry) }}</span>
+                      </div>
                       <div class="flex justify-center">
                         <DungeonCard v-if="entry.card" :card="entry.card" disabled />
                         <div
@@ -3068,6 +3091,76 @@
                     </button>
                   </div>
                 </template>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
+        <Transition name="combat-fade">
+          <div v-if="activeForcedCurseReplacement" class="absolute inset-0 z-[104] bg-black/90">
+            <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
+              <div class="w-full max-w-6xl origin-center scale-[1.2] rounded-xl border border-fuchsia-400/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_32px_rgba(217,70,239,0.2)]">
+                <div class="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-heading text-xl text-fuchsia-200">诅咒替换</div>
+                    <div class="text-xs text-dungeon-paper/65 mt-1">
+                      获得【{{ activeForcedCurseReplacement.relicName }}】后，必须选择 1 个卡组槽位替换为【{{ activeForcedCurseReplacement.curseName }}】。
+                    </div>
+                  </div>
+                  <div class="rounded border border-fuchsia-300/30 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100">
+                    不可跳过
+                  </div>
+                </div>
+
+                <div class="mb-4 rounded border border-fuchsia-300/25 bg-black/20 p-3">
+                  <div class="text-xs text-dungeon-paper/70 mb-2">即将加入的诅咒牌：</div>
+                  <div class="flex justify-center">
+                    <DungeonCard v-if="activeForcedCurseCard" :card="activeForcedCurseCard" disabled />
+                  </div>
+                </div>
+
+                <div
+                  v-if="forcedCurseDeckReplaceEntries.length === 0"
+                  class="rounded border border-dungeon-brown/50 bg-black/20 p-4 text-center"
+                >
+                  <div class="text-sm text-dungeon-paper/70">当前卡组为空，将诅咒牌加入卡组。</div>
+                  <button
+                    type="button"
+                    class="mt-3 px-4 py-2 rounded border border-fuchsia-300/45 text-fuchsia-100 hover:bg-fuchsia-500/10 disabled:opacity-50"
+                    :disabled="forcedCurseReplacing"
+                    @click="replaceDeckCardWithForcedCurse(0)"
+                  >
+                    加入卡组
+                  </button>
+                </div>
+
+                <div
+                  v-else
+                  class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
+                >
+                  <button
+                    v-for="entry in forcedCurseDeckReplaceEntries"
+                    :key="`forced-curse-replace-${entry.idx}`"
+                    type="button"
+                    class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-fuchsia-300/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="forcedCurseReplacing"
+                    @click="replaceDeckCardWithForcedCurse(entry.idx)"
+                  >
+                    <div class="mb-2 flex items-center justify-between gap-2 text-[11px] text-dungeon-paper/65">
+                      <span>槽位 {{ entry.idx + 1 }}</span>
+                      <span class="text-fuchsia-100">替换为诅咒</span>
+                    </div>
+                    <div class="flex justify-center">
+                      <DungeonCard v-if="entry.card" :card="entry.card" disabled />
+                      <div
+                        v-else
+                        class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
+                      >
+                        {{ entry.name || '空槽位' }}
+                      </div>
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -3155,7 +3248,7 @@ import {
 } from 'lucide-vue-next';
 import { hasAuthorTestAccess, unlockAuthorTestAccess, verifyAuthorTestPassword } from '../authorTestAccess';
 import { getAllActiveSkills, resolveActiveSkillNames } from '../battle/activeSkillRegistry';
-import { getAllCards, resolveCardNames } from '../battle/cardRegistry';
+import { getAllCards, getCardByName, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
 import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
@@ -3429,8 +3522,11 @@ const showMimicRelicDropView = ref(false);
 const mimicRelicDropRelic = ref<RelicData | null>(null);
 const mimicRelicDropApplying = ref(false);
 const rewardApplying = ref(false);
+const rewardDeckShakeIdx = ref<number | null>(null);
 const rewardRefreshUsed = ref(false);
 const rewardIsNormalEnemy = ref(false);
+const forcedCurseReplacementQueue = ref<Array<{ relicId: string; relicName: string; curseName: string }>>([]);
+const forcedCurseReplacing = ref(false);
 const relicTooltip = ref<{
   x: number;
   y: number;
@@ -4108,6 +4204,7 @@ const CATEGORY_ORDER: Record<string, number> = {
   燃烧: 2,
   严寒: 3,
   血池: 4,
+  炼金: 5,
 };
 const compareCategory = (a: string, b: string) => {
   const orderA = CATEGORY_ORDER[a] ?? 999;
@@ -4153,9 +4250,59 @@ const filteredCardCategoryGroupsForTest = computed<Array<{ category: string; car
 });
 const MAGIC_BOOK_COVER_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E6%B3%95%E4%B9%A6%E5%B0%81%E9%9D%A2`;
 const getMagicBookCoverUrl = (bookName: string) => `${MAGIC_BOOK_COVER_BASE}/${encodeURIComponent(bookName)}.png`;
-const carryableMagicBookNames = computed<string[]>(() =>
-  cardCategoryGroupsForTest.value.map(group => group.category).filter(category => category !== '基础'),
+const ALCHEMY_UNLOCK_KEY = 'dungeon.alchemy_system_unlocked';
+const readStoredAlchemyUnlocked = (): boolean => {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem(ALCHEMY_UNLOCK_KEY) === 'true';
+};
+const storedAlchemyUnlocked = ref(readStoredAlchemyUnlocked());
+const setStoredAlchemyUnlocked = () => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(ALCHEMY_UNLOCK_KEY, 'true');
+  }
+  storedAlchemyUnlocked.value = true;
+};
+const parseMerchantDefeatedValue = (value: unknown): boolean => {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1';
+  }
+  return false;
+};
+const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人));
+const alchemySystemUnlocked = computed(() =>
+  storedAlchemyUnlocked.value
+  || parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人)
+  || isMerchantDefeated.value,
 );
+const unlockAlchemySystem = async () => {
+  if (!storedAlchemyUnlocked.value) {
+    setStoredAlchemyUnlocked();
+  }
+  if (!parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人)) {
+    await gameStore.updateStatDataFields({ $是否已挑战过商人: true });
+  }
+};
+watch(
+  alchemySystemUnlocked,
+  (unlocked) => {
+    if (!unlocked) return;
+    if (!storedAlchemyUnlocked.value) {
+      setStoredAlchemyUnlocked();
+    }
+    if (!parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人)) {
+      void gameStore.updateStatDataFields({ $是否已挑战过商人: true });
+    }
+  },
+  { immediate: true },
+);
+const carryableMagicBookNames = computed<string[]>(() =>
+  cardCategoryGroupsForTest.value
+    .map(group => group.category)
+    .filter(category => category !== '基础'),
+);
+const isMagicBookLocked = (bookName: string): boolean => bookName === '炼金' && !alchemySystemUnlocked.value;
 const rawCarriedMagicBooks = computed<string[]>(() => {
   const raw = gameStore.statData._携带的魔法书;
   if (!Array.isArray(raw)) return [];
@@ -4205,15 +4352,6 @@ const shopRobBtnOpacity = computed(() => {
   const revealed = Math.min(5, shopRobClickCount.value);
   return (0.32 + revealed * 0.13).toFixed(2);
 });
-const parseMerchantDefeatedValue = (value: unknown): boolean => {
-  if (value === true || value === 1) return true;
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    return normalized === 'true' || normalized === '1';
-  }
-  return false;
-};
-const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人));
 const canEditMagicBooks = computed(() => ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝');
 const magicBookSidebarIcon = computed(() => (canEditMagicBooks.value ? Book : Lock));
 const magicHatSidebarIcon = computed(() => (canEditMagicBooks.value ? WizardHatIcon : Lock));
@@ -4468,6 +4606,10 @@ const setMagicHatDifficulty = async (difficulty: DifficultyOption) => {
 };
 const toggleMagicBook = async (bookName: string) => {
   if (isUpdatingMagicBooks.value) return;
+  if (bookName === '炼金' && !alchemySystemUnlocked.value) {
+    toastr.warning('炼金体系需要挑战过商人后解锁。');
+    return;
+  }
   const current = rawCarriedMagicBooks.value;
   const nextBooks = current.includes(bookName) ? current.filter(name => name !== bookName) : [...current, bookName];
   isUpdatingMagicBooks.value = true;
@@ -4727,6 +4869,14 @@ const EXCLUDED_VICTORY_REWARD_CARD_IDS = new Set<string>([
   'basic_magic',
   'basic_shield',
   'basic_dodge',
+  'curse_alchemy_waste',
+  'alchemy_enhanced_poison_potion',
+  'alchemy_enhanced_rend_potion',
+  'alchemy_enhanced_burning_potion',
+  'alchemy_enhanced_frost_potion',
+  'alchemy_enhanced_thunder_potion',
+  'alchemy_enhanced_recovery_potion',
+  'alchemy_mixed_potion',
 ]);
 const EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS = new Set<string>([
   'active_basic_reroll_self',
@@ -4759,7 +4909,7 @@ const rewardDeckReplaceEntries = computed<Array<{ idx: number; name: string; car
   return raw.slice(0, 9).map((name, idx) => ({
     idx,
     name,
-    card: cardByNameForTest.value.get(name) ?? null,
+    card: cardByNameForTest.value.get(name) ?? getCardByName(name) ?? null,
   }));
 });
 const rewardActiveReplaceEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
@@ -4769,6 +4919,20 @@ const rewardActiveReplaceEntries = computed<Array<{ idx: number; name: string; s
     idx,
     name,
     skill: activeSkillByNameMap.value.get(name) ?? null,
+  }));
+});
+const activeForcedCurseReplacement = computed(() => forcedCurseReplacementQueue.value[0] ?? null);
+const activeForcedCurseCard = computed<CardData | null>(() => {
+  const active = activeForcedCurseReplacement.value;
+  if (!active) return null;
+  return cardByNameForTest.value.get(active.curseName) ?? getCardByName(active.curseName) ?? null;
+});
+const forcedCurseDeckReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
+  const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
+  return raw.slice(0, 9).map((name, idx) => ({
+    idx,
+    name,
+    card: cardByNameForTest.value.get(name) ?? getCardByName(name) ?? null,
   }));
 });
 const testActiveSkillEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
@@ -4993,6 +5157,51 @@ const isActiveSkillReward = (item: VictoryRewardItem | null | undefined): item i
 
 const getVictoryRewardTypeText = (item: VictoryRewardItem) => (isActiveSkillReward(item) ? '主动技能' : '卡牌');
 
+const ALCHEMY_RELIC_FORCED_CURSE: Record<string, string> = {
+  alchemy_midas_hand: '黑手印',
+  alchemy_black_residue: '肮脏',
+};
+
+const enqueueForcedCurseReplacementForRelic = (relic: RelicData) => {
+  const curseName = ALCHEMY_RELIC_FORCED_CURSE[relic.id];
+  if (!curseName) return;
+  forcedCurseReplacementQueue.value.push({
+    relicId: relic.id,
+    relicName: relic.name,
+    curseName,
+  });
+};
+
+const replaceDeckCardWithForcedCurse = async (idx: number) => {
+  const active = activeForcedCurseReplacement.value;
+  if (!active || forcedCurseReplacing.value) return;
+  const curseCard = activeForcedCurseCard.value;
+  if (!curseCard) {
+    toastr.warning('未找到对应诅咒牌。');
+    return;
+  }
+
+  const raw = Array.isArray(gameStore.statData._技能) ? [...(gameStore.statData._技能 as string[])].slice(0, 9) : [];
+  if (raw.length === 0) {
+    raw.push(curseCard.name);
+  } else if (idx >= 0 && idx < raw.length) {
+    raw[idx] = curseCard.name;
+  } else {
+    return;
+  }
+
+  forcedCurseReplacing.value = true;
+  const ok = await gameStore.updateStatDataFields({ _技能: raw });
+  forcedCurseReplacing.value = false;
+  if (!ok) {
+    toastr.warning('诅咒替换失败，请重试。');
+    return;
+  }
+
+  forcedCurseReplacementQueue.value = forcedCurseReplacementQueue.value.slice(1);
+  toastr.warning(`【${active.relicName}】已将一张卡替换为【${curseCard.name}】。`);
+};
+
 const getCardCategoryStripClass = (category: string) => {
   switch (category) {
     case '基础':
@@ -5005,6 +5214,8 @@ const getCardCategoryStripClass = (category: string) => {
       return 'bg-sky-400/85';
     case '血池':
       return 'bg-rose-500/85';
+    case '炼金':
+      return 'bg-lime-400/85';
     default:
       return 'bg-indigo-400/80';
   }
@@ -6516,6 +6727,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
     $当前事件: '',
     _对手名称: '',
     $是否已击败商人: false,
+    $是否已挑战过商人: alchemySystemUnlocked.value,
     $统计: {
       当前层已过房间: 0,
       累计已过房间: 0,
@@ -6865,6 +7077,7 @@ const queueCombatMvuSync = (
   finalStats: unknown,
   negativeEffects: string[],
   negativeStatusesRemove: string[] = [],
+  extraGoldDelta: number = 0,
 ) => {
   const win = outcome === 'win';
   const lose = outcome === 'lose';
@@ -6909,7 +7122,9 @@ const queueCombatMvuSync = (
   gameStore.setPendingCombatMvuChanges({
     hp: nextHp,
     addDefeatMark: lose,
-    goldDelta: win ? goldReward : undefined,
+    goldDelta: win
+      ? goldReward + Math.max(0, Math.floor(extraGoldDelta))
+      : (extraGoldDelta > 0 ? Math.max(0, Math.floor(extraGoldDelta)) : undefined),
     negativeStatusesAdd: normalizedNegativeEffects,
     negativeStatusesRemove: normalizedNegativeStatusesRemove,
   });
@@ -7018,14 +7233,74 @@ const returnToVictoryRewardPick = () => {
   victoryRewardStage.value = 'pick';
 };
 
+const ALCHEMY_BASE_POTION_TO_ENHANCED: Record<string, string> = {
+  剧毒药剂: '增效剧毒药剂',
+  撕裂药剂: '增效撕裂药剂',
+  燃烧药剂: '增效燃烧药剂',
+  冰霜药剂: '增效冰霜药剂',
+  雷霆药剂: '增效雷霆药剂',
+  回复药剂: '增效回复药剂',
+};
+const ALCHEMY_BASE_POTION_NAMES = new Set(Object.keys(ALCHEMY_BASE_POTION_TO_ENHANCED));
+const ALCHEMY_EMPOWER_POTION_NAME = '增效药剂';
+const ALCHEMY_WASTE_NAME = '炼金废料';
+
+const resolveAlchemyFusionName = (rewardCard: CardData, deckCard: CardData | null): string | null => {
+  if (!deckCard) return null;
+  const rewardName = rewardCard.name;
+  const deckName = deckCard.name;
+  const rewardIsBasePotion = ALCHEMY_BASE_POTION_NAMES.has(rewardName);
+  const deckIsBasePotion = ALCHEMY_BASE_POTION_NAMES.has(deckName);
+  const rewardIsEmpower = rewardName === ALCHEMY_EMPOWER_POTION_NAME;
+  const deckIsEmpower = deckName === ALCHEMY_EMPOWER_POTION_NAME;
+
+  if (rewardIsEmpower && deckIsEmpower) return '催化剂';
+  if (rewardIsEmpower && deckName === ALCHEMY_WASTE_NAME) return '混合药剂';
+  if (deckIsEmpower && rewardName === ALCHEMY_WASTE_NAME) return '混合药剂';
+  if (rewardIsEmpower && deckIsBasePotion) return ALCHEMY_BASE_POTION_TO_ENHANCED[deckName] ?? null;
+  if (deckIsEmpower && rewardIsBasePotion) return ALCHEMY_BASE_POTION_TO_ENHANCED[rewardName] ?? null;
+  if (rewardIsBasePotion && deckIsBasePotion) {
+    if (rewardName === deckName) return ALCHEMY_BASE_POTION_TO_ENHANCED[rewardName] ?? null;
+    return ALCHEMY_WASTE_NAME;
+  }
+  return null;
+};
+
+const getRewardDeckFusionName = (entry: { card: CardData | null }): string | null => {
+  const selected = selectedVictoryRewardCard.value;
+  if (!selected || isActiveSkillReward(selected)) return null;
+  return resolveAlchemyFusionName(selected, entry.card);
+};
+
+const triggerRewardDeckShake = (idx: number) => {
+  rewardDeckShakeIdx.value = null;
+  requestAnimationFrame(() => {
+    rewardDeckShakeIdx.value = idx;
+    setTimeout(() => {
+      if (rewardDeckShakeIdx.value === idx) rewardDeckShakeIdx.value = null;
+    }, 420);
+  });
+};
+
 const replaceDeckCardWithReward = (idx: number) => {
   if (!selectedVictoryRewardCard.value || rewardApplying.value || isActiveSkillReward(selectedVictoryRewardCard.value))
     return;
   const raw = Array.isArray(gameStore.statData._技能) ? [...(gameStore.statData._技能 as string[])].slice(0, 9) : [];
+  const currentName = idx >= 0 && idx < raw.length ? raw[idx] : '';
+  const currentCard = currentName ? (cardByNameForTest.value.get(currentName) ?? getCardByName(currentName) ?? null) : null;
+  const fusionName = resolveAlchemyFusionName(selectedVictoryRewardCard.value, currentCard);
   if (raw.length === 0) {
     raw.push(selectedVictoryRewardCard.value.name);
   } else if (idx >= 0 && idx < raw.length) {
-    raw[idx] = selectedVictoryRewardCard.value.name;
+    if (fusionName) {
+      raw[idx] = fusionName;
+    } else if (currentCard?.type === CardType.CURSE) {
+      triggerRewardDeckShake(idx);
+      toastr.warning('诅咒牌无法被奖励牌替换。');
+      return;
+    } else {
+      raw[idx] = selectedVictoryRewardCard.value.name;
+    }
   } else {
     return;
   }
@@ -7256,12 +7531,17 @@ const buyShopProduct = (item: ShopProduct) => {
     rarity: formatRarityLabel(item.relic.rarity),
     price: item.finalPrice,
   });
+  enqueueForcedCurseReplacementForRelic(item.relic);
   hideRelicTooltip();
   shopBuying.value = false;
 };
 
 const exitShop = () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
+  if (activeForcedCurseReplacement.value) {
+    toastr.warning('必须先完成诅咒替换。');
+    return;
+  }
   const purchasedStartIndex = Math.max(0, Math.min(shopEntryPurchasedCount.value, shopPurchasedItems.value.length));
   const purchased = shopPurchasedItems.value.slice(purchasedStartIndex).map(item => ({ ...item }));
   const total = Math.max(0, shopSpentGold.value - shopEntrySpentGold.value);
@@ -7331,6 +7611,7 @@ const handleShopRobClick = async () => {
     void (async () => {
       const launched = await launchCombat('沐芯兰', 'shopRobbery');
       if (launched) {
+        void unlockAlchemySystem();
         closeShopView();
       } else {
         shopRobbing.value = false;
@@ -7482,6 +7763,10 @@ const openChestView = () => {
 };
 
 const closeChestView = () => {
+  if (activeForcedCurseReplacement.value) {
+    toastr.warning('必须先完成诅咒替换。');
+    return;
+  }
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
@@ -7749,6 +8034,8 @@ const acceptMimicRelicDrop = () => {
   mimicRelicDropApplying.value = true;
   const nextRelics = buildNextRelicInventory(relic);
   gameStore.mergePendingStatDataChanges(buildInventoryUpdateFields({ _圣遗物: nextRelics }));
+  mimicRelicDropApplying.value = false;
+  enqueueForcedCurseReplacementForRelic(relic);
   if (pendingCombatNarrative.value) {
     pendingCombatNarrative.value.text += `\n<user>宝箱怪额外掉落了圣遗物${relic.name}（${formatRarityLabel(relic.rarity)}），<user>选择将其带走。`;
   }
@@ -7834,6 +8121,10 @@ const collectChestReward = (index: number) => {
   resetChestRewardConfirmation(false);
   chestCollecting.value = true;
   chestRewardCollectedFlags.value[index] = true;
+  const relic = chestRewardRelics.value[index];
+  if (relic) {
+    enqueueForcedCurseReplacementForRelic(relic);
+  }
   chestCollecting.value = false;
 
   const allCollected =
@@ -8798,7 +9089,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   if (portal.isFloorTransition) {
     const currentRoomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
     const currentArea = ((gameStore.statData._当前区域 as string) || '').trim();
-    let pendingStatDataFields = currentRoomType === '领主房'
+    let pendingStatDataFields: Record<string, any> | undefined = currentRoomType === '领主房'
       ? {
           // 仅写入“下一层 user 楼层”的待应用变量，不直接修改当前领主房楼层。
           _血量: nextFloorRecoveryHpAfterLord.value,
@@ -8911,6 +9202,10 @@ function generateRoomLeavePortals(): PortalChoice[] {
 
 const handlePortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating) return;
+  if (activeForcedCurseReplacement.value) {
+    toastr.warning('必须先完成诅咒替换。');
+    return;
+  }
   resetShopSession();
   const { actionText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
   gameStore.setPendingStatDataChanges(pendingStatDataFields ?? null);
@@ -8919,6 +9214,10 @@ const handlePortalClick = async (portal: PortalChoice) => {
 
 const handleChestPortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating || chestCollecting.value || chestStage.value !== 'opened') return;
+  if (activeForcedCurseReplacement.value) {
+    toastr.warning('必须先完成诅咒替换。');
+    return;
+  }
   resetShopSession();
   const { actionText, enterText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
   const collectedRelics = chestRewardRelics.value.filter((_, idx) => chestRewardCollectedFlags.value[idx]);
@@ -9141,6 +9440,7 @@ const handleCombatEnd = async (
   finalStats: unknown,
   logs: string[],
   negativeEffects: string[],
+  goldDelta: number = 0,
 ) => {
   const context = activeCombatContext.value;
   const enemyName = combatEnemyName.value || (gameStore.statData._对手名称 as string) || '未知敌人';
@@ -9155,7 +9455,10 @@ const handleCombatEnd = async (
     text: buildCombatNarrative(outcome, enemyName, context, logs ?? []),
   };
 
-  queueCombatMvuSync(outcome, finalStats, negativeEffects ?? [], negativeStatusesRemove);
+  queueCombatMvuSync(outcome, finalStats, negativeEffects ?? [], negativeStatusesRemove, goldDelta);
+  if (context === 'shopRobbery' && enemyName === '沐芯兰') {
+    await unlockAlchemySystem();
+  }
 
   showCombat.value = false;
   showVictoryRewardView.value = false;
@@ -9226,6 +9529,18 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.reward-invalid-shake {
+  animation: reward-invalid-shake 0.36s ease;
+}
+
+@keyframes reward-invalid-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
 .ui-viewport {
   position: relative;
   width: 100vw;
@@ -9721,10 +10036,11 @@ onBeforeUnmount(() => {
 
 .magic-books-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16.2rem, 17.6rem));
+  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
   justify-content: center;
-  gap: 1.05rem;
-  max-height: 68vh;
+  align-items: start;
+  gap: 0.9rem;
+  max-height: 64vh;
   overflow-y: auto;
   padding-right: 0.25rem;
 }
@@ -9752,9 +10068,9 @@ onBeforeUnmount(() => {
 }
 
 .magic-book-card {
-  width: min(100%, 17.6rem);
+  width: min(100%, 13.2rem);
   justify-self: center;
-  padding: 0.7rem;
+  padding: 0.55rem;
   border-radius: 1rem;
   border: 1px solid rgba(120, 85, 56, 0.72);
   background:
@@ -9781,6 +10097,19 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 0 1px 0 rgba(255, 236, 201, 0.04),
     0 16px 28px rgba(0, 0, 0, 0.28);
+}
+
+.magic-book-card.is-locked {
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.magic-book-card.is-locked:hover,
+.magic-book-card.is-locked:focus-visible {
+  border-color: rgba(216, 180, 254, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 201, 0.03),
+    0 16px 28px rgba(0, 0, 0, 0.28),
+    0 0 18px rgba(168, 85, 247, 0.16);
 }
 
 .magic-book-card.is-equipped,
@@ -9856,6 +10185,22 @@ onBeforeUnmount(() => {
 .magic-book-card__title-wrap {
   top: 0.65rem;
   padding: 0 0.8rem;
+}
+
+.magic-book-card__lock {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.9rem;
+  z-index: 2;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(216, 180, 254, 0.28);
+  background: rgba(15, 23, 42, 0.78);
+  color: rgba(237, 233, 254, 0.92);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  padding: 0.52rem 0.65rem;
+  text-align: center;
 }
 
 .magic-book-card__footer {

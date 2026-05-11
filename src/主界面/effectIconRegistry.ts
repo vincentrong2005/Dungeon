@@ -61,6 +61,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.FROST_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.BLOODBLADE_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.LIGHTNING_ATTACH]: 'fa-solid fa-flask-vial',
+  [ET.ELEMENT_ATTACH]: 'fa-solid fa-flask-vial',
   [ET.THORNS]: 'fa-solid fa-leaf',
   [ET.BLOODLINE]: 'fa-brands fa-deezer',
   [ET.CONTRACT_CURSE]: 'fa-brands fa-debian',
@@ -77,6 +78,7 @@ export const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, str
   [ET.FROST_ATTACH]: { color: 'rgb(108, 230, 255)' },
   [ET.BLOODBLADE_ATTACH]: { color: 'rgb(176, 0, 0)' },
   [ET.LIGHTNING_ATTACH]: { color: 'rgb(201, 69, 255)' },
+  [ET.ELEMENT_ATTACH]: { color: 'rgb(245, 208, 66)' },
   [ET.TEMP_MAX_HP]: { color: 'rgb(255, 120, 150)' },
   [ET.ILLUSORY_BODY]: {
     '--fa-primary-color': 'rgb(255, 255, 255)',
