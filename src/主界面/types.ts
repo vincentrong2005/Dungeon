@@ -301,6 +301,10 @@ export enum EffectType {
   BLOOD_COCOON = '血茧',
   /** 不屈 — 生命值归零时消耗1层并恢复至1点生命 */
   INDOMITABLE = '不屈',
+  /** 镜面再生 — 受到致命伤时锁血并进入镜面免疫，结束后满血并消耗层数 */
+  MIRROR_REGENERATION = '镜面再生',
+  /** 模仿者 — 本身无直接效果，用于说明特殊模仿行动逻辑 */
+  MIMICKER = '模仿者',
   /** 虚实不明 — 仅在出牌阶段干扰对方骰子UI显示（永久debuff） */
   PEEP_FORBIDDEN = '虚实不明',
   /** 思绪被扰乱 — 仅在出牌阶段干扰自身骰子UI显示（永久debuff） */

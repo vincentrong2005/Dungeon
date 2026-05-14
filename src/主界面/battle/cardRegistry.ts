@@ -1639,7 +1639,7 @@ const 增效药剂: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '？？？，连击',
+  description: '连击',
 };
 
 const 增效剧毒药剂 = 创建药剂('alchemy_enhanced_poison_potion', '增效剧毒药剂', EffectType.POISON_ATTACH, '毒素附加', { rare: true, combo: true });

@@ -3296,6 +3296,27 @@ const 面具侍从: EnemyDefinition = {
   },
 };
 
+const 镜像分身: EnemyDefinition = {
+  name: '镜像分身',
+  stats: {
+    hp: 160,
+    maxHp: 160,
+    mp: 0,
+    minDice: 1,
+    maxDice: 1,
+    effects: [
+      { type: EffectType.MIRROR_REGENERATION, stacks: 3, polarity: 'buff' },
+      { type: EffectType.MIMICKER, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: [],
+  selectCard(ctx: EnemyAIContext) {
+    const pool = ctx.deck.length > 0 ? ctx.deck : getAllCards();
+    return pickRandomCard(pool) ?? pool[0]!;
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -3342,6 +3363,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [肉壁蠕虫.name, 肉壁蠕虫],
   [虚空游光.name, 虚空游光],
   [面具侍从.name, 面具侍从],
+  [镜像分身.name, 镜像分身],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],

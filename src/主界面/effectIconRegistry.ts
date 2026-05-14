@@ -44,6 +44,8 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.SWARM]: 'fa-solid fa-bugs',
   [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
   [ET.INDOMITABLE]: 'fa-solid fa-shield',
+  [ET.MIRROR_REGENERATION]: 'fa-solid fa-border-none',
+  [ET.MIMICKER]: 'fa-regular fa-clone',
   [ET.PEEP_FORBIDDEN]: 'fa-solid fa-eye',
   [ET.BLIND_ASH]: 'fa-regular fa-eye-slash',
   [ET.COGNITIVE_INTERFERENCE]: 'fa-solid fa-hamsa',

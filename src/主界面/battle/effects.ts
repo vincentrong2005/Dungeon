@@ -452,6 +452,25 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '生命值≤0时，消耗1层并恢复至1点生命',
   },
+  [EffectType.MIRROR_REGENERATION]: {
+    type: EffectType.MIRROR_REGENERATION,
+    name: '镜面再生',
+    polarity: 'buff',
+    timings: ['onAfterDamage', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description:
+      '受到致命伤时锁定为1点生命并眩晕3回合；免疫期间受到的伤害改为等量生命上限削减。眩晕结束后回复至满血并消耗1层',
+  },
+  [EffectType.MIMICKER]: {
+    type: EffectType.MIMICKER,
+    name: '模仿者',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '我即是你',
+  },
   [EffectType.PEEP_FORBIDDEN]: {
     type: EffectType.PEEP_FORBIDDEN,
     name: '虚实不明',
@@ -726,6 +745,8 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.INDOMITABLE,
   EffectType.MANA_SPRING,
   EffectType.VOID_TAINT,
+  EffectType.MIRROR_REGENERATION,
+  EffectType.MIMICKER,
   EffectType.REGEN,
   EffectType.SELF_REPAIR,
   EffectType.IRIS_AMBER,
@@ -996,9 +1017,8 @@ export function applyEffect(
     lockDecayThisTurn: DECAY_GRACE_EFFECT_TYPES.has(type) ? !!options?.lockDecayThisTurn : undefined,
     restrictedTypes: type === EffectType.BIND ? undefined : options?.restrictedTypes,
     source: options?.source,
-    durationTurnsRemaining: typeof options?.durationTurns === 'number'
-      ? Math.max(0, Math.floor(options.durationTurns))
-      : undefined,
+    durationTurnsRemaining:
+      typeof options?.durationTurns === 'number' ? Math.max(0, Math.floor(options.durationTurns)) : undefined,
   };
   entity.effects.push(instance);
   if (type === EffectType.ANESTHESIA_DEPTH) {
@@ -1296,9 +1316,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (elementAttachStacks > 0) {
     const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
     result.applyToOpponent.push({ type: picked, stacks: elementAttachStacks });
-    result.logs.push(
-      `[元素附加] 为对手施加 ${elementAttachStacks} 层${EFFECT_REGISTRY_RAW[picked]?.name ?? picked}。`,
-    );
+    result.logs.push(`[元素附加] 为对手施加 ${elementAttachStacks} 层${EFFECT_REGISTRY_RAW[picked]?.name ?? picked}。`);
   }
 
   return result;
@@ -1399,6 +1417,30 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     } else {
       reduceEffectStacks(entity, EffectType.STUN);
       logs.push(`[眩晕] 层数衰减。`);
+    }
+  }
+
+  const mirrorRegenerationEffect = findEffect(entity, EffectType.MIRROR_REGENERATION);
+  if (mirrorRegenerationEffect && mirrorRegenerationEffect.stacks > 0) {
+    const remaining = Math.max(0, Math.floor(mirrorRegenerationEffect.runtimeCounter ?? 0));
+    if (remaining > 0) {
+      if (mirrorRegenerationEffect.lockDecayThisTurn) {
+        mirrorRegenerationEffect.lockDecayThisTurn = false;
+        logs.push('[镜面再生] 触发回合不计入眩晕倒计时。');
+      } else {
+        const nextRemaining = Math.max(0, remaining - 1);
+        mirrorRegenerationEffect.runtimeCounter = nextRemaining;
+        if (nextRemaining > 0) {
+          applyEffect(entity, EffectType.STUN, 1, { source: 'effect:mirror_regeneration' });
+          logs.push(`[镜面再生] 镜面免疫剩余 ${nextRemaining} 回合。`);
+        } else {
+          const recovered = Math.max(0, entity.maxHp - entity.hp);
+          entity.hp = entity.maxHp;
+          removeEffect(entity, EffectType.STUN);
+          reduceEffectStacks(entity, EffectType.MIRROR_REGENERATION, 1);
+          logs.push(`[镜面再生] 眩晕结束，回复至满血${recovered > 0 ? `（+${recovered}）` : ''}，层数-1。`);
+        }
+      }
     }
   }
 

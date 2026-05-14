@@ -13,6 +13,7 @@ import {
 } from '../types';
 import {
     findEffect,
+    applyEffect,
     getEffectStacks,
     hasEffect,
     reduceEffectStacks,
@@ -209,11 +210,24 @@ export function triggerSwarmReviveIfNeeded(
   const logs: string[] = [];
   if (target.hp > 0) return { revived: false, logs };
   if (target.maxHp <= 0) return { revived: false, logs };
+  const mirrorRegeneration = findEffect(target, EffectType.MIRROR_REGENERATION);
+  if (!options?.disableRevive && mirrorRegeneration && mirrorRegeneration.stacks > 0) {
+    target.hp = 1;
+    mirrorRegeneration.runtimeCounter = Math.max(3, Math.floor(mirrorRegeneration.runtimeCounter ?? 0));
+    mirrorRegeneration.lockDecayThisTurn = true;
+    applyEffect(target, EffectType.STUN, 1, {
+      source: 'effect:mirror_regeneration',
+      lockDecayThisTurn: true,
+    });
+    logs.push('[镜面再生] 触发：生命锁定为1，进入3回合眩晕与伤害转化。');
+    return { revived: true, logs };
+  }
   if (options?.disableRevive) {
     const hasAnyRevive =
       getEffectStacks(target, EffectType.SWARM) > 0
       || getEffectStacks(target, EffectType.BLOOD_COCOON) > 0
-      || getEffectStacks(target, EffectType.INDOMITABLE) > 0;
+      || getEffectStacks(target, EffectType.INDOMITABLE) > 0
+      || getEffectStacks(target, EffectType.MIRROR_REGENERATION) > 0;
     void hasAnyRevive;
     return { revived: false, logs };
   }
@@ -285,6 +299,22 @@ export function applyDamageToEntity(
   options?: { disableRevive?: boolean; swarmAttack?: boolean },
 ): { actualDamage: number; logs: string[] } {
   const logs: string[] = [];
+  const mirrorRegeneration = findEffect(target, EffectType.MIRROR_REGENERATION);
+  if (mirrorRegeneration && mirrorRegeneration.stacks > 0 && Math.floor(mirrorRegeneration.runtimeCounter ?? 0) > 0) {
+    const convertedDamage = Math.max(0, Math.floor(damage));
+    if (convertedDamage <= 0) return { actualDamage: 0, logs };
+    const maxHpBefore = target.maxHp;
+    applyEffect(target, EffectType.MAX_HP_REDUCTION, convertedDamage, { source: 'effect:mirror_regeneration' });
+    const actualMaxHpLoss = Math.max(0, maxHpBefore - target.maxHp);
+    logs.push(`[镜面再生] 免疫 ${convertedDamage} 点伤害，并转化为 ${actualMaxHpLoss} 点生命上限削减。`);
+    if (target.maxHp <= 0) {
+      target.hp = 0;
+      logs.push('[镜面再生] 生命上限归零，镜像崩解。');
+    } else {
+      target.hp = Math.max(1, Math.min(target.hp, target.maxHp));
+    }
+    return { actualDamage: 0, logs };
+  }
   if (!isTrueDamage) {
     const damageLimit = getEffectStacks(target, EffectType.DAMAGE_LIMIT);
     if (damageLimit > 0 && damage > damageLimit) {

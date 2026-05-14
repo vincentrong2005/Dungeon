@@ -892,6 +892,8 @@ import {
     Layers,
     Leaf,
     Link2,
+    Copy,
+    SquareDashed,
     Scroll,
     Settings2,
     Shield,
@@ -996,6 +998,7 @@ const isLordBattle = String(gameStore.statData._当前房间类型 ?? '').includ
 const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
 const enemyDisplayName = enemyDef?.name ?? props.enemyName;
 const isTwinBattle = Boolean(enemyDef?.selectTwinCards);
+const isMirrorCloneBattle = enemyDisplayName === '镜像分身';
 
 // --- Portrait URLs ---
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
@@ -1179,6 +1182,11 @@ const buildEnemyInitialStats = (): EntityStats => {
   const baseStats = enemyDef
     ? cloneEntityStats(enemyDef.stats)
     : { hp: 1, maxHp: 1, mp: 0, minDice: 1, maxDice: 1, effects: [] as EffectInstance[] };
+  if (isMirrorCloneBattle) {
+    baseStats.mp = Math.max(0, Math.floor(props.initialPlayerStats.mp));
+    baseStats.minDice = Math.max(0, Math.floor(props.initialPlayerStats.minDice));
+    baseStats.maxDice = Math.max(baseStats.minDice, Math.floor(props.initialPlayerStats.maxDice));
+  }
   if (difficultyHpMultiplier !== 1) {
     const scaledMaxHp = Math.max(1, Math.round(baseStats.maxHp * difficultyHpMultiplier));
     const scaledHp = Math.max(1, Math.min(scaledMaxHp, Math.round(baseStats.hp * difficultyHpMultiplier)));
@@ -1246,6 +1254,8 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.SWARM]: Bug,
   [ET.BLOOD_COCOON]: Heart,
   [ET.INDOMITABLE]: Heart,
+  [ET.MIRROR_REGENERATION]: SquareDashed,
+  [ET.MIMICKER]: Copy,
   [ET.PEEP_FORBIDDEN]: Eye,
   [ET.BLIND_ASH]: EyeOff,
   [ET.COGNITIVE_INTERFERENCE]: Brain,
@@ -1342,7 +1352,9 @@ const cloneCardForBattle = (card: CardData): CardData => ({
 });
 const toBattleDeck = (cards: CardData[]) => cards.map(cloneCardForBattle);
 
-const enemyDeck = enemyDef ? toBattleDeck(enemyDef.deck) : [];
+const enemyDeck = isMirrorCloneBattle
+  ? toBattleDeck(props.playerDeck)
+  : (enemyDef ? toBattleDeck(enemyDef.deck) : []);
 
 // dummy card to prevent crash if enemy has no cards
 const PASS_CARD: CardData = {
@@ -1898,6 +1910,8 @@ const previousTurnManaSnapshot = ref<Record<BattleSide, number>>({
 });
 const playerPlayedPhysicalOrMagicThisTurn = ref(false);
 const playerPreviewCardForPointContext = ref<CardData | null>(null);
+const previousPlayerLastCardType = ref<CardType | null>(null);
+const previousPlayerFinalPoint = ref<number | null>(null);
 
 const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
 
@@ -2293,6 +2307,23 @@ const applyDamageToSideWithRelics = (
   return result;
 };
 
+const convertDamageByMirrorRegeneration = (target: EntityStats, incoming: number): number | null => {
+  const mirrorRegeneration = findEffect(target, ET.MIRROR_REGENERATION);
+  if (!mirrorRegeneration || mirrorRegeneration.stacks <= 0) return null;
+  if (Math.floor(mirrorRegeneration.runtimeCounter ?? 0) <= 0) return null;
+  const convertedDamage = Math.max(0, Math.floor(incoming));
+  if (convertedDamage <= 0) return 0;
+  const maxHpBefore = target.maxHp;
+  applyEffect(target, ET.MAX_HP_REDUCTION, convertedDamage, { source: 'effect:mirror_regeneration' });
+  const actualMaxHpLoss = Math.max(0, maxHpBefore - target.maxHp);
+  if (target.maxHp <= 0) {
+    target.hp = 0;
+  } else {
+    target.hp = Math.max(1, Math.min(target.hp, target.maxHp));
+  }
+  return actualMaxHpLoss;
+};
+
 const applyDirectHpLossWithRelics = (
   side: BattleSide,
   target: EntityStats,
@@ -2306,6 +2337,15 @@ const applyDirectHpLossWithRelics = (
   const adjusted = side === 'player'
     ? applyPlayerLiverMarkDamageReduction(applyPlayerHemostaticValveDamageCap(incoming, reason), reason)
     : incoming;
+  const mirrorConverted = convertDamageByMirrorRegeneration(target, adjusted);
+  if (mirrorConverted !== null) {
+    const label = side === 'player' ? '我方' : '敌方';
+    log(`<span class="text-violet-300">${label}[镜面再生] 免疫 ${adjusted} 点伤害，并转化为 ${mirrorConverted} 点生命上限削减。</span>`);
+    if (target.maxHp <= 0) {
+      log(`<span class="text-violet-300">${label}[镜面再生] 生命上限归零，镜像崩解。</span>`);
+    }
+    return 0;
+  }
   const before = target.hp;
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
@@ -6236,6 +6276,19 @@ function selectEnemyCard(): CardData {
     combatState.value.enemyDiscard = [];
   }
 
+  if (isMirrorCloneBattle) {
+    if (combatState.value.turn === 1) return PASS_CARD;
+    const ignoreMimicType = enemyComboPreludeResolvedTurn.value === combatState.value.turn;
+    const desiredType = ignoreMimicType
+      ? null
+      : previousPlayerLastCardType.value;
+    const candidates = desiredType
+      ? combatState.value.enemyDeck.filter((card) => card.type === desiredType)
+      : combatState.value.enemyDeck;
+    const pool = candidates.length > 0 ? candidates : combatState.value.enemyDeck;
+    return pool[Math.floor(Math.random() * pool.length)] ?? PASS_CARD;
+  }
+
   let selectedCard: CardData;
   if (enemyDef) {
     // Use the enemy's custom AI logic
@@ -6401,7 +6454,9 @@ const startTurn = () => {
   setTimeout(() => {
     if (endCombatPending.value) return;
     const pRawRoll = rollPlayerDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
-    const eRawRoll = Math.floor(Math.random() * (effectiveEnemyMaxDice.value - effectiveEnemyMinDice.value + 1)) + effectiveEnemyMinDice.value;
+    const eRawRoll = isMirrorCloneBattle && previousPlayerFinalPoint.value !== null
+      ? Math.max(0, Math.floor(previousPlayerFinalPoint.value))
+      : Math.floor(Math.random() * (effectiveEnemyMaxDice.value - effectiveEnemyMinDice.value + 1)) + effectiveEnemyMinDice.value;
     const pRoll = consumeChargeOnRoll(playerStats.value, '我方', pRawRoll);
     const eRoll = consumeChargeOnRoll(enemyStats.value, '敌方', eRawRoll);
     playerTurnRawDice.value = pRawRoll;
@@ -6473,6 +6528,8 @@ watch(
           player: { turn: 0, amount: 0 },
           enemy: { turn: 0, amount: 0 },
         };
+        previousPlayerLastCardType.value = null;
+        previousPlayerFinalPoint.value = null;
         const voidCards = combatState.value.playerDeck.filter(card => card.id === 'alchemy_void').length;
         if (voidCards > 0) {
           combatState.value.playerDeck = combatState.value.playerDeck.filter(card => card.id !== 'alchemy_void');
@@ -7118,6 +7175,11 @@ const resolveCombat = async (
 
   const pClashPoint = getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice);
   const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
+  if (!isEnemyComboPrelude) {
+    previousPlayerLastCardType.value = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard.type;
+    previousPlayerFinalPoint.value = pClashPoint;
+    combatState.value.lastPlayedCard = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard;
+  }
 
   const clearBurnForSide = (side: 'player' | 'enemy', reason: string) => {
     const target = side === 'player' ? playerStats.value : enemyStats.value;
