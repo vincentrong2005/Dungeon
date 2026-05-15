@@ -3425,15 +3425,15 @@ const 镜像分身: EnemyDefinition = {
 const 米拉: EnemyDefinition = {
   name: '米拉',
   stats: {
-    hp: 220,
-    maxHp: 220,
+    hp: 230,
+    maxHp: 230,
     mp: 0,
     minDice: 1,
     maxDice: 1,
     effects: [
       { type: EffectType.DANCE_HALL, stacks: 1, polarity: 'trait' },
       { type: EffectType.MIMICKER, stacks: 1, polarity: 'trait' },
-      { type: EffectType.MIRROR_REGENERATION, stacks: 3, polarity: 'buff' },
+      { type: EffectType.MIRROR_REGENERATION, stacks: 2, polarity: 'buff' },
       { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
     ],
   },
