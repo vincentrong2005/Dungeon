@@ -142,14 +142,12 @@ async function handleOpeningEntrySubmit(payload: OpeningInfoSubmission) {
       背景故事: payload.backstory,
     };
 
-    const updated = await gameStore.updateStatDataFields({
+    const openingProfileFields = {
       主角信息: roleProfile,
-    });
-    if (!updated) {
-      gameStore.setPendingStatDataChanges({
-        主角信息: roleProfile,
-      });
-    }
+    };
+
+    await gameStore.updateStatDataFields(openingProfileFields);
+    gameStore.setPendingStatDataChanges(openingProfileFields);
 
     await gameStore.sendAction(buildOpeningPrompt(payload));
     if (gameStore.error) {
