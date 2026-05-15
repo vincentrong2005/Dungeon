@@ -7988,12 +7988,12 @@ const 米拉_迎合: CardData = {
       triggers: ['on_dodge_success', 'on_opponent_skip'],
       kind: 'apply_buff',
       effectType: EffectType.CO_DANCE,
-      target: 'self',
+      target: 'enemy',
       valueMode: 'fixed',
       fixedValue: 1,
     },
   ],
-  description: '我们的步伐很契合。点数*0，闪避。若闪避成功或对方跳过回合时，施加1层【共舞】',
+  description: '我们的步伐很契合。点数*0，闪避。若闪避成功或对方跳过回合时，为对方施加1层【共舞】',
 };
 
 const 米拉_孤镜独舞: CardData = {
