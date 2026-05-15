@@ -6473,6 +6473,7 @@ function selectEnemyCard(): CardData {
       playerHand: combatState.value.playerHand,
       playerDeck: combatState.value.playerDeck,
       playerDiscard: combatState.value.discardPile,
+      previousPlayerCardType: previousPlayerLastCardType.value,
       turn: combatState.value.turn,
       flags: aiFlags,
     };
