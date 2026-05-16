@@ -613,7 +613,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['onAfterAttack'],
     stackable: true,
     maxStacks: 0,
-    description: '攻击卡命中后为对手施加燃烧',
+    description: '物理卡命中后为对手施加燃烧',
   },
   [EffectType.POISON_ATTACH]: {
     type: EffectType.POISON_ATTACH,

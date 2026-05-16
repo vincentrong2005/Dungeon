@@ -7624,7 +7624,7 @@ const exitShop = () => {
 
   if (purchased.length === 0) return;
   const purchasedText = purchased.map(item => `${item.name}（${item.rarity}）`).join('，');
-  const purchaseText = `<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`;
+  const purchaseText = `<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。以上购买内容均为圣遗物，由脚本自动更新“携带的物品._圣遗物”，不要写入“携带的物品.物品”或“携带的物品.消耗品”。`;
   if (gameStore.fastModeEnabled) {
     void gameStore.flushFastActions(purchaseText);
     return;

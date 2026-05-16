@@ -4312,7 +4312,7 @@ const applyHitAttachEffects = (
   defenderSide: RelicSide,
 ) => {
   const flameStacks = getEffectStacks(attacker, ET.FLAME_ATTACH);
-  if (flameStacks > 0 && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)) {
+  if (flameStacks > 0 && card.type === CardType.PHYSICAL) {
     applyStatusEffectWithRelics(defenderSide, ET.BURN, flameStacks, { source: 'effect:flame_attach' });
   }
 
@@ -4321,7 +4321,7 @@ const applyHitAttachEffects = (
     applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: 'effect:poison_attach' });
   }
 
-  const totalApplied = flameStacks + (card.type === CardType.MAGIC ? poisonStacks : 0);
+  const totalApplied = (card.type === CardType.PHYSICAL ? flameStacks : 0) + (card.type === CardType.MAGIC ? poisonStacks : 0);
   if (totalApplied > 0) {
     const label = source === 'player' ? '我方' : '敌方';
     log(`<span class="text-orange-300">${label}[附加效果] 命中后追加了状态效果。</span>`);
