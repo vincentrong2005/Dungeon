@@ -7625,7 +7625,7 @@ const exitShop = () => {
       purchased.length > 0
         ? `<user>击败沐芯兰后，我从失守的货架上搜刮并拿走了${purchased.map(item => `${item.name}（${item.rarity}）`).join('，')}；（这些不是购买所得，没有向沐芯兰支付金币，也不要描写为付费交易。以上拿走内容均为圣遗物，由脚本自动更新“携带的物品._圣遗物”，不要写入“携带的物品.物品”或“携带的物品.消耗品”。）`
         : '<user>击败沐芯兰后，我没有额外搜刮商店货架上的物品。';
-    const report = `${narrative.text}\n${lootedText}\n<user>我离开了商店，请基于抢劫胜利、战斗日志与离店行为继续后续剧情。`;
+    const report = `${narrative.text}\n${lootedText}\n<user>离开了商店，请基于战斗日志生成战斗剧情。`;
     pendingCombatNarrative.value = null;
     sendCombatNarrativeOnce(narrative, report);
     return;
