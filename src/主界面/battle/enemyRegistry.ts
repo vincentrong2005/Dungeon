@@ -1286,8 +1286,8 @@ const SPACE_RIFT_BUG: EnemyDefinition = {
 const 赛琳娜: EnemyDefinition = {
   name: '赛琳娜',
   stats: {
-    hp: 380,
-    maxHp: 380,
+    hp: 450,
+    maxHp: 450,
     mp: 1,
     minDice: 7,
     maxDice: 11,
@@ -1635,8 +1635,8 @@ const 梦魔双子: EnemyDefinition = {
   name: '梦魔双子',
   defeatNegativeStatus: '[蛾翼印记]',
   stats: {
-    hp: 600,
-    maxHp: 600,
+    hp: 650,
+    maxHp: 650,
     mp: 0,
     minDice: 4,
     maxDice: 10,
@@ -2444,8 +2444,8 @@ const 伊丽莎白: EnemyDefinition = {
   name: '伊丽莎白',
   defeatNegativeStatus: ['[催淫]', '[血族印记]'],
   stats: {
-    hp: 250,
-    maxHp: 250,
+    hp: 280,
+    maxHp: 280,
     mp: 0,
     minDice: 3,
     maxDice: 9,
@@ -3425,8 +3425,8 @@ const 镜像分身: EnemyDefinition = {
 const 米拉: EnemyDefinition = {
   name: '米拉',
   stats: {
-    hp: 230,
-    maxHp: 230,
+    hp: 300,
+    maxHp: 300,
     mp: 0,
     minDice: 1,
     maxDice: 1,

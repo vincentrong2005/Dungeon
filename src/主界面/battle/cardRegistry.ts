@@ -1070,7 +1070,7 @@ const 复咒: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '下一张魔法牌结算两次，连击',
+  description: '下一张魔法牌额外打出1次，连击',
 };
 
 // ── 血池体系卡牌 ────────────────────────────────────────────────

@@ -400,7 +400,10 @@
                     @click="toggleOptionCompletionMenu"
                   >
                     <span class="ui-option-completion-trigger__label">按钮补全</span>
-                    <ChevronDown class="size-4 transition-transform duration-200" :class="optionCompletionMenuOpen ? 'rotate-180' : ''" />
+                    <ChevronDown
+                      class="size-4 transition-transform duration-200"
+                      :class="optionCompletionMenuOpen ? 'rotate-180' : ''"
+                    />
                   </button>
                   <Transition name="option-completion-menu">
                     <div v-if="optionCompletionMenuOpen" class="ui-option-completion-menu" role="menu">
@@ -846,7 +849,10 @@
                           <div class="player-detail-bag-head">
                             <div class="player-detail-bag-name">{{ consumable.名字 }}</div>
                             <div class="player-detail-bag-tags">
-                              <span v-if="consumable.回复 !== 0" class="player-detail-bag-tag player-detail-bag-tag--heal">
+                              <span
+                                v-if="consumable.回复 !== 0"
+                                class="player-detail-bag-tag player-detail-bag-tag--heal"
+                              >
                                 回复 {{ formatSignedNumber(consumable.回复) }}
                               </span>
                             </div>
@@ -891,9 +897,7 @@
               <div class="map-hero__copy">
                 <div class="map-hero__eyebrow">Cartography Archive</div>
                 <div class="map-hero__title">地牢地图</div>
-                <div class="map-hero__desc">
-                  记录本层推进顺序。拖拽平移、滚轮缩放，最新抵达的房间会以高亮标记。
-                </div>
+                <div class="map-hero__desc">记录本层推进顺序。拖拽平移、滚轮缩放，最新抵达的房间会以高亮标记。</div>
               </div>
               <div class="map-hero__chips">
                 <div class="map-hero__chip">
@@ -920,13 +924,21 @@
             </section>
             <div class="map-toolbar">
               <div class="map-summary">
-                <span>楼层：<span class="map-summary-highlight">{{ mapCurrentFloorLabel }}</span></span>
+                <span
+                  >楼层：<span class="map-summary-highlight">{{ mapCurrentFloorLabel }}</span></span
+                >
                 <span class="map-summary-divider">|</span>
-                <span>区域：<span class="map-summary-highlight">{{ mapCurrentAreaLabel }}</span></span>
+                <span
+                  >区域：<span class="map-summary-highlight">{{ mapCurrentAreaLabel }}</span></span
+                >
                 <span class="map-summary-divider">|</span>
-                <span>本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房</span>
+                <span
+                  >本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房</span
+                >
                 <span class="map-summary-divider">|</span>
-                <span>统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房</span>
+                <span
+                  >统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房</span
+                >
                 <span class="map-summary-divider">|</span>
                 <span>操作提示：拖拽查看细节</span>
               </div>
@@ -1105,11 +1117,7 @@
               <button
                 type="button"
                 class="magic-books-tab"
-                :class="
-                  magicBooksNavTab === 'books'
-                    ? 'is-active'
-                    : ''
-                "
+                :class="magicBooksNavTab === 'books' ? 'is-active' : ''"
                 @click="magicBooksNavTab = 'books'"
               >
                 附加魔法书
@@ -1117,11 +1125,7 @@
               <button
                 type="button"
                 class="magic-books-tab"
-                :class="
-                  magicBooksNavTab === 'active'
-                    ? 'is-active'
-                    : ''
-                "
+                :class="magicBooksNavTab === 'active' ? 'is-active' : ''"
                 @click="magicBooksNavTab = 'active'"
               >
                 主动
@@ -1129,16 +1133,16 @@
             </div>
 
             <template v-if="magicBooksNavTab === 'books'">
-              <div
-                v-if="carryableMagicBookNames.length > 0"
-                class="magic-books-grid custom-scrollbar"
-              >
+              <div v-if="carryableMagicBookNames.length > 0" class="magic-books-grid custom-scrollbar">
                 <button
                   v-for="bookName in carryableMagicBookNames"
                   :key="`magic-book-${bookName}`"
                   type="button"
                   class="magic-book-card"
-                  :class="{ 'is-equipped': carriedMagicBookSet.has(bookName), 'is-locked': isMagicBookLocked(bookName) }"
+                  :class="{
+                    'is-equipped': carriedMagicBookSet.has(bookName),
+                    'is-locked': isMagicBookLocked(bookName),
+                  }"
                   :disabled="isUpdatingMagicBooks"
                   @click="toggleMagicBook(bookName)"
                 >
@@ -1168,15 +1172,16 @@
                     <div class="magic-book-card__shade"></div>
                     <div class="magic-book-card__header">
                       <span class="magic-book-card__badge">
-                        {{ isMagicBookLocked(bookName) ? '未解锁' : carriedMagicBookSet.has(bookName) ? '已携带' : '待装配' }}
+                        {{
+                          isMagicBookLocked(bookName)
+                            ? '未解锁'
+                            : carriedMagicBookSet.has(bookName)
+                              ? '已携带'
+                              : '待装配'
+                        }}
                       </span>
                     </div>
-                    <div
-                      v-if="isMagicBookLocked(bookName)"
-                      class="magic-book-card__lock"
-                    >
-                      挑战过商人后解锁
-                    </div>
+                    <div v-if="isMagicBookLocked(bookName)" class="magic-book-card__lock">挑战过商人后解锁</div>
                     <div class="magic-book-card__title-wrap">
                       <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
                     </div>
@@ -1184,17 +1189,18 @@
                   <div class="magic-book-card__footer">
                     <span class="magic-book-card__footer-title">{{ bookName }}</span>
                     <span class="magic-book-card__footer-action">
-                      {{ isMagicBookLocked(bookName) ? '解锁条件' : carriedMagicBookSet.has(bookName) ? '点击卸下' : '点击携带' }}
+                      {{
+                        isMagicBookLocked(bookName)
+                          ? '解锁条件'
+                          : carriedMagicBookSet.has(bookName)
+                            ? '点击卸下'
+                            : '点击携带'
+                      }}
                     </span>
                   </div>
                 </button>
               </div>
-              <div
-                v-else
-                class="magic-books-empty"
-              >
-                当前没有可选的附加魔法书。
-              </div>
+              <div v-else class="magic-books-empty">当前没有可选的附加魔法书。</div>
             </template>
 
             <template v-else>
@@ -1214,18 +1220,11 @@
                     :key="`starting-active-slot-${entry.idx}`"
                     type="button"
                     class="magic-books-slot-card"
-                    :class="
-                      selectedStartingActiveSlot === entry.idx
-                        ? 'is-selected'
-                        : ''
-                    "
+                    :class="selectedStartingActiveSlot === entry.idx ? 'is-selected' : ''"
                     :disabled="isUpdatingStartingActiveSkills"
                     @click="selectedStartingActiveSlot = entry.idx"
                   >
-                    <div
-                      v-if="entry.skill"
-                      class="magic-books-slot-card__top"
-                    >
+                    <div v-if="entry.skill" class="magic-books-slot-card__top">
                       <div class="magic-books-slot-card__mana">
                         {{ entry.skill.manaCost }}
                       </div>
@@ -1292,7 +1291,9 @@
                     </div>
                     <div class="magic-books-skill-card__meta">
                       <span>CD {{ skill.Cooldown }}</span>
-                      <span :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'">
+                      <span
+                        :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'"
+                      >
                         {{ isSkillEquippedInStartingActive(skill.name) ? '已装备' : '点击装备' }}
                       </span>
                     </div>
@@ -1341,9 +1342,7 @@
               <div class="magic-hat-section__head">
                 <div>
                   <div class="magic-hat-section__title">难度调节</div>
-                  <div class="magic-hat-section__subtitle">
-                    仅影响局内战斗，不会改动你已经购买或升级过的成长项。
-                  </div>
+                  <div class="magic-hat-section__subtitle">仅影响局内战斗，不会改动你已经购买或升级过的成长项。</div>
                 </div>
                 <span class="magic-hat-section__badge">自定义暂未开放</span>
               </div>
@@ -1403,9 +1402,7 @@
               <div class="magic-hat-section__head magic-hat-section__head--compact">
                 <div>
                   <div class="magic-hat-section__title">成长调节</div>
-                  <div class="magic-hat-section__subtitle">
-                    起始增幅写入当前楼层变量；局外成长跨存档保存在本地。
-                  </div>
+                  <div class="magic-hat-section__subtitle">起始增幅写入当前楼层变量；局外成长跨存档保存在本地。</div>
                 </div>
                 <div class="magic-hat-growth-actions">
                   <div class="magic-hat-points-card">
@@ -1451,7 +1448,9 @@
                     </div>
                     <div class="magic-hat-track-card__stat">
                       <span class="magic-hat-track-card__stat-label">等级</span>
-                      <span class="magic-hat-track-card__stat-value">{{ track.currentLevel }}/{{ track.maxLevel }}</span>
+                      <span class="magic-hat-track-card__stat-value"
+                        >{{ track.currentLevel }}/{{ track.maxLevel }}</span
+                      >
                     </div>
                   </div>
 
@@ -2696,7 +2695,8 @@
                   class="pointer-events-auto chest-reward-btn"
                   :class="{
                     'is-collected': chestRewardCollectedFlags[i],
-                    'is-awaiting-confirm': isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i],
+                    'is-awaiting-confirm':
+                      isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i],
                   }"
                   :disabled="chestCollecting || chestRewardCollectedFlags[i]"
                   @click.stop="handleChestRewardClick($event, i)"
@@ -2891,7 +2891,8 @@
                   <div class="mimic-drop-copy">
                     <div class="mimic-drop-name">{{ mimicRelicDropEntry.name }}</div>
                     <div class="mimic-drop-meta">
-                      {{ formatRarityLabel(mimicRelicDropRelic?.rarity ?? '普通') }} · {{ mimicRelicDropEntry.category }}
+                      {{ formatRarityLabel(mimicRelicDropRelic?.rarity ?? '普通') }} ·
+                      {{ mimicRelicDropEntry.category }}
                     </div>
                     <div class="mimic-drop-effect">{{ mimicRelicDropEntry.effect }}</div>
                   </div>
@@ -3044,14 +3045,18 @@
                       class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
                       :class="[
                         rewardDeckShakeIdx === entry.idx ? 'reward-invalid-shake' : '',
-                        getRewardDeckFusionName(entry) ? 'border-lime-300/70 shadow-[0_0_18px_rgba(190,242,100,0.16)]' : '',
+                        getRewardDeckFusionName(entry)
+                          ? 'border-lime-300/70 shadow-[0_0_18px_rgba(190,242,100,0.16)]'
+                          : '',
                       ]"
                       :disabled="rewardApplying"
                       @click="replaceDeckCardWithReward(entry.idx)"
                     >
                       <div class="mb-2 flex items-center justify-between gap-2 text-[11px] text-dungeon-paper/65">
                         <span>槽位 {{ entry.idx + 1 }}</span>
-                        <span v-if="getRewardDeckFusionName(entry)" class="text-lime-200">融合为 {{ getRewardDeckFusionName(entry) }}</span>
+                        <span v-if="getRewardDeckFusionName(entry)" class="text-lime-200"
+                          >融合为 {{ getRewardDeckFusionName(entry) }}</span
+                        >
                       </div>
                       <div class="flex justify-center">
                         <DungeonCard v-if="entry.card" :card="entry.card" disabled />
@@ -3082,11 +3087,7 @@
                           :footer-right-text="`${entry.skill.category} · ${entry.skill.rarity}`"
                           footer-right-tone="default"
                         />
-                        <ActiveSkillCard
-                          v-else
-                          :skill="null"
-                          :empty-label="entry.name || '空主动槽位'"
-                        />
+                        <ActiveSkillCard v-else :skill="null" :empty-label="entry.name || '空主动槽位'" />
                       </div>
                     </button>
                   </div>
@@ -3099,15 +3100,21 @@
         <Transition name="combat-fade">
           <div v-if="activeForcedCurseReplacement" class="absolute inset-0 z-[104] bg-black/90">
             <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
-              <div class="w-full max-w-6xl origin-center scale-[1.2] rounded-xl border border-fuchsia-400/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_32px_rgba(217,70,239,0.2)]">
+              <div
+                class="w-full max-w-6xl origin-center scale-[1.2] rounded-xl border border-fuchsia-400/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_32px_rgba(217,70,239,0.2)]"
+              >
                 <div class="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <div class="font-heading text-xl text-fuchsia-200">诅咒替换</div>
                     <div class="text-xs text-dungeon-paper/65 mt-1">
-                      获得【{{ activeForcedCurseReplacement.relicName }}】后，必须选择 1 个卡组槽位替换为【{{ activeForcedCurseReplacement.curseName }}】。
+                      获得【{{ activeForcedCurseReplacement.relicName }}】后，必须选择 1 个卡组槽位替换为【{{
+                        activeForcedCurseReplacement.curseName
+                      }}】。
                     </div>
                   </div>
-                  <div class="rounded border border-fuchsia-300/30 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100">
+                  <div
+                    class="rounded border border-fuchsia-300/30 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100"
+                  >
                     不可跳过
                   </div>
                 </div>
@@ -3372,7 +3379,9 @@ const isTextInputElement = (element: Element | null): boolean => {
   if (element instanceof HTMLTextAreaElement) return true;
   if (element instanceof HTMLInputElement) {
     const type = element.type.toLowerCase();
-    return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(type);
+    return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(
+      type,
+    );
   }
   return element instanceof HTMLElement && element.isContentEditable;
 };
@@ -4306,10 +4315,11 @@ const parseMerchantDefeatedValue = (value: unknown): boolean => {
   return false;
 };
 const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人));
-const alchemySystemUnlocked = computed(() =>
-  storedAlchemyUnlocked.value
-  || parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人)
-  || isMerchantDefeated.value,
+const alchemySystemUnlocked = computed(
+  () =>
+    storedAlchemyUnlocked.value ||
+    parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人) ||
+    isMerchantDefeated.value,
 );
 const unlockAlchemySystem = async () => {
   if (!storedAlchemyUnlocked.value) {
@@ -4321,7 +4331,7 @@ const unlockAlchemySystem = async () => {
 };
 watch(
   alchemySystemUnlocked,
-  (unlocked) => {
+  unlocked => {
     if (!unlocked) return;
     if (!storedAlchemyUnlocked.value) {
       setStoredAlchemyUnlocked();
@@ -4333,9 +4343,7 @@ watch(
   { immediate: true },
 );
 const carryableMagicBookNames = computed<string[]>(() =>
-  cardCategoryGroupsForTest.value
-    .map(group => group.category)
-    .filter(category => category !== '基础'),
+  cardCategoryGroupsForTest.value.map(group => group.category).filter(category => category !== '基础'),
 );
 const isMagicBookLocked = (bookName: string): boolean => bookName === '炼金' && !alchemySystemUnlocked.value;
 const rawCarriedMagicBooks = computed<string[]>(() => {
@@ -4605,9 +4613,9 @@ const magicHatStartUpgradeRefund = computed(() => {
   const mpLevel = calcUpgradeLevel(Math.max(1, getSafeInt(gameStore.statData.$初始魔量, 1)), 1, 1, 3);
   const goldLevel = calcUpgradeLevel(getSafeInt(gameStore.statData.$初始金币, 0), 0, 2, 5);
   return (
-    sumMagicHatCosts(MAGIC_HAT_HP_COSTS, hpLevel)
-    + sumMagicHatCosts(MAGIC_HAT_MP_COSTS, mpLevel)
-    + sumMagicHatCosts(MAGIC_HAT_GOLD_COSTS, goldLevel)
+    sumMagicHatCosts(MAGIC_HAT_HP_COSTS, hpLevel) +
+    sumMagicHatCosts(MAGIC_HAT_MP_COSTS, mpLevel) +
+    sumMagicHatCosts(MAGIC_HAT_GOLD_COSTS, goldLevel)
   );
 });
 const magicHatMetaGrowthRefund = computed(() =>
@@ -4863,7 +4871,9 @@ const startingActiveSkillEntries = computed<Array<{ idx: number; name: string; s
     skill: activeSkillByNameMap.value.get(name) ?? null,
   }));
 });
-const startingActiveEquippedCount = computed(() => startingActiveSkillEntries.value.filter(entry => Boolean(entry.name)).length);
+const startingActiveEquippedCount = computed(
+  () => startingActiveSkillEntries.value.filter(entry => Boolean(entry.name)).length,
+);
 const isSkillEquippedInStartingActive = (skillName: string): boolean =>
   startingActiveSkillEntries.value.some(entry => entry.name === skillName);
 const setStartingActiveSkill = async (skill: ActiveSkillData) => {
@@ -5263,9 +5273,12 @@ const resolvedDeck = computed<CardData[]>(() => {
   return resolveCardNames(skills.filter(s => s !== ''));
 });
 const resolvedActiveSkills = computed<ActiveSkillData[]>(() => {
-  const skills = activeCombatContext.value === 'combatTest'
-    ? selectedTestActiveSkills.value
-    : (Array.isArray(gameStore.statData.$主动) ? (gameStore.statData.$主动 as string[]) : []);
+  const skills =
+    activeCombatContext.value === 'combatTest'
+      ? selectedTestActiveSkills.value
+      : Array.isArray(gameStore.statData.$主动)
+        ? (gameStore.statData.$主动 as string[])
+        : [];
   return resolveActiveSkillNames(skills.filter(s => s !== ''));
 });
 
@@ -5858,8 +5871,7 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
     '开启后，AI回复会边生成边显示预览文本，不必等完整回复结束才看到内容；关闭后只在生成完成后显示最终回复。',
   forbidMatchingXmlInsideThink:
     '开启后，系统解析 <status>、<options>、<sum> 等 XML 标签时，会忽略思维链内容里的同名标签，避免把AI思考过程中的示例标签误当成正式结果。',
-  buttonCompletion:
-    '开启后，输入框会根据当前可选项提供按钮式补全，方便快速选择剧情选项或行动；关闭后只保留手动输入。',
+  buttonCompletion: '开启后，输入框会根据当前可选项提供按钮式补全，方便快速选择剧情选项或行动；关闭后只保留手动输入。',
   fastMode:
     '开启后，部分行动会进入剧情精简模式：系统先快速记录已结算事件和变量变化，再把简化后的经过交给AI承认并续写，可减少长剧情消耗与等待时间。',
   autoSummaryEnabled:
@@ -5868,10 +5880,8 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
     '该项参数为会将正文完整发送给AI的楼层层数：设置越高，AI对于过往记忆细节越清晰，token数也会增加；设置越低，会降低AI对于过往记忆细节回想，但token数会显著下降。',
   manualSummary:
     '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用（注意！会覆盖大总结内容且不可逆！没事别点。）。',
-  bigSummaryRange:
-    '决定本次会抽取哪些小总结条目来合并。起始和结束编号都会包含在内，建议每次总结条目在50以内',
-  bigSummaryWords:
-    '用于约束大总结的目标篇幅。',
+  bigSummaryRange: '决定本次会抽取哪些小总结条目来合并。起始和结束编号都会包含在内，建议每次总结条目在50以内',
+  bigSummaryWords: '用于约束大总结的目标篇幅。',
   bigSummaryEntries:
     '这里展示自动总结条目中当前可用于合并的所有小总结，并高亮你选中范围内的条目，方便确认本次大总结到底会覆盖哪些内容。',
 };
@@ -6734,10 +6744,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
   const retainedNegativeStatuses = currentNegativeStatuses.filter((status: string) =>
     REBIRTH_PERSISTENT_NEGATIVE_STATUSES.has(status),
   );
-  if (
-    currentNegativeStatuses.includes('[蛾翼印记]')
-    && !retainedNegativeStatuses.includes('[灵魂受损]')
-  ) {
+  if (currentNegativeStatuses.includes('[蛾翼印记]') && !retainedNegativeStatuses.includes('[灵魂受损]')) {
     retainedNegativeStatuses.push('[灵魂受损]');
   }
   return {
@@ -6944,8 +6951,8 @@ const currentSpecialRoomFingerprint = computed(() => {
 
 const isCurrentSpecialConsumed = computed(
   () =>
-    Boolean(consumedSpecialRoomFingerprint.value)
-    && consumedSpecialRoomFingerprint.value === currentSpecialRoomFingerprint.value,
+    Boolean(consumedSpecialRoomFingerprint.value) &&
+    consumedSpecialRoomFingerprint.value === currentSpecialRoomFingerprint.value,
 );
 
 const markCurrentSpecialConsumed = () => {
@@ -7093,10 +7100,7 @@ const sendCombatNarrativeOnce = (
   if (gameStore.isGenerating) return;
   dispatchedCombatNarrativeIds.add(narrative.id);
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
-  if (
-    gameStore.fastModeEnabled &&
-    narrative.context !== 'combatTest'
-  ) {
+  if (gameStore.fastModeEnabled && narrative.context !== 'combatTest') {
     if (narrative.outcome === 'lose' || isFastModeSyncRoomType(roomType)) {
       void gameStore.flushFastActions(text);
       return;
@@ -7160,7 +7164,9 @@ const queueCombatMvuSync = (
     addDefeatMark: lose,
     goldDelta: win
       ? goldReward + Math.max(0, Math.floor(extraGoldDelta))
-      : (extraGoldDelta > 0 ? Math.max(0, Math.floor(extraGoldDelta)) : undefined),
+      : extraGoldDelta > 0
+        ? Math.max(0, Math.floor(extraGoldDelta))
+        : undefined,
     negativeStatusesAdd: normalizedNegativeEffects,
     negativeStatusesRemove: normalizedNegativeStatusesRemove,
   });
@@ -7327,7 +7333,9 @@ const replaceDeckCardWithReward = (idx: number) => {
     return;
   const raw = Array.isArray(gameStore.statData._技能) ? [...(gameStore.statData._技能 as string[])].slice(0, 9) : [];
   const currentName = idx >= 0 && idx < raw.length ? raw[idx] : '';
-  const currentCard = currentName ? (cardByNameForTest.value.get(currentName) ?? getCardByName(currentName) ?? null) : null;
+  const currentCard = currentName
+    ? (cardByNameForTest.value.get(currentName) ?? getCardByName(currentName) ?? null)
+    : null;
   const fusionName = resolveAlchemyFusionName(selectedVictoryRewardCard.value, currentCard);
   if (raw.length === 0) {
     raw.push(selectedVictoryRewardCard.value.name);
@@ -7437,17 +7445,18 @@ const handleShopProductClick = (event: MouseEvent, item: ShopProduct) => {
 const generateShopProducts = () => {
   const pool = [...selectableRelicPool.value];
   const favorForCount = Math.max(0, muxinlanFavor.value);
-  const targetCount = favorForCount >= 190
-    ? 8
-    : favorForCount >= 125
-      ? 7
-      : favorForCount >= 75
-        ? 6
-        : favorForCount >= 40
-          ? 5
-          : favorForCount >= 15
-            ? 4
-            : 3;
+  const targetCount =
+    favorForCount >= 190
+      ? 8
+      : favorForCount >= 125
+        ? 7
+        : favorForCount >= 75
+          ? 6
+          : favorForCount >= 40
+            ? 5
+            : favorForCount >= 15
+              ? 4
+              : 3;
   const count = Math.min(targetCount, pool.length);
   const usedNames = new Set<string>();
   const discountRate = shopDiscountRate.value;
@@ -7669,13 +7678,12 @@ const clearShopRobTimer = () => {
 
 const preparePlayerForCombatStart = async (roomTypeOverride?: string): Promise<boolean> => {
   const difficulty = normalizeDifficulty(gameStore.statData.$难度);
-  const roomType = typeof roomTypeOverride === 'string'
-    ? roomTypeOverride.trim()
-    : ((gameStore.statData._当前房间类型 as string) || '').trim();
+  const roomType =
+    typeof roomTypeOverride === 'string'
+      ? roomTypeOverride.trim()
+      : ((gameStore.statData._当前房间类型 as string) || '').trim();
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
-  const shouldFullHeal =
-    shouldRestoreFullHpOnBattleStart(difficulty)
-    || (roomType === '领主房' && bloodPoolCount > 0);
+  const shouldFullHeal = shouldRestoreFullHpOnBattleStart(difficulty) || (roomType === '领主房' && bloodPoolCount > 0);
   if (!shouldFullHeal) return true;
 
   const fullHp = displayMaxHp.value;
@@ -8483,7 +8491,8 @@ const restoreOverlaySnapshot = () => {
     }
 
     if (parsed.active === 'mimicRelicDrop' && parsed.mimicRelicDrop) {
-      const relic = relicByIdMap.value.get(parsed.mimicRelicDrop.relicId) ?? getRelicById(parsed.mimicRelicDrop.relicId);
+      const relic =
+        relicByIdMap.value.get(parsed.mimicRelicDrop.relicId) ?? getRelicById(parsed.mimicRelicDrop.relicId);
       if (!relic) {
         localStorage.removeItem(OVERLAY_STATE_KEY);
         return;
@@ -9130,12 +9139,13 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   if (portal.isFloorTransition) {
     const currentRoomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
     const currentArea = ((gameStore.statData._当前区域 as string) || '').trim();
-    let pendingStatDataFields: Record<string, any> | undefined = currentRoomType === '领主房'
-      ? {
-          // 仅写入“下一层 user 楼层”的待应用变量，不直接修改当前领主房楼层。
-          _血量: nextFloorRecoveryHpAfterLord.value,
-        }
-      : undefined;
+    let pendingStatDataFields: Record<string, any> | undefined =
+      currentRoomType === '领主房'
+        ? {
+            // 仅写入“下一层 user 楼层”的待应用变量，不直接修改当前领主房楼层。
+            _血量: nextFloorRecoveryHpAfterLord.value,
+          }
+        : undefined;
     if (currentArea === '魔女的小窝') {
       pendingStatDataFields = {
         ...(pendingStatDataFields ?? {}),
@@ -9212,10 +9222,8 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
   const enterText =
     (portal.roomType === '战斗房' || portal.roomType === '领主房') && encounterMonster
       ? `进入了${portal.roomType}并遭遇了${
-        portal.roomType === '领主房' && encounterMonster === '梦魔双子'
-          ? '沉睡的梦魔双子'
-          : encounterMonster
-      }`
+          portal.roomType === '领主房' && encounterMonster === '梦魔双子' ? '沉睡的梦魔双子' : encounterMonster
+        }`
       : portal.roomType === '陷阱房' && trapName
         ? `进入了${portal.roomType}的房间，当前陷阱房为${trapName}`
         : `进入了${portal.roomType}的房间`;
@@ -9485,9 +9493,7 @@ const handleCombatEnd = async (
 ) => {
   const context = activeCombatContext.value;
   const enemyName = combatEnemyName.value || (gameStore.statData._对手名称 as string) || '未知敌人';
-  const negativeStatusesRemove = outcome === 'win' && enemyName === '梦魔双子'
-    ? ['[灵魂受损]']
-    : [];
+  const negativeStatusesRemove = outcome === 'win' && enemyName === '梦魔双子' ? ['[灵魂受损]'] : [];
   pendingCombatNarrative.value = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     context,
@@ -9576,11 +9582,22 @@ onBeforeUnmount(() => {
 }
 
 @keyframes reward-invalid-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-8px); }
-  40% { transform: translateX(8px); }
-  60% { transform: translateX(-5px); }
-  80% { transform: translateX(5px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-8px);
+  }
+  40% {
+    transform: translateX(8px);
+  }
+  60% {
+    transform: translateX(-5px);
+  }
+  80% {
+    transform: translateX(5px);
+  }
 }
 
 .ui-viewport {
@@ -10064,9 +10081,7 @@ onBeforeUnmount(() => {
 
 .magic-books-tab.is-active {
   border-color: rgba(251, 191, 36, 0.78);
-  background:
-    linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)),
-    rgba(22, 13, 8, 0.8);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)), rgba(22, 13, 8, 0.8);
   color: rgba(255, 224, 163, 0.98);
   box-shadow:
     inset 0 0 0 1px rgba(251, 191, 36, 0.16),
@@ -10112,9 +10127,7 @@ onBeforeUnmount(() => {
   padding: 0.55rem;
   border-radius: 1rem;
   border: 1px solid rgba(120, 85, 56, 0.72);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
-    rgba(18, 12, 8, 0.84);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%), rgba(18, 12, 8, 0.84);
   box-shadow:
     inset 0 1px 0 rgba(255, 236, 201, 0.04),
     0 14px 24px rgba(0, 0, 0, 0.24);
@@ -10171,9 +10184,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   border-radius: 0.85rem;
   border: 1px solid rgba(120, 85, 56, 0.6);
-  background:
-    radial-gradient(circle at 50% 22%, rgba(255, 245, 200, 0.08), transparent 30%),
-    rgba(4, 5, 8, 0.88);
+  background: radial-gradient(circle at 50% 22%, rgba(255, 245, 200, 0.08), transparent 30%), rgba(4, 5, 8, 0.88);
 }
 
 .magic-book-card__image {
@@ -10325,8 +10336,7 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(120, 85, 56, 0.72);
   background:
     radial-gradient(circle at top right, rgba(147, 51, 234, 0.16), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%),
-    rgba(18, 14, 24, 0.95);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%), rgba(18, 14, 24, 0.95);
   box-shadow: 0 14px 24px rgba(0, 0, 0, 0.24);
 }
 
@@ -11333,9 +11343,7 @@ onBeforeUnmount(() => {
   min-width: 2.15rem;
   border-radius: 0.7rem;
   border: 1px solid rgba(217, 119, 6, 0.42);
-  background:
-    linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(120, 53, 15, 0.18)),
-    rgba(24, 13, 8, 0.82);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(120, 53, 15, 0.18)), rgba(24, 13, 8, 0.82);
   color: rgba(253, 230, 138, 0.92);
   font-size: 12px;
   padding: 0 0.7rem;
@@ -11362,9 +11370,7 @@ onBeforeUnmount(() => {
   height: 17rem;
   border-radius: 0.9rem;
   border: 1px dashed rgba(217, 119, 6, 0.4);
-  background:
-    radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%),
-    rgba(18, 10, 7, 0.76);
+  background: radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%), rgba(18, 10, 7, 0.76);
   color: rgba(245, 222, 179, 0.55);
   display: flex;
   align-items: center;
@@ -12950,9 +12956,7 @@ onBeforeUnmount(() => {
   padding: 0.5rem 0.86rem;
   border-radius: 999px;
   border: 1px solid rgba(212, 175, 55, 0.22);
-  background:
-    linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(120, 53, 15, 0.18)),
-    rgba(0, 0, 0, 0.24);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(120, 53, 15, 0.18)), rgba(0, 0, 0, 0.24);
   color: rgba(241, 225, 186, 0.84);
   font-size: 0.74rem;
   box-shadow: inset 0 1px 0 rgba(255, 236, 201, 0.06);
@@ -13056,9 +13060,7 @@ onBeforeUnmount(() => {
   padding: 0.9rem 0.95rem;
   border-radius: 1rem;
   border: 1px solid rgba(120, 85, 56, 0.62);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 42%),
-    rgba(12, 9, 7, 0.72);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 42%), rgba(12, 9, 7, 0.72);
   color: rgba(237, 226, 205, 0.85);
   overflow: hidden;
   transition:
@@ -13114,41 +13116,29 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
   border-style: dashed;
   color: rgba(214, 211, 209, 0.48);
-  background:
-    radial-gradient(circle at top right, rgba(168, 85, 247, 0.12), transparent 32%),
-    rgba(24, 24, 27, 0.64);
+  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.12), transparent 32%), rgba(24, 24, 27, 0.64);
   box-shadow: none;
   transform: none;
 }
 
 .magic-hat-difficulty-card.is-simple {
-  background:
-    radial-gradient(circle at top right, rgba(34, 197, 94, 0.16), transparent 34%),
-    rgba(12, 9, 7, 0.72);
+  background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.16), transparent 34%), rgba(12, 9, 7, 0.72);
 }
 
 .magic-hat-difficulty-card.is-normal {
-  background:
-    radial-gradient(circle at top right, rgba(148, 163, 184, 0.16), transparent 32%),
-    rgba(12, 9, 7, 0.72);
+  background: radial-gradient(circle at top right, rgba(148, 163, 184, 0.16), transparent 32%), rgba(12, 9, 7, 0.72);
 }
 
 .magic-hat-difficulty-card.is-hard {
-  background:
-    radial-gradient(circle at top right, rgba(249, 115, 22, 0.18), transparent 34%),
-    rgba(12, 9, 7, 0.72);
+  background: radial-gradient(circle at top right, rgba(249, 115, 22, 0.18), transparent 34%), rgba(12, 9, 7, 0.72);
 }
 
 .magic-hat-difficulty-card.is-hell {
-  background:
-    radial-gradient(circle at top right, rgba(220, 38, 38, 0.2), transparent 34%),
-    rgba(12, 9, 7, 0.72);
+  background: radial-gradient(circle at top right, rgba(220, 38, 38, 0.2), transparent 34%), rgba(12, 9, 7, 0.72);
 }
 
 .magic-hat-difficulty-card.is-custom {
-  background:
-    radial-gradient(circle at top right, rgba(168, 85, 247, 0.16), transparent 34%),
-    rgba(24, 24, 27, 0.66);
+  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.16), transparent 34%), rgba(24, 24, 27, 0.66);
 }
 
 .magic-hat-difficulty-card__head {
@@ -13211,9 +13201,7 @@ onBeforeUnmount(() => {
   padding: 1rem 1rem 1.05rem;
   border-radius: 1rem;
   border: 1px solid rgba(212, 175, 55, 0.14);
-  background:
-    linear-gradient(180deg, rgba(251, 191, 36, 0.08), transparent 24%),
-    rgba(6, 5, 4, 0.78);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.08), transparent 24%), rgba(6, 5, 4, 0.78);
 }
 
 .magic-hat-preview__label {
@@ -13263,9 +13251,7 @@ onBeforeUnmount(() => {
   padding: 0.75rem 0.95rem;
   border-radius: 0.95rem;
   border: 1px solid rgba(212, 175, 55, 0.22);
-  background:
-    radial-gradient(circle at left center, rgba(251, 191, 36, 0.15), transparent 42%),
-    rgba(8, 6, 5, 0.56);
+  background: radial-gradient(circle at left center, rgba(251, 191, 36, 0.15), transparent 42%), rgba(8, 6, 5, 0.56);
 }
 
 .magic-hat-points-card__label {
@@ -13294,45 +13280,31 @@ onBeforeUnmount(() => {
   padding: 1rem;
   border-radius: 1rem;
   border: 1px solid rgba(120, 85, 56, 0.56);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%),
-    rgba(11, 9, 7, 0.76);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%), rgba(11, 9, 7, 0.76);
 }
 
 .magic-hat-track-card.is-hp {
-  background:
-    radial-gradient(circle at top right, rgba(244, 63, 94, 0.14), transparent 30%),
-    rgba(11, 9, 7, 0.76);
+  background: radial-gradient(circle at top right, rgba(244, 63, 94, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
 }
 
 .magic-hat-track-card.is-mp {
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 30%),
-    rgba(11, 9, 7, 0.76);
+  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
 }
 
 .magic-hat-track-card.is-gold {
-  background:
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 30%),
-    rgba(11, 9, 7, 0.76);
+  background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 30%), rgba(11, 9, 7, 0.76);
 }
 
 .magic-hat-track-card.is-growth-immunity {
-  background:
-    radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 30%),
-    rgba(11, 9, 7, 0.76);
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
 }
 
 .magic-hat-track-card.is-growth-expansion {
-  background:
-    radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 30%),
-    rgba(11, 9, 7, 0.76);
+  background: radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
 }
 
 .magic-hat-track-card.is-growth-world {
-  background:
-    radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 30%),
-    rgba(11, 9, 7, 0.76);
+  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
 }
 
 .magic-hat-track-card__top {
@@ -13428,9 +13400,7 @@ onBeforeUnmount(() => {
   padding: 0.82rem 0.95rem;
   border-radius: 0.9rem;
   border: 1px solid rgba(212, 175, 55, 0.38);
-  background:
-    linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)),
-    rgba(22, 13, 8, 0.72);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)), rgba(22, 13, 8, 0.72);
   color: rgba(255, 224, 163, 0.94);
   font-size: 0.78rem;
   transition:
