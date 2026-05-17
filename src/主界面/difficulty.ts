@@ -35,9 +35,9 @@ export function getDifficultyHpMultiplier(difficulty: DifficultyOption, floor: n
     case '简单':
       return 0.8;
     case '困难':
-      return 1 + 0.1 * safeFloor;
-    case '地狱':
       return 1 + 0.2 * safeFloor;
+    case '地狱':
+      return Math.pow(1.2, safeFloor);
     case '普通':
     case '自定义':
     default:
@@ -79,13 +79,13 @@ export function getDifficultyPreviewLines(difficulty: DifficultyOption, floor: n
     case '困难':
       return [
         '领主每 5 个回合获得 1 层“增伤”。',
-        `敌人血量系数：1 + 0.1 × 楼层数，当前楼层为 ${safeFloor}，本层系数 ${getDifficultyHpMultiplier(difficulty, safeFloor).toFixed(1)}。`,
+        `敌人血量系数：1 + 0.2 × 楼层数，当前楼层为 ${safeFloor}，本层系数 ${getDifficultyHpMultiplier(difficulty, safeFloor).toFixed(1)}。`,
       ];
     case '地狱':
       return [
         '领主每 4 个回合获得 1 层“增伤”。',
         '每场战斗开始时，随机获得 1 层“虚实不明 / 思绪被扰乱 / 敌意隐藏 / 视野模糊”中的一种 debuff。',
-        `敌人血量系数：1 + 0.2 × 楼层数，当前楼层为 ${safeFloor}，本层系数 ${getDifficultyHpMultiplier(difficulty, safeFloor).toFixed(1)}。`,
+        `敌人血量系数：1.2 ^ 楼层数，当前楼层为 ${safeFloor}，本层系数 ${getDifficultyHpMultiplier(difficulty, safeFloor).toFixed(1)}。`,
       ];
     case '自定义':
       return [
