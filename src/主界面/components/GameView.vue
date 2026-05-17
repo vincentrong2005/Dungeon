@@ -4923,6 +4923,8 @@ const EXCLUDED_VICTORY_REWARD_CARD_IDS = new Set<string>([
   'alchemy_enhanced_recovery_potion',
   'alchemy_mixed_potion',
   'alchemy_enhanced_mixed_potion',
+  'alchemy_black_handprint',
+  'alchemy_dirty',
 ]);
 const EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS = new Set<string>([
   'active_basic_reroll_self',

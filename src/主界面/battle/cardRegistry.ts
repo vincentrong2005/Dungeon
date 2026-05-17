@@ -1657,7 +1657,7 @@ const 增效回复药剂: CardData = {
   description: '回复0.5倍点数生命与魔力，连击',
 };
 
-const 混合药剂 = 创建药剂('alchemy_mixed_potion', '混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { rare: true, firstCombo: true });
+const 混合药剂 = 创建药剂('alchemy_mixed_potion', '混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { firstCombo: true });
 const 增效混合药剂 = 创建药剂('alchemy_enhanced_mixed_potion', '增效混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { rare: true, combo: true });
 
 const 催化剂: CardData = {
