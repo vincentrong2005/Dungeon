@@ -1664,6 +1664,10 @@ const isEnemyDiceObscured = computed(() => (
   isUiMaskingActive.value
   && getEffectStacks(playerStats.value, ET.PEEP_FORBIDDEN) > 0
 ));
+const isEnemyIntentHiddenForPlayer = computed(() => (
+  isUiMaskingActive.value
+  && getEffectStacks(playerStats.value, ET.COGNITIVE_INTERFERENCE) > 0
+));
 const rerollUiNoise = () => Math.floor(Math.random() * 5) - 2;
 const displayPlayerDice = computed(() => {
   const base = previewPlayerDice.value ?? combatState.value.playerBaseDice;
@@ -1671,7 +1675,7 @@ const displayPlayerDice = computed(() => {
   return Math.max(0, base + playerDiceUiNoise.value);
 });
 const displayEnemyDice = computed(() => {
-  const base = previewEnemyDice.value ?? combatState.value.enemyBaseDice;
+  const base = (isEnemyIntentHiddenForPlayer.value ? null : previewEnemyDice.value) ?? combatState.value.enemyBaseDice;
   if (!isEnemyDiceObscured.value) return base;
   return Math.max(0, base + enemyDiceUiNoise.value);
 });
@@ -1718,7 +1722,7 @@ const dicePreviewPanels = computed<DicePreviewPanel[]>(() => {
       lines: playerDicePreviewLines.value,
     });
   }
-  if (previewEnemyDice.value !== null && !isEnemyDiceObscured.value && enemyDicePreviewLines.value.length > 0) {
+  if (previewEnemyDice.value !== null && !isEnemyDiceObscured.value && !isEnemyIntentHiddenForPlayer.value && enemyDicePreviewLines.value.length > 0) {
     panels.push({
       key: 'enemy',
       title: `敌方 · ${enemyDicePreviewCardName.value || '点数预览'}`,
@@ -1729,8 +1733,7 @@ const dicePreviewPanels = computed<DicePreviewPanel[]>(() => {
   return panels;
 });
 const enemyIntentMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
-  isUiMaskingActive.value
-    && getEffectStacks(playerStats.value, ET.COGNITIVE_INTERFERENCE) > 0
+  isEnemyIntentHiddenForPlayer.value
     ? 'full'
     : 'none'
 ));
@@ -5255,6 +5258,7 @@ const canPreviewEnemyDice = () => {
     combatState.value.phase === CombatPhase.PLAYER_INPUT &&
     !isRolling.value &&
     !showClashAnimation.value &&
+    !isEnemyIntentHiddenForPlayer.value &&
     !!combatState.value.enemyIntentCard
   );
 };
