@@ -333,6 +333,19 @@ export const useGameStore = defineStore('game', () => {
     previewPendingStatDataChangesForFastMode();
   }
 
+  function clearPendingStatDataFields(keys: Iterable<string>) {
+    if (!pendingStatDataChanges.value) return;
+    const keySet = new Set(Array.from(keys).filter(key => typeof key === 'string' && key.length > 0));
+    if (keySet.size === 0) return;
+
+    const nextFields = _.cloneDeep(pendingStatDataChanges.value.fields ?? {});
+    for (const key of keySet) {
+      delete nextFields[key];
+    }
+
+    pendingStatDataChanges.value = Object.keys(nextFields).length > 0 ? { fields: nextFields } : null;
+  }
+
   const AUTO_SUMMARY_ENTRY_NAME = '自动总结条目';
   const AUTO_SUMMARY_ENTRY_UID = 0;
   const AUTO_SUMMARY_TITLE = '以下为已经发生了的剧情：';
@@ -1985,6 +1998,18 @@ export const useGameStore = defineStore('game', () => {
         return false;
       }
 
+      const changedKeys = Object.keys(fields);
+      const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
+      const nextCurrentMvuData = _.cloneDeep(currentMvuData ?? {});
+      if (!nextCurrentMvuData.stat_data || typeof nextCurrentMvuData.stat_data !== 'object') {
+        nextCurrentMvuData.stat_data = {};
+      }
+
+      Object.assign(nextCurrentMvuData.stat_data, _.cloneDeep(fields));
+      syncFloorNumberByArea(nextCurrentMvuData);
+      await Mvu.replaceMvuData(nextCurrentMvuData, { type: 'message', message_id: lastId });
+      clearPendingStatDataFields(changedKeys);
+
       if (fastModeEnabled.value) {
         const nextMvuData = getFastModeBaseMvuData();
         if (!nextMvuData.stat_data || typeof nextMvuData.stat_data !== 'object') {
@@ -2003,16 +2028,7 @@ export const useGameStore = defineStore('game', () => {
         return true;
       }
 
-      const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
-      const nextMvuData = _.cloneDeep(currentMvuData ?? {});
-      if (!nextMvuData.stat_data || typeof nextMvuData.stat_data !== 'object') {
-        nextMvuData.stat_data = {};
-      }
-
-      Object.assign(nextMvuData.stat_data, _.cloneDeep(fields));
-      syncFloorNumberByArea(nextMvuData);
-      await Mvu.replaceMvuData(nextMvuData, { type: 'message', message_id: lastId });
-      refreshLocalStatData(nextMvuData);
+      refreshLocalStatData(nextCurrentMvuData);
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

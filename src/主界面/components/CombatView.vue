@@ -923,7 +923,9 @@ import {
     HELL_STARTING_DEBUFFS,
     getDifficultyHpMultiplier,
     getLordTurnBoostInterval,
+    hasCustomDifficultyInfluence,
     normalizeDifficulty,
+    normalizeCustomDifficultyInfluences,
     shouldApplyHellStartingDebuff,
     shouldGrantLordTurnBoost,
 } from '../difficulty';
@@ -974,8 +976,15 @@ const resolveCurrentFloorNumber = () => {
 };
 const currentFloorNumber = resolveCurrentFloorNumber();
 const difficultyAtBattleStart = normalizeDifficulty(gameStore.statData.$难度);
-const difficultyHpMultiplier = getDifficultyHpMultiplier(difficultyAtBattleStart, currentFloorNumber);
-const lordTurnBoostInterval = getLordTurnBoostInterval(difficultyAtBattleStart);
+const customDifficultyInfluencesAtBattleStart = normalizeCustomDifficultyInfluences(gameStore.statData.$自定义影响);
+const isCustomDifficultyInfluenceActive = (influence: Parameters<typeof hasCustomDifficultyInfluence>[1]) =>
+  difficultyAtBattleStart === '自定义' && hasCustomDifficultyInfluence(customDifficultyInfluencesAtBattleStart, influence);
+const difficultyHpMultiplier = getDifficultyHpMultiplier(
+  difficultyAtBattleStart,
+  currentFloorNumber,
+  customDifficultyInfluencesAtBattleStart,
+);
+const lordTurnBoostInterval = getLordTurnBoostInterval(difficultyAtBattleStart, customDifficultyInfluencesAtBattleStart);
 const isLordBattle = String(gameStore.statData._当前房间类型 ?? '').includes('领主');
 
 // --- Enemy Loading ---
@@ -4045,6 +4054,10 @@ const getOpposingCardForPointComparison = (source: BattleSide): { side: BattleSi
 const COGNITIVE_SWAP_BLOCKED_EFFECTS = new Set<EffectType>([
   ET.DEVOUR,
   ET.CONTROLLED,
+  ET.BLIND_ASH,
+  ET.PEEP_FORBIDDEN,
+  ET.COGNITIVE_INTERFERENCE,
+  ET.MEMORY_FOG,
 ]);
 
 const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number => {
@@ -4303,7 +4316,12 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
 const queueCardNegativeEffectForPlayer = (source: BattleSide, card: CardData) => {
   if (source !== 'enemy') return;
   const negativeEffect = (card.negativeEffect ?? '').trim();
-  if (!negativeEffect || pendingCardNegativeEffects.value.includes(negativeEffect)) return;
+  if (!negativeEffect) return;
+  if (isCustomDifficultyInfluenceActive('神圣加护')) {
+    log(`<span class="text-emerald-300">[自定义难度][神圣加护] 抵消了卡牌负面效果：${negativeEffect}</span>`);
+    return;
+  }
+  if (pendingCardNegativeEffects.value.includes(negativeEffect)) return;
   pendingCardNegativeEffects.value.push(negativeEffect);
   log(`<span class="text-fuchsia-300">我方获得负面效果：${negativeEffect}</span>`);
 };
@@ -5530,13 +5548,44 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
 };
 
 const applyDifficultyBattleStartEffects = () => {
-  if (!shouldApplyHellStartingDebuff(difficultyAtBattleStart)) return;
+  if (!shouldApplyHellStartingDebuff(difficultyAtBattleStart, customDifficultyInfluencesAtBattleStart)) return;
   const picked = HELL_STARTING_DEBUFFS[Math.floor(Math.random() * HELL_STARTING_DEBUFFS.length)];
   if (!picked) return;
   const applied = applyEffect(playerStats.value, picked, 1, { source: 'difficulty:hell' });
   if (!applied) return;
   const effectName = EFFECT_REGISTRY[picked]?.name ?? String(picked);
   log(`<span class="text-fuchsia-300">[地狱难度] 开局获得了 1 层${effectName}。</span>`);
+};
+
+const applyCustomDifficultyBattleStartEffects = () => {
+  if (difficultyAtBattleStart !== '自定义') return;
+
+  const startingDebuffs: Array<[Parameters<typeof isCustomDifficultyInfluenceActive>[0], EffectType]> = [
+    ['目盲', ET.BLIND_ASH],
+    ['黑暗', ET.PEEP_FORBIDDEN],
+    ['愚笨', ET.MEMORY_FOG],
+    ['迷雾', ET.COGNITIVE_INTERFERENCE],
+    ['魔力匮乏', ET.MANA_DRAIN],
+  ];
+
+  for (const [influence, effectType] of startingDebuffs) {
+    if (!isCustomDifficultyInfluenceActive(influence)) continue;
+    const applied = applyEffect(playerStats.value, effectType, 1, { source: `difficulty:custom:${influence}` });
+    if (!applied) continue;
+    const effectName = EFFECT_REGISTRY[effectType]?.name ?? String(effectType);
+    log(`<span class="text-fuchsia-300">[自定义难度][${influence}] 开局获得了 1 层${effectName}。</span>`);
+  }
+
+  if (isCustomDifficultyInfluenceActive('黑手烙印')) {
+    const curseCard = getCardByName('黑手印');
+    if (curseCard) {
+      const insertAt = Math.floor(Math.random() * (combatState.value.playerDeck.length + 1));
+      combatState.value.playerDeck.splice(insertAt, 0, cloneCardForBattle(curseCard));
+      log('<span class="text-fuchsia-300">[自定义难度][黑手烙印] 开局向抽牌堆加入了1张【黑手印】。</span>');
+    } else {
+      log('<span class="text-red-400">[自定义难度][黑手烙印] 未找到【黑手印】卡牌定义。</span>');
+    }
+  }
 };
 
 const applyUnseeableAura = (ownerSide: BattleSide, reason: 'battle_start' | 'turn_start') => {
@@ -5567,6 +5616,7 @@ triggerPlayerRelicLifecycleHooks('onBattleStart');
 applyAlchemyBattleStartRelics();
 applyMvuNegativeStatusesOnBattleStart();
 applyDifficultyBattleStartEffects();
+applyCustomDifficultyBattleStartEffects();
 applyUnseeableAura('player', 'battle_start');
 applyUnseeableAura('enemy', 'battle_start');
 
@@ -6723,7 +6773,7 @@ watch(
       }
       if (
         isLordBattle
-        && shouldGrantLordTurnBoost(difficultyAtBattleStart)
+        && shouldGrantLordTurnBoost(difficultyAtBattleStart, customDifficultyInfluencesAtBattleStart)
         && lordTurnBoostInterval !== null
         && combatState.value.turn > 0
         && combatState.value.turn % lordTurnBoostInterval === 0

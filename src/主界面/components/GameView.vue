@@ -283,7 +283,7 @@
                   <!-- E Option: Special Room Action Button -->
                   <button
                     v-if="gameStore.hasOptionE && specialOptionConfig"
-                    class="w-full text-center px-6 py-4 rounded-lg border-2 font-heading text-base tracking-wider transition-all duration-400 hover:scale-[1.02] active:scale-[0.98]"
+                    class="special-action-btn"
                     :style="[
                       specialOptionButtonTextStyle,
                       {
@@ -295,22 +295,21 @@
                     ]"
                     @click="handleSpecialOption"
                   >
-                    <span class="text-xl mr-2 inline-flex items-center justify-center" aria-hidden="true">
+                    <span class="special-action-btn__shine"></span>
+                    <span class="special-action-btn__icon" aria-hidden="true">
                       <i :class="specialOptionConfig.icon"></i>
                     </span>
-                    {{ specialOptionConfig.label }}
+                    <span class="special-action-btn__label">{{ specialOptionConfig.label }}</span>
                   </button>
 
                   <!-- [Leave] Portal System -->
-                  <div v-if="gameStore.hasLeave && portalChoices.length > 0" class="mt-4">
-                    <div class="text-center text-dungeon-gold/40 text-xs font-ui tracking-widest uppercase mb-3">
-                      ─── 传送门 ───
-                    </div>
-                    <div class="flex justify-center gap-4">
+                  <div v-if="gameStore.hasLeave && portalChoices.length > 0" class="portal-section">
+                    <div class="action-divider-label">传送门</div>
+                    <div class="portal-grid">
                       <button
                         v-for="(portal, i) in portalChoices"
                         :key="'portal-' + i"
-                        class="portal-btn group relative flex flex-col items-center justify-center rounded-lg border-2 backdrop-blur-sm transition-all duration-500 hover:scale-110 active:scale-95"
+                        class="portal-btn group"
                         :style="{
                           backgroundColor: portal.bgColor,
                           borderColor: portal.borderColor,
@@ -319,21 +318,18 @@
                         @click="handlePortalClick(portal)"
                       >
                         <!-- Portal glow ring -->
-                        <div
-                          class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
-                          :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
-                        ></div>
+                        <div class="portal-btn__glow" :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"></div>
                         <!-- Portal icon -->
-                        <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
+                        <span class="portal-btn__icon">{{ portal.icon }}</span>
                         <!-- Portal label -->
                         <span
-                          class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
+                          class="portal-btn__label"
                           :style="{ color: portal.textColor }"
                           >{{ portal.label }}</span
                         >
                         <!-- Animated ring -->
                         <div
-                          class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70 animate-[spin_8s_linear_infinite] transition-opacity"
+                          class="portal-btn__ring"
                           :style="{ borderColor: portal.borderColor }"
                         ></div>
                       </button>
@@ -341,18 +337,16 @@
                   </div>
 
                   <!-- [Rebirth] Reset Button -->
-                  <div v-if="gameStore.hasRebirth" class="mt-4">
-                    <div class="text-center text-red-300/70 text-xs font-ui tracking-widest uppercase mb-3">
-                      ─── 回溯 ───
-                    </div>
+                  <div v-if="gameStore.hasRebirth" class="rebirth-section">
+                    <div class="action-divider-label action-divider-label--danger">回溯</div>
                     <div class="flex justify-center">
                       <button
-                        class="group relative px-7 py-3 rounded-lg border-2 font-heading text-sm tracking-wider transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] bg-red-950/45 border-red-500/60 text-red-100 shadow-[0_0_14px_rgba(239,68,68,0.35)] hover:shadow-[0_0_20px_rgba(248,113,113,0.5)]"
+                        class="rebirth-action-btn"
                         :disabled="gameStore.isGenerating"
                         @click="handleRebirthClick"
                       >
-                        <span class="text-base mr-2">⟲</span>
-                        回溯重生
+                        <span class="rebirth-action-btn__icon">⟲</span>
+                        <span>回溯重生</span>
                       </button>
                     </div>
                   </div>
@@ -436,9 +430,9 @@
 
         <!-- Player Status HUD (Bottom Left) -->
         <div class="absolute bottom-8 left-8 z-[70] flex flex-col gap-2 select-none ui-status-hud">
-          <div class="flex items-center gap-2">
+          <div class="status-hud-actions">
             <button
-              class="w-10 h-10 rounded-lg flex items-center justify-center bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300 shadow-lg backdrop-blur-md"
+              class="status-hud-control-btn"
               :title="isStatusOpen ? '折叠状态栏' : '展开状态栏'"
               @click="isStatusOpen = !isStatusOpen"
             >
@@ -446,7 +440,7 @@
             </button>
 
             <button
-              class="w-10 h-10 rounded-lg flex items-center justify-center bg-dungeon-dark/90 border border-dungeon-gold/30 text-dungeon-gold-dim hover:bg-dungeon-brown hover:text-dungeon-gold hover:border-dungeon-gold/50 transition-all duration-300 shadow-lg backdrop-blur-md"
+              class="status-hud-control-btn"
               title="打开详细状态栏"
               @click="openStatusDetailsModal()"
             >
@@ -455,154 +449,132 @@
           </div>
 
           <Transition name="status-slide">
-            <div
-              v-if="isStatusOpen"
-              class="relative p-4 bg-dungeon-dark/90 border border-dungeon-gold/30 rounded-xl backdrop-blur-md shadow-[0_0_30px_rgba(0,0,0,0.8)]"
-            >
-              <!-- Decorative Elements -->
-              <div class="absolute -top-1 -left-1 size-2 bg-dungeon-gold rotate-45 border border-black"></div>
-              <div class="absolute -bottom-1 -right-1 size-2 bg-dungeon-gold rotate-45 border border-black"></div>
-              <div
-                class="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-dungeon-gold/50 to-transparent"
-              ></div>
+            <section v-if="isStatusOpen" class="status-hud-panel">
+              <div class="status-hud-panel-glint"></div>
+              <div class="status-hud-header">
+                <span>状态</span>
+                <span>{{ negativeStatusEntries.length }} 项负面</span>
+              </div>
 
-              <!-- HP & MP: Container-fill style -->
-              <div class="flex items-end gap-4 mb-3">
-                <!-- HP Heart Container -->
-                <div class="flex flex-col items-center gap-1">
-                  <div class="stat-container-heart" :title="`HP: ${displayHp}/${displayMaxHp}`">
-                    <svg viewBox="0 0 64 64" class="w-14 h-14">
-                      <defs>
-                        <clipPath id="heartClip">
-                          <path
-                            d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
+              <div class="status-hud-vitals">
+                <div class="status-hud-vital status-hud-vital--hp">
+                  <div class="status-hud-vital-icon">
+                    <div class="stat-container-heart" :title="`HP: ${displayHp}/${displayMaxHp}`">
+                      <svg viewBox="0 0 64 64" class="status-hud-svg">
+                        <defs>
+                          <clipPath id="heartClip">
+                            <path
+                              d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
+                            />
+                          </clipPath>
+                          <filter id="hpGlow">
+                            <feGaussianBlur stdDeviation="2" result="glow" />
+                            <feMerge>
+                              <feMergeNode in="glow" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                          <linearGradient id="hpGradient" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stop-color="#8a0e0e" />
+                            <stop offset="50%" stop-color="#cc2222" />
+                            <stop offset="100%" stop-color="#ee4444" />
+                          </linearGradient>
+                        </defs>
+                        <path
+                          d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
+                          fill="#1a0808"
+                          stroke="#5c1a1a"
+                          stroke-width="1.5"
+                        />
+                        <g clip-path="url(#heartClip)">
+                          <rect
+                            x="0"
+                            :y="64 - (hpPercent / 100) * 60"
+                            width="64"
+                            :height="(hpPercent / 100) * 60"
+                            fill="url(#hpGradient)"
+                            filter="url(#hpGlow)"
+                            class="transition-all duration-700 ease-out"
                           />
-                        </clipPath>
-                        <filter id="hpGlow">
-                          <feGaussianBlur stdDeviation="2" result="glow" />
-                          <feMerge>
-                            <feMergeNode in="glow" />
-                            <feMergeNode in="SourceGraphic" />
-                          </feMerge>
-                        </filter>
-                        <linearGradient id="hpGradient" x1="0" y1="1" x2="0" y2="0">
-                          <stop offset="0%" stop-color="#8a0e0e" />
-                          <stop offset="50%" stop-color="#cc2222" />
-                          <stop offset="100%" stop-color="#ee4444" />
-                        </linearGradient>
-                      </defs>
-                      <!-- Heart outline (dark) -->
-                      <path
-                        d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
-                        fill="#1a0808"
-                        stroke="#5c1a1a"
-                        stroke-width="1.5"
-                      />
-                      <!-- Fill level (clipped to heart) -->
-                      <g clip-path="url(#heartClip)">
-                        <rect
-                          x="0"
-                          :y="64 - (hpPercent / 100) * 60"
-                          width="64"
-                          :height="(hpPercent / 100) * 60"
-                          fill="url(#hpGradient)"
-                          filter="url(#hpGlow)"
-                          class="transition-all duration-700 ease-out"
+                        </g>
+                        <ellipse
+                          cx="22"
+                          cy="18"
+                          rx="5"
+                          ry="4"
+                          fill="rgba(255,255,255,0.12)"
+                          transform="rotate(-20,22,18)"
                         />
-                      </g>
-                      <!-- Highlight -->
-                      <ellipse
-                        cx="22"
-                        cy="18"
-                        rx="5"
-                        ry="4"
-                        fill="rgba(255,255,255,0.12)"
-                        transform="rotate(-20,22,18)"
-                      />
-                    </svg>
+                      </svg>
+                    </div>
                   </div>
-                  <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
-                    <span class="text-[#cc3333] font-bold">{{ displayHp }}</span>
-                    <span class="text-gray-600">/{{ displayMaxHp }}</span>
-                  </span>
-                </div>
-
-                <!-- MP Crystal Container -->
-                <div class="flex flex-col items-center gap-1">
-                  <div class="stat-container-mana" :title="`MP: ${displayMp}`">
-                    <svg viewBox="0 0 64 64" class="w-14 h-14">
-                      <defs>
-                        <clipPath id="manaClip">
-                          <path d="M32 4 L54 24 L32 60 L10 24 Z" />
-                        </clipPath>
-                        <filter id="mpGlow">
-                          <feGaussianBlur stdDeviation="2" result="glow" />
-                          <feMerge>
-                            <feMergeNode in="glow" />
-                            <feMergeNode in="SourceGraphic" />
-                          </feMerge>
-                        </filter>
-                        <linearGradient id="mpGradient" x1="0" y1="1" x2="0" y2="0">
-                          <stop offset="0%" stop-color="#1a1a8a" />
-                          <stop offset="50%" stop-color="#3344cc" />
-                          <stop offset="100%" stop-color="#5566ee" />
-                        </linearGradient>
-                      </defs>
-                      <!-- Crystal outline -->
-                      <path d="M32 4 L54 24 L32 60 L10 24 Z" fill="#080818" stroke="#1a1a5c" stroke-width="1.5" />
-                      <!-- Fill level -->
-                      <g clip-path="url(#manaClip)">
-                        <rect
-                          x="0"
-                          :y="64 - (mpPercent / 100) * 60"
-                          width="64"
-                          :height="(mpPercent / 100) * 60"
-                          fill="url(#mpGradient)"
-                          filter="url(#mpGlow)"
-                          class="transition-all duration-700 ease-out"
-                        />
-                      </g>
-                      <!-- Highlight -->
-                      <polygon points="26,14 32,8 38,14 32,20" fill="rgba(255,255,255,0.1)" />
-                    </svg>
+                  <div class="status-hud-vital-value">
+                    <span>HP</span>
+                    <strong>{{ displayHp }}/{{ displayMaxHp }}</strong>
                   </div>
-                  <span class="text-[10px] font-ui text-dungeon-paper/80 tracking-wide">
-                    <span class="text-blue-400 font-bold">{{ displayMp }}</span>
-                  </span>
+                </div>
+
+                <div class="status-hud-vital status-hud-vital--mp">
+                  <div class="status-hud-vital-icon">
+                    <div class="stat-container-mana" :title="`MP: ${displayMp}`">
+                      <svg viewBox="0 0 64 64" class="status-hud-svg">
+                        <defs>
+                          <clipPath id="manaClip">
+                            <path d="M32 4 L54 24 L32 60 L10 24 Z" />
+                          </clipPath>
+                          <filter id="mpGlow">
+                            <feGaussianBlur stdDeviation="2" result="glow" />
+                            <feMerge>
+                              <feMergeNode in="glow" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                          <linearGradient id="mpGradient" x1="0" y1="1" x2="0" y2="0">
+                            <stop offset="0%" stop-color="#1a1a8a" />
+                            <stop offset="50%" stop-color="#3344cc" />
+                            <stop offset="100%" stop-color="#5566ee" />
+                          </linearGradient>
+                        </defs>
+                        <path d="M32 4 L54 24 L32 60 L10 24 Z" fill="#080818" stroke="#1a1a5c" stroke-width="1.5" />
+                        <g clip-path="url(#manaClip)">
+                          <rect
+                            x="0"
+                            :y="64 - (mpPercent / 100) * 60"
+                            width="64"
+                            :height="(mpPercent / 100) * 60"
+                            fill="url(#mpGradient)"
+                            filter="url(#mpGlow)"
+                            class="transition-all duration-700 ease-out"
+                          />
+                        </g>
+                        <polygon points="26,14 32,8 38,14 32,20" fill="rgba(255,255,255,0.1)" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="status-hud-vital-value">
+                    <span>MP</span>
+                    <strong>{{ displayMp }}</strong>
+                  </div>
                 </div>
               </div>
 
-              <!-- Divider -->
-              <div
-                class="my-2 h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent"
-              ></div>
-
-              <!-- Dice Range Row -->
-              <div class="flex items-center justify-between px-1 mb-2">
-                <div class="flex items-center gap-2 text-dungeon-paper/70">
-                  <Dices class="size-4 text-dungeon-gold-dim drop-shadow-sm" />
-                  <span class="font-ui text-sm tracking-wide">
-                    <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMinDice }}</span>
-                    <span class="text-gray-500">~</span>
-                    <span class="text-dungeon-paper font-bold">{{ effectiveDisplayMaxDice }}</span>
-                  </span>
+              <div class="status-hud-minor-grid">
+                <div class="status-hud-minor status-hud-minor--dice">
+                  <Dices class="size-4" />
+                  <div>
+                    <span>骰子</span>
+                    <strong>{{ effectiveDisplayMinDice }}~{{ effectiveDisplayMaxDice }}</strong>
+                  </div>
                 </div>
-                <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Dice</span>
-              </div>
-
-              <!-- Gold Row -->
-              <div class="flex items-center justify-between px-1">
-                <div class="flex items-center gap-2 text-dungeon-gold">
-                  <Coins class="size-4 drop-shadow-sm" />
-                  <span
-                    class="font-heading text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim drop-shadow-sm"
-                  >
-                    {{ displayGold }}
-                  </span>
+                <div class="status-hud-minor status-hud-minor--gold">
+                  <Coins class="size-4" />
+                  <div>
+                    <span>金币</span>
+                    <strong>{{ displayGold }}</strong>
+                  </div>
                 </div>
-                <span class="text-[10px] text-[#5c3a21] uppercase tracking-widest font-bold">Gold</span>
               </div>
-            </div>
+            </section>
           </Transition>
         </div>
 
@@ -1344,42 +1316,74 @@
                   <div class="magic-hat-section__title">难度调节</div>
                   <div class="magic-hat-section__subtitle">仅影响局内战斗，不会改动你已经购买或升级过的成长项。</div>
                 </div>
-                <span class="magic-hat-section__badge">自定义暂未开放</span>
               </div>
 
               <div class="magic-hat-difficulty-layout">
-                <div class="magic-hat-difficulty-grid">
-                  <button
-                    v-for="option in magicHatDifficultyOptions"
-                    :key="`magic-hat-difficulty-${option.value}`"
-                    type="button"
-                    class="magic-hat-difficulty-card"
-                    :class="[
-                      getMagicHatDifficultyClass(option.value),
-                      {
-                        'is-active': magicHatDifficulty === option.value,
-                        'is-locked': option.locked,
-                        'is-wide': option.value === '自定义',
-                      },
-                    ]"
-                    :disabled="isUpdatingMagicHatDifficulty || option.locked"
-                    @click="setMagicHatDifficulty(option.value)"
-                  >
-                    <div class="magic-hat-difficulty-card__head">
-                      <span class="magic-hat-difficulty-card__name">{{ option.label }}</span>
-                      <span class="magic-hat-difficulty-card__state">
-                        {{ option.locked ? '锁定' : magicHatDifficulty === option.value ? '已启用' : '可切换' }}
-                      </span>
+                <div class="magic-hat-difficulty-main">
+                  <div class="magic-hat-difficulty-grid">
+                    <button
+                      v-for="option in magicHatDifficultyOptions"
+                      :key="`magic-hat-difficulty-${option.value}`"
+                      type="button"
+                      class="magic-hat-difficulty-card"
+                      :class="[
+                        getMagicHatDifficultyClass(option.value),
+                        {
+                          'is-active': magicHatDifficulty === option.value,
+                          'is-locked': option.locked,
+                          'is-wide': option.value === '自定义',
+                        },
+                      ]"
+                      :disabled="isUpdatingMagicHatDifficulty || option.locked"
+                      @click="setMagicHatDifficulty(option.value)"
+                    >
+                      <div class="magic-hat-difficulty-card__head">
+                        <span class="magic-hat-difficulty-card__name">{{ option.label }}</span>
+                        <span class="magic-hat-difficulty-card__state">
+                          {{ option.locked ? '锁定' : magicHatDifficulty === option.value ? '已启用' : '可切换' }}
+                        </span>
+                      </div>
+                      <div class="magic-hat-difficulty-card__desc">
+                        {{ getMagicHatDifficultyBlurb(option.value) }}
+                      </div>
+                      <div class="magic-hat-difficulty-card__footer">
+                        <span class="magic-hat-difficulty-card__footer-text">
+                          {{ option.locked ? '功能预留中' : '切换后下场战斗立即生效' }}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div v-if="magicHatDifficulty === '自定义'" class="magic-hat-custom-panel">
+                    <div
+                      v-for="group in magicHatCustomInfluenceGroups"
+                      :key="`magic-hat-custom-group-${group.title}`"
+                      class="magic-hat-custom-group"
+                      :class="getMagicHatCustomGroupClass(group.title)"
+                    >
+                      <div class="magic-hat-custom-group__title">{{ group.title }}</div>
+                      <div class="magic-hat-custom-options">
+                        <button
+                          v-for="option in group.options"
+                          :key="`magic-hat-custom-${option.value}`"
+                          type="button"
+                          class="magic-hat-custom-option"
+                          :class="{ 'is-active': hasMagicHatCustomInfluence(option.value) }"
+                          :disabled="isUpdatingMagicHatDifficulty"
+                          :aria-pressed="hasMagicHatCustomInfluence(option.value)"
+                          @click="toggleMagicHatCustomInfluence(option.value)"
+                        >
+                          <span class="magic-hat-custom-option__head">
+                            <span class="magic-hat-custom-option__name">{{ option.label }}</span>
+                            <span v-if="hasMagicHatCustomInfluence(option.value)" class="magic-hat-custom-option__state">
+                              已启用
+                            </span>
+                          </span>
+                          <span class="magic-hat-custom-option__desc">{{ option.description }}</span>
+                        </button>
+                      </div>
                     </div>
-                    <div class="magic-hat-difficulty-card__desc">
-                      {{ getMagicHatDifficultyBlurb(option.value) }}
-                    </div>
-                    <div class="magic-hat-difficulty-card__footer">
-                      <span class="magic-hat-difficulty-card__footer-text">
-                        {{ option.locked ? '功能预留中' : '切换后下场战斗立即生效' }}
-                      </span>
-                    </div>
-                  </button>
+                  </div>
                 </div>
 
                 <div class="magic-hat-preview">
@@ -3261,10 +3265,15 @@ import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../b
 import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
 import { recordEncounteredCards, recordEncounteredRelics } from '../codexStore';
 import {
+  CUSTOM_DIFFICULTY_BASE_OPTIONS,
+  CUSTOM_DIFFICULTY_INFLUENCE_GROUPS,
   DIFFICULTY_OPTIONS,
   getDifficultyPreviewLines,
+  hasCustomDifficultyInfluence,
   normalizeDifficulty,
+  normalizeCustomDifficultyInfluences,
   shouldRestoreFullHpOnBattleStart,
+  type CustomDifficultyInfluence,
   type DifficultyOption,
 } from '../difficulty';
 import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
@@ -3567,7 +3576,7 @@ const mimicRelicDropRelic = ref<RelicData | null>(null);
 const mimicRelicDropApplying = ref(false);
 const rewardApplying = ref(false);
 const rewardDeckShakeIdx = ref<number | null>(null);
-const rewardRefreshUsed = ref(false);
+const rewardRefreshUsedCount = ref(0);
 const rewardIsNormalEnemy = ref(false);
 const forcedCurseReplacementQueue = ref<Array<{ relicId: string; relicName: string; curseName: string }>>([]);
 const forcedCurseReplacing = ref(false);
@@ -3679,6 +3688,7 @@ interface PersistedVictoryState {
   optionRewardIds: string[];
   selectedRewardId: string | null;
   refreshUsed: boolean;
+  refreshUsedCount?: number;
   isNormalEnemy: boolean;
 }
 
@@ -4433,7 +4443,7 @@ const MAGIC_HAT_DIFFICULTY_BLURBS: Record<DifficultyOption, string> = {
   普通: '标准试炼节奏，敌我都不额外倾斜。',
   困难: '楼层越高敌人越硬，领主还会在战斗中持续增伤。',
   地狱: '高压试炼，领主成长更快，开局还会附带随机负面状态。',
-  自定义: '预留给后续更细的难度拼装，当前暂时锁定。',
+  自定义: '自由拼装诅咒、资源、体质与难度基准。',
 };
 const MAGIC_HAT_TRACK_META: Record<MagicHatUpgradeType, { kicker: string; rune: string }> = {
   hp: { kicker: '容错', rune: '血' },
@@ -4498,6 +4508,20 @@ const getMagicHatDifficultyClass = (difficulty: DifficultyOption) => {
       return 'is-custom';
   }
 };
+const getMagicHatCustomGroupClass = (title: string) => {
+  switch (title) {
+    case '诅咒类':
+      return 'is-curse';
+    case '减益类':
+      return 'is-penalty';
+    case '增益类':
+      return 'is-boon';
+    case '难度类':
+      return 'is-basis';
+    default:
+      return '';
+  }
+};
 const getMagicHatTrackClass = (type: MagicHatUpgradeType) => `is-${type}`;
 const getMagicHatTrackKicker = (type: MagicHatUpgradeType) => MAGIC_HAT_TRACK_META[type].kicker;
 const getMagicHatTrackRune = (type: MagicHatUpgradeType) => MAGIC_HAT_TRACK_META[type].rune;
@@ -4530,11 +4554,19 @@ const calcUpgradeLevel = (value: number, base: number, step: number, maxLevel: n
   return Math.max(0, Math.min(maxLevel, level));
 };
 const magicHatDifficultyOptions = DIFFICULTY_OPTIONS;
+const magicHatCustomInfluenceGroups = CUSTOM_DIFFICULTY_INFLUENCE_GROUPS;
 const magicHatDifficulty = computed<DifficultyOption>(() => normalizeDifficulty(gameStore.statData.$难度));
+const magicHatCustomInfluences = computed<CustomDifficultyInfluence[]>(() =>
+  normalizeCustomDifficultyInfluences(gameStore.statData.$自定义影响),
+);
 const magicHatDifficultyFloor = computed(() => Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1)));
 const magicHatDifficultyPreviewLines = computed(() =>
-  getDifficultyPreviewLines(magicHatDifficulty.value, magicHatDifficultyFloor.value),
+  getDifficultyPreviewLines(magicHatDifficulty.value, magicHatDifficultyFloor.value, magicHatCustomInfluences.value),
 );
+const hasMagicHatCustomInfluence = (influence: CustomDifficultyInfluence) =>
+  hasCustomDifficultyInfluence(magicHatCustomInfluences.value, influence);
+const isCustomDifficultyInfluenceActive = (influence: CustomDifficultyInfluence) =>
+  magicHatDifficulty.value === '自定义' && hasMagicHatCustomInfluence(influence);
 const magicHatSkillPoints = computed(() => getSafeInt(gameStore.statData.$技能点, 0));
 const magicHatMetaGrowths = computed<MagicHatMetaGrowthType[]>(() =>
   normalizeMagicHatMetaGrowths(gameStore.statData.$局外成长),
@@ -4632,13 +4664,24 @@ const openMagicHatModal = () => {
   if (!canEditMagicBooks.value) return;
   activeModal.value = 'magicHat';
 };
+const getCustomDifficultyOptionMeta = (influence: CustomDifficultyInfluence) =>
+  CUSTOM_DIFFICULTY_INFLUENCE_GROUPS.flatMap(group => group.options).find(option => option.value === influence);
+const ensureCustomDifficultyBase = (influences: CustomDifficultyInfluence[]) => {
+  const hasBase = influences.some(influence => CUSTOM_DIFFICULTY_BASE_OPTIONS.includes(influence as DifficultyOption));
+  return hasBase ? influences : [...influences, '普通'];
+};
 const setMagicHatDifficulty = async (difficulty: DifficultyOption) => {
-  if (!canEditMagicBooks.value || difficulty === '自定义') return;
+  if (!canEditMagicBooks.value) return;
   if (isUpdatingMagicHatDifficulty.value) return;
   if (magicHatDifficulty.value === difficulty) return;
 
   isUpdatingMagicHatDifficulty.value = true;
-  const ok = await gameStore.updateStatDataFields({ $难度: difficulty });
+  const ok = await gameStore.updateStatDataFields({
+    $难度: difficulty,
+    ...(difficulty === '自定义'
+      ? { $自定义影响: ensureCustomDifficultyBase(magicHatCustomInfluences.value) }
+      : {}),
+  });
   isUpdatingMagicHatDifficulty.value = false;
   if (!ok) {
     toastr.warning('难度切换失败，请稍后重试。');
@@ -4646,6 +4689,31 @@ const setMagicHatDifficulty = async (difficulty: DifficultyOption) => {
   }
 
   toastr.success(`难度已切换为【${difficulty}】。`);
+};
+const toggleMagicHatCustomInfluence = async (influence: CustomDifficultyInfluence) => {
+  if (!canEditMagicBooks.value || isUpdatingMagicHatDifficulty.value) return;
+  const isBaseDifficulty = CUSTOM_DIFFICULTY_BASE_OPTIONS.includes(influence as DifficultyOption);
+  let next = magicHatCustomInfluences.value.filter(item => item !== influence);
+
+  if (isBaseDifficulty) {
+    next = next.filter(item => !CUSTOM_DIFFICULTY_BASE_OPTIONS.includes(item as DifficultyOption));
+    next.push(influence);
+  } else if (!hasMagicHatCustomInfluence(influence)) {
+    const exclusiveWith = getCustomDifficultyOptionMeta(influence)?.exclusiveWith ?? [];
+    next = next.filter(item => !exclusiveWith.includes(item));
+    next.push(influence);
+  }
+
+  next = ensureCustomDifficultyBase(next);
+  isUpdatingMagicHatDifficulty.value = true;
+  const ok = await gameStore.updateStatDataFields({
+    $难度: '自定义',
+    $自定义影响: next,
+  });
+  isUpdatingMagicHatDifficulty.value = false;
+  if (!ok) {
+    toastr.warning('自定义影响更新失败，请稍后重试。');
+  }
 };
 const toggleMagicBook = async (bookName: string) => {
   if (isUpdatingMagicBooks.value) return;
@@ -5338,13 +5406,17 @@ const bloodpoolPassiveMaxHpBonus = computed(() =>
     return sum + getOwnedRelicCountById(item.id) * item.bonus;
   }, 0),
 );
+const victoryRewardRefreshLimit = computed(() => {
+  if (!rewardIsNormalEnemy.value) return 0;
+  return (getOwnedRelicCountById('base_silver_card') > 0 ? 1 : 0)
+    + (isCustomDifficultyInfluenceActive('聪慧过人') ? 1 : 0);
+});
 const canRefreshVictoryReward = computed(
   () =>
     showVictoryRewardView.value &&
     victoryRewardStage.value === 'pick' &&
     rewardIsNormalEnemy.value &&
-    !rewardRefreshUsed.value &&
-    getOwnedRelicCountById('base_silver_card') > 0,
+    rewardRefreshUsedCount.value < victoryRewardRefreshLimit.value,
 );
 const chestRewardEntries = computed<RelicEntryView[]>(() =>
   chestRewardRelics.value.map(relic => ({
@@ -5497,7 +5569,14 @@ const handleChestRewardClick = (event: MouseEvent, index: number) => {
   previewChestRewardForTouch(target, index);
 };
 
-const combatRelicMap = computed<Record<string, number>>(() => ({ ...inventoryRelicMap.value }));
+const combatRelicMap = computed<Record<string, number>>(() => {
+  const map = { ...inventoryRelicMap.value };
+  if (isCustomDifficultyInfluenceActive('家族传承')) {
+    map.lucky_coin_small = Math.max(0, Math.floor(Number(map.lucky_coin_small ?? 0))) + 2;
+    map.lucky_coin_large = Math.max(0, Math.floor(Number(map.lucky_coin_large ?? 0))) + 2;
+  }
+  return map;
+});
 
 watch(
   resolvedDeck,
@@ -6574,9 +6653,15 @@ const displayHp = computed(() => {
   const maxHp = displayMaxHp.value;
   return Math.min(hp, maxHp);
 });
+const adjustBaseMaxHpForCustomDifficulty = (baseMaxHp: number) => {
+  if (isCustomDifficultyInfluenceActive('体柔身轻')) return Math.max(1, Math.floor(baseMaxHp / 2));
+  if (isCustomDifficultyInfluenceActive('肉装魔女')) return Math.max(1, baseMaxHp * 2);
+  return baseMaxHp;
+};
 const displayMaxHp = computed(() => {
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
-  return Math.max(1, baseMaxHp + bloodpoolPassiveMaxHpBonus.value);
+  const adjustedBaseMaxHp = adjustBaseMaxHpForCustomDifficulty(baseMaxHp);
+  return Math.max(1, adjustedBaseMaxHp + bloodpoolPassiveMaxHpBonus.value);
 });
 const nextFloorRecoveryHpAfterLord = computed(() => {
   const recoveryFloor = Math.max(1, Math.min(displayMaxHp.value, Math.round(displayMaxHp.value * 0.7)));
@@ -6595,12 +6680,12 @@ const displayMaxDice = computed(() => gameStore.statData.$最大点数 ?? 0);
 const relicMinDiceBonus = computed(() =>
   RELIC_DICE_RANGE_BONUS_CONFIG.min.reduce((sum, item) => {
     return sum + getOwnedRelicCountById(item.id) * item.bonus;
-  }, 0),
+  }, isCustomDifficultyInfluenceActive('家族传承') ? 2 : 0),
 );
 const relicMaxDiceBonus = computed(() =>
   RELIC_DICE_RANGE_BONUS_CONFIG.max.reduce((sum, item) => {
     return sum + getOwnedRelicCountById(item.id) * item.bonus;
-  }, 0),
+  }, isCustomDifficultyInfluenceActive('家族传承') ? 2 : 0),
 );
 const effectiveDisplayMinDice = computed(() => {
   const baseMin = toNonNegativeInt(displayMinDice.value, 1);
@@ -7155,6 +7240,10 @@ const queueCombatMvuSync = (
     }
   }
 
+  if (win && nextHp !== undefined && isCustomDifficultyInfluenceActive('自愈体质')) {
+    nextHp = Math.max(1, adjustBaseMaxHpForCustomDifficulty(baseMaxHp + stomachBonus) + passiveMaxHpBonus);
+  }
+
   if (stomachBonus > 0) {
     gameStore.mergePendingStatDataChanges({
       _血量上限: Math.max(1, baseMaxHp + stomachBonus),
@@ -7222,7 +7311,7 @@ const startVictoryRewardFlow = () => {
   const options = buildVictoryRewardOptions();
 
   if (options.length === 0) return false;
-  rewardRefreshUsed.value = false;
+  rewardRefreshUsedCount.value = 0;
   victoryRewardOptions.value = options;
   selectedVictoryRewardCard.value = null;
   victoryRewardStage.value = 'pick';
@@ -7234,7 +7323,7 @@ const refreshVictoryRewardOptions = () => {
   if (!canRefreshVictoryReward.value || rewardApplying.value) return;
   const options = buildVictoryRewardOptions();
   if (options.length === 0) return;
-  rewardRefreshUsed.value = true;
+  rewardRefreshUsedCount.value += 1;
   victoryRewardOptions.value = options;
   selectedVictoryRewardCard.value = null;
   victoryRewardStage.value = 'pick';
@@ -7246,7 +7335,7 @@ const finalizeVictoryRewardFlow = () => {
   victoryRewardOptions.value = [];
   selectedVictoryRewardCard.value = null;
   rewardApplying.value = false;
-  rewardRefreshUsed.value = false;
+  rewardRefreshUsedCount.value = 0;
   rewardIsNormalEnemy.value = false;
   const narrative = pendingCombatNarrative.value;
   if (!narrative) return;
@@ -7683,7 +7772,9 @@ const preparePlayerForCombatStart = async (roomTypeOverride?: string): Promise<b
       ? roomTypeOverride.trim()
       : ((gameStore.statData._当前房间类型 as string) || '').trim();
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
-  const shouldFullHeal = shouldRestoreFullHpOnBattleStart(difficulty) || (roomType === '领主房' && bloodPoolCount > 0);
+  const shouldFullHeal =
+    shouldRestoreFullHpOnBattleStart(difficulty, magicHatCustomInfluences.value) ||
+    (roomType === '领主房' && bloodPoolCount > 0);
   if (!shouldFullHeal) return true;
 
   const fullHp = displayMaxHp.value;
@@ -8019,7 +8110,11 @@ const rollChestMimicRelicDropRarity = (): RelicData['rarity'] => {
   return '传奇';
 };
 
-const rollChestRewardCount = (): number => (Math.random() < 0.8 ? 1 : 2);
+const rollChestRewardCount = (): number => {
+  if (isCustomDifficultyInfluenceActive('资源稀缺')) return 1;
+  if (isCustomDifficultyInfluenceActive('资源丰盛')) return 2;
+  return Math.random() < 0.8 ? 1 : 2;
+};
 
 const pickChestRewardRelics = (count: number): RelicData[] => {
   const candidatePool = [...selectableRelicPool.value];
@@ -8338,7 +8433,8 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
         stage: victoryRewardStage.value,
         optionRewardIds: victoryRewardOptions.value.map(item => item.id),
         selectedRewardId: selectedVictoryRewardCard.value?.id ?? null,
-        refreshUsed: rewardRefreshUsed.value,
+        refreshUsed: rewardRefreshUsedCount.value > 0,
+        refreshUsedCount: rewardRefreshUsedCount.value,
         isNormalEnemy: rewardIsNormalEnemy.value,
       },
     };
@@ -8531,7 +8627,12 @@ const restoreOverlaySnapshot = () => {
         ? (cardByIdMap.value.get(selectedId) ?? activeSkillByIdMap.value.get(selectedId) ?? null)
         : null;
       rewardApplying.value = false;
-      rewardRefreshUsed.value = Boolean(parsed.victory.refreshUsed);
+      rewardRefreshUsedCount.value =
+        typeof parsed.victory.refreshUsedCount === 'number'
+          ? Math.max(0, Math.floor(parsed.victory.refreshUsedCount))
+          : parsed.victory.refreshUsed
+            ? 1
+            : 0;
       rewardIsNormalEnemy.value = Boolean(parsed.victory.isNormalEnemy);
       return;
     }
@@ -8576,7 +8677,7 @@ watch(
     selectedVictoryRewardCard,
     mimicRelicDropRelic,
     mimicRelicDropApplying,
-    rewardRefreshUsed,
+    rewardRefreshUsedCount,
     rewardIsNormalEnemy,
   ],
   () => {
@@ -9643,20 +9744,319 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+.special-action-btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  width: 100%;
+  min-height: 3.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  overflow: hidden;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.55rem;
+  padding: 0.85rem 1.2rem;
+  font-family: var(--font-heading, inherit);
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 12px 26px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.special-action-btn::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 42%);
+  opacity: 0.72;
+}
+
+.special-action-btn:hover:not(:disabled),
+.special-action-btn:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.08) saturate(1.06);
+}
+
+.special-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.special-action-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+  opacity: 0.52;
+}
+
+.special-action-btn__shine {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.18) 42%, transparent 58%);
+  opacity: 0;
+  transform: translateX(-80%);
+  transition:
+    opacity 0.2s ease,
+    transform 0.55s ease;
+}
+
+.special-action-btn:hover .special-action-btn__shine,
+.special-action-btn:focus-visible .special-action-btn__shine {
+  opacity: 1;
+  transform: translateX(80%);
+}
+
+.special-action-btn__icon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 0.45rem;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  font-size: 1.15rem;
+}
+
+.special-action-btn__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.portal-section,
+.rebirth-section {
+  margin-top: 1rem;
+}
+
+.action-divider-label {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.7rem;
+  color: rgba(251, 191, 36, 0.72);
+  font-family: var(--font-ui, inherit);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.action-divider-label::before,
+.action-divider-label::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.34));
+}
+
+.action-divider-label::after {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.34), transparent);
+}
+
+.action-divider-label--danger {
+  color: rgba(252, 165, 165, 0.82);
+}
+
+.action-divider-label--danger::before {
+  background: linear-gradient(90deg, transparent, rgba(248, 113, 113, 0.36));
+}
+
+.action-divider-label--danger::after {
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0.36), transparent);
+}
+
+.portal-grid {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
 .portal-btn {
-  width: 7.8rem;
-  height: 7.8rem;
+  position: relative;
+  isolation: isolate;
+  width: 6.7rem;
+  height: 6.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+  backdrop-filter: blur(10px);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    filter 0.22s ease;
+}
+
+.portal-btn::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: 0.45rem;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.18), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.18));
+  opacity: 0.78;
+}
+
+.portal-btn:hover:not(:disabled),
+.portal-btn:focus-visible {
+  transform: translateY(-3px) scale(1.035);
+  filter: brightness(1.08) saturate(1.08);
+}
+
+.portal-btn:active:not(:disabled) {
+  transform: translateY(-1px) scale(0.98);
+}
+
+.portal-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  opacity: 0.44;
+}
+
+.portal-btn__glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0.52;
+  transition: opacity 0.22s ease;
+}
+
+.portal-btn:hover .portal-btn__glow,
+.portal-btn:focus-visible .portal-btn__glow {
+  opacity: 0.95;
 }
 
 .portal-btn__icon {
-  font-size: 1.7rem;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0.45rem;
+  font-size: 1.65rem;
   line-height: 1;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.42));
 }
 
 .portal-btn__label {
-  max-width: 6.2rem;
+  position: relative;
+  z-index: 1;
+  max-width: 5.5rem;
+  font-family: var(--font-ui, inherit);
   font-size: 0.72rem;
-  line-height: 1.2;
+  font-weight: 800;
+  line-height: 1.22;
+  text-align: center;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.portal-btn__ring {
+  position: absolute;
+  inset: 0.45rem;
+  border-width: 1px;
+  border-style: dashed;
+  border-radius: 0.38rem;
+  opacity: 0.28;
+  animation: spin 8s linear infinite;
+  transition: opacity 0.22s ease;
+}
+
+.portal-btn:hover .portal-btn__ring,
+.portal-btn:focus-visible .portal-btn__ring {
+  opacity: 0.7;
+}
+
+.rebirth-action-btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  min-height: 3.35rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.58rem;
+  overflow: hidden;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(248, 113, 113, 0.62);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(248, 113, 113, 0.2), transparent 34%),
+    linear-gradient(180deg, rgba(69, 10, 10, 0.86), rgba(23, 10, 12, 0.95));
+  color: rgba(254, 226, 226, 0.96);
+  padding: 0.78rem 1.45rem;
+  font-family: var(--font-heading, inherit);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 16px rgba(239, 68, 68, 0.24),
+    0 12px 26px rgba(0, 0, 0, 0.28);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+.rebirth-action-btn::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(254, 202, 202, 0.08);
+  background: linear-gradient(135deg, rgba(254, 202, 202, 0.12), transparent 45%);
+}
+
+.rebirth-action-btn:hover:not(:disabled),
+.rebirth-action-btn:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(252, 165, 165, 0.92);
+  filter: brightness(1.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 20px rgba(248, 113, 113, 0.4),
+    0 14px 28px rgba(0, 0, 0, 0.34);
+}
+
+.rebirth-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.rebirth-action-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  opacity: 0.46;
+}
+
+.rebirth-action-btn__icon {
+  display: inline-flex;
+  width: 1.9rem;
+  height: 1.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.42rem;
+  background: rgba(127, 29, 29, 0.42);
+  font-size: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .ui-input-shell {
@@ -9843,11 +10243,224 @@ onBeforeUnmount(() => {
 }
 
 .ui-status-hud {
-  transform: scale(1.2);
+  width: min(13.5rem, calc(100vw - 2rem));
+  transform: scale(1.05);
   transform-origin: bottom left;
 }
 
+.status-hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-hud-control-btn {
+  width: 2.55rem;
+  height: 2.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(212, 175, 55, 0.36);
+  background:
+    linear-gradient(180deg, rgba(34, 27, 22, 0.94), rgba(11, 10, 12, 0.94)),
+    rgba(10, 10, 12, 0.88);
+  color: rgba(232, 204, 117, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 24px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(10px);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background 0.18s ease;
+}
+
+.status-hud-control-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(252, 211, 77, 0.72);
+  background:
+    linear-gradient(180deg, rgba(63, 43, 25, 0.96), rgba(18, 15, 17, 0.95)),
+    rgba(10, 10, 12, 0.88);
+  color: rgba(255, 242, 178, 0.98);
+}
+
+.status-hud-panel {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 0.72rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background:
+    radial-gradient(circle at 10% 8%, rgba(248, 113, 113, 0.14), transparent 30%),
+    radial-gradient(circle at 86% 16%, rgba(96, 165, 250, 0.13), transparent 34%),
+    linear-gradient(145deg, rgba(18, 18, 22, 0.96), rgba(8, 7, 8, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 36px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px);
+}
+
+.status-hud-panel-glint {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.58), transparent);
+  pointer-events: none;
+}
+
+.status-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  color: rgba(245, 222, 179, 0.62);
+}
+
+.status-hud-header span:first-child {
+  color: rgba(253, 230, 138, 0.92);
+  font-weight: 800;
+}
+
+.status-hud-vitals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.status-hud-vital {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  min-height: 5.1rem;
+  padding: 0.5rem 0.4rem 0.45rem;
+  border-radius: 0.48rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.status-hud-vital--hp {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: linear-gradient(180deg, rgba(69, 10, 10, 0.42), rgba(255, 255, 255, 0.035));
+}
+
+.status-hud-vital--mp {
+  border-color: rgba(96, 165, 250, 0.24);
+  background: linear-gradient(180deg, rgba(30, 58, 138, 0.32), rgba(255, 255, 255, 0.035));
+}
+
+.status-hud-vital-icon {
+  display: flex;
+  justify-content: center;
+}
+
+.status-hud-svg {
+  width: 3.25rem;
+  height: 3.25rem;
+}
+
+.status-hud-vital-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.32rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.status-hud-vital-value span {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  font-weight: 800;
+  color: rgba(214, 211, 209, 0.58);
+}
+
+.status-hud-vital-value strong {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(250, 250, 249, 0.95);
+  font-family: var(--font-heading, inherit);
+  font-size: 0.88rem;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-hud-minor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+
+.status-hud-minor {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 2.35rem;
+  padding: 0.42rem 0.5rem;
+  border-radius: 0.48rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.status-hud-minor svg {
+  flex: 0 0 auto;
+}
+
+.status-hud-minor span {
+  display: block;
+  color: rgba(214, 211, 209, 0.58);
+  font-size: 0.6rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.status-hud-minor strong {
+  display: block;
+  margin-top: 0.08rem;
+  overflow: hidden;
+  color: rgba(250, 250, 249, 0.96);
+  font-family: var(--font-heading, inherit);
+  font-size: 0.82rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-hud-minor--dice {
+  border-color: rgba(167, 139, 250, 0.22);
+}
+
+.status-hud-minor--dice svg {
+  color: rgba(196, 181, 253, 0.92);
+}
+
+.status-hud-minor--gold {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.status-hud-minor--gold svg,
+.status-hud-minor--gold strong {
+  color: rgba(253, 224, 71, 0.96);
+}
+
 @media (max-width: 900px) {
+  .ui-status-hud {
+    left: 1rem;
+    bottom: 1rem;
+    width: min(13.5rem, calc(100vw - 2rem));
+    transform: none;
+  }
+
   .ui-option-completion-trigger {
     min-width: 6rem;
     padding-left: 0.95rem;
@@ -10719,8 +11332,8 @@ onBeforeUnmount(() => {
 
 .player-detail-modal {
   display: grid;
-  grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
+  gap: 1.1rem;
   min-height: 34rem;
 }
 
@@ -10731,11 +11344,15 @@ onBeforeUnmount(() => {
   gap: 0.9rem;
   height: 100%;
   padding: 1rem;
-  border-radius: 1.25rem;
-  border: 1px solid rgba(217, 119, 6, 0.22);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(212, 175, 55, 0.24);
   background:
-    radial-gradient(circle at 24% 18%, rgba(217, 119, 6, 0.24), transparent 42%),
-    linear-gradient(180deg, rgba(35, 23, 16, 0.96), rgba(12, 9, 8, 0.94));
+    radial-gradient(circle at 24% 16%, rgba(245, 158, 11, 0.17), transparent 38%),
+    radial-gradient(circle at 78% 5%, rgba(59, 130, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(24, 22, 22, 0.97), rgba(8, 8, 10, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 34px rgba(0, 0, 0, 0.22);
 }
 
 .player-detail-portrait-shell {
@@ -10748,15 +11365,16 @@ onBeforeUnmount(() => {
   max-width: 100%;
   aspect-ratio: 3 / 5;
   max-height: min(56vh, 34rem);
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   overflow: hidden;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.34);
   background:
-    radial-gradient(circle at 50% 18%, rgba(251, 191, 36, 0.18), transparent 40%),
-    linear-gradient(180deg, rgba(27, 20, 17, 0.85), rgba(8, 6, 5, 0.98));
+    radial-gradient(circle at 50% 16%, rgba(251, 191, 36, 0.15), transparent 42%),
+    linear-gradient(180deg, rgba(20, 24, 30, 0.9), rgba(7, 7, 8, 0.98));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 40px rgba(0, 0, 0, 0.35);
+    0 18px 40px rgba(0, 0, 0, 0.34),
+    0 0 22px rgba(245, 158, 11, 0.08);
 }
 
 .player-detail-portrait-image {
@@ -10780,9 +11398,9 @@ onBeforeUnmount(() => {
 
 .player-detail-nameplate {
   padding: 0.8rem 0.95rem;
-  border-radius: 0.95rem;
-  border: 1px solid rgba(217, 119, 6, 0.25);
-  background: rgba(15, 10, 8, 0.72);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  background: linear-gradient(135deg, rgba(18, 16, 15, 0.86), rgba(6, 6, 7, 0.82));
 }
 
 .player-detail-name {
@@ -10812,9 +11430,9 @@ onBeforeUnmount(() => {
   gap: 0.45rem;
   min-height: 2.5rem;
   padding: 0.7rem 1rem;
-  border-radius: 999px;
+  border-radius: 0.5rem;
   border: 1px solid rgba(251, 191, 36, 0.42);
-  background: linear-gradient(180deg, rgba(91, 57, 23, 0.96), rgba(43, 26, 12, 0.98));
+  background: linear-gradient(180deg, rgba(91, 57, 23, 0.92), rgba(35, 27, 22, 0.96));
   color: rgba(254, 243, 199, 0.96);
   transition: all 0.18s ease;
 }
@@ -10849,20 +11467,25 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding-right: 0.35rem;
+  padding: 0.05rem 0.35rem 0.05rem 0.05rem;
 }
 
 .player-detail-tabbar {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0 0 0.2rem;
+  backdrop-filter: blur(10px);
 }
 
 .player-detail-tab,
 .player-detail-subtab {
-  border-radius: 999px;
+  border-radius: 0.5rem;
   border: 1px solid rgba(180, 83, 9, 0.35);
-  background: rgba(18, 12, 10, 0.9);
+  background: rgba(16, 16, 19, 0.9);
   color: rgba(231, 229, 228, 0.78);
   transition: all 0.18s ease;
 }
@@ -10889,17 +11512,23 @@ onBeforeUnmount(() => {
 .player-detail-tab--active,
 .player-detail-subtab--active {
   border-color: rgba(245, 158, 11, 0.75);
-  background: linear-gradient(180deg, rgba(120, 53, 15, 0.92), rgba(69, 26, 3, 0.96));
+  background:
+    linear-gradient(180deg, rgba(120, 53, 15, 0.86), rgba(32, 28, 25, 0.96)),
+    rgba(12, 12, 14, 0.9);
   color: rgba(254, 243, 199, 0.98);
   box-shadow: 0 0 18px rgba(245, 158, 11, 0.14);
 }
 
 .player-detail-section {
   padding: 1rem;
-  border-radius: 1.1rem;
-  border: 1px solid rgba(217, 119, 6, 0.18);
-  background: linear-gradient(180deg, rgba(26, 20, 18, 0.96), rgba(13, 11, 11, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  background:
+    radial-gradient(circle at 96% 0%, rgba(96, 165, 250, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(20, 20, 23, 0.96), rgba(10, 10, 12, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 24px rgba(0, 0, 0, 0.16);
 }
 
 .player-detail-section-head {
@@ -10936,13 +11565,39 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-stat-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   padding: 0.9rem 1rem;
-  border-radius: 0.95rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(10, 10, 10, 0.32);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(0, 0, 0, 0.18));
+}
+
+.player-detail-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--detail-stat-accent, rgba(212, 175, 55, 0.8));
+}
+
+.player-detail-stat-card:nth-child(1) {
+  --detail-stat-accent: rgba(248, 113, 113, 0.9);
+}
+
+.player-detail-stat-card:nth-child(2) {
+  --detail-stat-accent: rgba(96, 165, 250, 0.9);
+}
+
+.player-detail-stat-card:nth-child(3) {
+  --detail-stat-accent: rgba(250, 204, 21, 0.9);
+}
+
+.player-detail-stat-card:nth-child(4) {
+  --detail-stat-accent: rgba(167, 139, 250, 0.9);
 }
 
 .player-detail-stat-label {
@@ -10988,8 +11643,9 @@ onBeforeUnmount(() => {
 
 .player-detail-empty {
   margin-top: 0.8rem;
-  border-radius: 0.95rem;
-  border: 1px dashed rgba(251, 113, 133, 0.28);
+  border-radius: 0.5rem;
+  border: 1px dashed rgba(212, 175, 55, 0.24);
+  background: rgba(0, 0, 0, 0.16);
   padding: 0.95rem 1rem;
   color: rgba(212, 212, 216, 0.72);
   text-align: center;
@@ -11003,9 +11659,11 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-negative-item {
-  border-radius: 0.95rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(251, 113, 133, 0.25);
-  background: linear-gradient(120deg, rgba(69, 10, 10, 0.62), rgba(24, 24, 27, 0.58));
+  background:
+    linear-gradient(120deg, rgba(69, 10, 10, 0.58), rgba(24, 24, 27, 0.62)),
+    rgba(0, 0, 0, 0.18);
   padding: 0.85rem 0.95rem;
 }
 
@@ -11034,9 +11692,9 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(135deg, rgba(26, 16, 10, 0.92), rgba(12, 10, 9, 0.96));
+  background: linear-gradient(135deg, rgba(25, 21, 18, 0.92), rgba(10, 10, 12, 0.96));
   padding: 0.95rem 1rem;
 }
 
@@ -11112,7 +11770,7 @@ onBeforeUnmount(() => {
   min-width: 4.5rem;
   min-height: 2.15rem;
   padding: 0.45rem 0.8rem;
-  border-radius: 999px;
+  border-radius: 0.5rem;
   border: 1px solid rgba(245, 158, 11, 0.38);
   background: rgba(18, 12, 10, 0.92);
   color: rgba(254, 243, 199, 0.92);
@@ -11147,9 +11805,9 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-info-item {
-  border-radius: 0.95rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(10, 10, 10, 0.26);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.18));
   padding: 0.85rem 0.95rem;
 }
 
@@ -13051,6 +13709,11 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
 }
 
+.magic-hat-difficulty-main {
+  display: grid;
+  gap: 0.85rem;
+}
+
 .magic-hat-difficulty-card {
   position: relative;
   display: flex;
@@ -13242,6 +13905,185 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: rgba(251, 191, 36, 0.74);
   box-shadow: 0 0 10px rgba(251, 191, 36, 0.28);
+}
+
+.magic-hat-custom-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.95rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 24%),
+    radial-gradient(circle at 18% 0%, rgba(168, 85, 247, 0.12), transparent 28%),
+    rgba(8, 6, 6, 0.72);
+}
+
+.magic-hat-custom-group {
+  --custom-accent: 251, 191, 36;
+  --custom-accent-strong: 255, 224, 163;
+  --custom-panel: 24, 16, 8;
+  display: grid;
+  gap: 0.62rem;
+  padding: 0.7rem;
+  border-radius: 0.92rem;
+  border: 1px solid rgba(var(--custom-accent), 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(var(--custom-accent), 0.12), transparent 38%),
+    rgba(var(--custom-panel), 0.28);
+}
+
+.magic-hat-custom-group.is-curse {
+  --custom-accent: 168, 85, 247;
+  --custom-accent-strong: 221, 214, 254;
+  --custom-panel: 32, 18, 43;
+}
+
+.magic-hat-custom-group.is-penalty {
+  --custom-accent: 248, 113, 113;
+  --custom-accent-strong: 254, 202, 202;
+  --custom-panel: 47, 18, 18;
+}
+
+.magic-hat-custom-group.is-boon {
+  --custom-accent: 52, 211, 153;
+  --custom-accent-strong: 187, 247, 208;
+  --custom-panel: 12, 36, 28;
+}
+
+.magic-hat-custom-group.is-basis {
+  --custom-accent: 96, 165, 250;
+  --custom-accent-strong: 191, 219, 254;
+  --custom-panel: 15, 31, 52;
+}
+
+.magic-hat-custom-group__title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(var(--custom-accent-strong), 0.92);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+}
+
+.magic-hat-custom-group__title::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgb(var(--custom-accent));
+  box-shadow: 0 0 12px rgba(var(--custom-accent), 0.4);
+}
+
+.magic-hat-custom-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.58rem;
+}
+
+.magic-hat-custom-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.42rem;
+  min-height: 5.25rem;
+  padding: 0.68rem 0.72rem;
+  text-align: left;
+  border-radius: 0.82rem;
+  border: 1px solid rgba(var(--custom-accent), 0.2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 46%),
+    rgba(8, 7, 7, 0.68);
+  color: rgba(237, 226, 205, 0.72);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
+}
+
+.magic-hat-custom-option::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(var(--custom-accent), 0.2), transparent 42%),
+    linear-gradient(135deg, rgba(var(--custom-accent), 0.12), transparent 54%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.magic-hat-custom-option:hover,
+.magic-hat-custom-option:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: rgba(var(--custom-accent), 0.48);
+  color: rgba(255, 239, 205, 0.94);
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(var(--custom-accent), 0.08);
+}
+
+.magic-hat-custom-option.is-active {
+  border-color: rgba(var(--custom-accent), 0.72);
+  background:
+    linear-gradient(180deg, rgba(var(--custom-accent), 0.14), transparent 52%),
+    rgba(var(--custom-panel), 0.58);
+  color: rgba(255, 239, 205, 0.98);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--custom-accent), 0.18),
+    0 10px 20px rgba(0, 0, 0, 0.22),
+    0 0 18px rgba(var(--custom-accent), 0.12);
+}
+
+.magic-hat-custom-option.is-active::before {
+  opacity: 1;
+}
+
+.magic-hat-custom-option:disabled {
+  cursor: wait;
+  opacity: 0.7;
+  transform: none;
+}
+
+.magic-hat-custom-option__head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.magic-hat-custom-option__name {
+  color: rgba(var(--custom-accent-strong), 0.98);
+  font-family: 'Cinzel', serif;
+  font-size: 0.86rem;
+  letter-spacing: 0;
+}
+
+.magic-hat-custom-option__state {
+  flex-shrink: 0;
+  padding: 0.15rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--custom-accent), 0.34);
+  background: rgba(var(--custom-accent), 0.12);
+  color: rgba(var(--custom-accent-strong), 0.94);
+  font-size: 0.64rem;
+}
+
+.magic-hat-custom-option__desc {
+  position: relative;
+  z-index: 1;
+  color: rgba(231, 223, 212, 0.7);
+  font-size: 0.72rem;
+  line-height: 1.48;
 }
 
 .magic-hat-points-card {
@@ -13494,6 +14336,10 @@ onBeforeUnmount(() => {
   }
 
   .magic-hat-difficulty-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .magic-hat-custom-options {
     grid-template-columns: minmax(0, 1fr);
   }
 
