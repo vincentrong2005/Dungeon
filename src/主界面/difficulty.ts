@@ -47,7 +47,12 @@ export const DIFFICULTY_OPTIONS: DifficultyOptionMeta[] = [
   { value: '自定义', label: '自定义' },
 ];
 
-export const CUSTOM_DIFFICULTY_BASE_OPTIONS: Array<Exclude<DifficultyOption, '自定义'>> = ['简单', '普通', '困难', '地狱'];
+export const CUSTOM_DIFFICULTY_BASE_OPTIONS: Array<Exclude<DifficultyOption, '自定义'>> = [
+  '简单',
+  '普通',
+  '困难',
+  '地狱',
+];
 
 export const CUSTOM_DIFFICULTY_INFLUENCE_GROUPS: CustomDifficultyInfluenceGroup[] = [
   {
@@ -75,7 +80,7 @@ export const CUSTOM_DIFFICULTY_INFLUENCE_GROUPS: CustomDifficultyInfluenceGroup[
       { value: '肉装魔女', label: '肉装魔女', description: '初始生命上限翻倍。', exclusiveWith: ['体柔身轻'] },
       { value: '自愈体质', label: '自愈体质', description: '战斗胜利后回复至满生命值。' },
       { value: '聪慧过人', label: '聪慧过人', description: '战斗后卡牌奖励刷新次数 +1，可与银色卡牌叠加。' },
-      { value: '家族传承', label: '家族传承', description: '初始获得 2 个幸运硬币（小）与 2 个幸运硬币（大）。' },
+      { value: '家族传承', label: '家族传承', description: '最小/最大骰子点数+2。' },
       { value: '神圣加护', label: '神圣加护', description: '免疫敌方卡牌附带的负面状态。' },
     ],
   },
@@ -195,10 +200,7 @@ export function getDifficultyPreviewLines(
   const safeFloor = Math.max(1, Math.floor(Number(floor) || 1));
   switch (difficulty) {
     case '简单':
-      return [
-        '进入战斗时回复至满血。',
-        '敌人血量系数：0.8。',
-      ];
+      return ['进入战斗时回复至满血。', '敌人血量系数：0.8。'];
     case '困难':
       return [
         '领主每 5 个回合获得 1 层“增伤”。',
@@ -210,22 +212,18 @@ export function getDifficultyPreviewLines(
         '每场战斗开始时，随机获得 1 层“虚实不明 / 思绪被扰乱 / 敌意隐藏 / 视野模糊”中的一种 debuff。',
         `敌人血量系数：1.2 ^ (2 × 楼层数)，当前楼层为 ${safeFloor}，本层系数 ${getDifficultyHpMultiplier(difficulty, safeFloor, customInfluences).toFixed(1)}。`,
       ];
-    case '自定义':
-      {
-        const normalized = normalizeCustomDifficultyInfluences(customInfluences);
-        const baseDifficulty = getCustomDifficultyBaseDifficulty(normalized);
-        const extraInfluences = normalized.filter(item => !CUSTOM_DIFFICULTY_BASE_SET.has(item));
-        return [
-          `难度基准：${baseDifficulty}。`,
-          extraInfluences.length > 0 ? `已启用影响：${extraInfluences.join('、')}。` : '未启用额外自定义影响。',
-          ...getDifficultyPreviewLines(baseDifficulty, safeFloor),
-        ];
-      }
+    case '自定义': {
+      const normalized = normalizeCustomDifficultyInfluences(customInfluences);
+      const baseDifficulty = getCustomDifficultyBaseDifficulty(normalized);
+      const extraInfluences = normalized.filter(item => !CUSTOM_DIFFICULTY_BASE_SET.has(item));
+      return [
+        `难度基准：${baseDifficulty}。`,
+        extraInfluences.length > 0 ? `已启用影响：${extraInfluences.join('、')}。` : '未启用额外自定义影响。',
+        ...getDifficultyPreviewLines(baseDifficulty, safeFloor),
+      ];
+    }
     case '普通':
     default:
-      return [
-        '无额外战斗修正。',
-        '敌人血量系数：1.0。',
-      ];
+      return ['无额外战斗修正。', '敌人血量系数：1.0。'];
   }
 }
