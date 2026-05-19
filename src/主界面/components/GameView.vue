@@ -12867,6 +12867,7 @@ onBeforeUnmount(() => {
 }
 
 .idol-portal-btn {
+  position: absolute;
   bottom: 2rem;
   transform: translateX(-50%);
 }
