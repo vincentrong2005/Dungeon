@@ -1402,7 +1402,7 @@ const 血脉迁葬: CardData = {
   description: '消耗6MP，将自身流血全部转移给对方，并连续触发对方流血3次',
 };
 
-/** 血影回身：点数+1，闪避成功时回复0.4倍点数生命并施加1层流血 */
+/** 血影回身：点数+1，闪避成功时回复1倍点数生命并施加1层流血 */
 const 血影回身: CardData = {
   id: 'bloodpool_blood_shadow_dodge',
   name: '血影回身',
@@ -1419,7 +1419,7 @@ const 血影回身: CardData = {
       kind: 'heal',
       target: 'self',
       valueMode: 'point_scale',
-      scale: 0.4,
+      scale: 1.0,
     },
     {
       triggers: ['on_dodge_success'],
@@ -1430,7 +1430,7 @@ const 血影回身: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '点数+1，闪避。若闪避成功，回复0.4倍点数生命并施加1层流血',
+  description: '点数+1，闪避。若闪避成功，回复1倍点数生命并施加1层流血',
 };
 
 /** 血幕回避：闪避成功后给对方施加3层流血 */
@@ -1693,13 +1693,13 @@ const 大炼成: CardData = {
   name: '大炼成',
   type: CardType.FUNCTION,
   category: '炼金',
-  rarity: '普通',
+  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, firstCombo: true, reroll: 'none', draw: false },
+  traits: { combo: true, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '在本场战斗绑定牌库中的一张卡牌，使其获得打出时点数+1的效果，可叠加。首发连击。',
+  description: '在本场战斗绑定牌库中的一张卡牌，使其获得打出时点数+1的效果，可叠加。连击。',
 };
 
 const 伪装: CardData = {
@@ -5511,7 +5511,7 @@ const FLESH_WALL_WORM_DRAG_INTO_WALL: CardData = {
   description: '造成1倍点数伤害，施加1层被吞食，并去除对方眩晕',
 };
 
-/** 黏液喷吐：施加3层电击与10层麻醉深度 */
+/** 黏液喷吐：施加3层电击与10层迷香 */
 const FLESH_WALL_WORM_SLIME_SPIT: CardData = {
   id: 'enemy_flesh_wall_worm_slime_spit',
   name: '黏液喷吐',
@@ -5533,7 +5533,7 @@ const FLESH_WALL_WORM_SLIME_SPIT: CardData = {
       fixedValue: 10,
     },
   ],
-  description: '施加3层电击与10层麻醉深度',
+  description: '施加3层电击与10层迷香',
 };
 
 /** 肉壁呼吸：回复自身2倍点数血量 */
@@ -5585,7 +5585,7 @@ const FLESH_WALL_WORM_CHAMBER_CONTRACTION: CardData = {
   description: '点数+2，造成1倍点数伤害并清空对方护甲',
 };
 
-/** 律动按压：施加20层麻醉深度，为双方施加1层生命回复 */
+/** 律动按压：施加20层迷香，为双方施加1层生命回复 */
 const FLESH_WALL_WORM_RHYTHMIC_PRESS: CardData = {
   id: 'enemy_flesh_wall_worm_rhythmic_press',
   name: '律动按压',
@@ -5608,7 +5608,79 @@ const FLESH_WALL_WORM_RHYTHMIC_PRESS: CardData = {
     { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
     { kind: 'apply_buff', effectType: EffectType.REGEN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '施加20层麻醉深度，为双方施加1层生命回复',
+  description: '施加20层迷香，为双方施加1层生命回复',
+};
+
+/** 吞入画框：点数*1.5，造成0.5倍点数伤害，施加1层被吞食，为自身施加99层无视闪避 */
+const PICTURE_FRAME_PREDATOR_SWALLOW: CardData = {
+  id: 'enemy_picture_frame_predator_swallow',
+  name: '吞入画框',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DEVOUR, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.IGNORE_DODGE, target: 'self', valueMode: 'fixed', fixedValue: 99 },
+  ],
+  description: '点数*1.5，造成0.5倍点数伤害，施加1层被吞食，为自身施加99层无视闪避',
+};
+
+/** 极乐榨取：点数+3，造成0.5倍点数伤害并施加1层性兴奋，回复1倍点数生命 */
+const PICTURE_FRAME_PREDATOR_BLISS_DRAIN: CardData = {
+  id: 'enemy_picture_frame_predator_bliss_drain',
+  name: '极乐榨取',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'relative', scale: 0.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+3，造成0.5倍点数伤害并施加1层性兴奋，回复1倍点数生命',
+};
+
+/** 浮雕肉蔓：施加0.7倍点数中毒 */
+const PICTURE_FRAME_PREDATOR_RELIEF_VINES: CardData = {
+  id: 'enemy_picture_frame_predator_relief_vines',
+  name: '浮雕肉蔓',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.7 },
+  ],
+  description: '施加0.7倍点数中毒',
+};
+
+/** 迷香漩涡：施加10层迷香 */
+const PICTURE_FRAME_PREDATOR_MIASMA_SWIRL: CardData = {
+  id: 'enemy_picture_frame_predator_miasma_swirl',
+  name: '迷香漩涡',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ANESTHESIA_DEPTH, target: 'enemy', valueMode: 'fixed', fixedValue: 10 },
+  ],
+  description: '施加10层迷香',
 };
 
 /** 催情液分泌：施加3层中毒 */
@@ -8296,6 +8368,10 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [FLESH_WALL_WORM_CHAMBER_CONTRACTION.name, FLESH_WALL_WORM_CHAMBER_CONTRACTION],
   [FLESH_WALL_WORM_RHYTHMIC_PRESS.name, FLESH_WALL_WORM_RHYTHMIC_PRESS],
   [FLESH_WALL_WORM_APHRODISIAC_SECRETION.name, FLESH_WALL_WORM_APHRODISIAC_SECRETION],
+  [PICTURE_FRAME_PREDATOR_SWALLOW.name, PICTURE_FRAME_PREDATOR_SWALLOW],
+  [PICTURE_FRAME_PREDATOR_BLISS_DRAIN.name, PICTURE_FRAME_PREDATOR_BLISS_DRAIN],
+  [PICTURE_FRAME_PREDATOR_RELIEF_VINES.name, PICTURE_FRAME_PREDATOR_RELIEF_VINES],
+  [PICTURE_FRAME_PREDATOR_MIASMA_SWIRL.name, PICTURE_FRAME_PREDATOR_MIASMA_SWIRL],
   [虚空游光_荧光牵引.name, 虚空游光_荧光牵引],
   [虚空游光_柔光.name, 虚空游光_柔光],
   [虚空游光_脉冲.name, 虚空游光_脉冲],

@@ -290,7 +290,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.ANESTHESIA_DEPTH]: {
     type: EffectType.ANESTHESIA_DEPTH,
-    name: '麻醉深度',
+    name: '迷香',
     polarity: 'debuff',
     timings: ['passive'],
     stackable: true,
@@ -958,7 +958,7 @@ function syncAnesthesiaDepthProgress(entity: EntityStats, effect: EffectInstance
   if ((thresholdFlags & ANESTHESIA_STUN_FLAG) === 0 && effect.stacks >= 40) {
     applyEffect(entity, EffectType.STUN, 1, { source: 'effect:anesthesia_depth', lockDecayThisTurn: true });
     thresholdFlags |= ANESTHESIA_STUN_FLAG;
-    logs?.push('[麻醉深度] 首次达到 40 层：获得 1 层眩晕。');
+    logs?.push('[迷香] 首次达到 40 层：获得 1 层眩晕。');
   }
 
   if ((thresholdFlags & ANESTHESIA_DICE_FLAG) === 0 && effect.stacks > 70) {
@@ -968,7 +968,7 @@ function syncAnesthesiaDepthProgress(entity: EntityStats, effect: EffectInstance
     entity.maxDice = Math.max(entity.minDice, entity.maxDice - 1);
     thresholdFlags |= ANESTHESIA_DICE_FLAG;
     logs?.push(
-      `[麻醉深度] 首次超过 70 层：最小/最大点数 ${beforeMinDice}-${beforeMaxDice} -> ${entity.minDice}-${entity.maxDice}。`,
+      `[迷香] 首次超过 70 层：最小/最大点数 ${beforeMinDice}-${beforeMaxDice} -> ${entity.minDice}-${entity.maxDice}。`,
     );
   }
 
@@ -976,7 +976,7 @@ function syncAnesthesiaDepthProgress(entity: EntityStats, effect: EffectInstance
     applyEffect(entity, EffectType.ORGASM, 2, { source: 'effect:anesthesia_depth' });
     applyEffect(entity, EffectType.WEAKEN, 2, { source: 'effect:anesthesia_depth' });
     thresholdFlags |= ANESTHESIA_HUNDRED_FLAG;
-    logs?.push('[麻醉深度] 首次达到 100 层：获得 2 层性兴奋与 2 层虚弱。');
+    logs?.push('[迷香] 首次达到 100 层：获得 2 层性兴奋与 2 层虚弱。');
   }
 
   const currentBonusOrgasmCount = effect.stacks > 100 ? Math.floor((effect.stacks - 100) / 20) : 0;
@@ -984,7 +984,7 @@ function syncAnesthesiaDepthProgress(entity: EntityStats, effect: EffectInstance
     const delta = currentBonusOrgasmCount - bonusOrgasmCount;
     applyEffect(entity, EffectType.ORGASM, delta, { source: 'effect:anesthesia_depth' });
     bonusOrgasmCount = currentBonusOrgasmCount;
-    logs?.push(`[麻醉深度] 超过 100 层追加效果：额外获得 ${delta} 层性兴奋。`);
+    logs?.push(`[迷香] 超过 100 层追加效果：额外获得 ${delta} 层性兴奋。`);
   }
 
   effect.runtimeCounter = thresholdFlags | (bonusOrgasmCount << 3);

@@ -570,6 +570,13 @@ const FLESH_WALL_WORM_CARD = {
   APHRODISIAC_SECRETION: 'enemy_flesh_wall_worm_aphrodisiac_secretion',
 } as const;
 
+const PICTURE_FRAME_PREDATOR_CARD = {
+  SWALLOW: 'enemy_picture_frame_predator_swallow',
+  BLISS_DRAIN: 'enemy_picture_frame_predator_bliss_drain',
+  RELIEF_VINES: 'enemy_picture_frame_predator_relief_vines',
+  MIASMA_SWIRL: 'enemy_picture_frame_predator_miasma_swirl',
+} as const;
+
 const VOID_GLIMMER_CARD = {
   FLUORESCENT_TETHER: 'enemy_void_glimmer_fluorescent_tether',
   SOFT_LIGHT: 'enemy_void_glimmer_soft_light',
@@ -3289,6 +3296,56 @@ const 肉壁蠕虫: EnemyDefinition = {
   },
 };
 
+const 画框捕食者: EnemyDefinition = {
+  name: '画框捕食者',
+  stats: {
+    hp: 180,
+    maxHp: 180,
+    mp: 0,
+    minDice: 3,
+    maxDice: 7,
+    effects: [{ type: EffectType.TOXIN_SPREAD, stacks: 2, polarity: 'buff' }],
+  },
+  deck: buildDeckById([
+    PICTURE_FRAME_PREDATOR_CARD.SWALLOW,
+    PICTURE_FRAME_PREDATOR_CARD.BLISS_DRAIN,
+    PICTURE_FRAME_PREDATOR_CARD.RELIEF_VINES,
+    PICTURE_FRAME_PREDATOR_CARD.MIASMA_SWIRL,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasDevour = ctx.playerStats.effects.some(e => e.type === EffectType.DEVOUR && e.stacks > 0);
+    const playerHasStun = ctx.playerStats.effects.some(e => e.type === EffectType.STUN && e.stacks > 0);
+
+    if (ctx.turn === 1 && ctx.flags.pictureFramePredatorOpened !== true) {
+      ctx.flags.pictureFramePredatorOpened = true;
+      return pickCardById(ctx, PICTURE_FRAME_PREDATOR_CARD.MIASMA_SWIRL);
+    }
+
+    if (!playerHasDevour && playerHasStun) {
+      return pickCardById(ctx, PICTURE_FRAME_PREDATOR_CARD.SWALLOW);
+    }
+
+    if (!playerHasDevour) {
+      return pickCardById(
+        ctx,
+        weightedRandom<string>([
+          { value: PICTURE_FRAME_PREDATOR_CARD.MIASMA_SWIRL, weight: 50 },
+          { value: PICTURE_FRAME_PREDATOR_CARD.SWALLOW, weight: 50 },
+        ]),
+      );
+    }
+
+    return pickCardById(
+      ctx,
+      weightedRandom<string>([
+        { value: PICTURE_FRAME_PREDATOR_CARD.BLISS_DRAIN, weight: 40 },
+        { value: PICTURE_FRAME_PREDATOR_CARD.RELIEF_VINES, weight: 30 },
+        { value: PICTURE_FRAME_PREDATOR_CARD.MIASMA_SWIRL, weight: 30 },
+      ]),
+    );
+  },
+};
+
 const 虚空游光: EnemyDefinition = {
   name: '虚空游光',
   stats: {
@@ -3543,6 +3600,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [布偶.name, 布偶],
   [深渊水母.name, 深渊水母],
   [肉壁蠕虫.name, 肉壁蠕虫],
+  [画框捕食者.name, 画框捕食者],
   [虚空游光.name, 虚空游光],
   [面具侍从.name, 面具侍从],
   [镜像分身.name, 镜像分身],

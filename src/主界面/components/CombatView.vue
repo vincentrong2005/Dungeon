@@ -6854,7 +6854,7 @@ watch(
             const anesthesiaGrowth = 5 * livingRoomStacks;
             if (anesthesiaGrowth > 0) {
               applyStatusEffectWithRelics(opponentSide, ET.ANESTHESIA_DEPTH, anesthesiaGrowth, { source: 'effect:living_room' });
-              turnStartLogs.push(`[活体房间] 对方的麻醉深度增加 ${anesthesiaGrowth} 层。`);
+              turnStartLogs.push(`[活体房间] 对方的迷香增加 ${anesthesiaGrowth} 层。`);
             }
             if (totalAmount > 0) {
               applyStatusEffectWithRelics(opponentSide, ET.FATIGUE, totalAmount, { source: 'effect:living_room' });
