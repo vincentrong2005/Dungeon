@@ -696,7 +696,7 @@
 
       <div
         v-if="alchemyPendingGrandSynthesis"
-        class="absolute inset-0 z-[120] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
+        class="pointer-events-auto absolute inset-0 z-[120] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
       >
         <div class="w-full max-w-4xl rounded-lg border border-dungeon-gold/40 bg-[#171018]/95 p-4 shadow-2xl">
           <div class="mb-3 flex items-center justify-between gap-3">
@@ -715,7 +715,7 @@
           <div class="grid max-h-[62vh] grid-cols-2 gap-3 overflow-y-auto pr-1 md:grid-cols-4">
             <button
               v-for="entry in alchemyGrandSynthesisChoices"
-              :key="`alchemy-grand-${entry.card.id}-${entry.index}`"
+              :key="`alchemy-grand-${entry.pile}-${entry.index}-${entry.card.id}`"
               type="button"
               class="rounded border border-dungeon-brown/50 bg-black/20 p-2 transition-colors hover:border-dungeon-gold/70"
               @click="confirmAlchemyGrandSynthesis(entry.card)"
@@ -1620,14 +1620,15 @@ const alchemyCatalystUseCount = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
-const alchemyGrandSynthesisBoundCardId = ref<Record<BattleSide, string | null>>({
+const alchemyGrandSynthesisBoundCard = ref<Record<BattleSide, CardData | null>>({
   player: null,
   enemy: null,
 });
-const alchemyGrandSynthesisPointBonus = ref<Record<BattleSide, Record<string, number>>>({
-  player: {},
-  enemy: {},
+const alchemyGrandSynthesisPointBonusByCard = ref<Record<BattleSide, WeakMap<CardData, number>>>({
+  player: new WeakMap<CardData, number>(),
+  enemy: new WeakMap<CardData, number>(),
 });
+const alchemyGrandSynthesisPointBonusVersion = ref(0);
 const alchemyPendingGrandSynthesis = ref<{ card: CardData; handIdx: number } | null>(null);
 const activeHandSelectionMode = ref<null | 'purify' | 'appreciate'>(null);
 const activeHandSelectionSkillIdx = ref<number | null>(null);
@@ -4224,6 +4225,42 @@ const collectUniqueCombatCardsForSide = (side: BattleSide): CardData[] => {
   return result;
 };
 
+type AlchemyGrandSynthesisPile = 'hand' | 'deck' | 'discard' | 'intent';
+
+interface AlchemyGrandSynthesisChoice {
+  card: CardData;
+  pile: AlchemyGrandSynthesisPile;
+  index: number;
+}
+
+const collectAlchemyGrandSynthesisChoicesForSide = (side: BattleSide): AlchemyGrandSynthesisChoice[] => {
+  const entries: AlchemyGrandSynthesisChoice[] = [];
+  const pushCards = (pile: AlchemyGrandSynthesisPile, cards: readonly CardData[]) => {
+    cards.forEach((card, index) => {
+      if (card.id === PASS_CARD.id || card.type === CardType.CURSE) return;
+      entries.push({ card, pile, index });
+    });
+  };
+
+  if (side === 'player') {
+    pushCards('hand', combatState.value.playerHand);
+    pushCards('deck', combatState.value.playerDeck);
+    pushCards('discard', combatState.value.discardPile);
+    return entries;
+  }
+
+  pushCards('deck', combatState.value.enemyDeck);
+  pushCards('discard', combatState.value.enemyDiscard);
+  if (
+    combatState.value.enemyIntentCard
+    && combatState.value.enemyIntentCard.id !== PASS_CARD.id
+    && combatState.value.enemyIntentCard.type !== CardType.CURSE
+  ) {
+    entries.push({ card: combatState.value.enemyIntentCard, pile: 'intent', index: 0 });
+  }
+  return entries;
+};
+
 const countBattleCardsForSide = (
   side: BattleSide,
   currentCard: CardData | undefined,
@@ -4245,14 +4282,18 @@ const getAlchemyGoldenFlashHitCount = (source: BattleSide, card: CardData): numb
   return Math.max(1, 1 + rareInHand);
 };
 
-const alchemyGrandSynthesisChoices = computed(() => (
-  collectUniqueCombatCardsForSide('player').map((card, index) => ({ card, index }))
-));
+const alchemyGrandSynthesisChoices = computed(() => collectAlchemyGrandSynthesisChoicesForSide('player'));
 
-const increaseAlchemyGrandSynthesisPointBonus = (side: BattleSide, cardId: string, amount: number) => {
-  const current = Math.max(0, Math.floor(alchemyGrandSynthesisPointBonus.value[side][cardId] ?? 0));
+const getAlchemyGrandSynthesisPointBonus = (side: BattleSide, card: CardData): number => {
+  void alchemyGrandSynthesisPointBonusVersion.value;
+  return Math.max(0, Math.floor(alchemyGrandSynthesisPointBonusByCard.value[side].get(card) ?? 0));
+};
+
+const increaseAlchemyGrandSynthesisPointBonus = (side: BattleSide, card: CardData, amount: number) => {
+  const current = getAlchemyGrandSynthesisPointBonus(side, card);
   const next = Math.max(0, current + Math.floor(amount));
-  alchemyGrandSynthesisPointBonus.value[side][cardId] = next;
+  alchemyGrandSynthesisPointBonusByCard.value[side].set(card, next);
+  alchemyGrandSynthesisPointBonusVersion.value += 1;
   return next;
 };
 
@@ -4619,7 +4660,7 @@ const getCardFinalPoint = (
       }
     }
   }
-  const grandSynthesisBonus = Math.max(0, Math.floor(alchemyGrandSynthesisPointBonus.value[source][card.id] ?? 0));
+  const grandSynthesisBonus = getAlchemyGrandSynthesisPointBonus(source, card);
   if (grandSynthesisBonus > 0) {
     finalPoint += grandSynthesisBonus;
   }
@@ -4945,7 +4986,7 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       lines.push(`巫毒娃娃（诅咒牌）+${bonus} => ${formatPointValue(finalPoint)}`);
     }
   }
-  const grandSynthesisBonus = Math.max(0, Math.floor(alchemyGrandSynthesisPointBonus.value[source][card.id] ?? 0));
+  const grandSynthesisBonus = getAlchemyGrandSynthesisPointBonus(source, card);
   if (grandSynthesisBonus > 0) {
     finalPoint += grandSynthesisBonus;
     lines.push(`大炼成绑定 +${grandSynthesisBonus} => ${finalPoint}`);
@@ -5912,7 +5953,7 @@ const confirmAlchemyGrandSynthesis = (targetCard: CardData) => {
     log('<span class="text-gray-400">【大炼成】原卡牌已不在手牌中，绑定取消。</span>');
     return;
   }
-  alchemyGrandSynthesisBoundCardId.value.player = targetCard.id;
+  alchemyGrandSynthesisBoundCard.value.player = targetCard;
   alchemyPendingGrandSynthesis.value = null;
   log(`<span class="text-yellow-300">【大炼成】绑定【${targetCard.name}】。</span>`);
   handleCardSelect(sourceCard, currentIdx);
@@ -6721,8 +6762,9 @@ watch(
         battleCardFirstUseConsumed.value = { player: {}, enemy: {} };
         battleCardPointBonus.value = { player: {}, enemy: {} };
         alchemyPerfumePointDoubleCardIds.value = { player: {}, enemy: {} };
-        alchemyGrandSynthesisPointBonus.value = { player: {}, enemy: {} };
-        alchemyGrandSynthesisBoundCardId.value = { player: null, enemy: null };
+        alchemyGrandSynthesisPointBonusByCard.value = { player: new WeakMap<CardData, number>(), enemy: new WeakMap<CardData, number>() };
+        alchemyGrandSynthesisPointBonusVersion.value += 1;
+        alchemyGrandSynthesisBoundCard.value = { player: null, enemy: null };
         alchemyCatalystUseCount.value = { player: 0, enemy: 0 };
         alchemyPendingGrandSynthesis.value = null;
         activeHandSelectionMode.value = null;
@@ -7174,7 +7216,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
     return;
   }
-  if (card.id === 'alchemy_grand_synthesis' && alchemyGrandSynthesisBoundCardId.value.player === null) {
+  if (card.id === 'alchemy_grand_synthesis' && alchemyGrandSynthesisBoundCard.value.player === null) {
     alchemyPendingGrandSynthesis.value = { card, handIdx };
     log('<span class="text-yellow-300">【大炼成】请选择本场战斗绑定的卡牌。</span>');
     return;
@@ -8568,17 +8610,16 @@ const resolveCombat = async (
       }
       if (card.id === 'alchemy_grand_synthesis') {
         syncCurrentPointForUi();
-        let targetId = alchemyGrandSynthesisBoundCardId.value[source];
-        if (!targetId) {
-          const candidates = collectUniqueCombatCardsForSide(source);
+        let targetCard = alchemyGrandSynthesisBoundCard.value[source];
+        if (!targetCard) {
+          const candidates = collectAlchemyGrandSynthesisChoicesForSide(source);
           const picked = candidates[Math.floor(Math.random() * candidates.length)] ?? null;
-          targetId = picked?.id ?? null;
-          alchemyGrandSynthesisBoundCardId.value[source] = targetId;
+          targetCard = picked?.card ?? null;
+          alchemyGrandSynthesisBoundCard.value[source] = targetCard;
         }
-        if (targetId) {
-          const nextBonus = increaseAlchemyGrandSynthesisPointBonus(source, targetId, 1);
-          const targetName = collectUniqueCombatCardsForSide(source).find(entry => entry.id === targetId)?.name ?? targetId;
-          log(`<span class="text-yellow-300">${label}【${card.name}】使【${targetName}】本场战斗打出时点数 +${nextBonus}</span>`);
+        if (targetCard) {
+          const nextBonus = increaseAlchemyGrandSynthesisPointBonus(source, targetCard, 1);
+          log(`<span class="text-yellow-300">${label}【${card.name}】使【${targetCard.name}】本场战斗打出时点数 +${nextBonus}</span>`);
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】未找到可绑定卡牌。</span>`);
         }
