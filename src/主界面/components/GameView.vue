@@ -4666,8 +4666,12 @@ const openMagicHatModal = () => {
 };
 const getCustomDifficultyOptionMeta = (influence: CustomDifficultyInfluence) =>
   CUSTOM_DIFFICULTY_INFLUENCE_GROUPS.flatMap(group => group.options).find(option => option.value === influence);
-const ensureCustomDifficultyBase = (influences: CustomDifficultyInfluence[]) => {
-  const hasBase = influences.some(influence => CUSTOM_DIFFICULTY_BASE_OPTIONS.includes(influence as DifficultyOption));
+const isCustomDifficultyBaseOption = (
+  influence: CustomDifficultyInfluence,
+): influence is Exclude<DifficultyOption, '自定义'> =>
+  (CUSTOM_DIFFICULTY_BASE_OPTIONS as readonly CustomDifficultyInfluence[]).includes(influence);
+const ensureCustomDifficultyBase = (influences: CustomDifficultyInfluence[]): CustomDifficultyInfluence[] => {
+  const hasBase = influences.some(isCustomDifficultyBaseOption);
   return hasBase ? influences : [...influences, '普通'];
 };
 const setMagicHatDifficulty = async (difficulty: DifficultyOption) => {
@@ -4692,11 +4696,11 @@ const setMagicHatDifficulty = async (difficulty: DifficultyOption) => {
 };
 const toggleMagicHatCustomInfluence = async (influence: CustomDifficultyInfluence) => {
   if (!canEditMagicBooks.value || isUpdatingMagicHatDifficulty.value) return;
-  const isBaseDifficulty = CUSTOM_DIFFICULTY_BASE_OPTIONS.includes(influence as DifficultyOption);
+  const isBaseDifficulty = isCustomDifficultyBaseOption(influence);
   let next = magicHatCustomInfluences.value.filter(item => item !== influence);
 
   if (isBaseDifficulty) {
-    next = next.filter(item => !CUSTOM_DIFFICULTY_BASE_OPTIONS.includes(item as DifficultyOption));
+    next = next.filter(item => !isCustomDifficultyBaseOption(item));
     next.push(influence);
   } else if (!hasMagicHatCustomInfluence(influence)) {
     const exclusiveWith = getCustomDifficultyOptionMeta(influence)?.exclusiveWith ?? [];
@@ -8810,51 +8814,37 @@ const FLOOR_MONSTER_CONFIG: Record<string, FloorMonsterConfig> = {
   },
 };
 
-// 领主顺序严格按 FLOOR_MONSTER_CONFIG 的区域顺序映射。
-const LORD_MONSTER_ORDER: string[] = [
-  '普莉姆',
-  '宁芙',
-  '温蒂尼',
-  '玛塔',
-  '罗丝',
-  '厄休拉',
-  '希尔薇',
-  '因克',
-  '阿卡夏',
-  '多萝西',
-  '维罗妮卡',
-  '伊丽莎白',
-  '尤斯蒂娅',
-  '克拉肯',
-  '布偶',
-  '赛琳娜',
-  '米拉',
-  '梦魔双子',
-  '贝希摩斯',
-  '佩恩',
-  '西格尔',
-  '摩尔',
-  '利维坦',
-  '奥赛罗',
-  '盖亚',
-];
+const LORD_MONSTER_BY_AREA: Record<string, string> = {
+  粘液之沼: '普莉姆',
+  发情迷雾森林: '宁芙',
+  喷精泉眼: '温蒂尼',
+  触手菌窟: '玛塔',
+  肉欲食人花圃: '罗丝',
 
-const LORD_MONSTER_BY_AREA: Record<string, string> = (() => {
-  const areaOrder: string[] = [];
-  for (const floorConfig of Object.values(FLOOR_MONSTER_CONFIG)) {
-    areaOrder.push(...Object.keys(floorConfig.uniqueByArea));
-  }
+  禁忌图书馆: '厄休拉',
+  呻吟阅览室: '希尔薇',
+  催情墨染湖: '因克',
+  性癖记录馆: '阿卡夏',
+  淫乱教职工宿舍: '多萝西',
 
-  const mapping: Record<string, string> = {};
-  for (let i = 0; i < areaOrder.length; i += 1) {
-    const area = areaOrder[i]!;
-    const lordName = LORD_MONSTER_ORDER[i];
-    if (lordName) {
-      mapping[area] = lordName;
-    }
-  }
-  return mapping;
-})();
+  欲望监狱: '维罗妮卡',
+  吸血鬼古堡: '伊丽莎白',
+  调教审判庭: '尤斯蒂娅',
+  触手水牢: '克拉肯',
+  人偶工坊: '布偶',
+
+  虚空宫殿: '赛琳娜',
+  镜之舞厅: '米拉',
+  双子寝宫: '梦魔双子',
+  春梦回廊: '摩尔',
+  极乐宴会厅: '贝希摩斯',
+
+  交媾祭坛: '佩恩',
+  圣水之海: '西格尔',
+  苦修之路: '利维坦',
+  神谕淫纹室: '奥赛罗',
+  女神的产房: '盖亚',
+};
 
 function pickOne<T>(arr: T[]): T | null {
   if (!arr.length) return null;
