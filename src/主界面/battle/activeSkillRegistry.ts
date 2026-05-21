@@ -251,7 +251,7 @@ const 解毒剂: ActiveSkillData = {
   category: '炼金',
   rarity: '普通',
   manaCost: 2,
-  Cooldown: 8,
+  Cooldown: 10,
   description: '清除自身所有负面状态，每清除1层回复1点生命',
 };
 

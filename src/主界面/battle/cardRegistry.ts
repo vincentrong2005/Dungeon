@@ -1605,11 +1605,21 @@ const 创建药剂 = (
   description: `获得1层${effectName}${options.firstCombo ? '，首发连击' : options.combo ? '，连击' : ''}`,
 });
 
-const 剧毒药剂 = 创建药剂('alchemy_poison_potion', '剧毒药剂', EffectType.POISON_ATTACH, '毒素附加', { firstCombo: true });
-const 撕裂药剂 = 创建药剂('alchemy_rend_potion', '撕裂药剂', EffectType.BLOODBLADE_ATTACH, '血刃附加', { firstCombo: true });
-const 燃烧药剂 = 创建药剂('alchemy_burning_potion', '燃烧药剂', EffectType.FLAME_ATTACH, '火焰附加', { firstCombo: true });
-const 冰霜药剂 = 创建药剂('alchemy_frost_potion', '冰霜药剂', EffectType.FROST_ATTACH, '冰霜附加', { firstCombo: true });
-const 雷霆药剂 = 创建药剂('alchemy_thunder_potion', '雷霆药剂', EffectType.LIGHTNING_ATTACH, '雷电附加', { firstCombo: true });
+const 剧毒药剂 = 创建药剂('alchemy_poison_potion', '剧毒药剂', EffectType.POISON_ATTACH, '毒素附加', {
+  firstCombo: true,
+});
+const 撕裂药剂 = 创建药剂('alchemy_rend_potion', '撕裂药剂', EffectType.BLOODBLADE_ATTACH, '血刃附加', {
+  firstCombo: true,
+});
+const 燃烧药剂 = 创建药剂('alchemy_burning_potion', '燃烧药剂', EffectType.FLAME_ATTACH, '火焰附加', {
+  firstCombo: true,
+});
+const 冰霜药剂 = 创建药剂('alchemy_frost_potion', '冰霜药剂', EffectType.FROST_ATTACH, '冰霜附加', {
+  firstCombo: true,
+});
+const 雷霆药剂 = 创建药剂('alchemy_thunder_potion', '雷霆药剂', EffectType.LIGHTNING_ATTACH, '雷电附加', {
+  firstCombo: true,
+});
 
 const 回复药剂: CardData = {
   id: 'alchemy_recovery_potion',
@@ -1642,11 +1652,32 @@ const 增效药剂: CardData = {
   description: '连击',
 };
 
-const 增效剧毒药剂 = 创建药剂('alchemy_enhanced_poison_potion', '增效剧毒药剂', EffectType.POISON_ATTACH, '毒素附加', { rare: true, combo: true });
-const 增效撕裂药剂 = 创建药剂('alchemy_enhanced_rend_potion', '增效撕裂药剂', EffectType.BLOODBLADE_ATTACH, '血刃附加', { rare: true, combo: true });
-const 增效燃烧药剂 = 创建药剂('alchemy_enhanced_burning_potion', '增效燃烧药剂', EffectType.FLAME_ATTACH, '火焰附加', { rare: true, combo: true });
-const 增效冰霜药剂 = 创建药剂('alchemy_enhanced_frost_potion', '增效冰霜药剂', EffectType.FROST_ATTACH, '冰霜附加', { rare: true, combo: true });
-const 增效雷霆药剂 = 创建药剂('alchemy_enhanced_thunder_potion', '增效雷霆药剂', EffectType.LIGHTNING_ATTACH, '雷电附加', { rare: true, combo: true });
+const 增效剧毒药剂 = 创建药剂('alchemy_enhanced_poison_potion', '增效剧毒药剂', EffectType.POISON_ATTACH, '毒素附加', {
+  rare: true,
+  combo: true,
+});
+const 增效撕裂药剂 = 创建药剂(
+  'alchemy_enhanced_rend_potion',
+  '增效撕裂药剂',
+  EffectType.BLOODBLADE_ATTACH,
+  '血刃附加',
+  { rare: true, combo: true },
+);
+const 增效燃烧药剂 = 创建药剂('alchemy_enhanced_burning_potion', '增效燃烧药剂', EffectType.FLAME_ATTACH, '火焰附加', {
+  rare: true,
+  combo: true,
+});
+const 增效冰霜药剂 = 创建药剂('alchemy_enhanced_frost_potion', '增效冰霜药剂', EffectType.FROST_ATTACH, '冰霜附加', {
+  rare: true,
+  combo: true,
+});
+const 增效雷霆药剂 = 创建药剂(
+  'alchemy_enhanced_thunder_potion',
+  '增效雷霆药剂',
+  EffectType.LIGHTNING_ATTACH,
+  '雷电附加',
+  { rare: true, combo: true },
+);
 
 const 增效回复药剂: CardData = {
   ...回复药剂,
@@ -1657,8 +1688,13 @@ const 增效回复药剂: CardData = {
   description: '回复0.5倍点数生命与魔力，连击',
 };
 
-const 混合药剂 = 创建药剂('alchemy_mixed_potion', '混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { firstCombo: true });
-const 增效混合药剂 = 创建药剂('alchemy_enhanced_mixed_potion', '增效混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { rare: true, combo: true });
+const 混合药剂 = 创建药剂('alchemy_mixed_potion', '混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', {
+  firstCombo: true,
+});
+const 增效混合药剂 = 创建药剂('alchemy_enhanced_mixed_potion', '增效混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', {
+  rare: true,
+  combo: true,
+});
 
 const 催化剂: CardData = {
   id: 'alchemy_catalyst',
@@ -1753,7 +1789,7 @@ const 肮脏: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
+  traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     {
       kind: 'apply_buff',
@@ -3521,6 +3557,185 @@ const PILLOW_SPIRIT_ETERNAL_SLEEP: CardData = {
   },
   cardEffects: [],
   description: '插入3张诅咒卡牌“陷入永恒的沉睡”',
+};
+
+/** 梦境：可打出的诅咒，无效对方卡牌并移除对方1层虚妄之拥 */
+const 摩尔_拟态: CardData = {
+  id: 'enemy_moore_mimic',
+  name: '梦境',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_turn_end_in_hand'],
+      kind: 'apply_buff',
+      effectType: EffectType.SCALE_POWDER,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 2,
+    },
+    {
+      triggers: ['on_turn_end_in_hand'],
+      kind: 'apply_buff',
+      effectType: EffectType.WEAKEN,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '无效对方卡牌并移除对方1层虚妄之拥；回合结束时若保留在手中，则受到2层鳞粉与1层虚弱；若本回合已打出另一张梦境，则不触发该保留效果',
+};
+
+/** 第一夜：将对方随机一张未打出的手牌转化为“陷入永恒的沉睡” */
+const 摩尔_第一夜: CardData = {
+  id: 'enemy_moore_first_night',
+  name: '第一夜',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '将对方随机一张未打出的手牌转化为“陷入永恒的沉睡”',
+};
+
+/** 渐进式编织：消耗2，将对方身上的鳞粉翻倍，本场战斗中每打出1次，点数+1 */
+const 摩尔_渐进式编织: CardData = {
+  id: 'enemy_moore_progressive_weaving',
+  name: '渐进式编织',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗2，将对方身上的鳞粉翻倍，本场战斗中每打出1次，点数+1',
+};
+
+/** 思念回响：消耗3，点数*1.5，为对方施加0.2倍点数鳞粉 */
+const 摩尔_思念回响: CardData = {
+  id: 'enemy_moore_memory_echo',
+  name: '思念回响',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SCALE_POWDER, target: 'enemy', valueMode: 'point_scale', scale: 0.2 },
+  ],
+  description: '消耗3，点数*1.5，为对方施加0.2倍点数鳞粉',
+};
+
+/** 振翅闪避：点数*0.5，闪避。若本回合没有收到伤害，施加1倍点数的鳞粉 */
+const 摩尔_振翅闪避: CardData = {
+  id: 'enemy_moore_wingbeat_evasion',
+  name: '振翅闪避',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.SCALE_POWDER,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '点数*0.5，闪避。若本回合没有收到伤害，施加1倍点数的鳞粉',
+};
+
+/** 手足无措：清空自身所有元素负面状态，移除对方所有鳞粉，移除玩家抽牌堆中的所有“梦境”。若本回合没有收到伤害，为自身施加5层易伤 */
+const 摩尔_手足无措: CardData = {
+  id: 'enemy_moore_flustered',
+  name: '手足无措',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'cleanse',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      cleanseTypes: [
+        EffectType.BURN,
+        EffectType.COLD,
+        EffectType.POISON,
+        EffectType.BLEED,
+        EffectType.SHOCK,
+      ],
+    },
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.VULNERABLE,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 5,
+    },
+  ],
+  description: '清空自身所有元素负面状态，移除对方所有鳞粉，移除玩家抽牌堆中的所有“梦境”。若本回合没有收到伤害，为自身施加5层易伤',
+};
+
+/** 笨拙：点数-2，闪避成功后造成1倍点数的伤害 */
+const 摩尔_笨拙: CardData = {
+  id: 'enemy_moore_clumsy',
+  name: '笨拙',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'damage',
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.0,
+      isDirectDamage: true,
+    },
+  ],
+  description: '点数-2，闪避成功后造成1倍点数的伤害',
+};
+
+/** 晚安，好梦：清空对方所有鳞粉并施加等量的侵蚀 */
+const 摩尔_晚安好梦: CardData = {
+  id: 'enemy_moore_good_night_sweet_dreams',
+  name: '晚安，好梦',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '清空对方所有鳞粉并施加等量的侵蚀',
 };
 
 /** 弥纱·银丝织网：消耗2，造成1倍点数伤害，施加2层束缚 */
@@ -5666,7 +5881,7 @@ const PICTURE_FRAME_PREDATOR_RELIEF_VINES: CardData = {
   description: '施加0.7倍点数中毒',
 };
 
-/** 迷香漩涡：施加10层迷香 */
+/** 迷香漩涡：施加5层迷香 */
 const PICTURE_FRAME_PREDATOR_MIASMA_SWIRL: CardData = {
   id: 'enemy_picture_frame_predator_miasma_swirl',
   name: '迷香漩涡',
@@ -5678,9 +5893,9 @@ const PICTURE_FRAME_PREDATOR_MIASMA_SWIRL: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ANESTHESIA_DEPTH, target: 'enemy', valueMode: 'fixed', fixedValue: 10 },
+    { kind: 'apply_buff', effectType: EffectType.ANESTHESIA_DEPTH, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
   ],
-  description: '施加10层迷香',
+  description: '施加5层迷香',
 };
 
 /** 催情液分泌：施加3层中毒 */
@@ -8498,6 +8713,14 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [PILLOW_SPIRIT_ETERNAL_SLUMBER.name, PILLOW_SPIRIT_ETERNAL_SLUMBER],
   [PILLOW_SPIRIT_NAP_INVITATION.name, PILLOW_SPIRIT_NAP_INVITATION],
   [PILLOW_SPIRIT_ETERNAL_SLEEP.name, PILLOW_SPIRIT_ETERNAL_SLEEP],
+  ['摩尔·梦境', 摩尔_拟态],
+  [摩尔_第一夜.name, 摩尔_第一夜],
+  [摩尔_渐进式编织.name, 摩尔_渐进式编织],
+  [摩尔_思念回响.name, 摩尔_思念回响],
+  [摩尔_振翅闪避.name, 摩尔_振翅闪避],
+  [摩尔_手足无措.name, 摩尔_手足无措],
+  [摩尔_笨拙.name, 摩尔_笨拙],
+  [摩尔_晚安好梦.name, 摩尔_晚安好梦],
   [米拉_镜面折射.name, 米拉_镜面折射],
   [米拉_碎镜回旋.name, 米拉_碎镜回旋],
   [米拉_孤寂独舞.name, 米拉_孤寂独舞],

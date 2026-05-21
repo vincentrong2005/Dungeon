@@ -753,17 +753,22 @@
         <div class="flex items-start">
           <button
             class="h-[2.625rem] px-3 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[15px] leading-none text-white/50 hover:text-white/80 transition-colors"
-            :title="pilesCollapsed ? '展开牌库与弃牌堆' : '折叠牌库与弃牌堆'"
+            :title="isPlayerDeckHiddenByFantasyEmbrace
+              ? (pilesCollapsed ? '展开弃牌堆' : '折叠弃牌堆')
+              : (pilesCollapsed ? '展开牌库与弃牌堆' : '折叠牌库与弃牌堆')"
             @click="pilesCollapsed = !pilesCollapsed"
           >
-            {{ pilesCollapsed ? '牌堆 ▼' : '牌堆 ▲' }}
+            {{ isPlayerDeckHiddenByFantasyEmbrace ? (pilesCollapsed ? '弃牌堆 ▼' : '弃牌堆 ▲') : (pilesCollapsed ? '牌堆 ▼' : '牌堆 ▲') }}
           </button>
           <div
             v-if="!pilesCollapsed"
             class="w-44 border border-r-0 border-white/10 bg-[#18141e]/90 backdrop-blur-sm p-2"
           >
             <div class="flex items-center justify-center gap-2">
-              <div class="relative group">
+              <div
+                v-if="!isPlayerDeckHiddenByFantasyEmbrace"
+                class="relative group"
+              >
                 <button
                   class="w-14 h-14 bg-[#252030]/90 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:border-dungeon-gold active:scale-95 transition-all shadow-lg"
                   @click="overlayOpen = 'deck'"
@@ -828,7 +833,7 @@
 
     <!-- Deck/Discard Overlay -->
     <div
-      v-if="overlayOpen"
+      v-if="overlayOpen && (!isPlayerDeckHiddenByFantasyEmbrace || overlayOpen === 'discard')"
       class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-8"
       @click="overlayOpen = null"
     >
@@ -850,7 +855,7 @@
             :key="i"
             class="scale-75 origin-top-left"
           >
-            <DungeonCard :card="card" disabled />
+            <DungeonCard :card="getDisplayPileCard(card)" disabled />
           </div>
         </div>
       </div>
@@ -892,6 +897,7 @@ import {
     X as XIcon,
     Zap,
 } from 'lucide-vue-next';
+import { toRaw } from 'vue';
 import {
     applyDamageToEntity,
     calculateFinalDamage,
@@ -1329,6 +1335,7 @@ const playerVisibleEffects = computed(() => playerStats.value.effects
 const enemyVisibleEffects = computed(() => enemyStats.value.effects
   .filter(e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
   .sort((a, b) => getEffectDisplayOrder(a.type) - getEffectDisplayOrder(b.type)));
+const isPlayerDeckHiddenByFantasyEmbrace = computed(() => getEffectStacks(enemyStats.value, ET.FANTASY_EMBRACE) > 0);
 
 const cloneCardForBattle = (card: CardData): CardData => ({
   ...card,
@@ -1360,6 +1367,11 @@ const PASS_CARD: CardData = {
   calculation: { multiplier: 0, addition: 0 }, damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false }, cardEffects: [], description: '无行动',
 };
+
+const MOORE_MIMIC_CARD_KEY = '摩尔·梦境';
+const MOORE_MIMIC_CARD_ID = 'enemy_moore_mimic';
+const mimicDisplayCards = new WeakMap<CardData, CardData>();
+const mooreMimicPlayedThisTurn = ref(false);
 
 const combatState = ref<CombatState>({
   turn: 1,
@@ -1432,6 +1444,11 @@ const endCombatPending = ref(false);
 const enemyIntentConsumedThisTurn = ref(false);
 const enemyIntentManaSpentThisTurn = ref(false);
 const enemyComboPreludeResolvedTurn = ref<number | null>(null);
+watch(isPlayerDeckHiddenByFantasyEmbrace, (hidden) => {
+  if (hidden && overlayOpen.value === 'deck') {
+    overlayOpen.value = null;
+  }
+});
 const drawPhasePreparing = ref(false);
 const activeSkillResolving = ref(false);
 const combatRootEl = ref<HTMLElement | null>(null);
@@ -3038,7 +3055,11 @@ const clearHandCardAnimationLater = (
 
 const handCardAnimationClass = (card: CardData) => {
   const kind = handCardAnimations.value[handCardKey(card)];
-  return kind ? `hand-card-motion-${kind}` : '';
+  if (!kind) return '';
+  if (kind === 'turn_end_in_hand' && card.id === MOORE_MIMIC_CARD_ID) {
+    return 'hand-card-motion-turn_end_in_hand hand-card-motion-turn_end_in_hand--reveal';
+  }
+  return `hand-card-motion-${kind}`;
 };
 
 const markDrawnCardsAnimation = (drawn: CardData[]) => {
@@ -3067,7 +3088,7 @@ const playTurnEndInHandCardAnimation = async (card: CardData, index: number, tot
   void index;
   void total;
   setHandCardAnimation(card, 'turn_end_in_hand');
-  await wait(430);
+  await wait(card.id === MOORE_MIMIC_CARD_ID ? 520 : 430);
 };
 
 const putDrawnCardIntoHand = async (card: CardData, sourceText: string) => {
@@ -3131,6 +3152,71 @@ const removeSingleCardReference = (cards: CardData[], target: CardData): CardDat
 const insertCardIntoDeckRandomly = (deck: CardData[], card: CardData): CardData[] => {
   const index = Math.floor(Math.random() * (deck.length + 1));
   return [...deck.slice(0, index), card, ...deck.slice(index)];
+};
+
+const getMimicDisplayPriority = (card: CardData): number => {
+  if (!card.traits.combo && !card.traits.firstCombo) return 0;
+  if (!card.traits.combo && card.traits.firstCombo) return 1;
+  return 2;
+};
+
+const pickMimicDisplayCards = (cards: CardData[], count: number): CardData[] => {
+  const candidates = cards.filter(card => card.id !== PASS_CARD.id && card.type !== CardType.CURSE);
+  if (candidates.length <= 0) return [];
+
+  const countById = new Map<string, number>();
+  for (const card of candidates) {
+    countById.set(card.id, (countById.get(card.id) ?? 0) + 1);
+  }
+
+  const uniqueCards: CardData[] = [];
+  const seenIds = new Set<string>();
+  for (const card of candidates) {
+    if (seenIds.has(card.id)) continue;
+    seenIds.add(card.id);
+    uniqueCards.push(card);
+  }
+
+  uniqueCards.sort((a, b) => {
+    const priorityDelta = getMimicDisplayPriority(a) - getMimicDisplayPriority(b);
+    if (priorityDelta !== 0) return priorityDelta;
+    return (countById.get(b.id) ?? 0) - (countById.get(a.id) ?? 0);
+  });
+
+  const picked: CardData[] = [];
+  const usedIds = new Set<string>();
+  for (let i = 0; i < count; i += 1) {
+    const nonDuplicate = uniqueCards.find(card => !usedIds.has(card.id));
+    const next = nonDuplicate ?? uniqueCards[0];
+    if (!next) break;
+    picked.push(next);
+    usedIds.add(next.id);
+  }
+  return picked;
+};
+
+const rebindMimicDisplayCardsForDeck = (
+  side: BattleSide,
+  deck: CardData[],
+  discardOverride?: CardData[],
+) => {
+  const mimicCards = deck.filter(card => card.id === MOORE_MIMIC_CARD_ID);
+  if (mimicCards.length <= 0) return;
+
+  const sourceCards = side === 'player'
+    ? [...deck, ...combatState.value.playerHand, ...(discardOverride ?? combatState.value.discardPile)]
+    : [...deck, ...(discardOverride ?? combatState.value.enemyDiscard)];
+  const displays = pickMimicDisplayCards(sourceCards, mimicCards.length);
+
+  mimicCards.forEach((mimicCard, index) => {
+    const rawMimicCard = toRaw(mimicCard);
+    const displayCard = displays[index];
+    if (displayCard) {
+      mimicDisplayCards.set(rawMimicCard, cloneCardForBattle(displayCard));
+    } else {
+      mimicDisplayCards.delete(rawMimicCard);
+    }
+  });
 };
 
 const applyPurgeTraitAfterUse = (source: BattleSide, card: CardData) => {
@@ -3213,13 +3299,14 @@ const processTurnEndInHandCardEffects = async () => {
   for (const card of cards) {
     if (playerStats.value.hp <= 0) break;
     if (!card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_turn_end_in_hand'))) continue;
+    if (card.id === MOORE_MIMIC_CARD_ID && mooreMimicPlayedThisTurn.value) continue;
     const handIndex = combatState.value.playerHand.findIndex(entry => entry === card);
     if (handIndex < 0) continue;
     const finalPoint = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
     try {
       await playTurnEndInHandCardAnimation(card, triggerIndex, total);
       applyCardEffectsByTrigger('player', card, finalPoint, 'on_turn_end_in_hand');
-      await wait(430);
+      await wait(card.id === MOORE_MIMIC_CARD_ID ? 720 : 430);
       const currentIndex = combatState.value.playerHand.findIndex(entry => entry === card);
       if (currentIndex >= 0) {
         const [removed] = combatState.value.playerHand.splice(currentIndex, 1);
@@ -4562,6 +4649,9 @@ const getCardFinalPoint = (
   if (card.id === 'enemy_nightmare_moth_collective_dreamweave') {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
   }
+  if (card.id === 'enemy_moore_progressive_weaving') {
+    finalPoint += getBattleCardUseCount(source, card.id);
+  }
   if (card.id === 'enemy_nightmare_moth_blissful_dream') {
     finalPoint += countDistinctDebuffTypes(defender) * 2;
   }
@@ -5098,10 +5188,11 @@ const getCardPreviewPoint = (source: 'player' | 'enemy', card: CardData, baseDic
 
 const handlePlayerCardHoverStart = (card: CardData) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  const displayCard = getDisplayHandCard(card);
   playerPreviewCardForPointContext.value = card;
-  previewPlayerDice.value = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
-  playerDicePreviewCardName.value = card.name;
-  playerDicePreviewLines.value = buildCardPreviewLines('player', card, combatState.value.playerBaseDice);
+  previewPlayerDice.value = getCardPreviewPoint('player', displayCard, combatState.value.playerBaseDice);
+  playerDicePreviewCardName.value = displayCard.name;
+  playerDicePreviewLines.value = buildCardPreviewLines('player', displayCard, combatState.value.playerBaseDice);
 };
 
 const handlePlayerCardHoverEnd = () => {
@@ -5117,10 +5208,11 @@ const handlePlayerCardTouchStart = (card: CardData) => {
   if (hoverPreviewTimer) clearTimeout(hoverPreviewTimer);
   hoverPreviewTimer = setTimeout(() => {
     if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+    const displayCard = getDisplayHandCard(card);
     playerPreviewCardForPointContext.value = card;
-    previewPlayerDice.value = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
-    playerDicePreviewCardName.value = card.name;
-    playerDicePreviewLines.value = buildCardPreviewLines('player', card, combatState.value.playerBaseDice);
+    previewPlayerDice.value = getCardPreviewPoint('player', displayCard, combatState.value.playerBaseDice);
+    playerDicePreviewCardName.value = displayCard.name;
+    playerDicePreviewLines.value = buildCardPreviewLines('player', displayCard, combatState.value.playerBaseDice);
   }, 260);
 };
 
@@ -5653,11 +5745,50 @@ const applyUnseeableAura = (ownerSide: BattleSide, reason: 'battle_start' | 'tur
   log(`<span class="text-violet-300">[${ownerLabel}特性][无法直视] ${reasonText}为${targetLabel}施加了${appliedEffects.join('与')}。</span>`);
 };
 
+const applyFantasyEmbraceBattleStart = (ownerSide: BattleSide) => {
+  const owner = ownerSide === 'player' ? playerStats.value : enemyStats.value;
+  const stacks = Math.max(0, getEffectStacks(owner, ET.FANTASY_EMBRACE));
+  if (stacks <= 0) return;
+
+  const mimicCard = getCardByName(MOORE_MIMIC_CARD_KEY);
+  if (!mimicCard) {
+    log('<span class="text-red-400">[虚妄之拥] 未找到【梦境】卡牌定义。</span>');
+    return;
+  }
+
+  const targetSide: BattleSide = ownerSide === 'player' ? 'enemy' : 'player';
+  let targetDeck = targetSide === 'player' ? combatState.value.playerDeck : combatState.value.enemyDeck;
+  const targetAllCards = targetSide === 'player'
+    ? [...combatState.value.playerDeck, ...combatState.value.playerHand, ...combatState.value.discardPile]
+    : [...combatState.value.enemyDeck, ...combatState.value.enemyDiscard];
+  const displays = pickMimicDisplayCards(targetAllCards, 2);
+
+  for (let i = 0; i < 2; i += 1) {
+    const battleCard = cloneCardForBattle(mimicCard);
+    const displayCard = displays[i];
+    if (displayCard) {
+      mimicDisplayCards.set(battleCard, cloneCardForBattle(displayCard));
+    }
+    targetDeck = insertCardIntoDeckRandomly(targetDeck, battleCard);
+    if (targetSide === 'player') {
+      combatState.value.playerDeck = targetDeck;
+    } else {
+      combatState.value.enemyDeck = targetDeck;
+    }
+  }
+
+  const ownerLabel = ownerSide === 'player' ? '我方' : '敌方';
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  log(`<span class="text-fuchsia-300">[${ownerLabel}][虚妄之拥] 开局向${targetLabel}抽牌堆插入了2张【梦境】。</span>`);
+};
+
 triggerPlayerRelicLifecycleHooks('onBattleStart');
 applyAlchemyBattleStartRelics();
 applyMvuNegativeStatusesOnBattleStart();
 applyDifficultyBattleStartEffects();
 applyCustomDifficultyBattleStartEffects();
+applyFantasyEmbraceBattleStart('player');
+applyFantasyEmbraceBattleStart('enemy');
 applyUnseeableAura('player', 'battle_start');
 applyUnseeableAura('enemy', 'battle_start');
 
@@ -5713,6 +5844,7 @@ const drawCards = (count: number, currentDeck: CardData[], currentDiscard: CardD
       deck = [...discard].sort(() => Math.random() - 0.5);
       discard = [];
       triggerPlayerRelicLifecycleHooks('onDeckShuffle');
+      rebindMimicDisplayCardsForDeck('player', deck, discard);
     }
     const card = deck.pop();
     if (card) drawn.push(card);
@@ -6264,6 +6396,7 @@ const useActiveSkill = async (idx: number) => {
     case 'active_alchemy_antidote': {
       const removable = playerStats.value.effects.filter(effect => (
         effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff'
+        && !COGNITIVE_SWAP_BLOCKED_EFFECTS.has(effect.type)
       ));
       const clearedStacks = removable.reduce((sum, effect) => sum + Math.max(0, Math.floor(effect.stacks)), 0);
       for (const effect of removable) {
@@ -6334,7 +6467,14 @@ const handCardClass = (card: CardData) => {
   ];
 };
 
-const getDisplayHandCard = (card: CardData): CardData => withEffectiveManaCost('player', card);
+const getDisplayPileCard = (card: CardData): CardData => mimicDisplayCards.get(toRaw(card)) ?? card;
+const getDisplayHandCard = (card: CardData): CardData => {
+  const shouldRevealMimic = (
+    card.id === MOORE_MIMIC_CARD_ID
+    && handCardAnimations.value[handCardKey(card)] === 'turn_end_in_hand'
+  );
+  return withEffectiveManaCost('player', shouldRevealMimic ? card : getDisplayPileCard(card));
+};
 const resetTwinTurnSelections = () => {
   twinPlayerSelectedCards.value.forEach((card) => unlockCardManaCost(card));
   twinEnemyIntentCards.value = [null, null];
@@ -6684,6 +6824,7 @@ const startTurn = () => {
   shatteringTarget.value = null;
   showClashAnimation.value = false;
   playerPlayedPhysicalOrMagicThisTurn.value = false;
+  mooreMimicPlayedThisTurn.value = false;
   alchemyBlackComboTriggeredThisTurn.value = false;
   triggerPlayerRelicLifecycleHooks('onTurnStart');
   applyAlchemyDizzyFruitOnTurnStart();
@@ -6851,11 +6992,6 @@ watch(
               : combatState.value.enemyBaseDice;
             const amountPerStack = Math.max(0, Math.floor(currentPoint / 2));
             const totalAmount = amountPerStack * livingRoomStacks;
-            const anesthesiaGrowth = 5 * livingRoomStacks;
-            if (anesthesiaGrowth > 0) {
-              applyStatusEffectWithRelics(opponentSide, ET.ANESTHESIA_DEPTH, anesthesiaGrowth, { source: 'effect:living_room' });
-              turnStartLogs.push(`[活体房间] 对方的迷香增加 ${anesthesiaGrowth} 层。`);
-            }
             if (totalAmount > 0) {
               applyStatusEffectWithRelics(opponentSide, ET.FATIGUE, totalAmount, { source: 'effect:living_room' });
               applyStatusEffectWithRelics(targetSide, ET.CHARGE, totalAmount, { source: 'effect:living_room' });
@@ -7404,6 +7540,37 @@ const resolveCombat = async (
       resolvedEnemyCard = PASS_CARD;
     }
   }
+
+  const resolveMimicCurse = (source: BattleSide) => {
+    const isPlayerSource = source === 'player';
+    const mimicCard = isPlayerSource ? resolvedPlayerCard : resolvedEnemyCard;
+    if (mimicCard.id !== MOORE_MIMIC_CARD_ID) return;
+
+    const target = isPlayerSource ? enemyStats.value : playerStats.value;
+    const beforeStacks = Math.max(0, getEffectStacks(target, ET.FANTASY_EMBRACE));
+    if (beforeStacks > 0) {
+      reduceEffectStacks(target, ET.FANTASY_EMBRACE, 1);
+    }
+
+    if (isPlayerSource) {
+      mooreMimicPlayedThisTurn.value = true;
+      if (resolvedEnemyCard.id !== PASS_CARD.id) {
+        log(`<span class="text-fuchsia-300">我方【梦境】显露原形，使敌方【${resolvedEnemyCard.name}】无效。</span>`);
+      }
+      resolvedEnemyCard = PASS_CARD;
+    } else {
+      if (resolvedPlayerCard.id !== PASS_CARD.id) {
+        log(`<span class="text-fuchsia-300">敌方【梦境】显露原形，使我方【${resolvedPlayerCard.name}】无效。</span>`);
+      }
+      resolvedPlayerCard = PASS_CARD;
+    }
+
+    const targetLabel = isPlayerSource ? '敌方' : '我方';
+    log(`<span class="text-fuchsia-300">【梦境】移除了${targetLabel} ${beforeStacks > 0 ? 1 : 0} 层虚妄之拥。</span>`);
+  };
+
+  resolveMimicCurse('player');
+  resolveMimicCurse('enemy');
 
   const shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
   const clashBypassedByIgnoreDodge =
@@ -7984,6 +8151,10 @@ const resolveCombat = async (
         const nextBonus = increaseBattleCardPointBonus(source, card.id, 2, 4);
         log(`<span class="text-amber-300">${label}【${card.name}】本场战斗点数加成提升至 +${nextBonus}</span>`);
       }
+      if (card.id === 'enemy_moore_progressive_weaving') {
+        const nextBonus = increaseBattleCardPointBonus(source, card.id, 1, 99);
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】本场战斗点数加成提升至 +${nextBonus}</span>`);
+      }
       if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value[source]) {
         blankOfBlankBonusThisTurn.value[source] += 1;
         log(`<span class="text-cyan-300">【空白的空白】使${label}本回合卡牌点数额外 +${blankOfBlankBonusThisTurn.value[source]}</span>`);
@@ -8037,6 +8208,68 @@ const resolveCombat = async (
       applyCardEffects('on_no_direct_damage_taken_this_turn');
     }
     triggerLowTempEngraverOnFunctionPlay();
+
+    if (card.id === 'enemy_moore_flustered') {
+      applyCardEffects();
+      const scalePowderStacks = Math.max(0, getEffectStacks(defender, ET.SCALE_POWDER));
+      if (scalePowderStacks > 0) {
+        removeEffect(defender, ET.SCALE_POWDER);
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】移除了${defenderLabel} ${scalePowderStacks} 层鳞粉。</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】${defenderLabel}没有鳞粉可移除。</span>`);
+      }
+      const beforeCount = combatState.value.playerDeck.length;
+      combatState.value.playerDeck = combatState.value.playerDeck.filter(entry => entry.id !== MOORE_MIMIC_CARD_ID);
+      const removedCount = beforeCount - combatState.value.playerDeck.length;
+      if (removedCount > 0) {
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】移除了我方抽牌堆中的 ${removedCount} 张【梦境】。</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未在我方抽牌堆中找到【梦境】。</span>`);
+      }
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_moore_first_night') {
+      const slumber = getCardByName('陷入永恒的沉睡');
+      const targetHand = defenderSide === 'player' ? combatState.value.playerHand : [];
+      if (slumber && targetHand.length > 0) {
+        const pickedIndex = Math.floor(Math.random() * targetHand.length);
+        const beforeName = targetHand[pickedIndex]?.name ?? '未知卡牌';
+        targetHand.splice(pickedIndex, 1, cloneCardForBattle(slumber));
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】将未打出的【${beforeName}】拖入【陷入永恒的沉睡】</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未找到可转化的未打出手牌</span>`);
+      }
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_moore_progressive_weaving') {
+      const scalePowderStacks = Math.max(0, getEffectStacks(defender, ET.SCALE_POWDER));
+      if (scalePowderStacks > 0) {
+        applyStatusEffectWithRelics(defenderSide, ET.SCALE_POWDER, scalePowderStacks, { source: card.id });
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】将${defenderLabel}鳞粉翻倍（+${scalePowderStacks}）</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】目标没有鳞粉可翻倍</span>`);
+      }
+      finalizeAndTrack();
+      return;
+    }
+
+    if (card.id === 'enemy_moore_good_night_sweet_dreams') {
+      const scalePowderStacks = Math.max(0, getEffectStacks(defender, ET.SCALE_POWDER));
+      if (scalePowderStacks > 0) {
+        removeEffect(defender, ET.SCALE_POWDER);
+        const corrosionStacks = scalePowderStacks;
+        applyStatusEffectWithRelics(defenderSide, ET.CORROSION, corrosionStacks, { source: card.id });
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】清空${defenderLabel} ${scalePowderStacks} 层鳞粉，施加 ${corrosionStacks} 层侵蚀</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】目标没有鳞粉可清空</span>`);
+      }
+      finalizeAndTrack();
+      return;
+    }
 
     if (card.id === 'yanhan_zero_boundary_verdict') {
       const coldStacks = getEffectStacks(defender, ET.COLD);
@@ -10380,6 +10613,11 @@ watch(
   animation: hand-card-turn-end-center calc(0.82s / var(--combat-speed-multiplier)) cubic-bezier(0.2, 0.86, 0.2, 1) both;
 }
 
+.hand-card-motion-turn_end_in_hand--reveal {
+  animation-name: hand-card-turn-end-center-reveal;
+  animation-duration: calc(1.18s / var(--combat-speed-multiplier));
+}
+
 .resolved-card-visual-inner--player.resolved-card-visual-inner--attack {
   animation: card-attack-player calc(0.93s / var(--combat-speed-multiplier)) cubic-bezier(0.18, 0.9, 0.2, 1) forwards;
 }
@@ -10537,6 +10775,29 @@ watch(
     opacity: 1;
     transform: translate3d(0, -43vh, 0) scale(1.02);
     filter: drop-shadow(0 0 44px rgba(244, 114, 182, 0.72));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -43vh, 0) scale(0.9);
+    filter: drop-shadow(0 0 0 rgba(244, 114, 182, 0));
+  }
+}
+
+@keyframes hand-card-turn-end-center-reveal {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: drop-shadow(0 0 14px rgba(217, 70, 239, 0.18));
+  }
+  36% {
+    opacity: 1;
+    transform: translate3d(0, -43vh, 0) scale(1.06);
+    filter: drop-shadow(0 0 30px rgba(217, 70, 239, 0.58));
+  }
+  82% {
+    opacity: 1;
+    transform: translate3d(0, -43vh, 0) scale(1.03);
+    filter: drop-shadow(0 0 46px rgba(244, 114, 182, 0.78));
   }
   100% {
     opacity: 0;

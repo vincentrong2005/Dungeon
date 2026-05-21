@@ -292,11 +292,11 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     type: EffectType.ANESTHESIA_DEPTH,
     name: '迷香',
     polarity: 'debuff',
-    timings: ['passive'],
+    timings: ['onTurnStart', 'passive'],
     stackable: true,
     maxStacks: 0,
     description:
-      '40层：1层眩晕，70层+：最小/最大点数-1，100层：2层性兴奋与虚弱；超过100层后，每累计20层额外获得1层性兴奋',
+      '每回合开始时层数+5。40层：1层眩晕，70层+：最小/最大点数-1，100层：2层性兴奋与虚弱；超过100层后，每累计20层额外获得1层性兴奋',
   },
   [EffectType.LIVING_ROOM]: {
     type: EffectType.LIVING_ROOM,
@@ -414,6 +414,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     stackable: true,
     maxStacks: 0,
     description: '每回合开始时自身增加等量层数的魔力',
+  },
+  [EffectType.FANTASY_EMBRACE]: {
+    type: EffectType.FANTASY_EMBRACE,
+    name: '虚妄之拥',
+    polarity: 'buff',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '战斗开始时向对方抽牌堆插入两张“梦境”；自身受到的伤害-12%*层数；使对方无法查看牌堆',
   },
   [EffectType.VOID_TAINT]: {
     type: EffectType.VOID_TAINT,
@@ -798,6 +807,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.STURDY,
   EffectType.INDOMITABLE,
   EffectType.MANA_SPRING,
+  EffectType.FANTASY_EMBRACE,
   EffectType.VOID_TAINT,
   EffectType.MIRROR_REGENERATION,
   EffectType.MIRROR_SWARM,
@@ -1168,6 +1178,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
         `[中毒量] 中毒量(${poisonAmount}) ≥ 当前生命(${entity.hp})，造成 ${poisonAmount} 真实伤害并清空中毒量！`,
       );
     }
+  }
+
+  const anesthesiaDepthEffect = findEffect(entity, EffectType.ANESTHESIA_DEPTH);
+  if (anesthesiaDepthEffect && anesthesiaDepthEffect.stacks > 0) {
+    anesthesiaDepthEffect.stacks += 5;
+    result.logs.push(`[迷香] 层数增加 5（当前 ${anesthesiaDepthEffect.stacks}）。`);
+    syncAnesthesiaDepthProgress(entity, anesthesiaDepthEffect, result.logs);
   }
 
   // 燃烧

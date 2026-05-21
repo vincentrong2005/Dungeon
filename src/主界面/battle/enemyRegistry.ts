@@ -262,6 +262,17 @@ const PILLOW_SPIRIT_CARD = {
   ETERNAL_SLEEP: 'enemy_pillow_spirit_eternal_sleep',
 } as const;
 
+const MOORE_CARD = {
+  MIMIC: 'enemy_moore_mimic',
+  FIRST_NIGHT: 'enemy_moore_first_night',
+  PROGRESSIVE_WEAVING: 'enemy_moore_progressive_weaving',
+  MEMORY_ECHO: 'enemy_moore_memory_echo',
+  WINGBEAT_EVASION: 'enemy_moore_wingbeat_evasion',
+  FLUSTERED: 'enemy_moore_flustered',
+  CLUMSY: 'enemy_moore_clumsy',
+  GOOD_NIGHT: 'enemy_moore_good_night_sweet_dreams',
+} as const;
+
 const DREAM_DEMON_TWIN_CARD = {
   MISA_SILVER_WEB: 'enemy_dream_demon_twin_misa_silver_web',
   MISA_DRAIN: 'enemy_dream_demon_twin_misa_drain',
@@ -1633,6 +1644,73 @@ const 枕头精: EnemyDefinition = {
     const chosen = weightedRandom<string>([
       { value: PILLOW_SPIRIT_CARD.NAP_INVITATION, weight: 75 },
       { value: PILLOW_SPIRIT_CARD.ETERNAL_SLEEP, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 摩尔: EnemyDefinition = {
+  name: '摩尔',
+  stats: {
+    hp: 350,
+    maxHp: 350,
+    mp: 0,
+    minDice: 6,
+    maxDice: 10,
+    effects: [
+      { type: EffectType.FANTASY_EMBRACE, stacks: 8, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    MOORE_CARD.FIRST_NIGHT,
+    MOORE_CARD.PROGRESSIVE_WEAVING,
+    MOORE_CARD.MEMORY_ECHO,
+    MOORE_CARD.WINGBEAT_EVASION,
+    MOORE_CARD.FLUSTERED,
+    MOORE_CARD.CLUMSY,
+    MOORE_CARD.GOOD_NIGHT,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const fantasyStacks =
+      ctx.enemyStats.effects.find(effect => effect.type === EffectType.FANTASY_EMBRACE)?.stacks ?? 0;
+    const playerScalePowder =
+      ctx.playerStats.effects.find(effect => effect.type === EffectType.SCALE_POWDER)?.stacks ?? 0;
+
+    if (ctx.turn === 1 && ctx.flags.mooreFirstNightUsed !== true) {
+      ctx.flags.mooreFirstNightUsed = true;
+      ctx.flags.mooreHadFantasyEmbrace = fantasyStacks > 0;
+      return pickCardById(ctx, MOORE_CARD.FIRST_NIGHT);
+    }
+
+    if (playerScalePowder >= 30) {
+      ctx.flags.mooreHadFantasyEmbrace = fantasyStacks > 0 || ctx.flags.mooreHadFantasyEmbrace === true;
+      return pickCardById(ctx, MOORE_CARD.GOOD_NIGHT);
+    }
+
+    if (
+      fantasyStacks <= 0 &&
+      ctx.flags.mooreHadFantasyEmbrace === true &&
+      ctx.flags.mooreFlusteredAfterFantasyClearUsed !== true
+    ) {
+      ctx.flags.mooreFlusteredAfterFantasyClearUsed = true;
+      return pickCardById(ctx, MOORE_CARD.FLUSTERED);
+    }
+
+    if (fantasyStacks > 0) {
+      ctx.flags.mooreHadFantasyEmbrace = true;
+      const chosen = weightedRandom<string>([
+        { value: MOORE_CARD.PROGRESSIVE_WEAVING, weight: 30 },
+        { value: MOORE_CARD.MEMORY_ECHO, weight: 30 },
+        { value: MOORE_CARD.WINGBEAT_EVASION, weight: 40 },
+      ]);
+      return pickCardById(ctx, chosen);
+    }
+
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'mooreLastNoFantasyCardId', [
+      { value: MOORE_CARD.PROGRESSIVE_WEAVING, weight: 20 },
+      { value: MOORE_CARD.MEMORY_ECHO, weight: 20 },
+      { value: MOORE_CARD.CLUMSY, weight: 60 },
     ]);
     return pickCardById(ctx, chosen);
   },
@@ -3299,11 +3377,11 @@ const 肉壁蠕虫: EnemyDefinition = {
 const 画框捕食者: EnemyDefinition = {
   name: '画框捕食者',
   stats: {
-    hp: 180,
-    maxHp: 180,
+    hp: 150,
+    maxHp: 150,
     mp: 0,
-    minDice: 3,
-    maxDice: 7,
+    minDice: 2,
+    maxDice: 6,
     effects: [{ type: EffectType.TOXIN_SPREAD, stacks: 2, polarity: 'buff' }],
   },
   deck: buildDeckById([
@@ -3328,7 +3406,7 @@ const 画框捕食者: EnemyDefinition = {
     if (!playerHasDevour) {
       return pickCardById(
         ctx,
-        weightedRandom<string>([
+        weightedRandomWithoutImmediateRepeat(ctx, 'pictureFramePredatorPreDevourLastCardId', [
           { value: PICTURE_FRAME_PREDATOR_CARD.MIASMA_SWIRL, weight: 50 },
           { value: PICTURE_FRAME_PREDATOR_CARD.SWALLOW, weight: 50 },
         ]),
@@ -3337,7 +3415,7 @@ const 画框捕食者: EnemyDefinition = {
 
     return pickCardById(
       ctx,
-      weightedRandom<string>([
+      weightedRandomWithoutImmediateRepeat(ctx, 'pictureFramePredatorPostDevourLastCardId', [
         { value: PICTURE_FRAME_PREDATOR_CARD.BLISS_DRAIN, weight: 40 },
         { value: PICTURE_FRAME_PREDATOR_CARD.RELIEF_VINES, weight: 30 },
         { value: PICTURE_FRAME_PREDATOR_CARD.MIASMA_SWIRL, weight: 30 },
@@ -3581,6 +3659,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [梦魇驹.name, 梦魇驹],
   [梦魇蛾.name, 梦魇蛾],
   [枕头精.name, 枕头精],
+  [摩尔.name, 摩尔],
   [梦魔双子.name, 梦魔双子],
   [刽子手偶.name, 刽子手偶],
   [惩戒傀儡.name, 惩戒傀儡],

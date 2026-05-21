@@ -181,6 +181,13 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
     logs.push('[虹膜：猩红] 受到伤害 x1.25');
   }
 
+  const fantasyEmbrace = ctx.defenderEffects.find(e => e.type === EffectType.FANTASY_EMBRACE)?.stacks ?? 0;
+  if (fantasyEmbrace > 0) {
+    const reductionRate = Math.min(1, fantasyEmbrace * 0.12);
+    damage *= Math.max(0, 1 - reductionRate);
+    logs.push(`[虚妄之拥] 受到伤害 x${Math.max(0, 1 - reductionRate).toFixed(2)}`);
+  }
+
   const defenderCoDance = ctx.defenderEffects.find(e => e.type === EffectType.CO_DANCE)?.stacks ?? 0;
   if (defenderCoDance > 0) { damage += defenderCoDance; logs.push(`[共舞] 受到伤害 +${defenderCoDance}`); }
 

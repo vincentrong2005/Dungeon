@@ -40,6 +40,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.POINT_GROWTH_SMALL]: 'fa-solid fa-dice fa-sm',
   [ET.MANA_DRAIN]: 'fa-solid fa-battery-empty',
   [ET.MANA_SPRING]: 'fa-brands fa-drupal',
+  [ET.FANTASY_EMBRACE]: 'fa-brands fa-soundcloud',
   [ET.VOID_TAINT]: 'fa-brands fa-cloudversify',
   [ET.SWARM]: 'fa-solid fa-bugs',
   [ET.MIRROR_SWARM]: 'fa-solid fa-bugs',
