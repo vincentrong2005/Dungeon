@@ -8228,13 +8228,21 @@ const resolveCombat = async (
       } else {
         log(`<span class="text-gray-400">${label}【${card.name}】${defenderLabel}没有鳞粉可移除。</span>`);
       }
-      const beforeCount = combatState.value.playerDeck.length;
+      const beforeHandCount = combatState.value.playerHand.length;
+      const beforeDeckCount = combatState.value.playerDeck.length;
+      const beforeDiscardCount = combatState.value.discardPile.length;
+      combatState.value.playerHand = combatState.value.playerHand.filter(entry => entry.id !== MOORE_MIMIC_CARD_ID);
       combatState.value.playerDeck = combatState.value.playerDeck.filter(entry => entry.id !== MOORE_MIMIC_CARD_ID);
-      const removedCount = beforeCount - combatState.value.playerDeck.length;
+      combatState.value.discardPile = combatState.value.discardPile.filter(entry => entry.id !== MOORE_MIMIC_CARD_ID);
+      const removedCount = (
+        beforeHandCount - combatState.value.playerHand.length
+        + beforeDeckCount - combatState.value.playerDeck.length
+        + beforeDiscardCount - combatState.value.discardPile.length
+      );
       if (removedCount > 0) {
-        log(`<span class="text-fuchsia-300">${label}【${card.name}】移除了我方抽牌堆中的 ${removedCount} 张【梦境】。</span>`);
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】移除了我方手牌、抽牌堆与弃牌堆中的 ${removedCount} 张【梦境】。</span>`);
       } else {
-        log(`<span class="text-gray-400">${label}【${card.name}】未在我方抽牌堆中找到【梦境】。</span>`);
+        log(`<span class="text-gray-400">${label}【${card.name}】未找到可移除的【梦境】。</span>`);
       }
       finalizeAndTrack();
       return;
