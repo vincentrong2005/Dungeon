@@ -6333,7 +6333,7 @@ const 多重鞭腿: CardData = {
   description: '造成0.5倍点数伤害，3连击',
 };
 
-/** 柔和缠绕：法力汲取5，施加2层束缚 */
+/** 柔和缠绕：法力汲取5，施加1层束缚 */
 const 柔和缠绕: CardData = {
   id: 'enemy_kraken_gentle_entangle',
   name: '柔和缠绕',
@@ -6346,10 +6346,10 @@ const 柔和缠绕: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   manaDrain: 5,
-  description: '法力汲取5，施加2层束缚',
+  description: '法力汲取5，施加1层束缚',
 };
 
 /** 三重鞭打：造成0.5倍点数伤害，3连击 */
