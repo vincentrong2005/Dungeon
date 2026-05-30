@@ -8308,11 +8308,11 @@ const 贝希摩斯_吞噬: CardData = {
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 2.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false, destroyOnClashWin: true },
   cardEffects: [],
-  description: '点数*2，造成0.4倍伤害，销毁。',
+  description: '点数*2，造成0.6倍伤害，销毁。',
 };
 
 const 贝希摩斯_撕咬: CardData = {
@@ -8324,10 +8324,10 @@ const 贝希摩斯_撕咬: CardData = {
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
-  hitCount: 3,
+  hitCount: 4,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成0.6倍点数伤害，3连击。',
+  description: '造成0.6倍点数伤害，4连击。',
 };
 
 const 贝希摩斯_长舌舔舐: CardData = {
@@ -8338,7 +8338,7 @@ const 贝希摩斯_长舌舔舐: CardData = {
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  damageLogic: { mode: 'relative', scale: 2.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
@@ -8350,7 +8350,7 @@ const 贝希摩斯_长舌舔舐: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '造成1倍点数伤害，施加1层束缚。',
+  description: '造成2倍点数伤害，施加1层束缚。',
 };
 
 const 贝希摩斯_贪婪: CardData = {

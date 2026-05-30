@@ -3710,7 +3710,7 @@ const 侍宴者: EnemyDefinition = {
     BANQUET_ATTENDANT_CARD.APHRO_FLUID,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const pool = [
+    const pool: Array<{ value: string; weight: number }> = [
       { value: BANQUET_ATTENDANT_CARD.SOFT_FORCE, weight: 30 },
       { value: BANQUET_ATTENDANT_CARD.BODY_DEMONSTRATION, weight: 30 },
       { value: BANQUET_ATTENDANT_CARD.APHRO_FLUID, weight: 40 },
