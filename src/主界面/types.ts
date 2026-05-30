@@ -180,6 +180,8 @@ export interface CardData {
    * - object：可配置固定/百分比 + 生命/生命上限
    */
   selfDamage?: number | CardSelfDamageConfig;
+  /** 饕餮魔素：回合结束留在手中时，为自身施加侵蚀 */
+  gluttonyEnchanted?: boolean;
   /** 卡牌图片（可选） */
   image?: string;
 }
@@ -379,6 +381,10 @@ export enum EffectType {
   MATERIALIZATION = '实体化',
   /** 淫靡幻象 — 回合结束受到真实伤害，层数足够时转化为诅咒镜像 */
   LUST_ILLUSION = '淫靡幻象',
+  /** 极乐宴会 — 每隔5回合向玩家弃牌堆塞入随机美食 */
+  BLISS_FEAST = '极乐宴会',
+  /** 饕餮体质 — 回合开始时自身元素状态与中毒量减少 */
+  GLUTTONY_CONSTITUTION = '饕餮体质',
 }
 
 /** 效果极性分类 */

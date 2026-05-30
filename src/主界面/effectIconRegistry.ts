@@ -79,6 +79,8 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.ELEMENTAL_ADAPTATION]: 'fa-solid fa-atom',
   [ET.ELEMENTAL_CORTEX]: 'fa-solid fa-atom',
   [ET.MATERIALIZATION]: 'fa-solid fa-person',
+  [ET.BLISS_FEAST]: 'fa-solid fa-champagne-glasses',
+  [ET.GLUTTONY_CONSTITUTION]: 'fa-solid fa-utensils',
 };
 
 export const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {

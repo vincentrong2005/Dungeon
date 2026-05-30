@@ -8300,6 +8300,332 @@ const 米拉_孤镜独舞: CardData = {
   description: '点数*0.1，闪避成功或对方跳过回合时，恢复10倍点数生命值',
 };
 
+const 贝希摩斯_吞噬: CardData = {
+  id: 'enemy_behemoth_devour',
+  name: '吞噬',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, destroyOnClashWin: true },
+  cardEffects: [],
+  description: '点数*2，造成0.4倍伤害，销毁。',
+};
+
+const 贝希摩斯_撕咬: CardData = {
+  id: 'enemy_behemoth_bite',
+  name: '撕咬',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.6倍点数伤害，3连击。',
+};
+
+const 贝希摩斯_长舌舔舐: CardData = {
+  id: 'enemy_behemoth_tongue_lick',
+  name: '长舌舔舐',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '造成1倍点数伤害，施加1层束缚。',
+};
+
+const 贝希摩斯_贪婪: CardData = {
+  id: 'enemy_behemoth_greed',
+  name: '贪婪',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 4 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  selfDamage: 20,
+  description: '点数+4，自伤20，将对方随机一张未打出的手牌附魔饕餮魔素。',
+};
+
+const 贝希摩斯_护食: CardData = {
+  id: 'enemy_behemoth_food_guard',
+  name: '护食',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.ARMOR,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 2.0,
+    },
+  ],
+  description: '获得2倍点数的护甲。',
+};
+
+const 美食_烤兔腿: CardData = {
+  id: 'behemoth_food_roasted_rabbit_leg',
+  name: '烤兔腿',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'self', valueMode: 'fixed', fixedValue: 6 },
+    { kind: 'heal', target: 'self', valueMode: 'fixed', fixedValue: 10 },
+    { kind: 'heal', target: 'enemy', valueMode: 'fixed', fixedValue: 10 },
+  ],
+  description: '自身施加6层侵蚀，恢复双方10点生命。回合结束时仍保留在手牌则魔力减半。连击。',
+};
+
+const 美食_烤肉: CardData = {
+  id: 'behemoth_food_roast_meat',
+  name: '烤肉',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [],
+  description: '此牌在手牌时必须优先打出，移除。',
+};
+
+const 美食_浓汤: CardData = {
+  id: 'behemoth_food_thick_soup',
+  name: '浓汤',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.WEAKEN, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'self', valueMode: 'fixed', fixedValue: 5 },
+    { kind: 'heal', target: 'self', valueMode: 'fixed', fixedValue: 8 },
+    {
+      triggers: ['on_turn_end_in_hand'],
+      kind: 'apply_buff',
+      effectType: EffectType.DAMAGE_BOOST,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '自身施加1层虚弱，5层侵蚀，恢复8点生命。回合结束时仍保留在手牌则敌方获得1层增伤。连击。',
+};
+
+const 美食_脂肪块: CardData = {
+  id: 'behemoth_food_fat_chunk',
+  name: '脂肪块',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
+  cardEffects: [
+    {
+      triggers: ['on_turn_end_in_hand'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 3,
+    },
+  ],
+  description: '无法被打出，回合结束时仍保留在手牌自身施加3层侵蚀。',
+};
+
+const 侍宴者_轻柔强制: CardData = {
+  id: 'enemy_banquet_attendant_soft_force',
+  name: '轻柔强制',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.BIND,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数*1.5，造成1倍点数伤害，施加1层束缚。',
+};
+
+const 侍宴者_美食劝诱: CardData = {
+  id: 'enemy_banquet_attendant_food_persuasion',
+  name: '美食劝诱',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['极乐佳肴'] },
+  cardEffects: [],
+  description: '消耗2MP，点数+2，插入1张【极乐佳肴】。',
+};
+
+const 侍宴者_大快朵颐: CardData = {
+  id: 'enemy_banquet_attendant_feast',
+  name: '大快朵颐',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: {
+    combo: false,
+    reroll: 'none',
+    draw: false,
+    insertCardsToEnemyDeck: ['极乐佳肴', '极乐佳肴', '极乐佳肴'],
+  },
+  cardEffects: [],
+  ignoreDodge: true,
+  description: '消耗4MP，点数*0.5，插入3张【极乐佳肴】，无视闪避。',
+};
+
+const 侍宴者_身体示范: CardData = {
+  id: 'enemy_banquet_attendant_body_demonstration',
+  name: '身体示范',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'max_hp_percent',
+      scale: 0.1,
+    },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.WEAKEN,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '回复10%生命值，为对方施加1层虚弱。',
+};
+
+const 侍宴者_催情体液: CardData = {
+  id: 'enemy_banquet_attendant_aphro_fluid',
+  name: '催情体液',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '闪避。若本回合没有受到伤害则为对方施加1层侵蚀。',
+};
+
+const 侍宴者_极乐佳肴: CardData = {
+  id: 'banquet_attendant_bliss_delicacy',
+  name: '极乐佳肴',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.ORGASM,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+    {
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'max_hp_percent',
+      scale: 0.15,
+    },
+    {
+      triggers: ['on_turn_end_in_hand'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 7,
+    },
+  ],
+  description: '为自身施加1层性兴奋，回复15%生命值。若回合结束仍留在手牌，为自身施加7点侵蚀。移除。',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -8726,6 +9052,21 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [米拉_无尽舞会.name, 米拉_无尽舞会],
   [米拉_迎合.name, 米拉_迎合],
   [米拉_孤镜独舞.name, 米拉_孤镜独舞],
+  [贝希摩斯_吞噬.name, 贝希摩斯_吞噬],
+  [贝希摩斯_撕咬.name, 贝希摩斯_撕咬],
+  [贝希摩斯_长舌舔舐.name, 贝希摩斯_长舌舔舐],
+  [贝希摩斯_贪婪.name, 贝希摩斯_贪婪],
+  [贝希摩斯_护食.name, 贝希摩斯_护食],
+  [美食_烤兔腿.name, 美食_烤兔腿],
+  [美食_烤肉.name, 美食_烤肉],
+  [美食_浓汤.name, 美食_浓汤],
+  [美食_脂肪块.name, 美食_脂肪块],
+  [侍宴者_轻柔强制.name, 侍宴者_轻柔强制],
+  [侍宴者_美食劝诱.name, 侍宴者_美食劝诱],
+  [侍宴者_大快朵颐.name, 侍宴者_大快朵颐],
+  [侍宴者_身体示范.name, 侍宴者_身体示范],
+  [侍宴者_催情体液.name, 侍宴者_催情体液],
+  [侍宴者_极乐佳肴.name, 侍宴者_极乐佳肴],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

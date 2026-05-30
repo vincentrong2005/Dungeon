@@ -777,6 +777,24 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合结束时受到等同层数的真实伤害；若层数≥4，则减少4层并插入1张堕落的人格镜像',
   },
+  [EffectType.BLISS_FEAST]: {
+    type: EffectType.BLISS_FEAST,
+    name: '极乐宴会',
+    polarity: 'trait',
+    timings: ['onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每隔5回合，随机塞入一张“美食”进入玩家的弃牌堆。',
+  },
+  [EffectType.GLUTTONY_CONSTITUTION]: {
+    type: EffectType.GLUTTONY_CONSTITUTION,
+    name: '饕餮体质',
+    polarity: 'trait',
+    timings: ['onTurnStart'],
+    stackable: false,
+    maxStacks: 1,
+    description: '回合开始时自身元素状态与中毒量-5%（最少减少1层）。',
+  },
 };
 
 const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
@@ -1167,6 +1185,25 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     logs: [],
     applyToOpponent: [],
   };
+
+  // 饕餮体质：回合开始时先减少自身元素状态与中毒量，避免高额中毒量在判定前直接压死
+  if (getEffectStacks(entity, EffectType.GLUTTONY_CONSTITUTION) > 0) {
+    const reducedByType = new Map<EffectType, number>();
+    const targetTypes = [...ELEMENTAL_DEBUFF_TYPES, EffectType.POISON_AMOUNT];
+    for (const type of targetTypes) {
+      const stacks = getEffectStacks(entity, type);
+      if (stacks <= 0) continue;
+      const reduced = Math.min(stacks, Math.max(1, Math.floor(stacks * 0.05)));
+      reduceEffectStacks(entity, type, reduced);
+      reducedByType.set(type, (reducedByType.get(type) ?? 0) + reduced);
+    }
+    const reducedSummary = [...reducedByType.entries()]
+      .map(([type, count]) => `${EFFECT_REGISTRY[type]?.name ?? type} -${count}`)
+      .join('，');
+    if (reducedSummary.length > 0) {
+      result.logs.push(`[饕餮体质] ${reducedSummary}。`);
+    }
+  }
 
   // 中毒量
   const poisonAmount = getEffectStacks(entity, EffectType.POISON_AMOUNT);

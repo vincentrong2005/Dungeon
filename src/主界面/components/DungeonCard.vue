@@ -17,6 +17,7 @@
     :class="[
       typeColorClass,
       isRareCard ? 'rare-card-glow' : '',
+      hasGluttonyEnchant ? 'gluttony-card-glow' : '',
       selected ? 'ring-4 ring-dungeon-gold -translate-y-6 scale-105 z-20' : 'hover:-translate-y-2 hover:z-10',
       disabled ? 'opacity-80 !cursor-default' : '',
       className,
@@ -199,6 +200,7 @@ const showManaBadge = computed(() => (
   && props.card.manaCost > 0
 ));
 const isRareCard = computed(() => props.maskLevel === 'none' && props.card.rarity === '稀有');
+const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.card.gluttonyEnchanted === true);
 </script>
 
 <style scoped>
@@ -216,5 +218,35 @@ const isRareCard = computed(() => props.maskLevel === 'none' && props.card.rarit
     0 0 8px rgba(250, 204, 21, 0.4),
     0 0 16px rgba(245, 158, 11, 0.24);
   pointer-events: none;
+}
+
+.gluttony-card-glow {
+  box-shadow:
+    0 0 12px rgba(168, 85, 247, 0.5),
+    0 0 26px rgba(126, 34, 206, 0.34),
+    inset 0 0 20px rgba(147, 51, 234, 0.18);
+}
+
+.gluttony-card-glow::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1px solid rgba(216, 180, 254, 0.45);
+  box-shadow:
+    0 0 8px rgba(216, 180, 254, 0.38),
+    0 0 18px rgba(147, 51, 234, 0.32);
+  pointer-events: none;
+  animation: gluttony-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes gluttony-pulse {
+  0%,
+  100% {
+    opacity: 0.48;
+  }
+  50% {
+    opacity: 0.9;
+  }
 }
 </style>

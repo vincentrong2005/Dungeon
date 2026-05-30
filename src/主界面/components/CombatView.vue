@@ -1376,6 +1376,9 @@ const PASS_CARD: CardData = {
 
 const MOORE_MIMIC_CARD_KEY = '摩尔·梦境';
 const MOORE_MIMIC_CARD_ID = 'enemy_moore_mimic';
+const BEHEMOTH_FOOD_CARD_NAMES = ['烤兔腿', '烤肉', '浓汤', '脂肪块'] as const;
+const BEHEMOTH_ROASTED_RABBIT_LEG_ID = 'behemoth_food_roasted_rabbit_leg';
+const BEHEMOTH_ROAST_MEAT_ID = 'behemoth_food_roast_meat';
 const mimicDisplayCards = new WeakMap<CardData, CardData>();
 const mooreMimicPlayedThisTurn = ref(false);
 
@@ -3271,6 +3274,31 @@ const insertFallenPersonalityMirrorForSide = (side: BattleSide, sourceText: stri
   }
 };
 
+const getPriorityFoodCardInHand = (): CardData | null =>
+  combatState.value.playerHand.find(card => card.id === BEHEMOTH_ROAST_MEAT_ID) ?? null;
+
+const isBlockedByPriorityFoodCard = (card: CardData): boolean => (
+  card.id !== BEHEMOTH_ROAST_MEAT_ID && getPriorityFoodCardInHand() !== null
+);
+
+const insertBehemothFoodIntoPlayerDiscard = () => {
+  const feastStacks = Math.max(0, getEffectStacks(enemyStats.value, ET.BLISS_FEAST));
+  if (feastStacks <= 0 || combatState.value.turn % 5 !== 0) return;
+
+  let inserted = 0;
+  for (let i = 0; i < feastStacks; i += 1) {
+    const pickedName = BEHEMOTH_FOOD_CARD_NAMES[Math.floor(Math.random() * BEHEMOTH_FOOD_CARD_NAMES.length)]!;
+    const foodCard = getCardByName(pickedName);
+    if (!foodCard) continue;
+    combatState.value.discardPile.push(cloneCardForBattle(foodCard));
+    inserted += 1;
+    log(`<span class="text-fuchsia-300">敌方[极乐宴会] 将【${pickedName}】塞入了我方弃牌堆。</span>`);
+  }
+  if (inserted > 0) {
+    log(`<span class="text-gray-400 text-[9px]">我方弃牌堆：${combatState.value.discardPile.length} 张。</span>`);
+  }
+};
+
 const processLustIllusionTurnEndForSide = (side: BattleSide) => {
   const target = getEntityBySide(side);
   const stacks = Math.max(0, getEffectStacks(target, ET.LUST_ILLUSION));
@@ -3301,17 +3329,35 @@ const processLustIllusionTurnEndForSide = (side: BattleSide) => {
 
 const processTurnEndInHandCardEffects = async () => {
   const cards = [...combatState.value.playerHand];
-  const total = cards.filter(card => card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_turn_end_in_hand'))).length;
+  const shouldProcessTurnEndCard = (card: CardData) => (
+    card.gluttonyEnchanted === true
+    || card.id === BEHEMOTH_ROASTED_RABBIT_LEG_ID
+    || card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_turn_end_in_hand'))
+  );
+  const total = cards.filter(shouldProcessTurnEndCard).length;
   let triggerIndex = 0;
   for (const card of cards) {
     if (playerStats.value.hp <= 0) break;
-    if (!card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_turn_end_in_hand'))) continue;
+    if (!shouldProcessTurnEndCard(card)) continue;
     if (card.id === MOORE_MIMIC_CARD_ID && mooreMimicPlayedThisTurn.value) continue;
     const handIndex = combatState.value.playerHand.findIndex(entry => entry === card);
     if (handIndex < 0) continue;
     const finalPoint = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
     try {
       await playTurnEndInHandCardAnimation(card, triggerIndex, total);
+      if (card.gluttonyEnchanted === true) {
+        applyStatusEffectWithRelics('player', ET.CORROSION, 3, { source: 'gluttony_enchantment' });
+        log(`<span class="text-fuchsia-300">【${card.name}】的饕餮魔素发作，我方获得 3 层侵蚀。</span>`);
+      }
+      if (card.id === BEHEMOTH_ROASTED_RABBIT_LEG_ID) {
+        const beforeMp = Math.max(0, Math.floor(playerStats.value.mp));
+        const nextMp = Math.floor(beforeMp / 2);
+        const lostMp = beforeMp - nextMp;
+        if (lostMp > 0) {
+          changeManaWithShock('player', -lostMp, '烤兔腿');
+        }
+        log(`<span class="text-amber-300">【烤兔腿】回合结束仍在手中，我方法力 ${beforeMp} → ${nextMp}。</span>`);
+      }
       applyCardEffectsByTrigger('player', card, finalPoint, 'on_turn_end_in_hand');
       await wait(card.id === MOORE_MIMIC_CARD_ID ? 720 : 430);
       const currentIndex = combatState.value.playerHand.findIndex(entry => entry === card);
@@ -7279,6 +7325,11 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (handIdx < 0 || handIdx >= combatState.value.playerHand.length) return;
   if (combatState.value.playerHand[handIdx] !== card) return;
   if (handleActiveHandSelection(card, handIdx)) return;
+  if (isBlockedByPriorityFoodCard(card)) {
+    triggerInvalidCardShake(card);
+    log('<span class="text-red-400">【烤肉】在手牌中时，必须优先打出它。</span>');
+    return;
+  }
 
   if (isTwinBattle) {
     const runtimeCard = previewFlowingLightRingCombo(withEffectiveManaCost('player', card));
@@ -7388,6 +7439,12 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
 
 const handleSkipTurn = () => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  const priorityFood = getPriorityFoodCardInHand();
+  if (priorityFood) {
+    triggerInvalidCardShake(priorityFood);
+    log('<span class="text-red-400">【烤肉】在手牌中时，不能跳过或打出其他手牌。</span>');
+    return;
+  }
   if (isTwinBattle) {
     const filled = fillTwinPassSlot();
     if (!filled) return;
@@ -8767,6 +8824,20 @@ const resolveCombat = async (
     }
 
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
+      if (card.id === 'enemy_behemoth_greed') {
+        syncCurrentPointForUi();
+        const targetHand = defenderSide === 'player' ? combatState.value.playerHand : [];
+        const candidates = targetHand.filter(entry => entry.id !== PASS_CARD.id && entry.gluttonyEnchanted !== true);
+        if (candidates.length > 0) {
+          const picked = candidates[Math.floor(Math.random() * candidates.length)]!;
+          picked.gluttonyEnchanted = true;
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】为我方未打出的【${picked.name}】附上饕餮魔素。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可附魔的未打出手牌。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
       if (card.id === 'burn_char_convert') {
         const burned = Math.max(0, getEffectStacks(attacker, ET.BURN));
         const chilled = Math.max(0, getEffectStacks(attacker, ET.COLD));
@@ -10340,6 +10411,7 @@ const resolveCombat = async (
   for (const l of [...pEndLogs, ...eEndLogs]) {
     log(`<span class="text-gray-500 text-[9px]">${l}</span>`);
   }
+  insertBehemothFoodIntoPlayerDiscard();
   triggerPlayerRelicLifecycleHooks('onTurnEnd');
   if (instantFreezeClearColdAtTurnEnd.value) {
     const enemyColdStacks = Math.max(0, getEffectStacks(enemyStats.value, ET.COLD));

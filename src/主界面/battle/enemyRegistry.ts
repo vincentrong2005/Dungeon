@@ -3633,6 +3633,101 @@ const 米拉: EnemyDefinition = {
   },
 };
 
+const BEHEMOTH_CARD = {
+  DEVOUR: 'enemy_behemoth_devour',
+  BITE: 'enemy_behemoth_bite',
+  TONGUE_LICK: 'enemy_behemoth_tongue_lick',
+  GREED: 'enemy_behemoth_greed',
+  FOOD_GUARD: 'enemy_behemoth_food_guard',
+} as const;
+
+const BANQUET_ATTENDANT_CARD = {
+  SOFT_FORCE: 'enemy_banquet_attendant_soft_force',
+  FOOD_PERSUASION: 'enemy_banquet_attendant_food_persuasion',
+  FEAST: 'enemy_banquet_attendant_feast',
+  BODY_DEMONSTRATION: 'enemy_banquet_attendant_body_demonstration',
+  APHRO_FLUID: 'enemy_banquet_attendant_aphro_fluid',
+} as const;
+
+const 贝希摩斯: EnemyDefinition = {
+  name: '贝希摩斯',
+  stats: {
+    hp: 650,
+    maxHp: 650,
+    mp: 0,
+    minDice: 8,
+    maxDice: 12,
+    effects: [
+      { type: EffectType.GLUTTONY_CONSTITUTION, stacks: 1, polarity: 'trait' },
+      { type: EffectType.BLISS_FEAST, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    BEHEMOTH_CARD.DEVOUR,
+    BEHEMOTH_CARD.BITE,
+    BEHEMOTH_CARD.TONGUE_LICK,
+    BEHEMOTH_CARD.GREED,
+    BEHEMOTH_CARD.FOOD_GUARD,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn > 0 && ctx.turn % 10 === 0) {
+      return pickCardById(ctx, BEHEMOTH_CARD.GREED);
+    }
+
+    const hpRatio = ctx.enemyStats.maxHp > 0 ? ctx.enemyStats.hp / ctx.enemyStats.maxHp : 0;
+    const crossedThresholds = [1, 0.7, 0.4].filter(threshold => hpRatio <= threshold).length;
+    const usedGreedThresholds = Math.max(0, Math.floor(Number(ctx.flags.behemothGreedThresholdsUsed ?? 0)));
+    if (crossedThresholds > usedGreedThresholds) {
+      ctx.flags.behemothGreedThresholdsUsed = usedGreedThresholds + 1;
+      return pickCardById(ctx, BEHEMOTH_CARD.GREED);
+    }
+
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'behemothLastWeightedCardId', [
+      { value: BEHEMOTH_CARD.DEVOUR, weight: 20 },
+      { value: BEHEMOTH_CARD.BITE, weight: 25 },
+      { value: BEHEMOTH_CARD.TONGUE_LICK, weight: 20 },
+      { value: BEHEMOTH_CARD.FOOD_GUARD, weight: 35 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 侍宴者: EnemyDefinition = {
+  name: '侍宴者',
+  stats: {
+    hp: 200,
+    maxHp: 200,
+    mp: 2,
+    minDice: 4,
+    maxDice: 7,
+    effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' }],
+  },
+  deck: buildDeckById([
+    BANQUET_ATTENDANT_CARD.SOFT_FORCE,
+    BANQUET_ATTENDANT_CARD.FOOD_PERSUASION,
+    BANQUET_ATTENDANT_CARD.FEAST,
+    BANQUET_ATTENDANT_CARD.BODY_DEMONSTRATION,
+    BANQUET_ATTENDANT_CARD.APHRO_FLUID,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const pool = [
+      { value: BANQUET_ATTENDANT_CARD.SOFT_FORCE, weight: 30 },
+      { value: BANQUET_ATTENDANT_CARD.BODY_DEMONSTRATION, weight: 30 },
+      { value: BANQUET_ATTENDANT_CARD.APHRO_FLUID, weight: 40 },
+    ];
+
+    if (ctx.enemyStats.mp >= 2) {
+      pool.push({ value: BANQUET_ATTENDANT_CARD.FOOD_PERSUASION, weight: 40 });
+    }
+    if (ctx.enemyStats.mp >= 4) {
+      pool.push({ value: BANQUET_ATTENDANT_CARD.FEAST, weight: 60 });
+    }
+
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'banquetAttendantLastWeightedCardId', pool);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -3684,6 +3779,8 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [面具侍从.name, 面具侍从],
   [镜像分身.name, 镜像分身],
   [米拉.name, 米拉],
+  [贝希摩斯.name, 贝希摩斯],
+  [侍宴者.name, 侍宴者],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],
