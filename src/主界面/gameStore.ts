@@ -1436,12 +1436,14 @@ export const useGameStore = defineStore('game', () => {
   }
 
   async function flushFastActions(finalActionText?: string): Promise<boolean> {
+    const finalActionTextValue = finalActionText ?? '';
+
     if (!fastModeEnabled.value) {
-      if (!finalActionText?.trim()) return false;
-      return await sendAction(finalActionText);
+      if (!finalActionTextValue.trim()) return false;
+      return await sendAction(finalActionTextValue);
     }
 
-    if (fastActionEvents.value.length === 0 && !finalActionText?.trim()) return false;
+    if (fastActionEvents.value.length === 0 && !finalActionTextValue.trim()) return false;
 
     const nextMvuData = applyQueuedPendingChangesToMvu(getFastModeBaseMvuData());
     fastModeMvuData.value = _.cloneDeep(nextMvuData);
@@ -1449,7 +1451,7 @@ export const useGameStore = defineStore('game', () => {
 
     if (fastActionEvents.value.length === 0) {
       const mvuData = _.cloneDeep(fastModeMvuData.value ?? {});
-      const ok = await sendAction(finalActionText, { userMvuDataOverride: mvuData });
+      const ok = await sendAction(finalActionTextValue, { userMvuDataOverride: mvuData });
       if (ok) {
         clearFastModeBuffer();
       }

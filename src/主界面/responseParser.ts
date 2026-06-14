@@ -129,12 +129,12 @@ function extractMainTagByPriority(text: string, tagNames: string[]): string {
 
 /**
  * 移除思维链块
- * 支持多种变体：<think>, <thinking>, <Think>, <Thinking> 等
+ * 支持多种变体：<think>, <thinking>, <draft_notes> 及大小写变体等
  * 支持嵌套与错误闭合（如 <thinking> ... </think>）
  * 同时处理未闭合的思维链标签（流式传输中可能出现）
  */
 function removeThinkBlock(text: string): string {
-  const thinkTagRegex = /<\s*(\/?)\s*(think|thinking)\b[^>]*>/gi;
+  const thinkTagRegex = /<\s*(\/?)\s*(think|thinking|draft_notes)\b[^>]*>/gi;
 
   let result = '';
   let depth = 0;
@@ -153,7 +153,7 @@ function removeThinkBlock(text: string): string {
     }
 
     if (isClosing) {
-      // 允许错误闭合：只要处于思维链内，遇到任意 think/thinking 结束标签就减一层
+      // 允许错误闭合：只要处于思维链内，遇到任意思维链结束标签就减一层
       if (depth > 0) depth -= 1;
     } else {
       depth += 1;
@@ -180,12 +180,12 @@ function getParserSourceText(text: string, options?: ResponseParserOptions): str
 
 /**
  * 流式显示时：一旦检测到思维链结束标签，则隐藏结束标签之前的全部文本
- * 支持 </think> / </thinking> 及大小写变体
+ * 支持 </think> / </thinking> / </draft_notes> 及大小写变体
  */
 export function filterStreamingTextAfterThinkEnd(text: string): string {
   if (!text) return '';
 
-  const closeThinkTagRegex = /<\s*\/\s*(think|thinking)\b[^>]*>/i;
+  const closeThinkTagRegex = /<\s*\/\s*(think|thinking|draft_notes)\b[^>]*>/i;
   const closeMatch = closeThinkTagRegex.exec(text);
   if (!closeMatch) return text;
 
