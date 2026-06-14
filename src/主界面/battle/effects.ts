@@ -470,6 +470,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '生命值≤0时，消耗1层并恢复至1点生命',
   },
+  [EffectType.UNDEAD]: {
+    type: EffectType.UNDEAD,
+    name: '不死',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '不死',
+  },
   [EffectType.MIRROR_REGENERATION]: {
     type: EffectType.MIRROR_REGENERATION,
     name: '镜面再生',
@@ -794,6 +803,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     stackable: false,
     maxStacks: 1,
     description: '回合开始时自身元素状态与中毒量-5%（最少减少1层）。',
+  },
+  [EffectType.PRAYER]: {
+    type: EffectType.PRAYER,
+    name: '祈祷',
+    polarity: 'special',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '向神祈祷，神会给出回应',
   },
 };
 

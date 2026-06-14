@@ -239,9 +239,15 @@
             </div>
           </div>
           <!-- Armor Shield -->
-          <div v-if="enemyArmor > 0 || enemyPoisonAmount > 0 || enemyTempMaxHp > 0" class="flex items-center gap-3 mb-1">
+          <TransitionGroup
+            v-if="enemyArmor > 0 || enemyPoisonAmount > 0 || enemyTempMaxHp > 0"
+            tag="div"
+            name="status-effect"
+            class="status-value-list flex items-center gap-3 mb-1"
+          >
             <button
               v-if="enemyArmor > 0"
+              key="enemy-armor"
               type="button"
               class="status-effect-value-btn flex items-center gap-1"
               :aria-label="`护甲: ${enemyArmor}. ${getEffectDescription(ET.ARMOR)}`"
@@ -254,10 +260,11 @@
               @touchcancel="handleEffectTouchEnd"
             >
               <span class="text-[10px] text-yellow-400">🛡️</span>
-              <span class="text-[10px] text-yellow-300 font-bold">{{ enemyArmor }}</span>
+              <span :key="`enemy-armor-count-${enemyArmor}`" class="status-value-count text-[10px] text-yellow-300 font-bold">{{ enemyArmor }}</span>
             </button>
             <button
               v-if="enemyPoisonAmount > 0"
+              key="enemy-poison-amount"
               type="button"
               class="status-effect-value-btn flex items-center gap-1"
               :aria-label="`中毒量: ${enemyPoisonAmount}. ${getEffectDescription(ET.POISON_AMOUNT)}`"
@@ -270,10 +277,11 @@
               @touchcancel="handleEffectTouchEnd"
             >
               <span class="text-[10px] text-green-400">☠</span>
-              <span class="text-[10px] text-green-300 font-bold">{{ enemyPoisonAmount }}</span>
+              <span :key="`enemy-poison-amount-count-${enemyPoisonAmount}`" class="status-value-count text-[10px] text-green-300 font-bold">{{ enemyPoisonAmount }}</span>
             </button>
             <button
               v-if="enemyTempMaxHp > 0"
+              key="enemy-temp-max-hp"
               type="button"
               class="status-effect-value-btn flex items-center gap-1"
               :aria-label="`临时生命上限: ${enemyTempMaxHp}. ${getEffectDescription(ET.TEMP_MAX_HP)}`"
@@ -286,9 +294,9 @@
               @touchcancel="handleEffectTouchEnd"
             >
               <span class="text-[10px] text-rose-400">♥</span>
-              <span class="text-[10px] text-rose-300 font-bold">{{ enemyTempMaxHp }}</span>
+              <span :key="`enemy-temp-max-hp-count-${enemyTempMaxHp}`" class="status-value-count text-[10px] text-rose-300 font-bold">{{ enemyTempMaxHp }}</span>
             </button>
-          </div>
+          </TransitionGroup>
           <!-- HP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-[10px] text-[#ff6666] font-bold w-6">HP</span>
@@ -302,7 +310,7 @@
                 :style="withTransition({ width: `${enemyPoisonAmountPercent}%` }, 500)"
               ></div>
             </div>
-            <span class="text-[10px] text-white/70 w-14 text-right">{{ enemyStats.hp }}/{{ enemyStats.maxHp }}</span>
+            <span class="text-[10px] text-white/70 w-14 text-right">{{ formatCombatHp(enemyStats.hp, infiniteHpDisplay.enemy.hp) }}/{{ formatCombatHp(enemyStats.maxHp, infiniteHpDisplay.enemy.maxHp) }}</span>
           </div>
           <!-- MP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
@@ -321,10 +329,15 @@
             <span class="text-[10px] text-red-300">{{ effectiveEnemyMinDice }} ~ {{ effectiveEnemyMaxDice }}</span>
           </div>
           <!-- Buffs/Debuffs -->
-          <div v-if="enemyVisibleEffects.length > 0" class="flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto">
+          <TransitionGroup
+            v-if="enemyVisibleEffects.length > 0"
+            tag="div"
+            name="status-effect"
+            class="status-effect-list flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto"
+          >
             <button
-              v-for="(eff, i) in enemyVisibleEffects"
-              :key="`enemy-${eff.type}-${i}`"
+              v-for="eff in enemyVisibleEffects"
+              :key="`enemy-${eff.type}`"
               type="button"
               class="effect-icon-btn"
               :class="effectIconBoxClass(eff.polarity)"
@@ -348,9 +361,9 @@
                 v-else
                 class="size-3.5"
               />
-              <span v-if="eff.stacks > 1" class="effect-stack-badge">{{ eff.stacks }}</span>
+              <span v-if="eff.stacks > 1" :key="`enemy-${eff.type}-stacks-${eff.stacks}`" class="effect-stack-badge">{{ eff.stacks }}</span>
             </button>
-          </div>
+          </TransitionGroup>
         </div>
       </div>
 
@@ -421,9 +434,15 @@
             </div>
           </div>
           <!-- Armor Shield -->
-          <div v-if="playerArmor > 0 || playerPoisonAmount > 0 || playerTempMaxHp > 0" class="flex items-center gap-3 mb-1">
+          <TransitionGroup
+            v-if="playerArmor > 0 || playerPoisonAmount > 0 || playerTempMaxHp > 0"
+            tag="div"
+            name="status-effect"
+            class="status-value-list flex items-center gap-3 mb-1"
+          >
             <button
               v-if="playerArmor > 0"
+              key="player-armor"
               type="button"
               class="status-effect-value-btn flex items-center gap-1"
               :aria-label="`护甲: ${playerArmor}. ${getEffectDescription(ET.ARMOR)}`"
@@ -436,10 +455,11 @@
               @touchcancel="handleEffectTouchEnd"
             >
               <span class="text-[10px] text-yellow-400">🛡️</span>
-              <span class="text-[10px] text-yellow-300 font-bold">{{ playerArmor }}</span>
+              <span :key="`player-armor-count-${playerArmor}`" class="status-value-count text-[10px] text-yellow-300 font-bold">{{ playerArmor }}</span>
             </button>
             <button
               v-if="playerPoisonAmount > 0"
+              key="player-poison-amount"
               type="button"
               class="status-effect-value-btn flex items-center gap-1"
               :aria-label="`中毒量: ${playerPoisonAmount}. ${getEffectDescription(ET.POISON_AMOUNT)}`"
@@ -452,10 +472,11 @@
               @touchcancel="handleEffectTouchEnd"
             >
               <span class="text-[10px] text-green-400">☠</span>
-              <span class="text-[10px] text-green-300 font-bold">{{ playerPoisonAmount }}</span>
+              <span :key="`player-poison-amount-count-${playerPoisonAmount}`" class="status-value-count text-[10px] text-green-300 font-bold">{{ playerPoisonAmount }}</span>
             </button>
             <button
               v-if="playerTempMaxHp > 0"
+              key="player-temp-max-hp"
               type="button"
               class="status-effect-value-btn flex items-center gap-1"
               :aria-label="`临时生命上限: ${playerTempMaxHp}. ${getEffectDescription(ET.TEMP_MAX_HP)}`"
@@ -468,9 +489,9 @@
               @touchcancel="handleEffectTouchEnd"
             >
               <span class="text-[10px] text-rose-400">♥</span>
-              <span class="text-[10px] text-rose-300 font-bold">{{ playerTempMaxHp }}</span>
+              <span :key="`player-temp-max-hp-count-${playerTempMaxHp}`" class="status-value-count text-[10px] text-rose-300 font-bold">{{ playerTempMaxHp }}</span>
             </button>
-          </div>
+          </TransitionGroup>
           <!-- HP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-[10px] text-[#ff6666] font-bold w-6">HP</span>
@@ -484,7 +505,7 @@
                 :style="withTransition({ width: `${playerPoisonAmountPercent}%` }, 500)"
               ></div>
             </div>
-            <span class="text-[10px] text-white/70 w-14 text-right">{{ playerStats.hp }}/{{ playerStats.maxHp }}</span>
+            <span class="text-[10px] text-white/70 w-14 text-right">{{ formatCombatHp(playerStats.hp, infiniteHpDisplay.player.hp) }}/{{ formatCombatHp(playerStats.maxHp, infiniteHpDisplay.player.maxHp) }}</span>
           </div>
           <!-- MP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
@@ -503,10 +524,15 @@
             <span class="text-[10px] text-dungeon-gold">{{ playerStats.minDice }} ~ {{ playerStats.maxDice }}</span>
           </div>
           <!-- Buffs/Debuffs -->
-          <div v-if="playerVisibleEffects.length > 0" class="flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto">
+          <TransitionGroup
+            v-if="playerVisibleEffects.length > 0"
+            tag="div"
+            name="status-effect"
+            class="status-effect-list flex flex-wrap gap-1.5 mt-1.5 pointer-events-auto"
+          >
             <button
-              v-for="(eff, i) in playerVisibleEffects"
-              :key="`player-${eff.type}-${i}`"
+              v-for="eff in playerVisibleEffects"
+              :key="`player-${eff.type}`"
               type="button"
               class="effect-icon-btn"
               :class="effectIconBoxClass(eff.polarity)"
@@ -530,9 +556,9 @@
                 v-else
                 class="size-3.5"
               />
-              <span v-if="eff.stacks > 1" class="effect-stack-badge">{{ eff.stacks }}</span>
+              <span v-if="eff.stacks > 1" :key="`player-${eff.type}-stacks-${eff.stacks}`" class="effect-stack-badge">{{ eff.stacks }}</span>
             </button>
-          </div>
+          </TransitionGroup>
         </div>
       </div>
     </div>
@@ -1168,6 +1194,11 @@ function onBgError() {
 
 // AI flags - mutable state for enemy AI decisions (e.g. hasUsedHeal)
 const aiFlags = reactive<Record<string, any>>({});
+const INFINITE_HP_VALUE = 2147483647;
+const isInfiniteHpValue = (value: number): boolean => Math.floor(value) >= INFINITE_HP_VALUE;
+const formatCombatHp = (value: number, forceInfinite = false): string => (
+  forceInfinite || isInfiniteHpValue(value) ? '∞' : String(Math.max(0, Math.floor(value)))
+);
 
 // --- State ---
 const cloneEntityStats = (stats: EntityStats): EntityStats => ({
@@ -1193,7 +1224,7 @@ const buildEnemyInitialStats = (): EntityStats => {
     baseStats.minDice = Math.max(0, Math.floor(props.initialPlayerStats.minDice));
     baseStats.maxDice = Math.max(baseStats.minDice, Math.floor(props.initialPlayerStats.maxDice));
   }
-  if (difficultyHpMultiplier !== 1) {
+  if (difficultyHpMultiplier !== 1 && baseStats.maxHp < INFINITE_HP_VALUE) {
     const scaledMaxHp = Math.max(1, Math.round(baseStats.maxHp * difficultyHpMultiplier));
     const scaledHp = Math.max(1, Math.min(scaledMaxHp, Math.round(baseStats.hp * difficultyHpMultiplier)));
     baseStats.maxHp = scaledMaxHp;
@@ -1208,6 +1239,16 @@ const playerStats = ref<EntityStats>(
 const enemyStats = ref<EntityStats>(
   buildEnemyInitialStats(),
 );
+const infiniteHpDisplay = {
+  player: {
+    hp: isInfiniteHpValue(playerStats.value.hp),
+    maxHp: isInfiniteHpValue(playerStats.value.maxHp),
+  },
+  enemy: {
+    hp: isInfiniteHpValue(enemyStats.value.hp),
+    maxHp: isInfiniteHpValue(enemyStats.value.maxHp),
+  },
+};
 
 // --- Effect display helpers ---
 const getEffectName = (type: EffectType): string => {
@@ -1550,6 +1591,7 @@ const STATUS_PARASITIZED = '[被寄生]';
 const STATUS_BLOODLINE_MARK = '[血族印记]';
 const STATUS_SCALE_POWDER = '[鳞粉]';
 const STATUS_SOUL_DAMAGE = '[灵魂受损]';
+const STATUS_SINKING = '[沉沦]';
 const PHEROMONE_CURSE_CARD_NAME = '信息素';
 const ARCHIVE_TAINT_CURSE_CARD_NAME = '档案污页';
 const normalizeNegativeStatusList = (value: unknown): string[] => {
@@ -3299,6 +3341,20 @@ const insertBehemothFoodIntoPlayerDiscard = () => {
   }
 };
 
+const insertPrayerCandleRetreatIntoPlayerDeck = () => {
+  if (enemyDisplayName !== '祈祷烛灵') return;
+  if (combatState.value.turn !== 12) return;
+  if (aiFlags.prayerCandleRetreatInserted === true) return;
+  const retreatCard = getCardByName('退走');
+  if (!retreatCard) {
+    log('<span class="text-red-400">[祈祷烛灵] 未找到【退走】卡牌定义。</span>');
+    return;
+  }
+  combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, cloneCardForBattle(retreatCard));
+  aiFlags.prayerCandleRetreatInserted = true;
+  log(`<span class="text-fuchsia-300">[祈祷烛灵] 第12回合将【退走】插入了我方抽牌堆（牌库${combatState.value.playerDeck.length} / 弃牌${combatState.value.discardPile.length}）。</span>`);
+};
+
 const processLustIllusionTurnEndForSide = (side: BattleSide) => {
   const target = getEntityBySide(side);
   const stacks = Math.max(0, getEffectStacks(target, ET.LUST_ILLUSION));
@@ -3954,7 +4010,7 @@ const applyCardEffectsByTrigger = (
       const reasonText = triggerTextMap[trigger];
       log(`<span class="text-zinc-300">${label}【${card.name}】${reasonText ? `${reasonText}后` : ''}逃离了战斗。</span>`);
       endCombatPending.value = true;
-      void runEndCombatSequence('escape');
+      void runEndCombatSequence(source === 'player' ? 'win' : 'escape');
       hasEffect = true;
     }
   }
@@ -5736,6 +5792,19 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
   }
 };
 
+const applySinkingNegativeStatusOnTurnStart = () => {
+  if (combatState.value.turn !== 3) return;
+  const statuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
+  if (!statuses.includes(STATUS_SINKING)) return;
+  const applied = applyStatusEffectWithRelics('player', ET.STUN, 1, {
+    source: 'negative-status:[沉沦]',
+    lockDecayThisTurn: true,
+  });
+  if (applied) {
+    log('<span class="text-fuchsia-300">[负面状态][沉沦] 第3回合为自身施加了1层眩晕。</span>');
+  }
+};
+
 const applyDifficultyBattleStartEffects = () => {
   if (!shouldApplyHellStartingDebuff(difficultyAtBattleStart, customDifficultyInfluencesAtBattleStart)) return;
   const picked = HELL_STARTING_DEBUFFS[Math.floor(Math.random() * HELL_STARTING_DEBUFFS.length)];
@@ -7024,6 +7093,8 @@ watch(
       }
       applyUnseeableAura('player', 'turn_start');
       applyUnseeableAura('enemy', 'turn_start');
+      applySinkingNegativeStatusOnTurnStart();
+      insertPrayerCandleRetreatIntoPlayerDeck();
       applyTwinDreamControlThresholds();
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
@@ -8057,7 +8128,7 @@ const resolveCombat = async (
       const sourceLabel = source === 'player' ? '我方' : '敌方';
       log(`<span class="text-zinc-300">${sourceLabel}触发逃离：一方逃离战斗。</span>`);
       endCombatPending.value = true;
-      void runEndCombatSequence('escape');
+      void runEndCombatSequence(source === 'player' ? 'win' : 'escape');
       return;
     }
 
@@ -8221,6 +8292,14 @@ const resolveCombat = async (
       if (card.id === 'enemy_moore_progressive_weaving') {
         const nextBonus = increaseBattleCardPointBonus(source, card.id, 1, 99);
         log(`<span class="text-fuchsia-300">${label}【${card.name}】本场战斗点数加成提升至 +${nextBonus}</span>`);
+      }
+      if (card.id === 'enemy_prayer_candle_bliss_baptism') {
+        const beforePrayer = Math.max(0, getEffectStacks(attacker, ET.PRAYER));
+        const consumedPrayer = Math.min(3, beforePrayer);
+        if (consumedPrayer > 0) {
+          reduceEffectStacks(attacker, ET.PRAYER, consumedPrayer);
+        }
+        log(`<span class="text-violet-300">${label}【${card.name}】移除了自身 ${consumedPrayer} 层祈祷。</span>`);
       }
       if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value[source]) {
         blankOfBlankBonusThisTurn.value[source] += 1;
@@ -10961,14 +11040,87 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform calc(0.14s / var(--combat-speed-multiplier)) ease, filter calc(0.14s / var(--combat-speed-multiplier)) ease;
+  overflow: visible;
+  transition:
+    transform calc(0.14s / var(--combat-speed-multiplier)) ease,
+    filter calc(0.14s / var(--combat-speed-multiplier)) ease,
+    box-shadow calc(0.22s / var(--combat-speed-multiplier)) ease;
+}
+
+.effect-icon-btn::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(125, 211, 252, 0.08), rgba(244, 114, 182, 0.2));
+  opacity: 0;
+  transform: scale(0.86);
+  transition:
+    opacity calc(0.18s / var(--combat-speed-multiplier)) ease,
+    transform calc(0.18s / var(--combat-speed-multiplier)) ease;
 }
 
 .effect-icon-btn:hover,
 .effect-icon-btn:focus-visible {
   transform: translateY(-1px);
   filter: brightness(1.12);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.1);
   outline: none;
+}
+
+.effect-icon-btn:hover::before,
+.effect-icon-btn:focus-visible::before {
+  opacity: 0.42;
+  transform: scale(1);
+}
+
+.status-effect-list,
+.status-value-list {
+  position: relative;
+}
+
+.status-effect-move,
+.status-effect-enter-active,
+.status-effect-leave-active {
+  transition:
+    opacity calc(0.3s / var(--combat-speed-multiplier)) cubic-bezier(0.22, 1, 0.36, 1),
+    transform calc(0.3s / var(--combat-speed-multiplier)) cubic-bezier(0.22, 1, 0.36, 1),
+    filter calc(0.3s / var(--combat-speed-multiplier)) ease;
+}
+
+.status-effect-enter-active.effect-icon-btn,
+.status-effect-enter-active.status-effect-value-btn {
+  animation: status-effect-spark calc(0.42s / var(--combat-speed-multiplier)) ease-out both;
+}
+
+.status-effect-enter-from {
+  opacity: 0;
+  transform: translateY(6px) scale(0.76);
+  filter: blur(2px) saturate(1.45);
+}
+
+.status-effect-enter-to {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0) saturate(1);
+}
+
+.status-effect-leave-active {
+  position: absolute;
+  pointer-events: none;
+}
+
+.status-effect-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0) saturate(1);
+}
+
+.status-effect-leave-to {
+  opacity: 0;
+  transform: translateY(-5px) scale(0.72);
+  filter: blur(2px) saturate(0.6);
 }
 
 .status-effect-value-btn {
@@ -10985,6 +11137,11 @@ watch(
 .status-effect-value-btn:focus-visible {
   filter: brightness(1.08);
   outline: none;
+}
+
+.status-value-count {
+  display: inline-block;
+  animation: status-stack-pop calc(0.34s / var(--combat-speed-multiplier)) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .effect-stack-badge {
@@ -11004,6 +11161,34 @@ watch(
   align-items: center;
   justify-content: center;
   padding: 0 2px;
+  animation: status-stack-pop calc(0.34s / var(--combat-speed-multiplier)) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes status-effect-spark {
+  0% {
+    box-shadow: 0 0 0 rgba(125, 211, 252, 0), 0 0 0 rgba(244, 114, 182, 0);
+  }
+  42% {
+    box-shadow: 0 0 18px rgba(125, 211, 252, 0.24), 0 0 30px rgba(244, 114, 182, 0.16);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(125, 211, 252, 0), 0 0 0 rgba(244, 114, 182, 0);
+  }
+}
+
+@keyframes status-stack-pop {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.68);
+    filter: brightness(1.8);
+  }
+  62% {
+    transform: translate3d(0, -1px, 0) scale(1.12);
+    filter: brightness(1.18);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1);
+  }
 }
 
 .effect-tooltip {

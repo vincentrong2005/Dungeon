@@ -313,6 +313,8 @@ export enum EffectType {
   BLOOD_COCOON = '血茧',
   /** 不屈 — 生命值归零时消耗1层并恢复至1点生命 */
   INDOMITABLE = '不屈',
+  /** 不死 — 不死 */
+  UNDEAD = '不死',
   /** 镜面再生 — 受到致命伤时锁血并进入镜面免疫，结束后满血并消耗层数 */
   MIRROR_REGENERATION = '镜面再生',
   /** 模仿者 — 本身无直接效果，用于说明特殊模仿行动逻辑 */
@@ -385,6 +387,8 @@ export enum EffectType {
   BLISS_FEAST = '极乐宴会',
   /** 饕餮体质 — 回合开始时自身元素状态与中毒量减少 */
   GLUTTONY_CONSTITUTION = '饕餮体质',
+  /** 祈祷 — 阶段性全局光环计数，本身无直接效果 */
+  PRAYER = '祈祷',
 }
 
 /** 效果极性分类 */

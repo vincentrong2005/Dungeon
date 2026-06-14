@@ -47,6 +47,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.LUST_ILLUSION]: 'fa-brands fa-snapchat',
   [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
   [ET.INDOMITABLE]: 'fa-solid fa-shield',
+  [ET.UNDEAD]: 'fa-solid fa-book-skull',
   [ET.MIRROR_REGENERATION]: 'fa-solid fa-border-none',
   [ET.MIMICKER]: 'fa-regular fa-clone',
   [ET.DANCE_HALL]: 'fa-brands fa-upwork',
@@ -81,6 +82,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.MATERIALIZATION]: 'fa-solid fa-person',
   [ET.BLISS_FEAST]: 'fa-solid fa-champagne-glasses',
   [ET.GLUTTONY_CONSTITUTION]: 'fa-solid fa-utensils',
+  [ET.PRAYER]: 'fa-solid fa-book-bible',
 };
 
 export const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {

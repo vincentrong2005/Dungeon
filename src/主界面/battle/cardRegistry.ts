@@ -2818,6 +2818,110 @@ const WITNESS_WORM_RETREAT: CardData = {
   description: '逃离',
 };
 
+/** 虔诚跪拜：消耗2，点数*2，无视闪避，为自身施加1层祈祷，为对方施加1层性兴奋 */
+const 祈祷烛灵_虔诚跪拜: CardData = {
+  id: 'enemy_prayer_candle_pious_kneel',
+  name: '虔诚跪拜',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.PRAYER, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  ignoreDodge: true,
+  description: '消耗2MP，点数*2，无视闪避，为自身施加1层祈祷，为对方施加1层性兴奋',
+};
+
+/** 灵性之火：消耗3，施加4层燃烧与1层易伤 */
+const 祈祷烛灵_灵性之火: CardData = {
+  id: 'enemy_prayer_candle_spiritual_fire',
+  name: '灵性之火',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '消耗3MP，施加4层燃烧与1层易伤',
+};
+
+/** 共情：消耗2，为自身施加1层共损，为对方施加1层性兴奋；若拼点失败，为自身施加1层祈祷 */
+const 祈祷烛灵_共情: CardData = {
+  id: 'enemy_prayer_candle_empathy',
+  name: '共情',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CO_DAMAGE, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.PRAYER,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '消耗2MP，为自身施加1层共损，为对方施加1层性兴奋；若拼点失败，为自身施加1层祈祷',
+};
+
+/** 极乐浸礼：消耗2，无视闪避，移除自身3层祈祷，附带负面状态[沉沦] */
+const 祈祷烛灵_极乐浸礼: CardData = {
+  id: 'enemy_prayer_candle_bliss_baptism',
+  name: '极乐浸礼',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  ignoreDodge: true,
+  negativeEffect: '[沉沦]',
+  description: '消耗2MP，无视闪避，移除自身3层祈祷，附带负面状态[沉沦]',
+};
+
+/** 摇曳烛影：点数*0.5，闪避。若闪避成功或玩家跳过回合，施加1层性兴奋 */
+const 祈祷烛灵_摇曳烛影: CardData = {
+  id: 'enemy_prayer_candle_flickering_shadow',
+  name: '摇曳烛影',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.ORGASM,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数*0.5，闪避。若闪避成功或玩家跳过回合，施加1层性兴奋',
+};
+
 /** 附着：造成1点伤害，为自身施加1层生命回复，附带负面效果[被寄生]；拼点失败后自身最小与最大骰子点数+1 */
 const SPACE_RIFT_BUG_ATTACH: CardData = {
   id: 'enemy_space_rift_bug_attach',
@@ -8997,6 +9101,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [SHAME_LEECH_PARASITIC_DRILL.name, SHAME_LEECH_PARASITIC_DRILL],
   [WITNESS_WORM_MENTAL_SHOCK.name, WITNESS_WORM_MENTAL_SHOCK],
   [WITNESS_WORM_RETREAT.name, WITNESS_WORM_RETREAT],
+  [祈祷烛灵_虔诚跪拜.name, 祈祷烛灵_虔诚跪拜],
+  [祈祷烛灵_灵性之火.name, 祈祷烛灵_灵性之火],
+  [祈祷烛灵_共情.name, 祈祷烛灵_共情],
+  [祈祷烛灵_极乐浸礼.name, 祈祷烛灵_极乐浸礼],
+  [祈祷烛灵_摇曳烛影.name, 祈祷烛灵_摇曳烛影],
   [SPACE_RIFT_BUG_ATTACH.name, SPACE_RIFT_BUG_ATTACH],
   [SPACE_RIFT_BUG_BLIND_SPOT.name, SPACE_RIFT_BUG_BLIND_SPOT],
   [SPACE_RIFT_BUG_PAIN_AMPLIFICATION.name, SPACE_RIFT_BUG_PAIN_AMPLIFICATION],

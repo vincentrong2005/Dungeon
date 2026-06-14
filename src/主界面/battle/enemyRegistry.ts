@@ -206,6 +206,14 @@ const WITNESS_WORM_CARD = {
   RETREAT: 'enemy_witness_worm_retreat',
 } as const;
 
+const PRAYER_CANDLE_CARD = {
+  PIOUS_KNEEL: 'enemy_prayer_candle_pious_kneel',
+  SPIRITUAL_FIRE: 'enemy_prayer_candle_spiritual_fire',
+  EMPATHY: 'enemy_prayer_candle_empathy',
+  BLISS_BAPTISM: 'enemy_prayer_candle_bliss_baptism',
+  FLICKERING_SHADOW: 'enemy_prayer_candle_flickering_shadow',
+} as const;
+
 const SPACE_RIFT_BUG_CARD = {
   ATTACH: 'enemy_space_rift_bug_attach',
   BLIND_SPOT: 'enemy_space_rift_bug_blind_spot',
@@ -3728,6 +3736,68 @@ const 侍宴者: EnemyDefinition = {
   },
 };
 
+const 祈祷烛灵: EnemyDefinition = {
+  name: '祈祷烛灵',
+  stats: {
+    hp: 2147483647,
+    maxHp: 2147483647,
+    mp: 2,
+    minDice: 4,
+    maxDice: 8,
+    effects: [
+      { type: EffectType.UNDEAD, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.IGNITE_AURA, stacks: 1, polarity: 'mixed' },
+    ],
+  },
+  deck: buildDeckById([
+    PRAYER_CANDLE_CARD.PIOUS_KNEEL,
+    PRAYER_CANDLE_CARD.SPIRITUAL_FIRE,
+    PRAYER_CANDLE_CARD.EMPATHY,
+    PRAYER_CANDLE_CARD.BLISS_BAPTISM,
+    PRAYER_CANDLE_CARD.FLICKERING_SHADOW,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const prayerStacks = Math.max(
+      0,
+      Math.floor(ctx.enemyStats.effects.find(e => e.type === EffectType.PRAYER)?.stacks ?? 0),
+    );
+
+    if (prayerStacks >= 3 && ctx.enemyStats.mp >= 2) {
+      return pickCardById(ctx, PRAYER_CANDLE_CARD.BLISS_BAPTISM);
+    }
+
+    if (prayerStacks >= 3) {
+      return pickCardById(ctx, PRAYER_CANDLE_CARD.FLICKERING_SHADOW);
+    }
+
+    if (ctx.enemyStats.mp >= 3) {
+      return pickCardById(
+        ctx,
+        weightedRandom<string>([
+          { value: PRAYER_CANDLE_CARD.PIOUS_KNEEL, weight: 25 },
+          { value: PRAYER_CANDLE_CARD.SPIRITUAL_FIRE, weight: 35 },
+          { value: PRAYER_CANDLE_CARD.EMPATHY, weight: 15 },
+          { value: PRAYER_CANDLE_CARD.FLICKERING_SHADOW, weight: 25 },
+        ]),
+      );
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      return pickCardById(
+        ctx,
+        weightedRandom<string>([
+          { value: PRAYER_CANDLE_CARD.PIOUS_KNEEL, weight: 35 },
+          { value: PRAYER_CANDLE_CARD.EMPATHY, weight: 35 },
+          { value: PRAYER_CANDLE_CARD.FLICKERING_SHADOW, weight: 30 },
+        ]),
+      );
+    }
+
+    return pickCardById(ctx, PRAYER_CANDLE_CARD.FLICKERING_SHADOW);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -3781,6 +3851,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [米拉.name, 米拉],
   [贝希摩斯.name, 贝希摩斯],
   [侍宴者.name, 侍宴者],
+  [祈祷烛灵.name, 祈祷烛灵],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],
