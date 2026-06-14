@@ -130,14 +130,14 @@ function extractMainTagByPriority(text: string, tagNames: string[]): string {
 /**
  * 移除思维链块
  * 支持多种变体：<think>, <thinking>, <draft_notes> 及大小写变体等
- * 支持嵌套与错误闭合（如 <thinking> ... </think>）
+ * 支持错误闭合（如 <thinking> ... </think>）
  * 同时处理未闭合的思维链标签（流式传输中可能出现）
  */
 function removeThinkBlock(text: string): string {
   const thinkTagRegex = /<\s*(\/?)\s*(think|thinking|draft_notes)\b[^>]*>/gi;
 
   let result = '';
-  let depth = 0;
+  let isInsideThinkBlock = false;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -148,22 +148,23 @@ function removeThinkBlock(text: string): string {
 
     // 仅在思维链外保留内容；思维链内（含标签本身）全部丢弃
     // 特殊处理：孤立的 </think>/< /thinking> 也视作思维链结束符，结束符之前的段落丢弃
-    if (depth === 0 && !isClosing) {
-      result += text.slice(lastIndex, tagStart);
-    }
-
-    if (isClosing) {
-      // 允许错误闭合：只要处于思维链内，遇到任意思维链结束标签就减一层
-      if (depth > 0) depth -= 1;
+    if (!isInsideThinkBlock) {
+      if (!isClosing) {
+        result += text.slice(lastIndex, tagStart);
+        isInsideThinkBlock = true;
+      }
     } else {
-      depth += 1;
+      // 思维链里经常会把标签名当作说明文本提到，避免把这些示例误当嵌套块。
+      if (isClosing) {
+        isInsideThinkBlock = false;
+      }
     }
 
     lastIndex = tagEnd;
   }
 
   // 仅在未进入未闭合思维链时追加尾部文本
-  if (depth === 0) {
+  if (!isInsideThinkBlock) {
     result += text.slice(lastIndex);
   }
 
@@ -263,6 +264,20 @@ function extractImageBlocks(text: string): string[] {
   return result;
 }
 
+function extractTaggedBlocks(text: string, tagName: string): string[] {
+  const escapedTagName = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const result: string[] = [];
+  const regex = new RegExp(`<\\s*${escapedTagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/\\s*${escapedTagName}\\s*>`, 'gi');
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    const content = match[1].trim();
+    if (content.length > 0) {
+      result.push(content);
+    }
+  }
+  return result;
+}
+
 /**
  * 将正文外的 <image>/<img> 块追加到 mainText
  * 正文内已有的 image 块会保留（由 GameView 的 hideImageTagsForDisplay 去除包装标签）
@@ -277,6 +292,23 @@ function appendExternalImageBlocks(mainText: string, fullText: string): string {
 
   const merged = externalBlocks.map(block => `<image>${block}</image>`).join('\n\n');
   return [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
+}
+
+function appendExternalTaggedBlocks(mainText: string, fullText: string, tagName: string): string {
+  const blocks = extractTaggedBlocks(fullText, tagName);
+  if (blocks.length === 0) return mainText;
+
+  const externalBlocks = blocks.filter(block => !mainText.includes(block));
+  if (externalBlocks.length === 0) return mainText;
+
+  const merged = externalBlocks.map(block => `<${tagName}>\n${block}\n</${tagName}>`).join('\n\n');
+  return [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
+}
+
+function appendExternalDisplayBlocks(mainText: string, fullText: string): string {
+  let mergedText = appendExternalTaggedBlocks(mainText, fullText, 'catsay');
+  mergedText = appendExternalTaggedBlocks(mergedText, fullText, 'SexualScene');
+  return appendExternalImageBlocks(mergedText, fullText);
 }
 
 /**
@@ -310,7 +342,7 @@ export function parseResponse(text: string, options?: ResponseParserOptions): Pa
     }
   }
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
-  mainText = appendExternalImageBlocks(mainText, cleanText);
+  mainText = appendExternalDisplayBlocks(mainText, cleanText);
   const optionRaw = extractTag(cleanText, 'option');
   const summary = extractTag(cleanText, 'sum');
 
@@ -373,7 +405,7 @@ export function extractMainText(messageText: string, options?: ResponseParserOpt
     }
   }
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
-  mainText = appendExternalImageBlocks(mainText, clean);
+  mainText = appendExternalDisplayBlocks(mainText, clean);
   return mainText;
 }
 

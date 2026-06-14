@@ -216,17 +216,17 @@
                       </p>
                     </template>
 
-                    <div v-if="storyTucaoSections.length > 0" class="story-tucao-section-list">
+                    <div v-if="storySpecialSections.length > 0" class="story-tucao-section-list">
                       <div
-                        v-for="(section, sectionIndex) in storyTucaoSections"
+                        v-for="(section, sectionIndex) in storySpecialSections"
                         :key="section.key"
-                        class="story-tucao-wrap"
+                        :class="['story-tucao-wrap', `story-tucao-wrap--${section.kind}`]"
                       >
                         <button class="story-tucao-toggle" type="button" @click="toggleTucao(section.key)">
                           {{
                             isTucaoExpanded(section.key)
-                              ? `收起脑内剧场 ${Number(sectionIndex) + 1}`
-                              : `🎮 此方的脑内剧场 ${Number(sectionIndex) + 1}`
+                              ? `收起${section.title || getStorySpecialTitle(section, Number(sectionIndex))}`
+                              : getStorySpecialTitle(section, Number(sectionIndex))
                           }}
                         </button>
                         <Transition name="tucao-expand">
@@ -6452,18 +6452,19 @@ interface StoryLineBlock {
 
 interface StoryTucaoSection {
   key: string;
+  kind: 'tucao' | 'catsay' | 'sexualScene';
+  title: string;
   lines: StoryLineBlock[];
 }
 
 interface StoryContentState {
   lines: StoryLineBlock[];
-  tucaoSections: StoryTucaoSection[];
+  specialSections: StoryTucaoSection[];
 }
 
 const inlineMarkRegex = /(\*[^*\r\n]+\*|“[^”\r\n]+”|「[^」\r\n]+」|"[^"\r\n]+"|'[^'\r\n]+')/g;
 const headerMarkRegex = /^(#{1,4})\s*(.*)$/;
-const tucaoOpenTagRegex = /<\s*tucao(?:\s+[^>]*)?>/gi;
-const tucaoCloseTagRegex = /<\s*\/\s*tucao\s*>/gi;
+const storySpecialOpenTagRegex = /<\s*(tucao|catsay|SexualScene)(?:\s+[^>]*)?>/gi;
 const tucaoExpandedState = ref<Record<string, boolean>>({});
 
 function isQuotedText(text: string): boolean {
@@ -6489,7 +6490,54 @@ function normalizeTucaoMarkers(text: string): string {
       // Chinese tag alias: <吐槽>...</吐槽>
       .replace(/<\s*吐槽(?:\s+[^>]*)?>/gi, '<tucao>')
       .replace(/<\s*\/\s*吐槽\s*>/gi, '</tucao>')
+      .replace(/<\s*sexualscene(?:\s+[^>]*)?>/gi, '<SexualScene>')
+      .replace(/<\s*\/\s*sexualscene\s*>/gi, '</SexualScene>')
   );
+}
+
+function normalizeStorySpecialKind(tagName: string): StoryTucaoSection['kind'] {
+  const normalized = tagName.toLowerCase();
+  if (normalized === 'catsay') return 'catsay';
+  if (normalized === 'sexualscene') return 'sexualScene';
+  return 'tucao';
+}
+
+function cleanupStorySpecialContent(
+  kind: StoryTucaoSection['kind'],
+  rawContent: string,
+): { title: string; content: string } {
+  let content = rawContent
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&');
+  let title = '';
+
+  if (kind === 'catsay') {
+    const summaryMatch = /<\s*summary(?:\s+[^>]*)?>([\s\S]*?)<\s*\/\s*summary\s*>/i.exec(content);
+    title = (summaryMatch?.[1] ?? '').replace(/<[^>]+>/g, '').trim();
+    content = content
+      .replace(/<\s*details(?:\s+[^>]*)?>/gi, '')
+      .replace(/<\s*\/\s*details\s*>/gi, '')
+      .replace(/<\s*summary(?:\s+[^>]*)?>[\s\S]*?<\s*\/\s*summary\s*>/gi, '');
+  }
+
+  if (kind === 'sexualScene' && !title) {
+    title = '角色细节展示';
+  }
+
+  return {
+    title,
+    content: content.replace(/\n{3,}/g, '\n\n').trim(),
+  };
+}
+
+function getStorySpecialTitle(section: StoryTucaoSection, sectionIndex: number): string {
+  if (section.title) return section.title;
+  if (section.kind === 'catsay') return `😼 咪咪点评 ${sectionIndex + 1}`;
+  if (section.kind === 'sexualScene') return `角色细节展示 ${sectionIndex + 1}`;
+  return `🎮 此方的脑内剧场 ${sectionIndex + 1}`;
 }
 
 function parseInlineSegments(line: string, keyPrefix: string): StoryInlineSegment[] {
@@ -6580,36 +6628,42 @@ function parseTextLines(text: string, keyPrefix: string): StoryLineBlock[] {
 function parseStoryContent(text: string): StoryContentState {
   const normalized = normalizeTucaoMarkers(text).replace(/\r\n/g, '\n');
   const lines: StoryLineBlock[] = [];
-  const tucaoSections: StoryTucaoSection[] = [];
+  const specialSections: StoryTucaoSection[] = [];
   let cursor = 0;
   let sectionIndex = 0;
   let openMatch: RegExpExecArray | null;
 
-  tucaoOpenTagRegex.lastIndex = 0;
-  while ((openMatch = tucaoOpenTagRegex.exec(normalized)) !== null) {
+  storySpecialOpenTagRegex.lastIndex = 0;
+  while ((openMatch = storySpecialOpenTagRegex.exec(normalized)) !== null) {
+    const kind = normalizeStorySpecialKind(openMatch[1] ?? 'tucao');
+    const closeTagName = kind === 'sexualScene' ? 'SexualScene' : kind;
+    const closeTagRegex = new RegExp(`<\\s*\\/\\s*${closeTagName}\\s*>`, 'i');
     const openStart = openMatch.index;
-    const openEnd = tucaoOpenTagRegex.lastIndex;
+    const openEnd = storySpecialOpenTagRegex.lastIndex;
 
     const plainPart = normalized.slice(cursor, openStart);
     lines.push(...parseTextLines(plainPart, `story-${sectionIndex}-plain-${cursor}`));
 
-    tucaoCloseTagRegex.lastIndex = openEnd;
-    const closeMatch = tucaoCloseTagRegex.exec(normalized);
+    const closeMatch = closeTagRegex.exec(normalized.slice(openEnd));
+    const closeStart = closeMatch ? openEnd + closeMatch.index : -1;
     const contentEnd = closeMatch ? closeMatch.index : normalized.length;
-    const nextCursor = closeMatch ? tucaoCloseTagRegex.lastIndex : normalized.length;
+    const nextCursor = closeMatch ? closeStart + closeMatch[0].length : normalized.length;
 
-    const tucaoContent = normalized.slice(openEnd, contentEnd).replace(/^\n+/, '').replace(/\n+$/, '');
-    const tucaoKey = `story-tucao-${sectionIndex}-${openStart}`;
-    const parsedTucaoLines = parseTextLines(tucaoContent, tucaoKey);
+    const rawContent = normalized.slice(openEnd, closeMatch ? closeStart : contentEnd).replace(/^\n+/, '').replace(/\n+$/, '');
+    const { title, content } = cleanupStorySpecialContent(kind, rawContent);
+    const tucaoKey = `story-${kind}-${sectionIndex}-${openStart}`;
+    const parsedTucaoLines = parseTextLines(content, tucaoKey);
     if (parsedTucaoLines.length > 0) {
-      tucaoSections.push({
+      specialSections.push({
         key: tucaoKey,
+        kind,
+        title,
         lines: parsedTucaoLines,
       });
     }
 
     cursor = nextCursor;
-    tucaoOpenTagRegex.lastIndex = cursor;
+    storySpecialOpenTagRegex.lastIndex = cursor;
     sectionIndex += 1;
 
     // Missing closing tag: consume to end once.
@@ -6623,16 +6677,16 @@ function parseStoryContent(text: string): StoryContentState {
 
   return {
     lines,
-    tucaoSections,
+    specialSections,
   };
 }
 
 const storyContentState = computed<StoryContentState>(() => parseStoryContent(displayText.value));
 const storyMainLines = computed<StoryLineBlock[]>(() => storyContentState.value.lines);
-const storyTucaoSections = computed<StoryTucaoSection[]>(() => storyContentState.value.tucaoSections);
+const storySpecialSections = computed<StoryTucaoSection[]>(() => storyContentState.value.specialSections);
 
 watch(
-  storyTucaoSections,
+  storySpecialSections,
   sections => {
     const validKeys = new Set(sections.map(section => section.key));
     const nextState: Record<string, boolean> = {};
@@ -11163,6 +11217,18 @@ onBeforeUnmount(() => {
   margin: 0.26rem 0 0.34rem;
 }
 
+.story-tucao-wrap--catsay .story-tucao-toggle {
+  border-color: rgba(244, 114, 182, 0.46);
+  background: rgba(56, 23, 42, 0.86);
+  color: rgba(251, 207, 232, 0.98);
+}
+
+.story-tucao-wrap--sexualScene .story-tucao-toggle {
+  border-color: rgba(248, 113, 113, 0.48);
+  background: rgba(69, 26, 26, 0.86);
+  color: rgba(254, 202, 202, 0.98);
+}
+
 .story-tucao-toggle {
   display: inline-flex;
   align-items: center;
@@ -11199,6 +11265,18 @@ onBeforeUnmount(() => {
 
 .story-tucao-panel .story-line {
   color: rgba(126, 60, 138, 0.95);
+}
+
+.story-tucao-wrap--sexualScene .story-tucao-panel {
+  border-color: rgba(248, 113, 113, 0.44);
+  background:
+    linear-gradient(160deg, rgba(255, 245, 245, 0.91), rgba(255, 241, 242, 0.83)),
+    radial-gradient(circle at 6% 3%, rgba(248, 113, 113, 0.2), transparent 52%);
+  color: rgba(127, 29, 29, 0.94);
+}
+
+.story-tucao-wrap--sexualScene .story-tucao-panel .story-line {
+  color: rgba(127, 29, 29, 0.94);
 }
 
 .story-tucao-panel .story-segment-muted {
