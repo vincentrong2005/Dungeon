@@ -2837,7 +2837,7 @@ const 祈祷烛灵_虔诚跪拜: CardData = {
   description: '消耗2MP，点数*2，无视闪避，为自身施加1层祈祷，为对方施加1层性兴奋',
 };
 
-/** 灵性之火：消耗3，施加4层燃烧与1层易伤 */
+/** 灵性之火：消耗3，施加4层燃烧与1层圣痕 */
 const 祈祷烛灵_灵性之火: CardData = {
   id: 'enemy_prayer_candle_spiritual_fire',
   name: '灵性之火',
@@ -2850,9 +2850,9 @@ const 祈祷烛灵_灵性之火: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
-    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.STIGMATA, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '消耗3MP，施加4层燃烧与1层易伤',
+  description: '消耗3MP，施加4层燃烧与1层圣痕',
 };
 
 /** 共情：消耗2，为自身施加1层共损，为对方施加1层性兴奋；若拼点失败，为自身施加1层祈祷 */
@@ -3610,6 +3610,103 @@ const NIGHTMARE_MOTH_BLISSFUL_DREAM: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   description: '消耗6，造成1倍点数的侵蚀；对方每有1种debuff，点数+2',
+};
+
+/** 群蝶乱舞：点数*2，造成0.4倍点数伤害，4连击，每段造成伤害后触发一次对方圣痕 */
+const STIGMATA_BUTTERFLY_SWARM_DANCE: CardData = {
+  id: 'enemy_stigmata_butterfly_swarm_dance',
+  name: '群蝶乱舞',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
+  hitCount: 4,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*2，造成0.4倍点数伤害，4连击；每段造成伤害后触发一次对方圣痕效果',
+};
+
+/** 圣痕铭刻：消耗1，无视闪避，施加1层圣痕 */
+const STIGMATA_BUTTERFLY_ENGRAVE: CardData = {
+  id: 'enemy_stigmata_butterfly_engrave',
+  name: '圣痕铭刻',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 1,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STIGMATA, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  ignoreDodge: true,
+  description: '无视闪避，施加1层圣痕',
+};
+
+/** 共振：消耗4，对方每拥有1层圣痕，施加2层中毒 */
+const STIGMATA_BUTTERFLY_RESONANCE: CardData = {
+  id: 'enemy_stigmata_butterfly_resonance',
+  name: '共振',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '对方每拥有1层圣痕，施加2层中毒',
+};
+
+/** 羽落：点数*0.2，闪避，若闪避成功或对方跳过回合，施加1层虚弱 */
+const STIGMATA_BUTTERFLY_FEATHER_FALL: CardData = {
+  id: 'enemy_stigmata_butterfly_feather_fall',
+  name: '羽落',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0.2, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.WEAKEN,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数*0.2，闪避，若闪避成功或对方跳过回合，施加1层虚弱',
+};
+
+/** 降落：闪避，若本回合没有受到直接伤害，施加1层圣痕 */
+const STIGMATA_BUTTERFLY_DESCENT: CardData = {
+  id: 'enemy_stigmata_butterfly_descent',
+  name: '降落',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.STIGMATA,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '闪避，若本回合没有受到直接伤害，施加1层圣痕',
 };
 
 /** 陷入永恒的沉睡：诅咒，陷入沉睡 */
@@ -9140,6 +9237,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE.name, NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE],
   [NIGHTMARE_MOTH_SCALE_POWDER_BURST.name, NIGHTMARE_MOTH_SCALE_POWDER_BURST],
   [NIGHTMARE_MOTH_BLISSFUL_DREAM.name, NIGHTMARE_MOTH_BLISSFUL_DREAM],
+  [STIGMATA_BUTTERFLY_SWARM_DANCE.name, STIGMATA_BUTTERFLY_SWARM_DANCE],
+  [STIGMATA_BUTTERFLY_ENGRAVE.name, STIGMATA_BUTTERFLY_ENGRAVE],
+  [STIGMATA_BUTTERFLY_RESONANCE.name, STIGMATA_BUTTERFLY_RESONANCE],
+  [STIGMATA_BUTTERFLY_FEATHER_FALL.name, STIGMATA_BUTTERFLY_FEATHER_FALL],
+  [STIGMATA_BUTTERFLY_DESCENT.name, STIGMATA_BUTTERFLY_DESCENT],
   [PILLOW_SPIRIT_ETERNAL_SLUMBER.name, PILLOW_SPIRIT_ETERNAL_SLUMBER],
   [PILLOW_SPIRIT_NAP_INVITATION.name, PILLOW_SPIRIT_NAP_INVITATION],
   [PILLOW_SPIRIT_ETERNAL_SLEEP.name, PILLOW_SPIRIT_ETERNAL_SLEEP],

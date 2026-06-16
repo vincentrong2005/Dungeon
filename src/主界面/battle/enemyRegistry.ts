@@ -265,6 +265,14 @@ const NIGHTMARE_MOTH_CARD = {
   BLISSFUL_DREAM: 'enemy_nightmare_moth_blissful_dream',
 } as const;
 
+const STIGMATA_BUTTERFLY_CARD = {
+  SWARM_DANCE: 'enemy_stigmata_butterfly_swarm_dance',
+  ENGRAVE: 'enemy_stigmata_butterfly_engrave',
+  RESONANCE: 'enemy_stigmata_butterfly_resonance',
+  FEATHER_FALL: 'enemy_stigmata_butterfly_feather_fall',
+  DESCENT: 'enemy_stigmata_butterfly_descent',
+} as const;
+
 const PILLOW_SPIRIT_CARD = {
   NAP_INVITATION: 'enemy_pillow_spirit_nap_invitation',
   ETERNAL_SLEEP: 'enemy_pillow_spirit_eternal_sleep',
@@ -1634,6 +1642,56 @@ const 梦魇蛾: EnemyDefinition = {
     }
 
     return pickCardById(ctx, NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST);
+  },
+};
+
+const 圣痕蝶: EnemyDefinition = {
+  name: '圣痕蝶',
+  stats: {
+    hp: 180,
+    maxHp: 180,
+    mp: 1,
+    minDice: 4,
+    maxDice: 7,
+    effects: [
+      { type: EffectType.SWARM, stacks: 1, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    STIGMATA_BUTTERFLY_CARD.SWARM_DANCE,
+    STIGMATA_BUTTERFLY_CARD.ENGRAVE,
+    STIGMATA_BUTTERFLY_CARD.RESONANCE,
+    STIGMATA_BUTTERFLY_CARD.FEATHER_FALL,
+    STIGMATA_BUTTERFLY_CARD.DESCENT,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerStigmataStacks = Math.max(
+      0,
+      Math.floor(ctx.playerStats.effects.find(e => e.type === EffectType.STIGMATA)?.stacks ?? 0),
+    );
+    const pool = playerStigmataStacks >= 2 && ctx.enemyStats.mp >= 4
+      ? [
+          { value: STIGMATA_BUTTERFLY_CARD.SWARM_DANCE, weight: 20 },
+          { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 20 },
+          { value: STIGMATA_BUTTERFLY_CARD.RESONANCE, weight: 35 },
+          { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 12 },
+          { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 13 },
+        ]
+      : playerStigmataStacks >= 2
+        ? [
+            { value: STIGMATA_BUTTERFLY_CARD.SWARM_DANCE, weight: 25 },
+            { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 45 },
+            { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 15 },
+            { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 15 },
+          ]
+        : [
+            { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 50 },
+            { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 25 },
+            { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 25 },
+          ];
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'stigmataButterflyLastWeightedCardId', pool);
+    return pickCardById(ctx, chosen);
   },
 };
 
@@ -3823,6 +3881,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [血仆.name, 血仆],
   [梦魇驹.name, 梦魇驹],
   [梦魇蛾.name, 梦魇蛾],
+  [圣痕蝶.name, 圣痕蝶],
   [枕头精.name, 枕头精],
   [摩尔.name, 摩尔],
   [梦魔双子.name, 梦魔双子],

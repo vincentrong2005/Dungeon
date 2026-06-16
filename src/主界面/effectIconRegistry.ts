@@ -83,6 +83,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.BLISS_FEAST]: 'fa-solid fa-champagne-glasses',
   [ET.GLUTTONY_CONSTITUTION]: 'fa-solid fa-utensils',
   [ET.PRAYER]: 'fa-solid fa-book-bible',
+  [ET.STIGMATA]: 'fa-brands fa-creative-commons-sampling-plus',
 };
 
 export const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {

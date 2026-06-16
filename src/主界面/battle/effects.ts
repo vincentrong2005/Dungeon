@@ -813,6 +813,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '向神祈祷，神会给出回应',
   },
+  [EffectType.STIGMATA]: {
+    type: EffectType.STIGMATA,
+    name: '圣痕',
+    polarity: 'special',
+    timings: ['onCardPlay'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每打出1张牌时，受到等同层数的真实伤害。战斗中每跳过2次回合减少1层',
+  },
 };
 
 const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
@@ -829,6 +838,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.CORROSION,
   EffectType.CORRODE,
   EffectType.VULNERABLE,
+  EffectType.STIGMATA,
   EffectType.BRAND_MARK,
   EffectType.DAMAGE_BOOST,
   EffectType.IGNORE_DODGE,

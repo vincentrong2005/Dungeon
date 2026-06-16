@@ -1,7 +1,7 @@
 ﻿import { CardType, EffectType, type CardData, type EntityStats } from '../types';
 
 export type RelicRarity = '普通' | '稀有' | '传奇';
-export type RelicCategory = '基础' | '魔导' | '燃烧' | '严寒' | '血池' | '炼金';
+export type RelicCategory = '普通' | '基础' | '魔导' | '燃烧' | '严寒' | '血池' | '炼金';
 
 export type RelicSide = 'player' | 'enemy';
 export type RelicFloatKind = 'shield' | 'mana' | 'heal';
@@ -280,14 +280,14 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '魔力残渣',
     rarity: '普通',
     category: '基础',
-    effect: '每回合结束时，若魔力小于等于2，则回复1点魔力',
-    description: '每回合结束时，若魔力小于等于 2，则回复 1 点魔力。',
+    effect: '每回合结束时，若魔力小于等于4，则回复1点魔力',
+    description: '每回合结束时，若魔力小于等于 4，则回复 1 点魔力。',
     hooks: {
       onTurnEnd: ({ count, side, self, restoreMana, addLog }) => {
-        if (self.mp > 2) return;
+        if (self.mp > 4) return;
         const restored = restoreMana(side, count);
         if (restored > 0) {
-          addLog(`[魔力残渣] 魔力小于等于 2，回复 ${restored} 点魔力。`);
+          addLog(`[魔力残渣] 魔力小于等于 4，回复 ${restored} 点魔力。`);
         }
       },
     },
@@ -1579,7 +1579,7 @@ const RELIC_LIST: readonly RelicData[] = [
     id: 'bloodpool_strawberry',
     name: '小小草莓',
     rarity: '普通',
-    category: '血池',
+    category: '普通',
     effect: '最大生命值+7',
     description: '最大生命值增加7点。',
   },
@@ -1587,7 +1587,7 @@ const RELIC_LIST: readonly RelicData[] = [
     id: 'bloodpool_pear',
     name: '小小梨',
     rarity: '稀有',
-    category: '血池',
+    category: '普通',
     effect: '最大生命值+10',
     description: '最大生命值增加10点。',
   },
@@ -1595,7 +1595,7 @@ const RELIC_LIST: readonly RelicData[] = [
     id: 'bloodpool_mango',
     name: '小小芒果',
     rarity: '传奇',
-    category: '血池',
+    category: '普通',
     effect: '最大生命值+13',
     description: '最大生命值增加13点。',
   },

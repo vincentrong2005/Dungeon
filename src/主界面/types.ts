@@ -389,6 +389,8 @@ export enum EffectType {
   GLUTTONY_CONSTITUTION = '饕餮体质',
   /** 祈祷 — 阶段性全局光环计数，本身无直接效果 */
   PRAYER = '祈祷',
+  /** 圣痕 — 每打出1张牌时受到等量真实伤害；战斗中每跳过2次回合减少1层 */
+  STIGMATA = '圣痕',
 }
 
 /** 效果极性分类 */

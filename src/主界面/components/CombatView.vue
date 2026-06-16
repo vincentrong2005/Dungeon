@@ -2424,6 +2424,57 @@ const applyDirectHpLossWithRelics = (
   return actualDamage;
 };
 
+const triggerStigmataDamageForSide = (side: BattleSide, reason: string): number => {
+  const target = getEntityBySide(side);
+  const stacks = Math.max(0, getEffectStacks(target, ET.STIGMATA));
+  if (stacks <= 0 || target.hp <= 0) return 0;
+  const label = side === 'player' ? '我方' : '敌方';
+  const { actualDamage, logs: damageLogs } = applyDamageToSideWithRelics(
+    side,
+    target,
+    stacks,
+    true,
+    '圣痕',
+  );
+  if (actualDamage > 0) {
+    pushFloatingNumber(side, actualDamage, 'true', '-');
+  }
+  log(`<span class="text-amber-300">${label}[圣痕] ${reason}，受到 ${actualDamage} 点真实伤害。</span>`);
+  for (const damageLog of damageLogs) {
+    const normalized = damageLog.startsWith('受到') ? `${label}${damageLog}` : damageLog;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+  const reviveResult = triggerSwarmReviveIfNeeded(target, side);
+  for (const reviveLog of reviveResult.logs) {
+    log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+  }
+  return actualDamage;
+};
+
+const triggerStigmataOnCardPlay = (side: BattleSide, card: CardData) => {
+  if (card.id === PASS_CARD.id || card.type === CardType.ACTIVE) return;
+  triggerStigmataDamageForSide(side, `打出【${card.name}】触发`);
+};
+
+const tickStigmataSkipDecay = (side: BattleSide) => {
+  const target = getEntityBySide(side);
+  const effect = findEffect(target, ET.STIGMATA);
+  if (!effect || effect.stacks <= 0) return;
+  effect.runtimeCounter = Math.max(0, Math.floor(effect.runtimeCounter ?? 0)) + 1;
+  const label = side === 'player' ? '我方' : '敌方';
+  if (effect.runtimeCounter < 2) {
+    log(`<span class="text-amber-300">${label}[圣痕] 跳过回合计数 ${effect.runtimeCounter}/2。</span>`);
+    return;
+  }
+  effect.runtimeCounter -= 2;
+  const beforeStacks = effect.stacks;
+  reduceEffectStacks(target, ET.STIGMATA, 1);
+  const reduced = Math.min(1, beforeStacks);
+  if (reduced > 0) {
+    log(`<span class="text-amber-300">${label}[圣痕] 战斗中累计跳过2次回合，圣痕 -${reduced}。</span>`);
+  }
+};
+
 const handlePlayerArmorGainFromSingleEvent = (amount: number, source: string) => {
   const gained = Math.max(0, Math.floor(amount));
   if (gained <= 0) return;
@@ -7817,9 +7868,11 @@ const resolveCombat = async (
 
   if (enemySkippedTurn) {
     clearBurnForSide('player', '敌方跳过回合。');
+    tickStigmataSkipDecay('enemy');
   }
   if (playerSkippedTurn) {
     clearBurnForSide('enemy', '我方跳过回合。');
+    tickStigmataSkipDecay('player');
   }
   if (playerSkippedTurn) {
     const lanternCount = getActiveRelicCount('burn_flame_lantern');
@@ -8124,6 +8177,8 @@ const resolveCombat = async (
         logRelicMessage(`[星之核] 【${card.name}】额外结算不再消耗法力。`);
       }
     }
+    triggerStigmataOnCardPlay(source, card);
+    if (endCombatPending.value) return;
     if (card.excape) {
       const sourceLabel = source === 'player' ? '我方' : '敌方';
       log(`<span class="text-zinc-300">${sourceLabel}触发逃离：一方逃离战斗。</span>`);
@@ -8902,6 +8957,19 @@ const resolveCombat = async (
       return;
     }
 
+    if (card.id === 'enemy_stigmata_butterfly_resonance') {
+      const stigmataStacks = Math.max(0, getEffectStacks(defender, ET.STIGMATA));
+      const poisonStacks = stigmataStacks * 2;
+      if (poisonStacks > 0) {
+        applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id });
+        log(`<span class="text-emerald-300">${label}【${card.name}】共振${defenderLabel} ${stigmataStacks} 层圣痕，施加 ${poisonStacks} 层中毒。</span>`);
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】未检测到${defenderLabel}圣痕，未施加中毒。</span>`);
+      }
+      finalizeAndTrack();
+      return;
+    }
+
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
       if (card.id === 'enemy_behemoth_greed') {
         syncCurrentPointForUi();
@@ -9582,6 +9650,9 @@ const resolveCombat = async (
         if (actualDamage > 0) {
           totalActualDamageDealt += actualDamage;
         }
+        if (card.id === 'enemy_stigmata_butterfly_swarm_dance' && actualDamage > 0) {
+          triggerStigmataDamageForSide(defenderSide, `被【${card.name}】第${hit + 1}段造成伤害后触发`);
+        }
 
         if (actualDamage > 0) {
           const thornStacks = getEffectStacks(defender, ET.THORNS);
@@ -9623,7 +9694,6 @@ const resolveCombat = async (
             }
           }
         }
-
         const coldBeforeConsume = getEffectStacks(attacker, ET.COLD);
         const coldLogs = consumeColdAfterDealingDamage(attacker, actualDamage);
         if (source === 'enemy' && coldBeforeConsume > 0) {

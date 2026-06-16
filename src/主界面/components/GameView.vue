@@ -3196,7 +3196,7 @@
                 mp: displayMp,
                 minDice: displayMinDice || 1,
                 maxDice: displayMaxDice || 6,
-                effects: [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' as const }],
+                effects: combatInitialPlayerEffects,
               }"
               @end-combat="handleCombatEnd"
               @open-deck="activeModal = 'deck'"
@@ -3281,7 +3281,7 @@ import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import type { OpeningInfoSubmission } from '../openingProfile';
-import { CardType, EffectType, type ActiveSkillData, type CardData } from '../types';
+import { CardType, EffectType, type ActiveSkillData, type CardData, type EntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
@@ -4385,10 +4385,10 @@ const ownedSingleAcquisitionRelicNameSet = computed<Set<string>>(() => {
   return owned;
 });
 const selectableRelicPool = computed<RelicData[]>(() => {
-  const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
+  const categorySet = new Set<string>(['普通', '基础', ...carriedMagicBooks.value]);
   let pool = getAllRelics().filter(relic => categorySet.has(relic.category));
   if (pool.length === 0) {
-    pool = getAllRelics().filter(relic => relic.category === '基础');
+    pool = getAllRelics().filter(relic => relic.category === '普通' || relic.category === '基础');
   }
   const ownedSingleAcquisitionNames = ownedSingleAcquisitionRelicNameSet.value;
   pool = pool.filter(relic => !isSingleAcquisitionRelic(relic) || !ownedSingleAcquisitionNames.has(relic.name));
@@ -6804,13 +6804,33 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[灵魂受损]': '灵魂被梦魔双子所吞噬一部分，只有打败梦魔双子后才能净化。每场战斗开始时，你获得3层法力枯竭。',
   '[人格排泄]': '被灌入人格排泄剂，理性与意识融化凝结为人格果冻，灵魂被禁锢于排泄出的果冻中，肉体沦为空壳。',
 };
+const parseStigmataNegativeStatus = (status: string): number => {
+  const match = status.trim().match(/^\[(\d+)圣痕\]$/);
+  if (!match) return 0;
+  return Math.max(0, Math.floor(Number(match[1] ?? 0)));
+};
+const formatStigmataNegativeStatus = (stacks: number): string => `[${Math.max(0, Math.floor(stacks))}圣痕]`;
+const getStigmataNegativeStatusStacks = (statuses: string[]): number =>
+  statuses.reduce((max, status) => Math.max(max, parseStigmataNegativeStatus(status)), 0);
+const combatInitialPlayerEffects = computed(() => {
+  const effects = [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' as const }];
+  const stigmataStacks = getStigmataNegativeStatusStacks(normalizeNegativeStatusList(gameStore.statData.$负面状态));
+  if (stigmataStacks > 0) {
+    effects.push({ type: EffectType.STIGMATA, stacks: stigmataStacks, polarity: 'special' as const });
+  }
+  return effects;
+});
 const negativeStatusEntries = computed(() =>
-  normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name: string) => ({
-    name,
-    description:
-      NEGATIVE_STATUS_DESCRIPTION_MAP[name] ??
-      '如果你看到了这串字，且你没有动变量，那么说明你遇到bug了，请反馈给作者。',
-  })),
+  normalizeNegativeStatusList(gameStore.statData.$负面状态).map((name: string) => {
+    const stigmataStacks = parseStigmataNegativeStatus(name);
+    return {
+      name,
+      description: stigmataStacks > 0
+        ? `每场战斗开始时，你获得${stigmataStacks}层圣痕。`
+        : NEGATIVE_STATUS_DESCRIPTION_MAP[name] ??
+          '如果你看到了这串字，且你没有动变量，那么说明你遇到bug了，请反馈给作者。',
+    };
+  }),
 );
 const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(effectiveDisplayMinDice.value, 1)));
 const idolDiceMax = computed(() => Math.max(idolDiceMin.value, toNonNegativeInt(effectiveDisplayMaxDice.value, 6)));
@@ -9639,7 +9659,23 @@ const handleCombatEnd = async (
 ) => {
   const context = activeCombatContext.value;
   const enemyName = combatEnemyName.value || (gameStore.statData._对手名称 as string) || '未知敌人';
-  const negativeStatusesRemove = outcome === 'win' && enemyName === '梦魔双子' ? ['[灵魂受损]'] : [];
+  const currentNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
+  const oldStigmataNegativeStatuses = currentNegativeStatuses.filter(status => parseStigmataNegativeStatus(status) > 0);
+  const finalStigmataStacks = Math.max(
+    0,
+    Math.floor(
+      ((finalStats as EntityStats | null | undefined)?.effects ?? [])
+        .find(effect => effect.type === EffectType.STIGMATA)?.stacks ?? 0,
+    ),
+  );
+  const combatNegativeEffects = [
+    ...(negativeEffects ?? []),
+    ...(finalStigmataStacks > 0 ? [formatStigmataNegativeStatus(finalStigmataStacks)] : []),
+  ];
+  const negativeStatusesRemove = [
+    ...(outcome === 'win' && enemyName === '梦魔双子' ? ['[灵魂受损]'] : []),
+    ...oldStigmataNegativeStatuses,
+  ];
   pendingCombatNarrative.value = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     context,
@@ -9648,7 +9684,7 @@ const handleCombatEnd = async (
     text: buildCombatNarrative(outcome, enemyName, context, logs ?? []),
   };
 
-  queueCombatMvuSync(outcome, finalStats, negativeEffects ?? [], negativeStatusesRemove, goldDelta);
+  queueCombatMvuSync(outcome, finalStats, combatNegativeEffects, negativeStatusesRemove, goldDelta);
   if (context === 'shopRobbery' && enemyName === '沐芯兰') {
     await unlockAlchemySystem();
   }
