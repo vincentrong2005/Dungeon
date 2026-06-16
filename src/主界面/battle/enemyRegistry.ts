@@ -3715,6 +3715,15 @@ const BANQUET_ATTENDANT_CARD = {
   APHRO_FLUID: 'enemy_banquet_attendant_aphro_fluid',
 } as const;
 
+const PENITENT_ANGEL_CARD = {
+  IRON_PINCERS: 'enemy_penitent_angel_iron_pincers',
+  HOLY_SCRIPT: 'enemy_penitent_angel_holy_script',
+  APHRODISIAC_TEARS: 'enemy_penitent_angel_aphrodisiac_tears',
+  LUST_MARK_SCRIPT: 'enemy_penitent_angel_lust_mark_script',
+  CLUSTER_CALL: 'enemy_penitent_angel_cluster_call',
+  COAXING_DODGE: 'enemy_penitent_angel_coaxing_dodge',
+} as const;
+
 const 贝希摩斯: EnemyDefinition = {
   name: '贝希摩斯',
   stats: {
@@ -3791,6 +3800,67 @@ const 侍宴者: EnemyDefinition = {
 
     const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'banquetAttendantLastWeightedCardId', pool);
     return pickCardById(ctx, chosen);
+  },
+};
+
+const 忏悔天使: EnemyDefinition = {
+  name: '忏悔天使',
+  stats: {
+    hp: 50,
+    maxHp: 50,
+    mp: 2,
+    minDice: 4,
+    maxDice: 7,
+    effects: [
+      { type: EffectType.MERCY, stacks: 1, polarity: 'special' },
+      { type: EffectType.SWARM, stacks: 1, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    PENITENT_ANGEL_CARD.IRON_PINCERS,
+    PENITENT_ANGEL_CARD.HOLY_SCRIPT,
+    PENITENT_ANGEL_CARD.APHRODISIAC_TEARS,
+    PENITENT_ANGEL_CARD.LUST_MARK_SCRIPT,
+    PENITENT_ANGEL_CARD.CLUSTER_CALL,
+    PENITENT_ANGEL_CARD.COAXING_DODGE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 5 || ctx.turn === 15 || ctx.turn === 35) {
+      return pickCardById(ctx, PENITENT_ANGEL_CARD.CLUSTER_CALL);
+    }
+
+    const holyScriptHit = ctx.flags.penitentAngelHolyScriptHit === true;
+    const playerStigmata = Math.max(0, ctx.playerStats.effects.find(e => e.type === EffectType.STIGMATA)?.stacks ?? 0);
+    if (holyScriptHit && playerStigmata >= 2 && ctx.enemyStats.mp >= 4) {
+      return pickCardById(ctx, PENITENT_ANGEL_CARD.LUST_MARK_SCRIPT);
+    }
+
+    const playerHasBind = ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0);
+    if (playerHasBind) {
+      return pickCardById(ctx, PENITENT_ANGEL_CARD.HOLY_SCRIPT);
+    }
+
+    if (ctx.enemyStats.mp >= 2) {
+      return pickCardById(
+        ctx,
+        weightedRandomWithoutImmediateRepeat(ctx, 'penitentAngelLastWeightedCardId', [
+          { value: PENITENT_ANGEL_CARD.IRON_PINCERS, weight: 30 },
+          { value: PENITENT_ANGEL_CARD.HOLY_SCRIPT, weight: 10 },
+          { value: PENITENT_ANGEL_CARD.APHRODISIAC_TEARS, weight: 40 },
+          { value: PENITENT_ANGEL_CARD.COAXING_DODGE, weight: 30 },
+        ]),
+      );
+    }
+
+    return pickCardById(
+      ctx,
+      weightedRandomWithoutImmediateRepeat(ctx, 'penitentAngelLastWeightedCardId', [
+        { value: PENITENT_ANGEL_CARD.IRON_PINCERS, weight: 40 },
+        { value: PENITENT_ANGEL_CARD.HOLY_SCRIPT, weight: 15 },
+        { value: PENITENT_ANGEL_CARD.COAXING_DODGE, weight: 45 },
+      ]),
+    );
   },
 };
 
@@ -3910,6 +3980,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [米拉.name, 米拉],
   [贝希摩斯.name, 贝希摩斯],
   [侍宴者.name, 侍宴者],
+  [忏悔天使.name, 忏悔天使],
   [祈祷烛灵.name, 祈祷烛灵],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],

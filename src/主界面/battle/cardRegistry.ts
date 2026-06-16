@@ -134,7 +134,7 @@ const 普通魔法攻击: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗2MP，造成1.5倍点数的伤害',
+  description: '造成1.5倍点数的伤害',
 };
 
 /** 聚焦魔法攻击 */
@@ -150,7 +150,7 @@ const 聚焦魔法攻击: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗3MP，骰子点数*1.5，造成1倍最终点数的伤害',
+  description: '骰子点数*1.5，造成1倍最终点数的伤害',
 };
 
 /** 普通护盾 */
@@ -400,7 +400,7 @@ const 织式备份: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗1MP，造成1倍点数伤害；当此卡在手牌中时，手牌中所有魔法牌魔力消耗-1',
+  description: '造成1倍点数伤害；当此卡在手牌中时，手牌中所有魔法牌魔力消耗-1',
 };
 
 /** 魔压提纯：自身MP翻倍（最多+20）（结算逻辑在 CombatView） */
@@ -497,7 +497,7 @@ const 魔导序曲: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗10MP，点数*1.5，造成1.5倍点数伤害；每次抽到该牌时该牌费用-1',
+  description: '点数*1.5，造成1.5倍点数伤害；每次抽到该牌时该牌费用-1',
 };
 
 /** 法环坍缩：1.5倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
@@ -560,7 +560,7 @@ const 魔力轰炸: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗8MP，点数+15，造成1倍点数伤害',
+  description: '点数+15，造成1倍点数伤害',
 };
 
 /** 涌流：回复魔力并叠加寒冷，连击 */
@@ -852,7 +852,7 @@ const 大日焚: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
   ],
-  description: '消耗8MP，附加0.5倍点数燃烧并使对手燃烧层数翻倍',
+  description: '附加0.5倍点数燃烧并使对手燃烧层数翻倍',
 };
 
 /** 火遁：闪避成功后施加1层燃烧 */
@@ -1108,7 +1108,7 @@ const 赤潮压制: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '消耗2MP，造成1倍点数伤害，敌方流血+2',
+  description: '造成1倍点数伤害，敌方流血+2',
 };
 
 /** 疼痛反馈：造成1倍点数伤害；本场战斗自身每受到2次伤害，伤害+1（加伤结算在 CombatView） */
@@ -1172,7 +1172,7 @@ const 血池扩容: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗2MP，造成1倍点数伤害，并增加等同造成伤害量的临时生命上限',
+  description: '造成1倍点数伤害，并增加等同造成伤害量的临时生命上限',
 };
 
 /** 活性血池：回复0.6倍点数生命，并增加0.6倍点数的临时生命上限 */
@@ -1239,7 +1239,7 @@ const 生命汲取: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗6MP，自身血量低于50%时点数+2，造成1倍点数真实伤害并恢复等量生命值',
+  description: '自身血量低于50%时点数+2，造成1倍点数真实伤害并恢复等量生命值',
 };
 
 /** 驭血术：先给自身施加4层流血，再按流血层数提升点数 */
@@ -1257,7 +1257,7 @@ const 驭血术: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
   ],
-  description: '消耗2MP，为自身施加4层流血。每拥有1层流血点数+1，造成1倍最终点数伤害',
+  description: '为自身施加4层流血。每拥有1层流血点数+1，造成1倍最终点数伤害',
 };
 
 /** 回升：恢复生命、获得流血，连击并过牌 */
@@ -1369,7 +1369,7 @@ const 赤痕爆裂: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '消耗6MP，点数*2，造成1倍伤害，触发对方1次流血并赋予0.5倍点数流血，自身流血+2',
+  description: '点数*2，造成1倍伤害，触发对方1次流血并赋予0.5倍点数流血，自身流血+2',
 };
 
 /** 血位倒转：互换双方当前生命百分比 */
@@ -1384,7 +1384,7 @@ const 血位倒转: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗9MP，互换双方当前生命值百分比',
+  description: '互换双方当前生命值百分比',
 };
 
 /** 血脉迁葬：转移自身流血并连续触发对方流血3次 */
@@ -1399,7 +1399,7 @@ const 血脉迁葬: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗6MP，将自身流血全部转移给对方，并连续触发对方流血3次',
+  description: '将自身流血全部转移给对方，并连续触发对方流血3次',
 };
 
 /** 血影回身：点数+1，闪避成功时回复1倍点数生命并施加1层流血 */
@@ -1528,7 +1528,7 @@ const 五色花: CardData = {
     { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
     { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
   ],
-  description: '消耗8MP，点数+3，施加0.5倍点数的所有元素状态',
+  description: '点数+3，施加0.5倍点数的所有元素状态',
 };
 
 /** 激发：触发元素持续伤害 */
@@ -1544,7 +1544,7 @@ const 激发: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗3MP，触发一次对方的燃烧、中毒、流血和雷电',
+  description: '触发一次对方的燃烧、中毒、流血和雷电',
 };
 
 /** 剧毒粘液：中毒附加，手牌中受击时自毒 */
@@ -1562,7 +1562,7 @@ const 剧毒粘液: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 6 },
   ],
-  description: '消耗2MP，施加6层中毒，若这张牌处于手牌中且被敌方击中时，自身施加6层中毒',
+  description: '施加6层中毒，若这张牌处于手牌中且被敌方击中时，自身施加6层中毒',
 };
 
 /** 金色闪光：群攻，多段，无视闪避 */
@@ -1580,7 +1580,7 @@ const 金色闪光: CardData = {
   cardEffects: [],
   ignoreDodge: true,
   swarmAttack: true,
-  description: '消耗8MP，造成1倍点数伤害，手牌中每有一张稀有卡牌额外造成1次伤害，群攻，无视闪避。',
+  description: '造成1倍点数伤害，手牌中每有一张稀有卡牌额外造成1次伤害，群攻，无视闪避。',
 };
 
 const 创建药剂 = (
@@ -1963,7 +1963,7 @@ const 群体效应: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗6MP，造成1倍最终点数伤害；自身每有1层群集额外造成一次同等伤害',
+  description: '造成1倍最终点数伤害；自身每有1层群集额外造成一次同等伤害',
 };
 
 /** 敏感点侦察：为自己施加0.5倍点数护甲，为敌人施加1层易伤 */
@@ -2067,7 +2067,7 @@ const 敏感化: CardData = {
   description: '施加0.5倍点数的燃烧与易伤，连击',
 };
 
-/** 扫描：消耗2MP，点数+3，造成1倍点数伤害并施加1倍点数易伤 */
+/** 扫描：点数+3，造成1倍点数伤害并施加1倍点数易伤 */
 const 扫描: CardData = {
   id: 'enemy_peeping_eye_scan',
   name: '扫描',
@@ -2834,7 +2834,7 @@ const 祈祷烛灵_虔诚跪拜: CardData = {
     { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   ignoreDodge: true,
-  description: '消耗2MP，点数*2，无视闪避，为自身施加1层祈祷，为对方施加1层性兴奋',
+  description: '点数*2，无视闪避，为自身施加1层祈祷，为对方施加1层性兴奋',
 };
 
 /** 灵性之火：消耗3，施加4层燃烧与1层圣痕 */
@@ -2852,7 +2852,7 @@ const 祈祷烛灵_灵性之火: CardData = {
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
     { kind: 'apply_buff', effectType: EffectType.STIGMATA, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '消耗3MP，施加4层燃烧与1层圣痕',
+  description: '施加4层燃烧与1层圣痕',
 };
 
 /** 共情：消耗2，为自身施加1层共损，为对方施加1层性兴奋；若拼点失败，为自身施加1层祈祷 */
@@ -2878,7 +2878,7 @@ const 祈祷烛灵_共情: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '消耗2MP，为自身施加1层共损，为对方施加1层性兴奋；若拼点失败，为自身施加1层祈祷',
+  description: '为自身施加1层共损，为对方施加1层性兴奋；若拼点失败，为自身施加1层祈祷',
 };
 
 /** 极乐浸礼：消耗2，无视闪避，移除自身3层祈祷，附带负面状态[沉沦] */
@@ -2895,7 +2895,7 @@ const 祈祷烛灵_极乐浸礼: CardData = {
   cardEffects: [],
   ignoreDodge: true,
   negativeEffect: '[沉沦]',
-  description: '消耗2MP，无视闪避，移除自身3层祈祷，附带负面状态[沉沦]',
+  description: '无视闪避，移除自身3层祈祷，附带负面状态[沉沦]',
 };
 
 /** 摇曳烛影：点数*0.5，闪避。若闪避成功或玩家跳过回合，施加1层性兴奋 */
@@ -2982,7 +2982,7 @@ const SPACE_RIFT_BUG_PAIN_AMPLIFICATION: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '消耗3MP，造成2点伤害，施加1层性兴奋',
+  description: '造成2点伤害，施加1层性兴奋',
 };
 
 /** 空间闪烁：闪避，若闪避成功或对方跳过回合则逃离 */
@@ -3289,7 +3289,7 @@ const 碎镜蝠_幻象轰炸: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.LUST_ILLUSION, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '消耗2MP，点数+2，造成0.8倍点数伤害，2连击，施加2层淫靡幻象',
+  description: '点数+2，造成0.8倍点数伤害，2连击，施加2层淫靡幻象',
 };
 
 /** 色情万花筒：消耗8MP，点数+6，造成0.8倍点数伤害。对方每有1层淫靡幻象则额外造成1次伤害 */
@@ -3305,7 +3305,7 @@ const 碎镜蝠_色情万花筒: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗8MP，点数+6，造成0.8倍点数伤害。对方每有1层淫靡幻象则额外造成1次伤害',
+  description: '点数+6，造成0.8倍点数伤害。对方每有1层淫靡幻象则额外造成1次伤害',
 };
 
 /** 自我剥离：若玩家身上有淫靡幻象，点数*2。造成1倍点数伤害，施加5层流血与1层淫靡幻象 */
@@ -3547,7 +3547,7 @@ const NIGHTMARE_MOTH_SCALE_POWDER_HYPNOSIS: CardData = {
     { kind: 'apply_buff', effectType: EffectType.SCALE_POWDER, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   negativeEffect: '[鳞粉]',
-  description: '消耗2，施加4点侵蚀，施加1层鳞粉，并附带负面状态[鳞粉]',
+  description: '施加4点侵蚀，施加1层鳞粉，并附带负面状态[鳞粉]',
 };
 
 /** 群体编梦：消耗3，点数+群集数，法力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀（额外效果在 CombatView） */
@@ -3565,7 +3565,7 @@ const NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   manaDrain: 3,
-  description: '消耗3，点数+群集数，法力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀',
+  description: '点数+群集数，法力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀',
 };
 
 /** 鳞粉爆散：消耗2，自伤30，点数+4，施加1倍点数侵蚀与1层虚弱，拼点失败则施加1层鳞粉 */
@@ -3592,7 +3592,7 @@ const NIGHTMARE_MOTH_SCALE_POWDER_BURST: CardData = {
     },
   ],
   selfDamage: 30,
-  description: '消耗2，自伤30，点数+4，施加1倍点数侵蚀与1层虚弱，拼点失败则施加1层鳞粉',
+  description: '自伤30，点数+4，施加1倍点数侵蚀与1层虚弱，拼点失败则施加1层鳞粉',
 };
 
 /** 极乐之梦：消耗6，造成1倍点数的侵蚀；对方每有1种debuff，点数+2（额外点数逻辑在 CombatView） */
@@ -3609,7 +3609,7 @@ const NIGHTMARE_MOTH_BLISSFUL_DREAM: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '消耗6，造成1倍点数的侵蚀；对方每有1种debuff，点数+2',
+  description: '造成1倍点数的侵蚀；对方每有1种debuff，点数+2',
 };
 
 /** 群蝶乱舞：点数*2，造成0.4倍点数伤害，4连击，每段造成伤害后触发一次对方圣痕 */
@@ -3820,7 +3820,7 @@ const 摩尔_渐进式编织: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗2，将对方身上的鳞粉变为1.5倍（向下取整），本场战斗中每打出1次，点数+1',
+  description: '将对方身上的鳞粉变为1.5倍（向下取整），本场战斗中每打出1次，点数+1',
 };
 
 /** 思念回响：消耗3，点数*1.5，为对方施加0.2倍点数鳞粉 */
@@ -3837,7 +3837,7 @@ const 摩尔_思念回响: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.SCALE_POWDER, target: 'enemy', valueMode: 'point_scale', scale: 0.2 },
   ],
-  description: '消耗3，点数*1.5，为对方施加0.2倍点数鳞粉',
+  description: '点数*1.5，为对方施加0.2倍点数鳞粉',
 };
 
 /** 振翅闪避：点数*0.5，闪避。若本回合没有收到伤害，施加1倍点数的鳞粉 */
@@ -4913,7 +4913,7 @@ const 真言鳞粉: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.SCALE_POWDER, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '消耗6，点数额外增加对方当前魔力值，造成1倍点数伤害，施加1层鳞粉。清空对方魔力，每清除1点则施加2层寒冷',
+  description: '点数额外增加对方当前魔力值，造成1倍点数伤害，施加1层鳞粉。清空对方魔力，每清除1点则施加2层寒冷',
 };
 
 /** 精神施压：施加1倍点数寒冷与1层鳞粉 */
@@ -5328,7 +5328,7 @@ const 折磨循环: CardData = {
   hitCount: 2,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗6MP，点数*2，造成0.2倍点数伤害，2连击，并结算目标流血1次',
+  description: '点数*2，造成0.2倍点数伤害，2连击，并结算目标流血1次',
 };
 
 /** 狂暴化：获得1层增伤与3层无视闪避 */
@@ -6682,10 +6682,10 @@ const 丝线接管: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
     { kind: 'apply_buff', effectType: EffectType.WEAKEN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '消耗4，点数*1.5，施加5层侵蚀与2层虚弱；目标每有8层侵蚀则额外施加1层被操控',
+  description: '点数*1.5，施加5层侵蚀与2层虚弱；目标每有8层侵蚀则额外施加1层被操控',
 };
 
-/** 定格·清醒人偶：消耗8，点数*2，施加0.7倍点数侵蚀与1层眩晕 */
+/** 定格·清醒人偶：点数*2，施加0.7倍点数侵蚀与1层眩晕 */
 const 定格清醒人偶: CardData = {
   id: 'enemy_doll_frozen_awake_puppet',
   name: '定格·清醒人偶',
@@ -6701,7 +6701,7 @@ const 定格清醒人偶: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 0.7 },
     { kind: 'apply_buff', effectType: EffectType.STUN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '消耗8，点数*2，施加0.7倍点数侵蚀与1层眩晕',
+  description: '点数*2，施加0.7倍点数侵蚀与1层眩晕',
 };
 
 /** 感官同步：获得1层共损、自修复与不屈 */
@@ -8134,7 +8134,7 @@ const 魔力球: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗6MP，点数*2，造成1倍点数伤害。若拼点成功则返还6点魔力',
+  description: '点数*2，造成1倍点数伤害。若拼点成功则返还6点魔力',
 };
 
 /** 法力汲取：法力汲取1倍点数 */
@@ -8231,7 +8231,7 @@ const 大狂风: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗2MP，点数*0.5，造成（7-点数）伤害，额外消耗自身至多16MP，每消耗2MP追加1次伤害',
+  description: '点数*0.5，造成（7-点数）伤害，额外消耗自身至多16MP，每消耗2MP追加1次伤害',
 };
 
 /** 大毁灭魔法：消耗12MP，点数*3，增伤具有五倍效果，造成1倍点数伤害，群攻 */
@@ -8248,7 +8248,7 @@ const 大毁灭魔法: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   swarmAttack: true,
-  description: '消耗12MP，点数*3，增伤具有五倍效果，造成1倍点数伤害，群攻',
+  description: '点数*3，增伤具有五倍效果，造成1倍点数伤害，群攻',
 };
 
 /** 深海之约：回复1倍点数魔力，连击，过牌 */
@@ -8367,7 +8367,7 @@ const 米拉_镜像创生: CardData = {
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.2 },
   ],
   ignoreDodge: true,
-  description: '消耗3，点数*1.5，施加0.2倍点数易伤，无视闪避',
+  description: '点数*1.5，施加0.2倍点数易伤，无视闪避',
 };
 
 const 米拉_碎镜嘉年华: CardData = {
@@ -8383,7 +8383,7 @@ const 米拉_碎镜嘉年华: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   manaDrain: 6,
-  description: '消耗5，点数*1.5，造成0.3倍点数的伤害，3连击，法力汲取6',
+  description: '点数*1.5，造成0.3倍点数的伤害，3连击，法力汲取6',
 };
 
 const 米拉_邀舞: CardData = {
@@ -8713,7 +8713,7 @@ const 侍宴者_美食劝诱: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['极乐佳肴'] },
   cardEffects: [],
-  description: '消耗2MP，点数+2，插入1张【极乐佳肴】。',
+  description: '点数+2，插入1张【极乐佳肴】。',
 };
 
 const 侍宴者_大快朵颐: CardData = {
@@ -8734,7 +8734,7 @@ const 侍宴者_大快朵颐: CardData = {
   },
   cardEffects: [],
   ignoreDodge: true,
-  description: '消耗4MP，点数*0.5，插入3张【极乐佳肴】，无视闪避。',
+  description: '点数*0.5，插入3张【极乐佳肴】，无视闪避。',
 };
 
 const 侍宴者_身体示范: CardData = {
@@ -8825,6 +8825,122 @@ const 侍宴者_极乐佳肴: CardData = {
     },
   ],
   description: '为自身施加1层性兴奋，回复15%生命值。若回合结束仍留在手牌，为自身施加7点侵蚀。移除。',
+};
+
+/** 天使铁钳：点数+2，造成1倍点数伤害，施加1层束缚 */
+const 忏悔天使_天使铁钳: CardData = {
+  id: 'enemy_penitent_angel_iron_pincers',
+  name: '天使铁钳',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数+2，造成1倍点数伤害，施加1层束缚',
+};
+
+/** 圣洁书写：造成1倍点数伤害，为对方施加1层圣痕 */
+const 忏悔天使_圣洁书写: CardData = {
+  id: 'enemy_penitent_angel_holy_script',
+  name: '圣洁书写',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STIGMATA, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，为对方施加1层圣痕',
+};
+
+/** 催情圣泪：无视闪避，造成1倍点数伤害，施加1层性兴奋 */
+const 忏悔天使_催情圣泪: CardData = {
+  id: 'enemy_penitent_angel_aphrodisiac_tears',
+  name: '催情圣泪',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  ignoreDodge: true,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '无视闪避，造成1倍点数伤害，施加1层性兴奋',
+};
+
+/** 淫纹书写：点数*2，减少对方1层圣痕，减少对方最大点数1点，造成1倍点数伤害，附带负面状态[淫纹] */
+const 忏悔天使_淫纹刻写: CardData = {
+  id: 'enemy_penitent_angel_lust_mark_script',
+  name: '淫纹书写',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'modify_dice', target: 'enemy', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: -1 },
+  ],
+  negativeEffect: '[淫纹]',
+  description: '点数*2，减少对方1层圣痕，减少对方最大点数1点，造成1倍点数伤害，附带负面状态[淫纹]',
+};
+
+/** 集群呼唤：为自身施加2层群集，自身最小/最大点数+2 */
+const 忏悔天使_集群呼唤: CardData = {
+  id: 'enemy_penitent_angel_cluster_call',
+  name: '集群呼唤',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SWARM, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, minDiceDelta: 2, maxDiceDelta: 2 },
+  ],
+  description: '为自身施加2层群集，自身最小/最大点数+2',
+};
+
+/** 撒娇：闪避，若本回合没有收到直接伤害，为自身施加2层结界 */
+const 忏悔天使_撒娇: CardData = {
+  id: 'enemy_penitent_angel_coaxing_dodge',
+  name: '撒娇',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.BARRIER,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 2,
+    },
+  ],
+  description: '闪避，若本回合没有收到直接伤害，为自身施加2层结界',
 };
 
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
@@ -9278,6 +9394,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [侍宴者_身体示范.name, 侍宴者_身体示范],
   [侍宴者_催情体液.name, 侍宴者_催情体液],
   [侍宴者_极乐佳肴.name, 侍宴者_极乐佳肴],
+  [忏悔天使_天使铁钳.name, 忏悔天使_天使铁钳],
+  [忏悔天使_圣洁书写.name, 忏悔天使_圣洁书写],
+  [忏悔天使_催情圣泪.name, 忏悔天使_催情圣泪],
+  [忏悔天使_淫纹刻写.name, 忏悔天使_淫纹刻写],
+  [忏悔天使_集群呼唤.name, 忏悔天使_集群呼唤],
+  [忏悔天使_撒娇.name, 忏悔天使_撒娇],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

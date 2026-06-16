@@ -813,6 +813,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '向神祈祷，神会给出回应',
   },
+  [EffectType.MERCY]: {
+    type: EffectType.MERCY,
+    name: '怜悯',
+    polarity: 'special',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '战斗开始时标记对方牌库中除诅咒外最多的一类卡牌；对方打出该类牌时点数减半',
+  },
   [EffectType.STIGMATA]: {
     type: EffectType.STIGMATA,
     name: '圣痕',
@@ -838,6 +847,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.CORROSION,
   EffectType.CORRODE,
   EffectType.VULNERABLE,
+  EffectType.MERCY,
   EffectType.STIGMATA,
   EffectType.BRAND_MARK,
   EffectType.DAMAGE_BOOST,

@@ -86,6 +86,7 @@ export class BattleStateMachine {
       lastPlayedCard: null,
       logs: [],
     };
+    this.initializeMercyMarksAtCombatStart();
   }
 
   // ── 公开接口 ──────────────────────────────────────────────
@@ -296,12 +297,14 @@ export class BattleStateMachine {
       baseDice: this.state.playerBaseDice,
       card: pCard,
       entityEffects: this.playerStats.effects,
+      opponentEffects: this.enemyStats.effects,
       relicModifiers: this.playerRelics,
     });
     const eFinal = calculateFinalPoint({
       baseDice: this.state.enemyBaseDice,
       card: eCard,
       entityEffects: this.enemyStats.effects,
+      opponentEffects: this.playerStats.effects,
       relicModifiers: this.enemyRelics,
     });
     this.addLog(`最终点数 — 玩家: ${pFinal} | 敌人: ${eFinal}`);
@@ -501,6 +504,34 @@ export class BattleStateMachine {
 
   private addLog(msg: string): void {
     this.state.logs.push(msg);
+  }
+
+  private initializeMercyMarksAtCombatStart(): void {
+    const configs: Array<{ holder: EntityStats; targetDeck: CardData[]; holderLabel: string; targetLabel: string }> = [
+      { holder: this.playerStats, targetDeck: this.state.enemyDeck, holderLabel: '玩家', targetLabel: '敌人' },
+      { holder: this.enemyStats, targetDeck: this.state.playerDeck, holderLabel: '敌人', targetLabel: '玩家' },
+    ];
+    const markableTypes = [CardType.PHYSICAL, CardType.MAGIC, CardType.FUNCTION, CardType.DODGE];
+    for (const config of configs) {
+      for (const effect of config.holder.effects) {
+        if (effect.type !== EffectType.MERCY || effect.stacks <= 0) continue;
+        const counts = new Map<CardType, number>();
+        for (const card of config.targetDeck) {
+          if (!markableTypes.includes(card.type)) continue;
+          counts.set(card.type, (counts.get(card.type) ?? 0) + 1);
+        }
+        const maxCount = Math.max(0, ...counts.values());
+        if (maxCount <= 0) {
+          effect.mercyCardType = undefined;
+          this.addLog(`[${config.holderLabel}][怜悯] 未找到可标记的非诅咒卡牌。`);
+          continue;
+        }
+        const tiedTypes = markableTypes.filter(type => (counts.get(type) ?? 0) === maxCount);
+        const markedType = tiedTypes[Math.floor(Math.random() * tiedTypes.length)]!;
+        effect.mercyCardType = markedType;
+        this.addLog(`[${config.holderLabel}][怜悯] 标记了${config.targetLabel}牌库中的【${markedType}】牌。`);
+      }
+    }
   }
 }
 

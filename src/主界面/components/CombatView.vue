@@ -1206,6 +1206,7 @@ const cloneEntityStats = (stats: EntityStats): EntityStats => ({
   effects: stats.effects.map((eff) => ({
     ...eff,
     restrictedTypes: eff.restrictedTypes ? [...eff.restrictedTypes] : undefined,
+    mercyCardType: eff.mercyCardType,
   })),
 });
 
@@ -1440,6 +1441,65 @@ const combatState = ref<CombatState>({
   lastPlayedCard: null,
   logs: [`战斗开始！遭遇了 <span class="text-red-500 font-bold">${enemyDisplayName}</span>`],
 });
+
+const MERCY_MARKABLE_CARD_TYPES: readonly CardType[] = [
+  CardType.PHYSICAL,
+  CardType.MAGIC,
+  CardType.FUNCTION,
+  CardType.DODGE,
+];
+
+const pickMercyMarkedCardType = (cards: readonly CardData[]): CardType | null => {
+  const counts = new Map<CardType, number>();
+  for (const card of cards) {
+    if (!MERCY_MARKABLE_CARD_TYPES.includes(card.type)) continue;
+    counts.set(card.type, (counts.get(card.type) ?? 0) + 1);
+  }
+  let maxCount = 0;
+  for (const count of counts.values()) {
+    maxCount = Math.max(maxCount, count);
+  }
+  if (maxCount <= 0) return null;
+  const tiedTypes = MERCY_MARKABLE_CARD_TYPES.filter(type => (counts.get(type) ?? 0) === maxCount);
+  return tiedTypes[Math.floor(Math.random() * tiedTypes.length)] ?? null;
+};
+
+const initializeMercyMarksAtCombatStart = () => {
+  const configs: Array<{
+    holder: EntityStats;
+    holderLabel: string;
+    targetDeck: readonly CardData[];
+    targetLabel: string;
+  }> = [
+    {
+      holder: playerStats.value,
+      holderLabel: '我方',
+      targetDeck: combatState.value.enemyDeck,
+      targetLabel: '敌方',
+    },
+    {
+      holder: enemyStats.value,
+      holderLabel: '敌方',
+      targetDeck: combatState.value.playerDeck,
+      targetLabel: '我方',
+    },
+  ];
+
+  for (const config of configs) {
+    for (const effect of config.holder.effects) {
+      if (effect.type !== ET.MERCY || effect.stacks <= 0) continue;
+      const markedType = pickMercyMarkedCardType(config.targetDeck);
+      effect.mercyCardType = markedType ?? undefined;
+      if (markedType) {
+        combatState.value.logs.push(`<span class="text-fuchsia-300">${config.holderLabel}[怜悯] 标记了${config.targetLabel}牌库中的【${markedType}】牌。</span>`);
+      } else {
+        combatState.value.logs.push(`<span class="text-gray-400">${config.holderLabel}[怜悯] 未找到可标记的非诅咒卡牌。</span>`);
+      }
+    }
+  }
+};
+
+initializeMercyMarksAtCombatStart();
 
 const recordCombatDiscoveryAtStart = () => {
   if (!props.trackDiscovery) return;
@@ -4740,6 +4800,16 @@ const playResolvedCardAnimation = async (source: BattleSide, card: CardData) => 
   }
 };
 
+const getMercyEffectAgainstCard = (source: BattleSide, card: CardData): EffectInstance | null => {
+  if (card.id === PASS_CARD.id) return null;
+  const holder = source === 'player' ? enemyStats.value : playerStats.value;
+  return holder.effects.find(effect => (
+    effect.type === ET.MERCY
+    && effect.stacks > 0
+    && effect.mercyCardType === card.type
+  )) ?? null;
+};
+
 const getCardFinalPoint = (
   source: 'player' | 'enemy',
   card: CardData,
@@ -4982,6 +5052,16 @@ const getCardFinalPoint = (
 
   if (card.id === 'modao_staff_strike') {
     finalPoint = Math.max(finalPoint, baseDice);
+  }
+
+  if (getMercyEffectAgainstCard(source, card)) {
+    const beforeMercy = finalPoint;
+    finalPoint *= 0.5;
+    if (!isPreview) {
+      const holderLabel = source === 'player' ? '敌方' : '我方';
+      const sourceLabel = source === 'player' ? '我方' : '敌方';
+      log(`<span class="text-fuchsia-300">${holderLabel}[怜悯] ${sourceLabel}打出被标记的【${card.type}】牌，点数 x0.5（${formatPointValue(beforeMercy)}→${formatPointValue(finalPoint)}）。</span>`);
+    }
   }
 
   return Math.max(0, Math.floor(finalPoint));
@@ -5336,6 +5416,11 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
   if (card.id === 'modao_staff_strike' && finalPoint < baseDice) {
     finalPoint = baseDice;
     lines.push(`杖击（最终点数不低于原始点数）=> ${finalPoint}`);
+  }
+
+  if (getMercyEffectAgainstCard(source, card)) {
+    finalPoint *= 0.5;
+    lines.push(`怜悯 x0.5 => ${formatPointValue(finalPoint)}`);
   }
 
   lines.push(`最终：${Math.max(0, Math.floor(finalPoint))}`);
@@ -8356,6 +8441,14 @@ const resolveCombat = async (
         }
         log(`<span class="text-violet-300">${label}【${card.name}】移除了自身 ${consumedPrayer} 层祈祷。</span>`);
       }
+      if (card.id === 'enemy_penitent_angel_lust_mark_script') {
+        const beforeStigmata = Math.max(0, getEffectStacks(defender, ET.STIGMATA));
+        const reducedStigmata = Math.min(1, beforeStigmata);
+        if (reducedStigmata > 0) {
+          reduceEffectStacks(defender, ET.STIGMATA, reducedStigmata);
+        }
+        log(`<span class="text-amber-300">${label}【${card.name}】使目标圣痕 -${reducedStigmata}。</span>`);
+      }
       if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value[source]) {
         blankOfBlankBonusThisTurn.value[source] += 1;
         log(`<span class="text-cyan-300">【空白的空白】使${label}本回合卡牌点数额外 +${blankOfBlankBonusThisTurn.value[source]}</span>`);
@@ -9649,6 +9742,9 @@ const resolveCombat = async (
         }
         if (actualDamage > 0) {
           totalActualDamageDealt += actualDamage;
+        }
+        if (source === 'enemy' && card.id === 'enemy_penitent_angel_holy_script' && actualDamage > 0) {
+          aiFlags.penitentAngelHolyScriptHit = true;
         }
         if (card.id === 'enemy_stigmata_butterfly_swarm_dance' && actualDamage > 0) {
           triggerStigmataDamageForSide(defenderSide, `被【${card.name}】第${hit + 1}段造成伤害后触发`);

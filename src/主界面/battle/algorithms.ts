@@ -43,6 +43,9 @@ export function calculateFinalPoint(ctx: PointCalculationContext): number {
   const solitude = ctx.entityEffects.find(e => e.type === EffectType.SOLITUDE)?.stacks ?? 0;
   if (card.id !== 'pass' && solitude > 0) point += solitude;
 
+  const mercy = (ctx.opponentEffects ?? []).find(e => e.type === EffectType.MERCY && e.mercyCardType === card.type);
+  if (card.id !== 'pass' && mercy && mercy.stacks > 0) point *= 0.5;
+
   return Math.max(0, Math.floor(point));
 }
 

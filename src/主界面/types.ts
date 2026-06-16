@@ -389,6 +389,8 @@ export enum EffectType {
   GLUTTONY_CONSTITUTION = '饕餮体质',
   /** 祈祷 — 阶段性全局光环计数，本身无直接效果 */
   PRAYER = '祈祷',
+  /** 怜悯 — 战斗开始时标记对方牌库中除诅咒外最多的一类卡牌；对方打出该类牌时点数减半 */
+  MERCY = '怜悯',
   /** 圣痕 — 每打出1张牌时受到等量真实伤害；战斗中每跳过2次回合减少1层 */
   STIGMATA = '圣痕',
 }
@@ -414,6 +416,8 @@ export interface EffectInstance {
   source?: string;
   /** 运行时计数（可选，供跨回合累计触发次数的效果使用） */
   runtimeCounter?: number;
+  /** 怜悯特有：被标记的对方卡牌类型 */
+  mercyCardType?: CardType;
   /** 剩余持续回合数（可选，回合结束时递减） */
   durationTurnsRemaining?: number;
 }
@@ -515,6 +519,7 @@ export interface PointCalculationContext {
   baseDice: number;
   card: CardData;
   entityEffects: EffectInstance[];
+  opponentEffects?: EffectInstance[];
   relicModifiers: RelicModifiers;
 }
 
