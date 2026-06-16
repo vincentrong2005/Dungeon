@@ -979,13 +979,13 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '魔法镜片',
     rarity: '普通',
     category: '魔导',
-    effect: '战斗开始时给予对方1层易伤',
-    description: '战斗开始时，对敌方施加1层易伤。',
+    effect: '战斗开始时给予对方1层敏感',
+    description: '战斗开始时，对敌方施加1层敏感。',
     hooks: {
       onBattleStart: ({ count, side, addStatusEffect, addLog }) => {
         const targetSide: RelicSide = side === 'player' ? 'enemy' : 'player';
         if (addStatusEffect(targetSide, EffectType.VULNERABLE, count, { source: 'relic:modao_magic_lens' })) {
-          addLog(`[魔法镜片] 对敌方施加 ${count} 层易伤。`);
+          addLog(`[魔法镜片] 对敌方施加 ${count} 层敏感。`);
         }
       },
     },
@@ -995,8 +995,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '荆棘臂甲',
     rarity: '稀有',
     category: '魔导',
-    effect: '若自身被造成0点伤害，则为对方施加1层易伤',
-    description: '若自身被造成0点伤害，则为对方施加1层易伤。',
+    effect: '若自身被造成0点伤害，则为对方施加1层敏感',
+    description: '若自身被造成0点伤害，则为对方施加1层敏感。',
     hooks: {
       onTurnStart: ({ state }) => {
         state['triggeredThisTurn'] = false;
@@ -1007,7 +1007,7 @@ const RELIC_LIST: readonly RelicData[] = [
         if (state['triggeredThisTurn']) return;
         state['triggeredThisTurn'] = true;
         if (addStatusEffect(sourceSide, EffectType.VULNERABLE, 1, { source: 'relic:modao_thorn_armguard' })) {
-          addLog('[荆棘臂甲] 本次受击伤害为0，对方获得1层易伤。');
+          addLog('[荆棘臂甲] 本次受击伤害为0，对方获得1层敏感。');
         }
       },
     },
@@ -1723,8 +1723,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '惊悚唱片',
     rarity: '传奇',
     category: '血池',
-    effect: '回合开始时对双方施加1层流血；流血会被易伤影响',
-    description: '回合开始时对双方施加1层流血，流血现在会被易伤影响。',
+    effect: '回合开始时对双方施加1层流血；流血会被敏感影响',
+    description: '回合开始时对双方施加1层流血，流血现在会被敏感影响。',
     hooks: {
       onTurnStart: ({ count, addStatusEffect, addLog }) => {
         const stacks = Math.max(1, Math.floor(count));

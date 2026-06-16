@@ -544,7 +544,7 @@ const unlockedEffectGroups = computed(() => (
     .filter(group => group.entries.length > 0)
 ));
 
-const tutorialEffectNames = ['寒冷', '燃烧', '中毒', '易伤', '虚弱', '流血'];
+const tutorialEffectNames = ['寒冷', '燃烧', '中毒', '敏感', '虚弱', '流血'];
 const tutorialEffects = computed(() => tutorialEffectNames
   .map((name) => {
     const entry = Object.values(EFFECT_REGISTRY).find(effect => effect.name === name);

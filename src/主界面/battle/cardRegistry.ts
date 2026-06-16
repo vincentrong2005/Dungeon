@@ -682,7 +682,7 @@ const 焚风术: CardData = {
   description: '对敌方造成0.5倍最终点数+目标当前燃烧层数的伤害',
 };
 
-/** 烧伤：点数-2，造成1倍最终点数伤害，易伤+1 */
+/** 烧伤：点数-2，造成1倍最终点数伤害，敏感+1 */
 const 烧伤: CardData = {
   id: 'burn_scorch',
   name: '烧伤',
@@ -697,7 +697,7 @@ const 烧伤: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '点数-2，造成1倍最终点数伤害并施加易伤+1',
+  description: '点数-2，造成1倍最终点数伤害并施加敏感+1',
 };
 
 /** 烈焰打击：1倍最终点数伤害并附加燃烧+1 */
@@ -1844,7 +1844,7 @@ const 灵巧长舌: CardData = {
   description: '点数*1.3，造成1.5倍最终点数的伤害',
 };
 
-/** 血盆大口：造成1倍最终点数伤害，附加被吞食+1，双方易伤+2 */
+/** 血盆大口：造成1倍最终点数伤害，附加被吞食+1，双方敏感+2 */
 const 血盆大口: CardData = {
   id: 'enemy_mimic_maw',
   name: '血盆大口',
@@ -1861,7 +1861,7 @@ const 血盆大口: CardData = {
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'self', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '造成1倍最终点数的伤害与1层被吞食，对双方附加2层易伤',
+  description: '造成1倍最终点数的伤害与1层被吞食，对双方附加2层敏感',
 };
 
 /** 挤压：点数*3，造成0.4倍最终点数伤害 */
@@ -1897,7 +1897,7 @@ const 消化: CardData = {
   description: '点数+2，施加0.5倍点数中毒',
 };
 
-/** 催情粉：造成0.5倍点数伤害，并施加易伤+1 */
+/** 催情粉：造成0.5倍点数伤害，并施加敏感+1 */
 const 催情鳞粉: CardData = {
   id: 'enemy_moth_aphro_powder',
   name: '催情粉',
@@ -1912,7 +1912,7 @@ const 催情鳞粉: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '造成0.5倍最终点数伤害，并施加易伤+1',
+  description: '造成0.5倍最终点数伤害，并施加敏感+1',
 };
 
 /** 敏感化标记：造成0.5倍点数伤害，并施加1倍点数寒冷 */
@@ -1966,7 +1966,7 @@ const 群体效应: CardData = {
   description: '造成1倍最终点数伤害；自身每有1层群集额外造成一次同等伤害',
 };
 
-/** 敏感点侦察：为自己施加0.5倍点数护甲，为敌人施加1层易伤 */
+/** 敏感点侦察：为自己施加0.5倍点数护甲，为敌人施加1层敏感 */
 const 蜜蜂敏感点侦察: CardData = {
   id: 'enemy_blissbee_sensitive_scout',
   name: '敏感点侦察',
@@ -1981,10 +1981,10 @@ const 蜜蜂敏感点侦察: CardData = {
     { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.5 },
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '为自己施加0.5倍点数护甲，为敌人施加1层易伤',
+  description: '为自己施加0.5倍点数护甲，为敌人施加1层敏感',
 };
 
-/** 催情尾针：造成0.5倍点数伤害；若敌人有易伤则额外施加2层中毒（结算逻辑在 CombatView） */
+/** 催情尾针：造成0.5倍点数伤害；若敌人有敏感则额外施加2层中毒（结算逻辑在 CombatView） */
 const 蜜蜂催情尾针: CardData = {
   id: 'enemy_blissbee_aphro_stinger',
   name: '催情尾针',
@@ -1997,7 +1997,7 @@ const 蜜蜂催情尾针: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成0.5倍点数伤害，若敌人有易伤，则额外施加2层中毒',
+  description: '造成0.5倍点数伤害，若敌人有敏感，则额外施加2层中毒',
 };
 
 /** 精准采集：点数*1.5，造成0.5倍点数伤害；若敌人有中毒则额外施加0.5倍点数电击（结算逻辑在 CombatView） */
@@ -2049,7 +2049,7 @@ const 渗透: CardData = {
   description: '为对方增加1倍点数的“侵蚀”',
 };
 
-/** 敏感化：施加0.5倍点数的燃烧与易伤，连击 */
+/** 敏感化：施加0.5倍点数的燃烧与敏感，连击 */
 const 敏感化: CardData = {
   id: 'enemy_peeping_eye_sensitization',
   name: '敏感化',
@@ -2064,10 +2064,10 @@ const 敏感化: CardData = {
     { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
   ],
-  description: '施加0.5倍点数的燃烧与易伤，连击',
+  description: '施加0.5倍点数的燃烧与敏感，连击',
 };
 
-/** 扫描：点数+3，造成1倍点数伤害并施加1倍点数易伤 */
+/** 扫描：点数+3，造成1倍点数伤害并施加1倍点数敏感 */
 const 扫描: CardData = {
   id: 'enemy_peeping_eye_scan',
   name: '扫描',
@@ -2082,7 +2082,7 @@ const 扫描: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '点数+3，造成1倍点数伤害，并施加1倍点数易伤',
+  description: '点数+3，造成1倍点数伤害，并施加1倍点数敏感',
 };
 
 /** 羞耻灼烧：消耗3MP，点数*1.5，造成0.5倍点数伤害并施加1倍点数燃烧 */
@@ -2202,7 +2202,7 @@ const 黑镜规避: CardData = {
   description: '闪避；若闪避成功或对方跳过回合，对方施加1.5倍点数侵蚀',
 };
 
-/** 敏感点开发：点数+1，施加0.5倍点数易伤 */
+/** 敏感点开发：点数+1，施加0.5倍点数敏感 */
 const 敏感点开发: CardData = {
   id: 'enemy_fallen_scholar_sensitive_development',
   name: '敏感点开发',
@@ -2216,7 +2216,7 @@ const 敏感点开发: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
   ],
-  description: '点数+1，施加0.5倍点数易伤',
+  description: '点数+1，施加0.5倍点数敏感',
 };
 
 /** 固定实验体：造成1倍点数伤害，并施加1层束缚 */
@@ -2449,7 +2449,7 @@ const 墨幕规避: CardData = {
   description: '闪避，若闪避成功或对方跳过回合，则施加1倍点数侵蚀',
 };
 
-/** 淫文刻写：功能牌，施加1倍点数易伤，并附带负面效果[淫纹] */
+/** 淫文刻写：功能牌，施加1倍点数敏感，并附带负面效果[淫纹] */
 const 淫文刻写: CardData = {
   id: 'enemy_tentacle_quill_lust_script',
   name: '淫文刻写',
@@ -2463,7 +2463,7 @@ const 淫文刻写: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '施加1倍点数的易伤，并附带负面效果[淫纹]',
+  description: '施加1倍点数的敏感，并附带负面效果[淫纹]',
   negativeEffect: '[淫纹]',
 };
 
@@ -2600,7 +2600,7 @@ const CHAIR_MIMIC_CUSHION_ASSAULT: CardData = {
   description: '造成1倍点数伤害并施加1倍点数疲劳；若目标已有束缚，额外施加0.5倍点数的中毒',
 };
 
-/** 靠背诱导：闪避，若闪避成功或对方跳过回合，则施加1层禁言与1倍点数易伤 */
+/** 靠背诱导：闪避，若闪避成功或对方跳过回合，则施加1层禁言与1倍点数敏感 */
 const CHAIR_MIMIC_BACKREST_LURE: CardData = {
   id: 'enemy_chair_mimic_backrest_lure',
   name: '靠背诱导',
@@ -2629,10 +2629,10 @@ const CHAIR_MIMIC_BACKREST_LURE: CardData = {
       scale: 1.0,
     },
   ],
-  description: '闪避，若闪避成功或对方跳过回合，则施加1层禁言与1倍点数的易伤',
+  description: '闪避，若闪避成功或对方跳过回合，则施加1层禁言与1倍点数的敏感',
 };
 
-/** 桌沿攀附：点数+2，造成1倍点数伤害并施加1层易伤 */
+/** 桌沿攀附：点数+2，造成1倍点数伤害并施加1层敏感 */
 const DESK_TENTACLE_TABLE_EDGE_CLING: CardData = {
   id: 'enemy_desk_tentacle_table_edge_cling',
   name: '桌沿攀附',
@@ -2647,7 +2647,7 @@ const DESK_TENTACLE_TABLE_EDGE_CLING: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '点数+2，造成1倍点数伤害并施加1层易伤',
+  description: '点数+2，造成1倍点数伤害并施加1层敏感',
 };
 
 /** 无声缠绕：闪避，若闪避成功或对方跳过回合，则施加1层束缚 */
@@ -3027,7 +3027,7 @@ const SELINA_SPACE_COMPRESSION_CRUSHBONE: CardData = {
   description: '点数*1.5，造成1.5倍伤害，自伤10，施加1层虚弱',
 };
 
-/** 维度剥离：消耗4，造成1倍点数伤害，并随机将对方的一层增益转移到自身；若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次 */
+/** 维度剥离：消耗4，造成1倍点数伤害，并随机将对方的一层非魔力源泉增益转移到自身；若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次 */
 const SELINA_DIMENSION_STRIP: CardData = {
   id: 'enemy_selina_dimension_strip',
   name: '维度剥离',
@@ -3041,7 +3041,7 @@ const SELINA_DIMENSION_STRIP: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   description:
-    '造成1倍点数伤害，并随机将对方的一层增益转移到自身。若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次',
+    '造成1倍点数伤害，并随机将对方的一层非魔力源泉增益转移到自身。若自身剩余魔力大于等于4，则再消耗4点魔力额外结算一次',
 };
 
 /** 空间折叠：消耗一半魔力并增加等量点数，造成固定5点伤害，对方骰子最小值-1 */
@@ -3864,7 +3864,7 @@ const 摩尔_振翅闪避: CardData = {
   description: '点数*0.5，闪避。若本回合没有收到伤害，施加1倍点数的鳞粉',
 };
 
-/** 手足无措：清空自身所有元素负面状态，移除对方所有鳞粉，移除玩家所有“梦境”。若本回合没有收到伤害，为自身施加5层易伤 */
+/** 手足无措：清空自身所有元素负面状态，移除对方所有鳞粉，移除玩家所有“梦境”。若本回合没有收到伤害，为自身施加5层敏感 */
 const 摩尔_手足无措: CardData = {
   id: 'enemy_moore_flustered',
   name: '手足无措',
@@ -3892,7 +3892,7 @@ const 摩尔_手足无措: CardData = {
       fixedValue: 5,
     },
   ],
-  description: '清空自身元素负面状态，移除对方鳞粉，移除“梦境”。若本回合没有收到伤害，为自身施加5层易伤',
+  description: '清空自身元素负面状态，移除对方鳞粉，移除“梦境”。若本回合没有收到伤害，为自身施加5层敏感',
 };
 
 /** 笨拙：点数-2，闪避成功后造成1倍点数的伤害 */
@@ -4038,7 +4038,7 @@ const DREAM_DEMON_TWIN_MISA_NIGHTMARE_DOMINATION: CardData = {
   description: '点数x10，造成10倍点数真实伤害，无视闪避',
 };
 
-/** 弥音·娇蛮践踏：造成1倍点数伤害并施加1层易伤，销毁 */
+/** 弥音·娇蛮践踏：造成1倍点数伤害并施加1层敏感，销毁 */
 const DREAM_DEMON_TWIN_MIOTO_BRATTY_TRAMPLE: CardData = {
   id: 'enemy_dream_demon_twin_mioto_bratty_trample',
   name: '弥音·娇蛮践踏',
@@ -4053,7 +4053,7 @@ const DREAM_DEMON_TWIN_MIOTO_BRATTY_TRAMPLE: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '造成1倍点数伤害并施加1层易伤，销毁',
+  description: '造成1倍点数伤害并施加1层敏感，销毁',
 };
 
 /** 弥音·玩闹：点数+2，造成1倍点数伤害，施加4层燃烧 */
@@ -4525,7 +4525,7 @@ const 迷雾缭绕: CardData = {
   description: '点数+1，造成2层中毒并插入“性爱幻觉”',
 };
 
-/** 精神震荡：消耗6MP，点数+2，造成1倍点数伤害并施加1层易伤 */
+/** 精神震荡：消耗6MP，点数+2，造成1倍点数伤害并施加1层敏感 */
 const 精神震荡: CardData = {
   id: 'enemy_nymph_mental_shock',
   name: '精神震荡',
@@ -4540,7 +4540,7 @@ const 精神震荡: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '点数+2，造成1倍点数的伤害并施加1层易伤',
+  description: '点数+2，造成1倍点数的伤害并施加1层敏感',
 };
 
 /** 恶作剧：闪避，若闪避成功或对方跳过回合，对对方施加1倍点数的电击 */
@@ -5067,7 +5067,7 @@ const 档案污页: CardData = {
   description: '无法打出',
 };
 
-/** 欲望检索：对目标施加1层易伤，并回复自身2倍点数生命 */
+/** 欲望检索：对目标施加1层敏感，并回复自身2倍点数生命 */
 const 欲望检索: CardData = {
   id: 'enemy_akasha_desire_retrieval',
   name: '欲望检索',
@@ -5082,7 +5082,7 @@ const 欲望检索: CardData = {
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
     { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 2.0 },
   ],
-  description: '对目标施加1层易伤，回复自身2倍点数的生命',
+  description: '对目标施加1层敏感，回复自身2倍点数的生命',
 };
 
 /** 钉缚：造成1.5倍点数伤害 */
@@ -5118,7 +5118,7 @@ const 催眠书页: CardData = {
   description: '造成0.5倍点数伤害，插入1张“档案污页”，附带负面状态[淫乱知识]',
 };
 
-/** 欲望实体化：消耗3MP，点数+2，造成1倍点数伤害并施加0.5倍点数易伤 */
+/** 欲望实体化：消耗3MP，点数+2，造成1倍点数伤害并施加0.5倍点数敏感 */
 const 欲望实体化: CardData = {
   id: 'enemy_akasha_desire_materialization',
   name: '欲望实体化',
@@ -5133,7 +5133,7 @@ const 欲望实体化: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
   ],
-  description: '点数+2，造成1倍点数伤害并施加0.5倍点数易伤',
+  description: '点数+2，造成1倍点数伤害并施加0.5倍点数敏感',
 };
 
 /** 审阅规避：点数-1，闪避；若闪避成功或对方跳过回合，施加2倍点数寒冷 */
@@ -5865,7 +5865,7 @@ const ABYSS_JELLYFISH_CIRCUITOUS: CardData = {
   description: '为自身添加1倍点数护甲与蓄力',
 };
 
-/** 全身包裹：造成0.5倍点数中毒与1层被吞食，为自身施加2层易伤 */
+/** 全身包裹：造成0.5倍点数中毒与1层被吞食，为自身施加2层敏感 */
 const ABYSS_JELLYFISH_FULL_WRAP: CardData = {
   id: 'enemy_abyss_jellyfish_full_wrap',
   name: '全身包裹',
@@ -5882,7 +5882,7 @@ const ABYSS_JELLYFISH_FULL_WRAP: CardData = {
     { kind: 'apply_buff', effectType: EffectType.DEVOUR, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'self', valueMode: 'fixed', fixedValue: 2 },
   ],
-  description: '造成0.5倍点数中毒与1层被吞食，为自身施加2层易伤',
+  description: '造成0.5倍点数中毒与1层被吞食，为自身施加2层敏感',
 };
 
 /** 毒素分泌：造成1倍点数中毒 */
@@ -6265,7 +6265,7 @@ const 面具侍从_舞步: CardData = {
   description: '点数-2，闪避；若本回合未受到直接伤害，则施加1层束缚',
 };
 
-/** 迎宾·强制邀请：造成1倍点数伤害；若对方拥有束缚，则伤害翻倍并追加1层易伤（条件逻辑在 CombatView） */
+/** 迎宾·强制邀请：造成1倍点数伤害；若对方拥有束缚，则伤害翻倍并追加1层敏感（条件逻辑在 CombatView） */
 const 面具侍从_迎宾强制邀请: CardData = {
   id: 'enemy_mask_attendant_forced_invitation',
   name: '迎宾·强制邀请',
@@ -6278,7 +6278,7 @@ const 面具侍从_迎宾强制邀请: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '造成1倍点数伤害；若对方拥有束缚，则伤害翻倍并追加1层易伤',
+  description: '造成1倍点数伤害；若对方拥有束缚，则伤害翻倍并追加1层敏感',
 };
 
 /** 卸下面具：施加2层性兴奋 */
@@ -6428,7 +6428,7 @@ const 合力制服: CardData = {
   description: '点数+自身群集数，造成1倍点数伤害',
 };
 
-/** 弱点侦察：施加1层易伤 */
+/** 弱点侦察：施加1层敏感 */
 const 弱点侦察: CardData = {
   id: 'enemy_tester_weakness_scout',
   name: '弱点侦察',
@@ -6442,7 +6442,7 @@ const 弱点侦察: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
-  description: '施加1层易伤',
+  description: '施加1层敏感',
 };
 
 /** 逻辑分析：增加自身1点最大点数和最小点数 */
@@ -7220,7 +7220,7 @@ const 禁言术: CardData = {
   description: '造成0.5倍点数的伤害并施加1层“禁言”',
 };
 
-/** 淫纹拓印：消耗6MP，点数*1.5，造成0.2倍伤害，5连击，再施加0.5倍点数易伤 */
+/** 淫纹拓印：消耗6MP，点数*1.5，造成0.2倍伤害，5连击，再施加0.5倍点数敏感 */
 const 淫纹拓印: CardData = {
   id: 'enemy_ursula_lust_imprint',
   name: '淫纹拓印',
@@ -7235,7 +7235,7 @@ const 淫纹拓印: CardData = {
   cardEffects: [
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
   ],
-  description: '点数*1.5，造成0.2倍伤害，5连击。再施加0.5倍点数的“易伤”',
+  description: '点数*1.5，造成0.2倍伤害，5连击。再施加0.5倍点数的“敏感”',
 };
 
 /** 束缚法：造成0.8倍点数伤害并施加3层束缚 */
@@ -7262,7 +7262,7 @@ const 束缚法: CardData = {
   description: '造成0.8倍点数的伤害并施加3层束缚',
 };
 
-/** 教鞭惩罚：点数+2，造成1倍点数伤害；若目标有束缚则额外施加0.5倍点数易伤（条件部分在 CombatView） */
+/** 教鞭惩罚：点数+2，造成1倍点数伤害；若目标有束缚则额外施加0.5倍点数敏感（条件部分在 CombatView） */
 const 教鞭惩罚: CardData = {
   id: 'enemy_ursula_whip_punish',
   name: '教鞭惩罚',
@@ -7275,7 +7275,7 @@ const 教鞭惩罚: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数+2，造成1倍点数的伤害；若敌人有“束缚”则额外施加0.5倍点数的“易伤”',
+  description: '点数+2，造成1倍点数的伤害；若敌人有“束缚”则额外施加0.5倍点数的“敏感”',
 };
 
 /** 言出法随：施加0.5倍点数的电击与1层禁言 */
@@ -7618,7 +7618,7 @@ const 溢价护盾: CardData = {
   description: '增加自身1层共损与x点魔力，x为对方魔力值',
 };
 
-/** 设下埋伏：点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加一层法力枯竭；若对方使用闪避，则施加1层易伤 */
+/** 设下埋伏：点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加一层法力枯竭；若对方使用闪避，则施加1层敏感 */
 const 设下埋伏: CardData = {
   id: 'enemy_muxinlan_set_ambush',
   name: '设下埋伏',
@@ -7639,7 +7639,7 @@ const 设下埋伏: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '点数*0.5，闪避。闪避成功或对方跳过回合，则施加1层法力枯竭；若对方使用闪避，则施加1层易伤',
+  description: '点数*0.5，闪避。闪避成功或对方跳过回合，则施加1层法力枯竭；若对方使用闪避，则施加1层敏感',
 };
 
 /** 腐蚀液：清空对方护甲，施加1层腐蚀（结算逻辑在 CombatView） */
@@ -8367,7 +8367,7 @@ const 米拉_镜像创生: CardData = {
     { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.2 },
   ],
   ignoreDodge: true,
-  description: '点数*1.5，施加0.2倍点数易伤，无视闪避',
+  description: '点数*1.5，施加0.2倍点数敏感，无视闪避',
 };
 
 const 米拉_碎镜嘉年华: CardData = {
@@ -8943,6 +8943,80 @@ const 忏悔天使_撒娇: CardData = {
   description: '闪避，若本回合没有收到直接伤害，为自身施加2层结界',
 };
 
+/** 穴位封锁：点数+2，造成1倍点数伤害，施加1层束缚 */
+const 祭司傀儡_穴位封锁: CardData = {
+  id: 'enemy_priest_puppet_acupoint_lock',
+  name: '穴位封锁',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数+2，造成1倍点数伤害，施加1层束缚',
+};
+
+/** 神力抚触：点数*2，施加1倍点数寒冷。若对方有敏感，则额外施加0.7倍点数电击 */
+const 祭司傀儡_神力抚触: CardData = {
+  id: 'enemy_priest_puppet_divine_touch',
+  name: '神力抚触',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数*2，施加1倍点数寒冷。若对方有敏感，则额外施加0.7倍点数电击',
+};
+
+/** 温和净化：随机驱散对方身上一个非魔力源泉增益，为对方施加1层敏感 */
+const 祭司傀儡_温和净化: CardData = {
+  id: 'enemy_priest_puppet_gentle_purification',
+  name: '温和净化',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '随机驱散对方身上一个非魔力源泉增益，为对方施加1层敏感',
+};
+
+/** 构造体展开：为自身施加1层结界，1倍点数的蓄力 */
+const 祭司傀儡_构造体展开: CardData = {
+  id: 'enemy_priest_puppet_construct_unfold',
+  name: '构造体展开',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BARRIER, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  manaDrain: 1,
+  description: '为自身施加1层结界，1倍点数的蓄力，法力汲取1',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -9400,6 +9474,10 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [忏悔天使_淫纹刻写.name, 忏悔天使_淫纹刻写],
   [忏悔天使_集群呼唤.name, 忏悔天使_集群呼唤],
   [忏悔天使_撒娇.name, 忏悔天使_撒娇],
+  [祭司傀儡_穴位封锁.name, 祭司傀儡_穴位封锁],
+  [祭司傀儡_神力抚触.name, 祭司傀儡_神力抚触],
+  [祭司傀儡_温和净化.name, 祭司傀儡_温和净化],
+  [祭司傀儡_构造体展开.name, 祭司傀儡_构造体展开],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

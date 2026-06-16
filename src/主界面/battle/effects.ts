@@ -136,7 +136,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.VULNERABLE]: {
     type: EffectType.VULNERABLE,
-    name: '易伤',
+    name: '敏感',
     polarity: 'debuff',
     timings: ['onBeforeDamage'],
     stackable: true,
@@ -1269,7 +1269,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     const vulnerableStacks = getEffectStacks(entity, EffectType.VULNERABLE);
     if (vulnerableStacks > 0) {
       burnDamage += vulnerableStacks;
-      result.logs.push(`[易伤] 燃烧伤害 +${vulnerableStacks}。`);
+      result.logs.push(`[敏感] 燃烧伤害 +${vulnerableStacks}。`);
     }
     const temperatureDiffStacks = getEffectStacks(entity, EffectType.TEMPERATURE_DIFF);
     if (temperatureDiffStacks > 0) {

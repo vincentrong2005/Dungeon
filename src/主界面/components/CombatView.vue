@@ -105,7 +105,7 @@
             v-if="dreamControlHelpVisible"
             class="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 w-72 rounded-md border border-fuchsia-300/35 bg-black/85 px-2 py-1 text-[10px] leading-relaxed text-fuchsia-50 text-left shadow-lg"
           >
-            当前梦境控制权：{{ dreamControlPercent }}%。0~24%：双子最终点数x1.5且伤害视为真实伤害；0~39%：双子骰子范围+2；61~99%：回合开始至少3层虚弱；76~99%：回合开始至少5层易伤。
+            当前梦境控制权：{{ dreamControlPercent }}%。0~24%：双子最终点数x1.5且伤害视为真实伤害；0~39%：双子骰子范围+2；61~99%：回合开始至少3层虚弱；76~99%：回合开始至少5层敏感。
           </div>
         </div>
         <div
@@ -2143,7 +2143,7 @@ const applyTwinDreamControlThresholds = () => {
     ? Math.max(0, 5 - getEffectStacks(enemyStats.value, ET.VULNERABLE))
     : 0;
   if (vulnerableMissing > 0 && applyStatusEffectWithRelics('enemy', ET.VULNERABLE, vulnerableMissing, { source: 'effect:dream_control' })) {
-    log('<span class="text-fuchsia-300">[梦境控制权] 梦魔双子的易伤至少维持在 5 层。</span>');
+    log('<span class="text-fuchsia-300">[梦境控制权] 梦魔双子的敏感至少维持在 5 层。</span>');
   }
 };
 
@@ -2737,6 +2737,7 @@ const transferRandomBuffStack = (fromSide: BattleSide, toSide: BattleSide, cardN
   const fromEntity = getEntityBySide(fromSide);
   const transferableBuffs = fromEntity.effects.filter((effect) => (
     effect.stacks > 0
+    && effect.type !== ET.MANA_SPRING
     && EFFECT_REGISTRY[effect.type]?.polarity === 'buff'
   ));
   if (transferableBuffs.length <= 0) {
@@ -2751,6 +2752,31 @@ const transferRandomBuffStack = (fromSide: BattleSide, toSide: BattleSide, cardN
   const toLabel = toSide === 'player' ? '我方' : '敌方';
   log(`<span class="text-cyan-300">${toLabel}【${cardName}】将${fromLabel}的 1 层【${effectName}】转移给了自己</span>`);
   return true;
+};
+
+const calculateShockDamage = (target: EntityStats, shockStacks: number) => {
+  const shockDamageCard: CardData = {
+    id: '__shock_damage__',
+    name: '电击',
+    type: CardType.FUNCTION,
+    category: '状态',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1.0, addition: 0 },
+    damageLogic: { mode: 'fixed', value: Math.max(0, Math.floor(shockStacks)) },
+    hitCount: 1,
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '电击触发造成的非真实状态伤害',
+  };
+  return calculateFinalDamage({
+    finalPoint: 0,
+    card: shockDamageCard,
+    attackerEffects: [],
+    defenderEffects: target.effects,
+    relicModifiers: NO_RELIC_MOD,
+    isTrueDamage: false,
+  });
 };
 
 const shouldAllowStatusEffectWithRelics = (
@@ -3569,7 +3595,15 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
   const shockStacks = getEffectStacks(target, ET.SHOCK);
   if (shockStacks <= 0) return;
 
-  const { actualDamage, logs: shockDamageLogs } = applyDamageToSideWithRelics(side, target, shockStacks, false, '电击');
+  const shockDamageResult = calculateShockDamage(target, shockStacks);
+  const { actualDamage, logs: applyDamageLogs } = applyDamageToSideWithRelics(
+    side,
+    target,
+    shockDamageResult.damage,
+    shockDamageResult.isTrueDamage,
+    '电击',
+  );
+  const shockDamageLogs = [...shockDamageResult.logs, ...applyDamageLogs];
   if (actualDamage > 0) {
     pushFloatingNumber(side, actualDamage, 'magic', '-');
   }
@@ -3603,7 +3637,15 @@ const triggerShockProc = (targetSide: BattleSide, reason: string): number => {
     return 0;
   }
 
-  const { actualDamage, logs: shockDamageLogs } = applyDamageToSideWithRelics(targetSide, target, shockStacks, false, '电击');
+  const shockDamageResult = calculateShockDamage(target, shockStacks);
+  const { actualDamage, logs: applyDamageLogs } = applyDamageToSideWithRelics(
+    targetSide,
+    target,
+    shockDamageResult.damage,
+    shockDamageResult.isTrueDamage,
+    '电击',
+  );
+  const shockDamageLogs = [...shockDamageResult.logs, ...applyDamageLogs];
   if (actualDamage > 0) {
     pushFloatingNumber(targetSide, actualDamage, 'magic', '-');
   }
@@ -3866,7 +3908,7 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
   }
   log(`<span class="text-rose-300">[流血] ${reason}触发：${targetLabel}受到 ${actualDamage} 点真实伤害。</span>`);
   if (vulnerableBonus > 0) {
-    logRelicMessage(`[惊悚唱片] ${targetLabel}易伤使本次流血伤害 +${vulnerableBonus}。`);
+    logRelicMessage(`[惊悚唱片] ${targetLabel}敏感使本次流血伤害 +${vulnerableBonus}。`);
   }
   for (const dl of bleedLogs) {
     const normalized = dl.startsWith('受到') ? `${targetLabel}${dl}` : dl;
@@ -5895,7 +5937,7 @@ const applyMvuNegativeStatusesOnBattleStart = () => {
   if (statuses.includes(STATUS_MARKED)) {
     const applied = applyEffect(playerStats.value, ET.VULNERABLE, 2, { source: 'negative-status:[被标记]' });
     if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][被标记] 开局获得了2层易伤。</span>');
+      log('<span class="text-fuchsia-300">[负面状态][被标记] 开局获得了2层敏感。</span>');
     }
   }
 
@@ -8449,6 +8491,20 @@ const resolveCombat = async (
         }
         log(`<span class="text-amber-300">${label}【${card.name}】使目标圣痕 -${reducedStigmata}。</span>`);
       }
+      if (card.id === 'enemy_priest_puppet_gentle_purification') {
+        const removableBuffs = defender.effects.filter(effect => (
+          effect.stacks > 0
+          && effect.type !== ET.MANA_SPRING
+          && EFFECT_REGISTRY[effect.type]?.polarity === 'buff'
+        ));
+        const picked = removableBuffs[Math.floor(Math.random() * removableBuffs.length)];
+        if (picked) {
+          removeEffect(defender, picked.type);
+          log(`<span class="text-cyan-300">${label}【${card.name}】驱散了目标的【${EFFECT_REGISTRY[picked.type]?.name ?? picked.type}】。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可驱散的目标增益。</span>`);
+        }
+      }
       if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value[source]) {
         blankOfBlankBonusThisTurn.value[source] += 1;
         log(`<span class="text-cyan-300">【空白的空白】使${label}本回合卡牌点数额外 +${blankOfBlankBonusThisTurn.value[source]}</span>`);
@@ -8758,7 +8814,7 @@ const resolveCombat = async (
 
     if (card.id === 'enemy_muxinlan_set_ambush' && source === 'enemy' && resolvedPlayerCard.type === CardType.DODGE) {
       applyStatusEffectWithRelics('player', ET.VULNERABLE, 1, { source: card.id });
-      log(`<span class="text-amber-300">${label}【${card.name}】看穿闪避，使我方获得 1 层易伤</span>`);
+      log(`<span class="text-amber-300">${label}【${card.name}】看穿闪避，使我方获得 1 层敏感</span>`);
       finalizeAndTrack();
       return;
     }
@@ -9598,7 +9654,7 @@ const resolveCombat = async (
         log(`<span class="text-rose-300">${label}【${card.name}】按已损生命追加伤害，本次伤害 +${bloodBladeBonus}</span>`);
       }
       if (card.id === 'enemy_mask_attendant_forced_invitation' && targetHasBindBeforeOnUse) {
-        log(`<span class="text-fuchsia-300">${label}【${card.name}】目标已束缚：本次伤害翻倍，并将在命中后追加1层易伤</span>`);
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】目标已束缚：本次伤害翻倍，并将在命中后追加1层敏感</span>`);
       }
 
       if (card.id === 'yanhan_cold_chamber_duplicate') {
@@ -9978,7 +10034,7 @@ const resolveCombat = async (
         }
       }
 
-      // 攻击牌结算后同样触发附带效果（燃烧、易伤等）
+      // 攻击牌结算后同样触发附带效果（燃烧、敏感等）
       if (!applyEffectsBeforeAttack) {
         applyCardEffects();
       }
@@ -10194,7 +10250,18 @@ const resolveCombat = async (
           if (poisonStacks > 0) {
             applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id });
           }
-          log(`<span class="text-emerald-300">${label}【${card.name}】触发：对手易伤存在，额外施加 ${poisonStacks} 层中毒</span>`);
+          log(`<span class="text-emerald-300">${label}【${card.name}】触发：对手敏感存在，额外施加 ${poisonStacks} 层中毒</span>`);
+        }
+      }
+
+      if (card.id === 'enemy_priest_puppet_divine_touch') {
+        const targetHasVulnerable = getEffectStacks(defender, ET.VULNERABLE) > 0;
+        if (targetHasVulnerable) {
+          const shockStacks = Math.max(0, Math.floor(finalPoint * 0.7));
+          if (shockStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.SHOCK, shockStacks, { source: card.id });
+          }
+          log(`<span class="text-indigo-300">${label}【${card.name}】触发：对手敏感存在，额外施加 ${shockStacks} 层电击</span>`);
         }
       }
 
@@ -10226,7 +10293,7 @@ const resolveCombat = async (
           const vulnerableStacks = Math.max(0, Math.floor(finalPoint * 0.5));
           if (vulnerableStacks > 0) {
             applyStatusEffectWithRelics(defenderSide, ET.VULNERABLE, vulnerableStacks, { source: card.id });
-            log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已束缚，额外施加 ${vulnerableStacks} 层易伤</span>`);
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已束缚，额外施加 ${vulnerableStacks} 层敏感</span>`);
           }
         }
       }
@@ -10271,7 +10338,7 @@ const resolveCombat = async (
       }
       if (card.id === 'enemy_mask_attendant_forced_invitation' && targetHasBindBeforeOnUse) {
         if (applyStatusEffectWithRelics(defenderSide, ET.VULNERABLE, 1, { source: card.id })) {
-          log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已束缚，额外施加 1 层易伤</span>`);
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标已束缚，额外施加 1 层敏感</span>`);
         }
       }
       if (card.id === 'enemy_mask_attendant_faceless_bind' && targetHasOrgasmBeforeOnUse) {

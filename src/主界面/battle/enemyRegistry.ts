@@ -3724,6 +3724,13 @@ const PENITENT_ANGEL_CARD = {
   COAXING_DODGE: 'enemy_penitent_angel_coaxing_dodge',
 } as const;
 
+const PRIEST_PUPPET_CARD = {
+  ACUPOINT_LOCK: 'enemy_priest_puppet_acupoint_lock',
+  DIVINE_TOUCH: 'enemy_priest_puppet_divine_touch',
+  GENTLE_PURIFICATION: 'enemy_priest_puppet_gentle_purification',
+  CONSTRUCT_UNFOLD: 'enemy_priest_puppet_construct_unfold',
+} as const;
+
 const 贝希摩斯: EnemyDefinition = {
   name: '贝希摩斯',
   stats: {
@@ -3864,6 +3871,42 @@ const 忏悔天使: EnemyDefinition = {
   },
 };
 
+const 祭司傀儡: EnemyDefinition = {
+  name: '祭司傀儡',
+  stats: {
+    hp: 300,
+    maxHp: 300,
+    mp: 2,
+    minDice: 5,
+    maxDice: 8,
+    effects: [
+      { type: EffectType.SELF_REPAIR, stacks: 3, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    PRIEST_PUPPET_CARD.ACUPOINT_LOCK,
+    PRIEST_PUPPET_CARD.DIVINE_TOUCH,
+    PRIEST_PUPPET_CARD.GENTLE_PURIFICATION,
+    PRIEST_PUPPET_CARD.CONSTRUCT_UNFOLD,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const pool: Array<{ value: string; weight: number }> = [
+      { value: PRIEST_PUPPET_CARD.ACUPOINT_LOCK, weight: 30 },
+      { value: PRIEST_PUPPET_CARD.GENTLE_PURIFICATION, weight: 20 },
+      { value: PRIEST_PUPPET_CARD.CONSTRUCT_UNFOLD, weight: 20 },
+    ];
+
+    if (ctx.enemyStats.mp >= 3) {
+      const hasCharge = ctx.enemyStats.effects.some(e => e.type === EffectType.CHARGE && e.stacks > 0);
+      pool.push({ value: PRIEST_PUPPET_CARD.DIVINE_TOUCH, weight: hasCharge ? 70 : 30 });
+    }
+
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'priestPuppetLastWeightedCardId', pool);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 祈祷烛灵: EnemyDefinition = {
   name: '祈祷烛灵',
   stats: {
@@ -3981,6 +4024,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [贝希摩斯.name, 贝希摩斯],
   [侍宴者.name, 侍宴者],
   [忏悔天使.name, 忏悔天使],
+  [祭司傀儡.name, 祭司傀儡],
   [祈祷烛灵.name, 祈祷烛灵],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],

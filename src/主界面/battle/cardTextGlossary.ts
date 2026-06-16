@@ -211,7 +211,7 @@ export const getCardKeywordGlossaryEntries = (
     {
       key: 'keyword:excape',
       label: '逃离',
-      description: '打出后会立刻结束战斗，通常不会获得金币或卡牌奖励。',
+      description: '打出后会立刻结束战斗，敌人逃离时不会获得金币或卡牌奖励。',
       source: 'keyword',
       polarity: 'special',
     },

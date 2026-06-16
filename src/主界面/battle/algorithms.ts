@@ -131,7 +131,7 @@ export function calculateRawDamage(finalPoint: number, card: CardData): number {
 
 /**
  * 最终伤害（考虑攻防效果）
- * 链路：原始 → 寒冷减 → 增伤加 → 虚弱减 → 易伤增 → 坚固/屏障减伤 → 真实伤害跳过防御 → 结界 → 护甲
+ * 链路：原始 → 寒冷减 → 增伤加 → 虚弱减 → 敏感增 → 坚固/屏障减伤 → 真实伤害跳过防御 → 结界 → 护甲
  */
 export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: number; isTrueDamage: boolean; logs: string[] } {
   const logs: string[] = [];
@@ -199,9 +199,9 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
     return { damage: Math.max(0, Math.floor(damage)), isTrueDamage: true, logs };
   }
 
-  // 易伤仅影响非真实伤害
+  // 敏感仅影响非真实伤害
   const vuln = ctx.defenderEffects.find(e => e.type === EffectType.VULNERABLE)?.stacks ?? 0;
-  if (vuln > 0) { damage += vuln; logs.push(`[易伤] +${vuln}`); }
+  if (vuln > 0) { damage += vuln; logs.push(`[敏感] +${vuln}`); }
 
   // 坚固固定减伤
   const sturdy = ctx.defenderEffects.find(e => e.type === EffectType.STURDY)?.stacks ?? 0;
