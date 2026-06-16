@@ -3731,6 +3731,14 @@ const PRIEST_PUPPET_CARD = {
   CONSTRUCT_UNFOLD: 'enemy_priest_puppet_construct_unfold',
 } as const;
 
+const GRACE_TENTACLE_CARD = {
+  WARM_SILK: 'enemy_grace_tentacle_warm_silk',
+  DIVINE_INFUSION: 'enemy_grace_tentacle_divine_infusion',
+  LOTUS_SUCK: 'enemy_grace_tentacle_lotus_suck',
+  SUSPENDED_SACRIFICE: 'enemy_grace_tentacle_suspended_sacrifice',
+  FORGIVING_EMBRACE: 'enemy_grace_tentacle_forgiving_embrace',
+} as const;
+
 const 贝希摩斯: EnemyDefinition = {
   name: '贝希摩斯',
   stats: {
@@ -3907,6 +3915,38 @@ const 祭司傀儡: EnemyDefinition = {
   },
 };
 
+const 神恩触手: EnemyDefinition = {
+  name: '神恩触手',
+  stats: {
+    hp: 300,
+    maxHp: 300,
+    mp: 0,
+    minDice: 5,
+    maxDice: 8,
+    effects: [{ type: EffectType.REGEN, stacks: 5, polarity: 'buff' }],
+  },
+  deck: buildDeckById([
+    GRACE_TENTACLE_CARD.WARM_SILK,
+    GRACE_TENTACLE_CARD.DIVINE_INFUSION,
+    GRACE_TENTACLE_CARD.LOTUS_SUCK,
+    GRACE_TENTACLE_CARD.SUSPENDED_SACRIFICE,
+    GRACE_TENTACLE_CARD.FORGIVING_EMBRACE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp >= 15) {
+      return pickCardById(ctx, GRACE_TENTACLE_CARD.SUSPENDED_SACRIFICE);
+    }
+
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'graceTentacleLastWeightedCardId', [
+      { value: GRACE_TENTACLE_CARD.WARM_SILK, weight: 25 },
+      { value: GRACE_TENTACLE_CARD.DIVINE_INFUSION, weight: 25 },
+      { value: GRACE_TENTACLE_CARD.LOTUS_SUCK, weight: 25 },
+      { value: GRACE_TENTACLE_CARD.FORGIVING_EMBRACE, weight: 25 },
+    ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 祈祷烛灵: EnemyDefinition = {
   name: '祈祷烛灵',
   stats: {
@@ -4025,6 +4065,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [侍宴者.name, 侍宴者],
   [忏悔天使.name, 忏悔天使],
   [祭司傀儡.name, 祭司傀儡],
+  [神恩触手.name, 神恩触手],
   [祈祷烛灵.name, 祈祷烛灵],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],

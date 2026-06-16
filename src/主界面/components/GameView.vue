@@ -9668,9 +9668,10 @@ const handleCombatEnd = async (
         .find(effect => effect.type === EffectType.STIGMATA)?.stacks ?? 0,
     ),
   );
+  const inheritedStigmataStacks = Math.floor(finalStigmataStacks / 2);
   const combatNegativeEffects = [
     ...(negativeEffects ?? []),
-    ...(finalStigmataStacks > 0 ? [formatStigmataNegativeStatus(finalStigmataStacks)] : []),
+    ...(inheritedStigmataStacks > 0 ? [formatStigmataNegativeStatus(inheritedStigmataStacks)] : []),
   ];
   const negativeStatusesRemove = [
     ...(outcome === 'win' && enemyName === '梦魔双子' ? ['[灵魂受损]'] : []),

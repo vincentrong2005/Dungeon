@@ -9017,6 +9017,98 @@ const 祭司傀儡_构造体展开: CardData = {
   description: '为自身施加1层结界，1倍点数的蓄力，法力汲取1',
 };
 
+/** 温热丝绸：施加1层性兴奋与腐蚀，移除对方护甲（护甲逻辑在 CombatView） */
+const 神恩触手_温热丝绸: CardData = {
+  id: 'enemy_grace_tentacle_warm_silk',
+  name: '温热丝绸',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '为对方施加1层性兴奋与腐蚀，移除对方护甲',
+};
+
+/** 神力灌注：为对方回复1倍点数生命，能量汲取1倍点数 */
+const 神恩触手_神力灌注: CardData = {
+  id: 'enemy_grace_tentacle_divine_infusion',
+  name: '神力灌注',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  manaDrain: { mode: 'point_scale', scale: 1.0 },
+  description: '为对方回复1倍点数生命，能量汲取1倍点数',
+};
+
+/** 莲苞吮吸：点数+2，造成1点真实伤害；对方每有1层性兴奋施加1层虚弱 */
+const 神恩触手_莲苞吮吸: CardData = {
+  id: 'enemy_grace_tentacle_lotus_suck',
+  name: '莲苞吮吸',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'fixed', value: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+2，造成1点真实伤害；对方每有1层性兴奋施加1层虚弱',
+};
+
+/** 悬空献祭：消耗15，点数*3，施加1倍点数的侵蚀，无视闪避 */
+const 神恩触手_悬空献祭: CardData = {
+  id: 'enemy_grace_tentacle_suspended_sacrifice',
+  name: '悬空献祭',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 15,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  ignoreDodge: true,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '消耗15点魔力，点数*3，施加1倍点数的侵蚀，无视闪避',
+};
+
+/** 宽恕之拥：回复2点魔力，获得2倍点数护甲，本回合受伤反施寒冷（反施逻辑在 CombatView） */
+const 神恩触手_宽恕之拥: CardData = {
+  id: 'enemy_grace_tentacle_forgiving_embrace',
+  name: '宽恕之拥',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 2.0 },
+  ],
+  description: '为自身回复2点魔力，获得2倍点数护甲，本回合每收到1次伤害为对方施加2层寒冷',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -9478,6 +9570,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [祭司傀儡_神力抚触.name, 祭司傀儡_神力抚触],
   [祭司傀儡_温和净化.name, 祭司傀儡_温和净化],
   [祭司傀儡_构造体展开.name, 祭司傀儡_构造体展开],
+  [神恩触手_温热丝绸.name, 神恩触手_温热丝绸],
+  [神恩触手_神力灌注.name, 神恩触手_神力灌注],
+  [神恩触手_莲苞吮吸.name, 神恩触手_莲苞吮吸],
+  [神恩触手_悬空献祭.name, 神恩触手_悬空献祭],
+  [神恩触手_宽恕之拥.name, 神恩触手_宽恕之拥],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

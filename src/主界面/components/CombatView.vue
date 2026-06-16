@@ -1953,6 +1953,10 @@ const damageHitTakenThisTurn = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
+const coldRetaliationPerDamageThisTurn = ref<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
 const damageHitTakenThisCombat = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
@@ -2129,6 +2133,17 @@ const getDamageHitTakenThisCombat = (side: BattleSide): number => (
 const getDamageHitTakenThisTurn = (side: BattleSide): number => (
   Math.max(0, Math.floor(damageHitTakenThisTurn.value[side] ?? 0))
 );
+
+const triggerColdRetaliationOnDamageTaken = (side: BattleSide, reason: string) => {
+  const stacks = Math.max(0, Math.floor(coldRetaliationPerDamageThisTurn.value[side] ?? 0));
+  if (stacks <= 0) return;
+  const targetSide = oppositeSide(side);
+  const label = side === 'player' ? '我方' : '敌方';
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  if (applyStatusEffectWithRelics(targetSide, ET.COLD, stacks, { source: 'enemy_grace_tentacle_forgiving_embrace' })) {
+    log(`<span class="text-sky-300">${label}[宽恕之拥] ${reason}，为${targetLabel}施加 ${stacks} 层寒冷。</span>`);
+  }
+};
 
 const applyTwinDreamControlThresholds = () => {
   if (!isTwinBattle || enemyStats.value.hp <= 0 || !isTwinEntity(enemyStats.value)) return;
@@ -2372,6 +2387,7 @@ const applyDamageToSideWithRelics = (
     triggerBloodlineLifesteal(damageOptions.sourceSide, result.actualDamage, reason);
   }
   if (result.actualDamage > 0) {
+    triggerColdRetaliationOnDamageTaken(side, '受到伤害触发');
     const dreamControlKind = damageOptions.dreamControlKind ?? (damageOptions.isDirectDamage ? 'direct' : undefined);
     if (dreamControlKind) {
       updateDreamControlFromHit(damageOptions.sourceSide, side, dreamControlKind, result.actualDamage);
@@ -2471,6 +2487,7 @@ const applyDirectHpLossWithRelics = (
     triggerBloodlineLifesteal(damageOptions.sourceSide, actualDamage, reason);
   }
   if (actualDamage > 0) {
+    triggerColdRetaliationOnDamageTaken(side, '受到生命损失触发');
     const dreamControlKind = damageOptions.dreamControlKind ?? (damageOptions.isDirectDamage ? 'direct' : undefined);
     if (dreamControlKind) {
       updateDreamControlFromHit(damageOptions.sourceSide, side, dreamControlKind, actualDamage);
@@ -7187,6 +7204,7 @@ watch(
       playerDamageTakenThisTurn.value = 0;
       directDamageTakenThisTurn.value = { player: 0, enemy: 0 };
       damageHitTakenThisTurn.value = { player: 0, enemy: 0 };
+      coldRetaliationPerDamageThisTurn.value = { player: 0, enemy: 0 };
       alchemyCatalystActiveThisTurn.value = { player: false, enemy: false };
       freezePumpTriggersThisTurn.value = 0;
       freezeFlowCoreTriggeredThisTurn.value = false;
@@ -8505,6 +8523,13 @@ const resolveCombat = async (
           log(`<span class="text-gray-400">${label}【${card.name}】未找到可驱散的目标增益。</span>`);
         }
       }
+      if (card.id === 'enemy_grace_tentacle_forgiving_embrace') {
+        coldRetaliationPerDamageThisTurn.value[source] = Math.max(
+          coldRetaliationPerDamageThisTurn.value[source] ?? 0,
+          2,
+        );
+        log(`<span class="text-sky-300">${label}【${card.name}】本回合受到伤害时会为对方施加寒冷。</span>`);
+      }
       if (card.id !== PASS_CARD.id && blankOfBlankActiveThisTurn.value[source]) {
         blankOfBlankBonusThisTurn.value[source] += 1;
         log(`<span class="text-cyan-300">【空白的空白】使${label}本回合卡牌点数额外 +${blankOfBlankBonusThisTurn.value[source]}</span>`);
@@ -9671,7 +9696,10 @@ const resolveCombat = async (
         log(`<span class="text-violet-300">${label}【${card.name}】进行 ${totalHitCount} 段攻击</span>`);
       }
 
-      if (card.id === 'enemy_flesh_wall_worm_chamber_contraction') {
+      if (
+        card.id === 'enemy_flesh_wall_worm_chamber_contraction'
+        || card.id === 'enemy_grace_tentacle_warm_silk'
+      ) {
         const armorStacks = Math.max(0, getEffectStacks(defender, ET.ARMOR));
         if (armorStacks > 0) {
           removeEffect(defender, ET.ARMOR);
@@ -9730,6 +9758,7 @@ const resolveCombat = async (
           card.id === 'enemy_elizabeth_boiling_blood_pulse'
           || card.id === 'bloodpool_life_drain'
           || card.id === 'enemy_dream_demon_twin_misa_nightmare_domination'
+          || card.id === 'enemy_grace_tentacle_lotus_suck'
           || (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24);
         const attackerEffectsForDamage = card.id === 'modao_big_destruction'
           ? attacker.effects.filter(effect => effect.type !== ET.DAMAGE_BOOST)
@@ -10007,6 +10036,15 @@ const resolveCombat = async (
           log(`<span class="text-green-300">${label}【${card.name}】回复了 ${healed} 点生命</span>`);
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】未恢复生命</span>`);
+        }
+      }
+      if (card.id === 'enemy_grace_tentacle_lotus_suck') {
+        const orgasmStacks = Math.max(0, getEffectStacks(defender, ET.ORGASM));
+        if (orgasmStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.WEAKEN, orgasmStacks, { source: card.id });
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】按目标性兴奋层数施加 ${orgasmStacks} 层虚弱</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】目标没有性兴奋，未施加虚弱</span>`);
         }
       }
       if (card.id === 'bloodpool_vital_reservoir') {
