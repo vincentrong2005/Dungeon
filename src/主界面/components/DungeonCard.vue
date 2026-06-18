@@ -86,7 +86,7 @@ const props = withDefaults(
     faceDown?: boolean;
     isEnemy?: boolean;
     className?: string;
-    maskLevel?: 'none' | 'partial' | 'full';
+    maskLevel?: 'none' | 'partial' | 'full' | 'void';
   }>(),
   {
     disabled: false,
@@ -105,6 +105,9 @@ defineEmits<{
 const typeColorClass = computed(() => {
   if (props.maskLevel === 'full') {
     return 'border-gray-600 bg-gray-900/40';
+  }
+  if (props.maskLevel === 'void') {
+    return 'border-violet-950/90 bg-violet-950/45 shadow-violet-950/70';
   }
   switch (props.card.type) {
     case CardType.PHYSICAL:
@@ -125,7 +128,7 @@ const typeColorClass = computed(() => {
 });
 
 const typeIcon = computed(() => {
-  if (props.maskLevel === 'full') {
+  if (props.maskLevel === 'full' || props.maskLevel === 'void') {
     return CircleHelp;
   }
   switch (props.card.type) {
@@ -150,6 +153,9 @@ const typeIconColor = computed(() => {
   if (props.maskLevel === 'full') {
     return 'text-gray-400';
   }
+  if (props.maskLevel === 'void') {
+    return 'text-violet-200';
+  }
   switch (props.card.type) {
     case CardType.PHYSICAL:
       return 'text-red-400';
@@ -172,6 +178,9 @@ const typeGradient = computed(() => {
   if (props.maskLevel === 'full') {
     return 'bg-gradient-to-tr from-gray-700 to-black';
   }
+  if (props.maskLevel === 'void') {
+    return 'bg-gradient-to-tr from-violet-950/90 via-purple-950/80 to-black';
+  }
   switch (props.card.type) {
     case CardType.PHYSICAL:
       return 'bg-gradient-to-tr from-red-900 to-black';
@@ -192,7 +201,7 @@ const typeGradient = computed(() => {
 
 const displayName = computed(() => (props.maskLevel === 'none' ? props.card.name : '???'));
 const displayDescription = computed(() => (props.maskLevel === 'none' ? props.card.description : '???'));
-const displayTypeText = computed(() => (props.maskLevel === 'full' ? '?' : props.card.type));
+const displayTypeText = computed(() => (props.maskLevel === 'full' || props.maskLevel === 'void' ? '?' : props.card.type));
 const displayInitial = computed(() => (displayName.value[0] ?? '?'));
 const showManaBadge = computed(() => (
   props.maskLevel === 'none'

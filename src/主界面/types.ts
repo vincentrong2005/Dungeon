@@ -339,6 +339,10 @@ export enum EffectType {
   TWINS = '双生',
   /** 视野模糊 — 仅在出牌阶段隐藏自身手牌名称/描述（永久debuff） */
   MEMORY_FOG = '视野模糊',
+  /** 视线剥夺 — 对方无法识别后两张手牌，并限制对方主动技使用次数 */
+  SIGHT_DEPRIVATION = '视线剥夺',
+  /** 命运观测 — 凝视未来 */
+  FATE_OBSERVATION = '命运观测',
   /** 禁言 — 无法使用魔法卡牌，每回合结束层数-1 */
   SILENCE = '禁言',
   /** 被操控 — 仅可使用与对手意图同类型卡牌，每回合结束层数-1 */
@@ -379,6 +383,8 @@ export enum EffectType {
   ELEMENTAL_ADAPTATION = '元素适应体',
   /** 元素皮层 — 每回合开始若有元素debuff，随机移除1层并回复1点生命 */
   ELEMENTAL_CORTEX = '元素皮层',
+  /** 转阶段 — 回合结束时在中毒量将使血量低于层数时结算中毒量并锁血 */
+  PHASE_TRANSITION = '转阶段',
   /** 实体化 — 每回合-1，归零后清除非实体并满血，骰子最小/最大值+4 */
   MATERIALIZATION = '实体化',
   /** 淫靡幻象 — 回合结束受到真实伤害，层数足够时转化为诅咒镜像 */
@@ -546,6 +552,11 @@ export interface EnemyAIContext {
   deck: CardData[];
   /** 玩家当前手牌（最多传入3张用于读心类逻辑） */
   playerHand?: readonly CardData[];
+  /** 玩家本回合基础/当前点数 */
+  playerBaseDice?: number;
+  /** 敌人本回合基础/当前点数 */
+  enemyBaseDice?: number;
+  getFinalPoint?: (source: 'player' | 'enemy', card: CardData, baseDice: number) => number;
   /** 玩家抽牌堆 */
   playerDeck?: readonly CardData[];
   /** 玩家弃牌堆 */

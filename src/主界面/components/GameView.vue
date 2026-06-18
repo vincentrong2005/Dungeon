@@ -1,5 +1,10 @@
 <template>
-  <div ref="viewportRef" class="ui-viewport" :style="viewportStyle">
+  <div
+    ref="viewportRef"
+    class="ui-viewport"
+    :class="{ 'ui-viewport--compact-portrait': isCompactPortraitLayout }"
+    :style="viewportStyle"
+  >
     <div class="ui-stage" :style="stageStyle">
       <div class="ui-stage-content w-full h-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative">
         <!-- Dynamic Background -->
@@ -110,15 +115,15 @@
         </div>
 
         <!-- Main Content Area -->
-        <div class="h-full min-h-0 w-full flex flex-col items-center">
+        <div class="ui-main-content h-full min-h-0 w-full flex flex-col items-center">
           <div
-            class="w-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
+            class="ui-story-layout w-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
             :style="{ maxWidth: textSettings.containerWidth + 'px' }"
           >
             <!-- Story Text Area -->
             <div
               ref="storyTextContainerRef"
-              class="flex-1 bg-dungeon-dark/80 border border-dungeon-brown rounded-t-lg shadow-2xl backdrop-blur-sm p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar relative"
+              class="ui-story-panel flex-1 bg-dungeon-dark/80 border border-dungeon-brown rounded-t-lg shadow-2xl backdrop-blur-sm p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar relative"
             >
               <!-- Decorative Corners -->
               <div class="absolute top-2 left-2 w-4 h-4 border-t border-l border-dungeon-gold/30"></div>
@@ -373,7 +378,10 @@
         </div>
         <!-- Input Area (Stage-Anchored) -->
         <div class="ui-input-anchor absolute left-0 right-0 bottom-0 z-[60] pb-2">
-          <div class="w-full mx-auto px-4 md:px-12 md:pl-24" :style="{ maxWidth: textSettings.containerWidth + 'px' }">
+          <div
+            class="ui-input-inner w-full mx-auto px-4 md:px-12 md:pl-24"
+            :style="{ maxWidth: textSettings.containerWidth + 'px' }"
+          >
             <div class="ui-input-shell bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
               <div class="w-full flex items-stretch gap-2">
                 <input
@@ -3281,7 +3289,7 @@ import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import type { OpeningInfoSubmission } from '../openingProfile';
-import { CardType, EffectType, type ActiveSkillData, type CardData, type EntityStats } from '../types';
+import { CardType, EffectType, type ActiveSkillData, type CardData, type EffectInstance, type EntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
@@ -3436,12 +3444,16 @@ const handleViewportResize = () => {
 const handleViewportFocusOut = () => {
   window.setTimeout(updateViewportMetrics, 120);
 };
+const isCompactPortraitLayout = computed(
+  () => viewportWidth.value <= 768 && viewportHeight.value > viewportWidth.value,
+);
 const stageScale = computed(() => {
+  if (isCompactPortraitLayout.value) return 1;
   if (viewportWidth.value <= 0 || viewportHeight.value <= 0) return 1;
   return Math.min(viewportWidth.value / STAGE_BASE_WIDTH, viewportHeight.value / STAGE_BASE_HEIGHT, 1);
 });
 const stageStyle = computed(() => ({
-  transform: `translate(-50%, -50%) scale(${stageScale.value})`,
+  transform: isCompactPortraitLayout.value ? 'none' : `translate(-50%, -50%) scale(${stageScale.value})`,
 }));
 const viewportStyle = computed(() => {
   const height = stableViewportHeight.value;
@@ -3464,7 +3476,11 @@ const currentTavernFloorNumber = computed<number>(() => {
   return Math.floor(lastMessageId);
 });
 const showLandscapeHint = computed(
-  () => isTouchViewport.value && viewportHeight.value > viewportWidth.value && !landscapeHintDismissed.value,
+  () =>
+    isTouchViewport.value &&
+    viewportHeight.value > viewportWidth.value &&
+    !isCompactPortraitLayout.value &&
+    !landscapeHintDismissed.value,
 );
 const renderOpeningEntryAsViewportOverlay = computed(
   () => props.showOpeningEntry && isTouchViewport.value && viewportHeight.value > viewportWidth.value,
@@ -6813,10 +6829,10 @@ const formatStigmataNegativeStatus = (stacks: number): string => `[${Math.max(0,
 const getStigmataNegativeStatusStacks = (statuses: string[]): number =>
   statuses.reduce((max, status) => Math.max(max, parseStigmataNegativeStatus(status)), 0);
 const combatInitialPlayerEffects = computed(() => {
-  const effects = [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' as const }];
+  const effects: EffectInstance[] = [{ type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' }];
   const stigmataStacks = getStigmataNegativeStatusStacks(normalizeNegativeStatusList(gameStore.statData.$负面状态));
   if (stigmataStacks > 0) {
-    effects.push({ type: EffectType.STIGMATA, stacks: stigmataStacks, polarity: 'special' as const });
+    effects.push({ type: EffectType.STIGMATA, stacks: stigmataStacks, polarity: 'special' });
   }
   return effects;
 });
@@ -8826,6 +8842,15 @@ watch(
   },
 );
 
+watch(isCompactPortraitLayout, isCompact => {
+  if (!isCompact) return;
+  activeModal.value = null;
+  gameStore.isSaveLoadOpen = false;
+  isVariableUpdateOpen.value = false;
+  isGlossaryReferenceOpen.value = false;
+  closeOptionCompletionMenu();
+});
+
 // ══════════════════════════════════════════════════════════════
 //  [Leave] Portal System — Floor/Area Logic
 // ══════════════════════════════════════════════════════════════
@@ -8914,10 +8939,10 @@ const LORD_MONSTER_BY_AREA: Record<string, string> = {
   春梦回廊: '摩尔',
   极乐宴会厅: '贝希摩斯',
 
-  交媾祭坛: '佩恩',
-  圣水之海: '西格尔',
-  苦修之路: '利维坦',
-  神谕淫纹室: '奥赛罗',
+  交媾祭坛: '奥赛罗',
+  圣水之海: '利维坦',
+  苦修之路: '佩恩',
+  神谕淫纹室: '西格尔',
   女神的产房: '盖亚',
 };
 
@@ -9817,6 +9842,90 @@ onBeforeUnmount(() => {
 .ui-buttons-right {
   transform: scale(1.2);
   transform-origin: top right;
+}
+
+.ui-viewport--compact-portrait .ui-stage {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  transform-origin: center center;
+}
+
+.ui-viewport--compact-portrait .ui-stage-content {
+  width: 100%;
+  height: 100%;
+}
+
+.ui-viewport--compact-portrait .ui-buttons-left {
+  display: none;
+}
+
+.ui-viewport--compact-portrait .ui-status-hud {
+  display: none;
+}
+
+.ui-viewport--compact-portrait .ui-buttons-right {
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 90;
+  transform: none;
+}
+
+.ui-viewport--compact-portrait .ui-buttons-right > :not(:first-child) {
+  display: none;
+}
+
+.ui-viewport--compact-portrait .ui-main-content {
+  align-items: stretch;
+}
+
+.ui-viewport--compact-portrait .ui-story-layout {
+  max-width: none !important;
+  padding: 0 0.75rem calc(5.45rem + env(safe-area-inset-bottom)) !important;
+}
+
+.ui-viewport--compact-portrait .ui-story-panel {
+  border-radius: 0.75rem;
+  padding: 1.05rem !important;
+}
+
+.ui-viewport--compact-portrait .story-floor-indicator {
+  top: 0.72rem;
+  right: 0.95rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+}
+
+.ui-viewport--compact-portrait .ui-action-buttons,
+.ui-viewport--compact-portrait .ui-option-completion-wrap,
+.ui-viewport--compact-portrait .spring-cleanse-float {
+  display: none;
+}
+
+.ui-viewport--compact-portrait .ui-input-anchor {
+  padding: 0 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.ui-viewport--compact-portrait .ui-input-inner {
+  max-width: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.ui-viewport--compact-portrait .ui-input-shell {
+  border: 1px solid rgba(120, 85, 56, 0.92);
+  border-radius: 0.75rem;
+  padding: 0.55rem;
+}
+
+.ui-viewport--compact-portrait .ui-input-field {
+  height: 3.5rem !important;
+  min-width: 0;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  font-size: 1rem !important;
 }
 
 .ui-action-buttons {

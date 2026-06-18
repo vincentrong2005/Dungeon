@@ -9109,6 +9109,170 @@ const 神恩触手_宽恕之拥: CardData = {
   description: '为自身回复2点魔力，获得2倍点数护甲，本回合每收到1次伤害为对方施加2层寒冷',
 };
 
+/** 湮星：造成0.2倍点数伤害，5连击，施加1层敏感；若对方拥有敌意隐藏，则无视闪避 */
+const 奥赛罗_湮星: CardData = {
+  id: 'enemy_othello_annihilation_star',
+  name: '湮星',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
+  hitCount: 5,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成0.2倍点数伤害，5连击，施加1层敏感。若对方拥有“敌意隐藏”，则无视闪避',
+};
+
+/** 昼星：点数*1.5，造成0.1倍点数伤害，8连击 */
+const 奥赛罗_昼星: CardData = {
+  id: 'enemy_othello_day_star',
+  name: '昼星',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.1, scaleAddition: 0 },
+  hitCount: 8,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.5，造成0.1倍点数伤害，8连击',
+};
+
+/** 沉星：消耗3，造成1倍点数伤害，施加1层性兴奋 */
+const 奥赛罗_沉星: CardData = {
+  id: 'enemy_othello_sinking_star',
+  name: '沉星',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，施加1层性兴奋',
+};
+
+/** 敛星：消耗6，造成0.2倍点数伤害，5连击，为自身施加等同于自身魔力的护甲（护甲逻辑在 CombatView） */
+const 奥赛罗_敛星: CardData = {
+  id: 'enemy_othello_gathering_star',
+  name: '敛星',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
+  hitCount: 5,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.2倍点数伤害，5连击，为自身施加等同于自身魔力的护甲',
+};
+
+/** 织星：回复1倍点数生命值，为对方施加1层持续2回合的敌意隐藏 */
+const 奥赛罗_织星: CardData = {
+  id: 'enemy_othello_weaving_star',
+  name: '织星',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.COGNITIVE_INTERFERENCE,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+      durationTurns: 2,
+    },
+  ],
+  description: '回复1倍点数生命值，为对方施加1层持续2回合的敌意隐藏',
+};
+
+/** 星佑：为自身施加2层增伤，若敌方拥有性兴奋，额外为对方施加1层敏感 */
+const 奥赛罗_星佑: CardData = {
+  id: 'enemy_othello_star_blessing',
+  name: '星佑',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '为自身施加2层增伤，若敌方拥有性兴奋，额外为对方施加1层敏感',
+};
+
+/** 寒星：闪避，若闪避成功，插入1张陨 */
+const 奥赛罗_寒星: CardData = {
+  id: 'enemy_othello_cold_star',
+  name: '寒星',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避，若闪避成功，插入1张陨',
+};
+
+/** 星隐：闪避，自身最大骰子点数+1，为自身施加1层不屈 */
+const 奥赛罗_星隐: CardData = {
+  id: 'enemy_othello_star_hidden',
+  name: '星隐',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: 1 },
+    { kind: 'apply_buff', effectType: EffectType.INDOMITABLE, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '闪避，自身最大骰子点数+1，为自身施加1层不屈',
+};
+
+/** 陨：诅咒，自伤10%最大生命值 */
+const 奥赛罗_陨: CardData = {
+  id: 'enemy_othello_meteor',
+  name: '陨',
+  type: CardType.CURSE,
+  category: '诅咒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  selfDamage: { mode: 'percent', value: 10, target: 'hp' },
+  description: '自伤10%最大生命值。',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -9575,6 +9739,15 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [神恩触手_莲苞吮吸.name, 神恩触手_莲苞吮吸],
   [神恩触手_悬空献祭.name, 神恩触手_悬空献祭],
   [神恩触手_宽恕之拥.name, 神恩触手_宽恕之拥],
+  [奥赛罗_湮星.name, 奥赛罗_湮星],
+  [奥赛罗_昼星.name, 奥赛罗_昼星],
+  [奥赛罗_沉星.name, 奥赛罗_沉星],
+  [奥赛罗_敛星.name, 奥赛罗_敛星],
+  [奥赛罗_织星.name, 奥赛罗_织星],
+  [奥赛罗_星佑.name, 奥赛罗_星佑],
+  [奥赛罗_寒星.name, 奥赛罗_寒星],
+  [奥赛罗_星隐.name, 奥赛罗_星隐],
+  [奥赛罗_陨.name, 奥赛罗_陨],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

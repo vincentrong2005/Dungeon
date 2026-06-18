@@ -127,13 +127,30 @@ function extractMainTagByPriority(text: string, tagNames: string[]): string {
   return '';
 }
 
+const BODY_START_MARKER_REGEX = /<!--\s*2\s*[.．。]?\s*正文\s*-->/gi;
+
+function findLastBodyStartMarkerEnd(text: string): number {
+  let lastEnd = -1;
+  let match: RegExpExecArray | null;
+
+  BODY_START_MARKER_REGEX.lastIndex = 0;
+  while ((match = BODY_START_MARKER_REGEX.exec(text)) !== null) {
+    lastEnd = BODY_START_MARKER_REGEX.lastIndex;
+  }
+
+  return lastEnd;
+}
+
 /**
  * 移除思维链块
  * 支持多种变体：<think>, <thinking>, <draft_notes> 及大小写变体等
  * 支持错误闭合（如 <thinking> ... </think>）
+ * 支持将最后一个 <!-- 2.正文 --> 视为正文起点，忽略其之前的全部内容
  * 同时处理未闭合的思维链标签（流式传输中可能出现）
  */
 function removeThinkBlock(text: string): string {
+  const bodyStartMarkerEnd = findLastBodyStartMarkerEnd(text);
+  const sourceText = bodyStartMarkerEnd >= 0 ? text.slice(bodyStartMarkerEnd) : text;
   const thinkTagRegex = /<\s*(\/?)\s*(think|thinking|draft_notes)\b[^>]*>/gi;
 
   let result = '';
@@ -141,16 +158,16 @@ function removeThinkBlock(text: string): string {
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = thinkTagRegex.exec(text)) !== null) {
+  while ((match = thinkTagRegex.exec(sourceText)) !== null) {
     const isClosing = match[1] === '/';
     const tagStart = match.index;
     const tagEnd = thinkTagRegex.lastIndex;
 
     // 仅在思维链外保留内容；思维链内（含标签本身）全部丢弃
-    // 特殊处理：孤立的 </think>/< /thinking> 也视作思维链结束符，结束符之前的段落丢弃
+    // 特殊处理：孤立的思维链结束符会丢弃其之前的段落
     if (!isInsideThinkBlock) {
       if (!isClosing) {
-        result += text.slice(lastIndex, tagStart);
+        result += sourceText.slice(lastIndex, tagStart);
         isInsideThinkBlock = true;
       }
     } else {
@@ -165,7 +182,7 @@ function removeThinkBlock(text: string): string {
 
   // 仅在未进入未闭合思维链时追加尾部文本
   if (!isInsideThinkBlock) {
-    result += text.slice(lastIndex);
+    result += sourceText.slice(lastIndex);
   }
 
   return result.trim();
@@ -181,10 +198,15 @@ function getParserSourceText(text: string, options?: ResponseParserOptions): str
 
 /**
  * 流式显示时：一旦检测到思维链结束标签，则隐藏结束标签之前的全部文本
- * 支持 </think> / </thinking> / </draft_notes> 及大小写变体
+ * 支持 </think> / </thinking> / </draft_notes> / <!-- 2.正文 --> 及大小写变体
  */
 export function filterStreamingTextAfterThinkEnd(text: string): string {
   if (!text) return '';
+
+  const bodyStartMarkerEnd = findLastBodyStartMarkerEnd(text);
+  if (bodyStartMarkerEnd >= 0) {
+    return text.slice(bodyStartMarkerEnd).trimStart();
+  }
 
   const closeThinkTagRegex = /<\s*\/\s*(think|thinking|draft_notes)\b[^>]*>/i;
   const closeMatch = closeThinkTagRegex.exec(text);

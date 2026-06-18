@@ -657,9 +657,9 @@
             class="relative transition-all duration-500 origin-bottom"
             :class="[handCardClass(card), isCardShaking(card) ? 'invalid-card-shake' : '']"
             :style="transitionStyle(500)"
-            @mouseenter="handlePlayerCardHoverStart(card)"
+            @mouseenter="handlePlayerCardHoverStart(card, idx)"
             @mouseleave="handlePlayerCardHoverEnd"
-            @touchstart.passive="handlePlayerCardTouchStart(card)"
+            @touchstart.passive="handlePlayerCardTouchStart(card, idx)"
             @touchend="handlePlayerCardTouchEnd"
             @touchcancel="handlePlayerCardTouchEnd"
           >
@@ -677,7 +677,7 @@
             </div>
             <DungeonCard
               :card="getDisplayHandCard(card)"
-              :mask-level="playerHandMaskLevel"
+              :mask-level="getPlayerHandMaskLevel(idx, card)"
               :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT && combatState.playerSelectedCard !== card"
               @click="handleCardSelect(card, idx)"
             />
@@ -1231,7 +1231,14 @@ const buildEnemyInitialStats = (): EntityStats => {
     baseStats.maxHp = scaledMaxHp;
     baseStats.hp = scaledHp;
   }
-  return normalizeTestStartStats(baseStats);
+  const normalized = normalizeTestStartStats(baseStats);
+  if (enemyDef?.name === '奥赛罗') {
+    const phaseTransition = normalized.effects.find(effect => effect.type === ET.PHASE_TRANSITION);
+    if (phaseTransition) {
+      phaseTransition.stacks = Math.max(1, Math.floor(normalized.maxHp * 0.5));
+    }
+  }
+  return normalized;
 };
 
 const playerStats = ref<EntityStats>(
@@ -1314,6 +1321,8 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.UNSEEABLE]: EyeOff,
   [ET.TWINS]: Link2,
   [ET.MEMORY_FOG]: EyeOff,
+  [ET.SIGHT_DEPRIVATION]: EyeOff,
+  [ET.FATE_OBSERVATION]: Sparkles,
   [ET.SILENCE]: Ban,
   [ET.STURDY]: Shield,
   [ET.SHOCK]: Zap,
@@ -1329,6 +1338,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BLOODLINE]: Heart,
   [ET.CONTRACT_CURSE]: Skull,
   [ET.INK_CREATION]: Scroll,
+  [ET.PHASE_TRANSITION]: Sparkles,
 };
 const getEffectIconComponent = (type: EffectType) => {
   return EFFECT_ICON_COMPONENTS[type] ?? Sparkles;
@@ -1876,13 +1886,43 @@ const enemyIntentMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
     ? 'full'
     : 'none'
 ));
-const playerHandMaskLevel = computed<'none' | 'partial' | 'full'>(() => (
+type HandMaskLevel = 'none' | 'partial' | 'full' | 'void';
+
+const playerHandMaskLevel = computed<HandMaskLevel>(() => (
   isUiMaskingActive.value
     && getEffectStacks(playerStats.value, ET.MEMORY_FOG) > 0
     ? 'partial'
     : 'none'
 ));
-const shouldHidePlayerPreviewCardName = computed(() => playerHandMaskLevel.value !== 'none');
+const isPlayerHandSightDeprived = computed(() => (
+  isUiMaskingActive.value
+  && getEffectStacks(enemyStats.value, ET.SIGHT_DEPRIVATION) > 0
+));
+const sightDeprivedPlayerHandCards = ref<Set<CardData>>(new Set());
+const refreshPlayerSightDeprivationMask = (cards: readonly CardData[]) => {
+  if (getEffectStacks(enemyStats.value, ET.SIGHT_DEPRIVATION) <= 0) {
+    sightDeprivedPlayerHandCards.value = new Set();
+    return;
+  }
+  sightDeprivedPlayerHandCards.value = new Set(cards.slice(1, 3));
+};
+const getPlayerHandMaskLevel = (idx: number, card?: CardData | null): HandMaskLevel => {
+  if (
+    isPlayerHandSightDeprived.value
+    && ((card && sightDeprivedPlayerHandCards.value.has(card)) || idx >= 1 && idx <= 2)
+  ) return 'void';
+  return playerHandMaskLevel.value;
+};
+const isPlayerHandCardVoidMasked = (card: CardData | null): boolean => {
+  if (!card || !isPlayerHandSightDeprived.value) return false;
+  if (sightDeprivedPlayerHandCards.value.has(card)) return true;
+  const idx = combatState.value.playerHand.findIndex(entry => entry === card);
+  return idx >= 1 && idx <= 2;
+};
+const shouldHidePlayerPreviewCardName = computed(() => (
+  playerHandMaskLevel.value !== 'none'
+  || isPlayerHandCardVoidMasked(playerPreviewCardForPointContext.value)
+));
 const playerPlayedCardVisual = ref<PlayerPlayedCardVisual | null>(null);
 const resolvedPlayerCardVisual = ref<ResolvedCardVisual | null>(null);
 const resolvedEnemyCardVisual = ref<ResolvedCardVisual | null>(null);
@@ -4720,6 +4760,60 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
   }
 };
 
+const processPhaseTransitionTurnEnd = (side: BattleSide) => {
+  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  if (target.hp <= 0) return;
+
+  const phaseTransitionStacks = Math.max(0, getEffectStacks(target, ET.PHASE_TRANSITION));
+  const poisonAmount = Math.max(0, getEffectStacks(target, ET.POISON_AMOUNT));
+  if (phaseTransitionStacks <= 0 || poisonAmount <= 0) return;
+  if (target.hp - poisonAmount >= phaseTransitionStacks) return;
+
+  removeEffect(target, ET.POISON_AMOUNT);
+  removeEffect(target, ET.PHASE_TRANSITION);
+
+  const damage = Math.max(0, Math.floor(target.hp - phaseTransitionStacks));
+  let actualDamage = 0;
+  let damageLogs: string[] = [];
+  if (damage > 0) {
+    const result = applyDamageToSideWithRelics(
+      side,
+      target,
+      damage,
+      true,
+      '转阶段',
+      { skipHeartMark: true },
+    );
+    actualDamage = result.actualDamage;
+    damageLogs = result.logs;
+    if (actualDamage > 0) {
+      pushFloatingNumber(side, actualDamage, 'true', '-');
+    }
+  }
+  target.hp = Math.max(target.hp, phaseTransitionStacks);
+
+  const label = side === 'player' ? '我方' : '敌方';
+  log(`<span class="text-violet-300">${label}[转阶段] 中毒量 ${poisonAmount} 将使生命低于 ${phaseTransitionStacks}，结算中毒量并锁定生命不低于 ${phaseTransitionStacks}（实际伤害 ${actualDamage}）。</span>`);
+  for (const poisonLog of damageLogs) {
+    const normalized = poisonLog.startsWith('受到') ? `${label}${poisonLog}` : poisonLog;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+};
+
+const triggerOthelloHalfHpDebuffCleanseIfNeeded = (nextHp: number, prevHp: number) => {
+  if (enemyDef?.name !== '\u5965\u8d5b\u7f57') return;
+  if (aiFlags.othelloHalfHpDebuffCleanseDone === true) return;
+  if (!Number.isFinite(nextHp) || !Number.isFinite(prevHp)) return;
+
+  const halfHp = enemyStats.value.maxHp * 0.5;
+  if (prevHp <= halfHp || nextHp > halfHp) return;
+
+  aiFlags.othelloHalfHpDebuffCleanseDone = true;
+  enemyStats.value.effects = enemyStats.value.effects.filter(
+    effect => EFFECT_REGISTRY[effect.type]?.polarity !== 'debuff',
+  );
+};
+
 const queueCardNegativeEffectForPlayer = (source: BattleSide, card: CardData) => {
   if (source !== 'enemy') return;
   const negativeEffect = (card.negativeEffect ?? '').trim();
@@ -5171,7 +5265,12 @@ const formatRelicPointDelta = (relicId: string, before: number, after: number): 
   return `${delta >= 0 ? '+' : ''}${formatPointValue(delta)}（${formatPointValue(before)}→${formatPointValue(after)}）`;
 };
 
-const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseDice: number): string[] => {
+const buildCardPreviewLines = (
+  source: 'player' | 'enemy',
+  card: CardData,
+  baseDice: number,
+  options?: { hideDetails?: boolean },
+): string[] => {
   const attacker = source === 'player' ? playerStats.value : enemyStats.value;
   const defender = source === 'player' ? enemyStats.value : playerStats.value;
   const lines: string[] = [];
@@ -5482,7 +5581,11 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     lines.push(`怜悯 x0.5 => ${formatPointValue(finalPoint)}`);
   }
 
-  lines.push(`最终：${Math.max(0, Math.floor(finalPoint))}`);
+  const finalLine = `最终：${Math.max(0, Math.floor(finalPoint))}`;
+  lines.push(finalLine);
+  if (options?.hideDetails) {
+    return [`原始：${baseDice}`, '？？？', finalLine];
+  }
   return lines;
 };
 
@@ -5490,13 +5593,19 @@ const getCardPreviewPoint = (source: 'player' | 'enemy', card: CardData, baseDic
   return getCardFinalPoint(source, card, baseDice, true);
 };
 
-const handlePlayerCardHoverStart = (card: CardData) => {
+const handlePlayerCardHoverStart = (card: CardData, idx: number) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   const displayCard = getDisplayHandCard(card);
+  const maskLevel = getPlayerHandMaskLevel(idx, card);
   playerPreviewCardForPointContext.value = card;
   previewPlayerDice.value = getCardPreviewPoint('player', displayCard, combatState.value.playerBaseDice);
-  playerDicePreviewCardName.value = displayCard.name;
-  playerDicePreviewLines.value = buildCardPreviewLines('player', displayCard, combatState.value.playerBaseDice);
+  playerDicePreviewCardName.value = maskLevel === 'none' ? displayCard.name : '';
+  playerDicePreviewLines.value = buildCardPreviewLines(
+    'player',
+    displayCard,
+    combatState.value.playerBaseDice,
+    { hideDetails: maskLevel === 'void' },
+  );
 };
 
 const handlePlayerCardHoverEnd = () => {
@@ -5507,16 +5616,22 @@ const handlePlayerCardHoverEnd = () => {
   playerPreviewCardForPointContext.value = null;
 };
 
-const handlePlayerCardTouchStart = (card: CardData) => {
+const handlePlayerCardTouchStart = (card: CardData, idx: number) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
   if (hoverPreviewTimer) clearTimeout(hoverPreviewTimer);
   hoverPreviewTimer = setTimeout(() => {
     if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
     const displayCard = getDisplayHandCard(card);
+    const maskLevel = getPlayerHandMaskLevel(idx, card);
     playerPreviewCardForPointContext.value = card;
     previewPlayerDice.value = getCardPreviewPoint('player', displayCard, combatState.value.playerBaseDice);
-    playerDicePreviewCardName.value = displayCard.name;
-    playerDicePreviewLines.value = buildCardPreviewLines('player', displayCard, combatState.value.playerBaseDice);
+    playerDicePreviewCardName.value = maskLevel === 'none' ? displayCard.name : '';
+    playerDicePreviewLines.value = buildCardPreviewLines(
+      'player',
+      displayCard,
+      combatState.value.playerBaseDice,
+      { hideDetails: maskLevel === 'void' },
+    );
   }, 260);
 };
 
@@ -6102,6 +6217,30 @@ const applyFantasyEmbraceBattleStart = (ownerSide: BattleSide) => {
   log(`<span class="text-fuchsia-300">[${ownerLabel}][虚妄之拥] 开局向${targetLabel}抽牌堆插入了2张【梦境】。</span>`);
 };
 
+const applySightDeprivationBattleStart = (ownerSide: BattleSide) => {
+  const owner = ownerSide === 'player' ? playerStats.value : enemyStats.value;
+  if (getEffectStacks(owner, ET.SIGHT_DEPRIVATION) <= 0) return;
+
+  const cardName = '陨';
+  const card = getCardByName(cardName);
+  if (!card) {
+    log('<span class="text-red-400">[视线剥夺] 未找到【陨】卡牌定义。</span>');
+    return;
+  }
+
+  const targetSide: BattleSide = ownerSide === 'player' ? 'enemy' : 'player';
+  const battleCard = cloneCardForBattle(card);
+  if (targetSide === 'player') {
+    combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, battleCard);
+  } else {
+    combatState.value.enemyDeck = insertCardIntoDeckRandomly(combatState.value.enemyDeck, battleCard);
+  }
+
+  const ownerLabel = ownerSide === 'player' ? '我方' : '敌方';
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  log(`<span class="text-violet-300">[${ownerLabel}][视线剥夺] 开局向${targetLabel}抽牌堆插入了1张【陨】。</span>`);
+};
+
 triggerPlayerRelicLifecycleHooks('onBattleStart');
 applyAlchemyBattleStartRelics();
 applyMvuNegativeStatusesOnBattleStart();
@@ -6109,6 +6248,8 @@ applyDifficultyBattleStartEffects();
 applyCustomDifficultyBattleStartEffects();
 applyFantasyEmbraceBattleStart('player');
 applyFantasyEmbraceBattleStart('enemy');
+applySightDeprivationBattleStart('player');
+applySightDeprivationBattleStart('enemy');
 applyUnseeableAura('player', 'battle_start');
 applyUnseeableAura('enemy', 'battle_start');
 
@@ -6270,6 +6411,9 @@ const activeSkillDisabledReason = (idx: number): string | null => {
 
   const runtime = activeSkillRuntime.value[idx];
   const cooldown = activeSkillCooldownRemaining(idx);
+  if (getEffectStacks(enemyStats.value, ET.SIGHT_DEPRIVATION) > 0 && runtime && runtime.usedCount >= 1) {
+    return '视线剥夺中，本场该主动技只能使用1次';
+  }
   if (cooldown > 0) return `冷却中（剩余${cooldown}回合）`;
   if (getActiveRelicCount('basic_acceleration_clock') > 0 && Math.max(0, Math.floor(skill.Cooldown)) <= 1) {
     const usedThisTurn = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0));
@@ -6899,6 +7043,9 @@ const selectEnemyTwinCards = (): [CardData, CardData] => {
       playerStats: playerStats.value,
       deck: combatState.value.enemyDeck,
       playerHand: combatState.value.playerHand,
+      playerBaseDice: combatState.value.playerBaseDice,
+      enemyBaseDice: combatState.value.enemyBaseDice,
+      getFinalPoint: (source, card, baseDice) => getCardFinalPoint(source, card, baseDice, true),
       playerDeck: combatState.value.playerDeck,
       playerDiscard: combatState.value.discardPile,
       previousPlayerCardType: previousPlayerLastCardType.value,
@@ -7026,6 +7173,9 @@ function selectEnemyCard(): CardData {
       playerStats: playerStats.value,
       deck: combatState.value.enemyDeck,
       playerHand: combatState.value.playerHand,
+      playerBaseDice: combatState.value.playerBaseDice,
+      enemyBaseDice: combatState.value.enemyBaseDice,
+      getFinalPoint: (source, card, baseDice) => getCardFinalPoint(source, card, baseDice, true),
       playerDeck: combatState.value.playerDeck,
       playerDiscard: combatState.value.discardPile,
       previousPlayerCardType: previousPlayerLastCardType.value,
@@ -7555,6 +7705,7 @@ watch(
           applyOnDrawCardEffects(drawn);
           markDrawnCardsAnimation(drawn);
           combatState.value.playerHand = drawn;
+          refreshPlayerSightDeprivationMask(drawn);
           combatState.value.playerDeck = newDeck;
           combatState.value.discardPile = newDiscard;
           resetTwinTurnSelections();
@@ -7750,7 +7901,12 @@ const isClashable = (card1: CardData, card2: CardData): boolean => {
 
   const bypassDodge =
     (card1.ignoreDodge && t2 === CardType.DODGE && (t1 === CardType.PHYSICAL || t1 === CardType.MAGIC))
-    || (card2.ignoreDodge && t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC));
+    || (card2.ignoreDodge && t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC))
+    || (
+      card2.id === 'enemy_othello_annihilation_star'
+      && t1 === CardType.DODGE
+      && getEffectStacks(playerStats.value, ET.COGNITIVE_INTERFERENCE) > 0
+    );
   if (bypassDodge) return false;
 
   if (t1 === CardType.PHYSICAL && t2 === CardType.PHYSICAL) return true;
@@ -8212,6 +8368,15 @@ const resolveCombat = async (
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
       triggerShadowAssaultDamage('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
+      if (resolvedEnemyCard.id === 'enemy_othello_cold_star') {
+        const meteor = getCardByName('陨');
+        if (meteor) {
+          combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, cloneCardForBattle(meteor));
+          log(`<span class="text-violet-300">敌方【${resolvedEnemyCard.name}】闪避成功，向我方抽牌堆插入了1张【陨】。</span>`);
+        } else {
+          log('<span class="text-red-400">敌方【寒星】未找到【陨】卡牌定义。</span>');
+        }
+      }
       if (resolvedEnemyCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('enemy', resolvedEnemyCard);
       }
@@ -9469,6 +9634,10 @@ const resolveCombat = async (
       // Process card effects (heal, apply_buff, restore_mana, cleanse)
       syncCurrentPointForUi();
       const hasEffect = applyCardEffects();
+      if (card.id === 'enemy_othello_star_blessing' && getEffectStacks(defender, ET.ORGASM) > 0) {
+        applyStatusEffectWithRelics(defenderSide, ET.VULNERABLE, 1, { source: card.id });
+        log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标拥有性兴奋，额外施加 1 层敏感</span>`);
+      }
       if (card.id === 'enemy_rose_nectar_discipline') {
         const targetHasBind = getEffectStacks(defender, ET.BIND) > 0;
         if (targetHasBind) {
@@ -10047,6 +10216,23 @@ const resolveCombat = async (
           log(`<span class="text-gray-400">${label}【${card.name}】目标没有性兴奋，未施加虚弱</span>`);
         }
       }
+      if (card.id === 'enemy_othello_gathering_star') {
+        const armorGain = Math.max(0, Math.floor(attacker.mp));
+        if (armorGain > 0) {
+          const armorBefore = Math.max(0, getEffectStacks(attacker, ET.ARMOR));
+          applyStatusEffectWithRelics(source, ET.ARMOR, armorGain, { source: card.id });
+          const actualArmorGain = Math.max(0, getEffectStacks(attacker, ET.ARMOR) - armorBefore);
+          if (actualArmorGain > 0) {
+            pushFloatingNumber(source, actualArmorGain, 'shield', '+');
+            if (source === 'player') {
+              handlePlayerArmorGainFromSingleEvent(actualArmorGain, `卡牌【${card.name}】`);
+            }
+          }
+          log(`<span class="text-cyan-300">${label}【${card.name}】按自身当前魔力获得 ${actualArmorGain} 点护甲</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】当前没有魔力，未获得护甲</span>`);
+        }
+      }
       if (card.id === 'bloodpool_vital_reservoir') {
         const maxHpGain = Math.max(0, Math.floor(totalActualDamageDealt));
         if (maxHpGain > 0) {
@@ -10385,6 +10571,9 @@ const resolveCombat = async (
         }
       }
       finalizeAndTrack();
+    } else if (card.id === 'enemy_othello_star_hidden') {
+      applyCardEffects();
+      finalizeAndTrack();
     } else {
       finalizeAndTrack();
     }
@@ -10672,6 +10861,8 @@ const resolveCombat = async (
   processLustIllusionTurnEndForSide('enemy');
   const pEndLogs = processOnTurnEnd(playerStats.value);
   const eEndLogs = processOnTurnEnd(enemyStats.value);
+  processPhaseTransitionTurnEnd('player');
+  processPhaseTransitionTurnEnd('enemy');
   if (playerSkipArmorDecay) {
     const playerArmorAfterDecay = getEffectStacks(playerStats.value, ET.ARMOR);
     if (playerArmorAfterDecay < playerArmorBeforeEnd) {
@@ -10943,8 +11134,9 @@ watch(
     () => getEffectStacks(playerStats.value, ET.POISON_AMOUNT),
     () => getEffectStacks(enemyStats.value, ET.POISON_AMOUNT),
   ],
-  () => {
+  ([, nextEnemyHp], [, prevEnemyHp]) => {
     if (endCombatPending.value || poisonAmountImmediateCheckRunning) return;
+    triggerOthelloHalfHpDebuffCleanseIfNeeded(nextEnemyHp, prevEnemyHp);
     poisonAmountImmediateCheckRunning = true;
     try {
       applyImmediatePoisonAmountLethalCheck('player');

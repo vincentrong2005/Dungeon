@@ -588,6 +588,24 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 1,
     description: '自身手牌名称与描述被隐藏',
   },
+  [EffectType.SIGHT_DEPRIVATION]: {
+    type: EffectType.SIGHT_DEPRIVATION,
+    name: '视线剥夺',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '对方无法看到自己后两张牌；战斗开始时向对方抽牌堆插入一张“陨”；敌方主动技本局每个只能使用1次',
+  },
+  [EffectType.FATE_OBSERVATION]: {
+    type: EffectType.FATE_OBSERVATION,
+    name: '命运观测',
+    polarity: 'special',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '出牌类型会被对方第一张手牌影响',
+  },
   [EffectType.SILENCE]: {
     type: EffectType.SILENCE,
     name: '禁言',
@@ -768,6 +786,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始时，若自身有元素debuff，则随机移除1层并回复1点生命',
   },
+  [EffectType.PHASE_TRANSITION]: {
+    type: EffectType.PHASE_TRANSITION,
+    name: '转阶段',
+    polarity: 'special',
+    timings: ['onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '回合结束时，若自身当前血量-中毒量低于该状态层数，则直接结算中毒量并移除该状态；血量不会低于该状态层数',
+  },
   [EffectType.MATERIALIZATION]: {
     type: EffectType.MATERIALIZATION,
     name: '实体化',
@@ -899,6 +926,8 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.UNSEEABLE,
   EffectType.TWINS,
   EffectType.MEMORY_FOG,
+  EffectType.SIGHT_DEPRIVATION,
+  EffectType.FATE_OBSERVATION,
   EffectType.SWARM,
   EffectType.WHITE_TURBID,
   EffectType.AMBUSH,
@@ -917,6 +946,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.MIND_READ,
   EffectType.ELEMENTAL_CORTEX,
   EffectType.ELEMENTAL_ADAPTATION,
+  EffectType.PHASE_TRANSITION,
   EffectType.MATERIALIZATION,
 ];
 

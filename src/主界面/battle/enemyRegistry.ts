@@ -1,5 +1,6 @@
 import { CardType, EffectType, type CardData, type EnemyAIContext, type EnemyDefinition } from '../types';
 import { getAllCards } from './cardRegistry';
+import { calculateFinalPoint } from './algorithms';
 import { ELEMENTAL_DEBUFF_TYPES } from './effects';
 
 function pickCardById(ctx: EnemyAIContext, id: string): CardData {
@@ -97,6 +98,7 @@ const requireCardById = (id: string): CardData => {
   return card;
 };
 const buildDeckById = (ids: string[]) => ids.map(id => requireCardById(id));
+const NO_RELIC_MOD = { globalMultiplier: 1, globalAddition: 0 };
 
 const 沐芯兰名称 = '沐芯兰';
 const 宝箱怪名称 = '宝箱怪';
@@ -3739,6 +3741,61 @@ const GRACE_TENTACLE_CARD = {
   FORGIVING_EMBRACE: 'enemy_grace_tentacle_forgiving_embrace',
 } as const;
 
+const OTHELLO_CARD = {
+  ANNIHILATION_STAR: 'enemy_othello_annihilation_star',
+  DAY_STAR: 'enemy_othello_day_star',
+  SINKING_STAR: 'enemy_othello_sinking_star',
+  GATHERING_STAR: 'enemy_othello_gathering_star',
+  WEAVING_STAR: 'enemy_othello_weaving_star',
+  STAR_BLESSING: 'enemy_othello_star_blessing',
+  COLD_STAR: 'enemy_othello_cold_star',
+  STAR_HIDDEN: 'enemy_othello_star_hidden',
+} as const;
+
+const getOthelloFinalPoint = (
+  ctx: EnemyAIContext,
+  source: 'player' | 'enemy',
+  card: CardData,
+  baseDice: number,
+): number => {
+  const pointByBattleContext = ctx.getFinalPoint?.(source, card, baseDice);
+  if (typeof pointByBattleContext === 'number' && Number.isFinite(pointByBattleContext)) {
+    return pointByBattleContext;
+  }
+  const entityEffects = source === 'player' ? ctx.playerStats.effects : ctx.enemyStats.effects;
+  const opponentEffects = source === 'player' ? ctx.enemyStats.effects : ctx.playerStats.effects;
+  return calculateFinalPoint({
+    baseDice,
+    card,
+    entityEffects: [...entityEffects],
+    opponentEffects: [...opponentEffects],
+    relicModifiers: NO_RELIC_MOD,
+  });
+};
+
+const isPlayerFirstCardUnplayableForOthello = (ctx: EnemyAIContext, card: CardData): boolean => {
+  if (card.type === CardType.CURSE || card.traits.unplayable) return true;
+  if (ctx.playerStats.effects.some(e => e.type === EffectType.STUN && e.stacks > 0)) return true;
+  if (card.type === CardType.MAGIC) {
+    if (card.manaCost > ctx.playerStats.mp) return true;
+    if (ctx.playerStats.effects.some(e => e.type === EffectType.SILENCE && e.stacks > 0)) return true;
+  }
+  if (
+    ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0)
+    && (card.type === CardType.PHYSICAL || card.type === CardType.DODGE)
+  ) {
+    return true;
+  }
+  if (
+    ctx.playerStats.effects.some(e => e.type === EffectType.DEVOUR && e.stacks > 0)
+    && Math.max(0, Math.floor(ctx.playerBaseDice ?? 0)) <= 3
+    && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC || card.type === CardType.DODGE)
+  ) {
+    return true;
+  }
+  return false;
+};
+
 const 贝希摩斯: EnemyDefinition = {
   name: '贝希摩斯',
   stats: {
@@ -3947,6 +4004,98 @@ const 神恩触手: EnemyDefinition = {
   },
 };
 
+const 奥赛罗: EnemyDefinition = {
+  name: '奥赛罗',
+  stats: {
+    hp: 600,
+    maxHp: 600,
+    mp: 0,
+    minDice: 9,
+    maxDice: 16,
+    effects: [
+      { type: EffectType.SIGHT_DEPRIVATION, stacks: 1, polarity: 'trait' },
+      { type: EffectType.FATE_OBSERVATION, stacks: 1, polarity: 'special' },
+      { type: EffectType.ELEMENTAL_ADAPTATION, stacks: 1, polarity: 'buff' },
+      { type: EffectType.PHASE_TRANSITION, stacks: 300, polarity: 'special' },
+      { type: EffectType.MANA_SPRING, stacks: 3, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    OTHELLO_CARD.ANNIHILATION_STAR,
+    OTHELLO_CARD.DAY_STAR,
+    OTHELLO_CARD.SINKING_STAR,
+    OTHELLO_CARD.GATHERING_STAR,
+    OTHELLO_CARD.WEAVING_STAR,
+    OTHELLO_CARD.STAR_BLESSING,
+    OTHELLO_CARD.COLD_STAR,
+    OTHELLO_CARD.STAR_HIDDEN,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const phaseOne = ctx.enemyStats.hp > ctx.enemyStats.maxHp * 0.5;
+    const cardsByType = new Map<CardType, string>([
+      [CardType.PHYSICAL, phaseOne ? OTHELLO_CARD.ANNIHILATION_STAR : OTHELLO_CARD.DAY_STAR],
+      [CardType.MAGIC, phaseOne ? OTHELLO_CARD.SINKING_STAR : OTHELLO_CARD.GATHERING_STAR],
+      [CardType.FUNCTION, phaseOne ? OTHELLO_CARD.WEAVING_STAR : OTHELLO_CARD.STAR_BLESSING],
+      [CardType.DODGE, phaseOne ? OTHELLO_CARD.COLD_STAR : OTHELLO_CARD.STAR_HIDDEN],
+    ]);
+    const playableByType = (type: CardType): CardData | null => {
+      const id = cardsByType.get(type);
+      if (!id) return null;
+      const card = pickCardById(ctx, id);
+      if (card.type === CardType.MAGIC && card.manaCost > ctx.enemyStats.mp) return null;
+      return card;
+    };
+    const pickPhysicalOrMagic = (): CardData => {
+      const candidates = [playableByType(CardType.PHYSICAL), playableByType(CardType.MAGIC)]
+        .filter((card): card is CardData => !!card);
+      return candidates[Math.floor(Math.random() * candidates.length)] ?? playableByType(CardType.PHYSICAL) ?? ctx.deck[0]!;
+    };
+    const pickEvenlyByTypes = (types: CardType[]): CardData => {
+      const candidates = types.map(type => playableByType(type)).filter((card): card is CardData => !!card);
+      return candidates[Math.floor(Math.random() * candidates.length)] ?? pickPhysicalOrMagic();
+    };
+    const pickWinningCardByPlayerAttackType = (playerAttackType: CardType.PHYSICAL | CardType.MAGIC): CardData => {
+      const otherAttackType = playerAttackType === CardType.PHYSICAL ? CardType.MAGIC : CardType.PHYSICAL;
+      const options = [
+        { card: playableByType(playerAttackType), weight: 50 },
+        { card: playableByType(otherAttackType), weight: 30 },
+        { card: playableByType(CardType.FUNCTION), weight: 20 },
+      ]
+        .filter((entry): entry is { card: CardData; weight: number } => !!entry.card)
+        .map(entry => ({ value: entry.card, weight: entry.weight }));
+      return weightedRandom<CardData>(options.length > 0 ? options : [{ value: pickPhysicalOrMagic(), weight: 1 }]);
+    };
+
+    const firstPlayerCard = ctx.playerHand?.[0] ?? null;
+    if (!firstPlayerCard || isPlayerFirstCardUnplayableForOthello(ctx, firstPlayerCard)) {
+      return pickPhysicalOrMagic();
+    }
+
+    if (firstPlayerCard.type === CardType.DODGE) {
+      return playableByType(CardType.FUNCTION) ?? pickPhysicalOrMagic();
+    }
+
+    if (firstPlayerCard.type === CardType.FUNCTION) {
+      return pickEvenlyByTypes([CardType.PHYSICAL, CardType.MAGIC, CardType.FUNCTION]);
+    }
+
+    if (firstPlayerCard.type === CardType.PHYSICAL || firstPlayerCard.type === CardType.MAGIC) {
+      const sameTypeCard = playableByType(firstPlayerCard.type);
+      if (sameTypeCard) {
+        const enemyPoint = getOthelloFinalPoint(ctx, 'enemy', sameTypeCard, Math.max(0, Math.floor(ctx.enemyBaseDice ?? 0)));
+        const playerPoint = getOthelloFinalPoint(ctx, 'player', firstPlayerCard, Math.max(0, Math.floor(ctx.playerBaseDice ?? 0)));
+        if (enemyPoint >= playerPoint) {
+          return pickWinningCardByPlayerAttackType(firstPlayerCard.type);
+        }
+      }
+      const otherAttackType = firstPlayerCard.type === CardType.PHYSICAL ? CardType.MAGIC : CardType.PHYSICAL;
+      return pickEvenlyByTypes([otherAttackType, CardType.DODGE]);
+    }
+
+    return pickPhysicalOrMagic();
+  },
+};
+
 const 祈祷烛灵: EnemyDefinition = {
   name: '祈祷烛灵',
   stats: {
@@ -4066,6 +4215,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [忏悔天使.name, 忏悔天使],
   [祭司傀儡.name, 祭司傀儡],
   [神恩触手.name, 神恩触手],
+  [奥赛罗.name, 奥赛罗],
   [祈祷烛灵.name, 祈祷烛灵],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
