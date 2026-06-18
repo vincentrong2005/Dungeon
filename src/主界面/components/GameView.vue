@@ -7221,37 +7221,50 @@ const sanitizeCombatLogLine = (line: string) => {
     .trim();
 };
 
+const TURN_LOG_MARKER_RE = /^——第\d+回合——$/;
+const COMBAT_LOG_TURN_LIMIT = 10;
+
 const formatCombatLogs = (logs: string[]) => {
   const ordered = [...logs]
     .reverse()
     .map(sanitizeCombatLogLine)
-    .filter(line => line.length > 0);
-  if (ordered.length === 0) return '（战斗日志为空）';
-  return ordered.join('\n');
+    .filter(line => line.length > 0)
+    .filter(line => !line.startsWith('掷骰结果：'))
+    .filter(line => !line.includes('原始点数'));
+  const turnMarkerIndexes = ordered
+    .map((line, index) => (TURN_LOG_MARKER_RE.test(line) ? index : -1))
+    .filter(index => index >= 0);
+  const recentStartIndex = turnMarkerIndexes.length > COMBAT_LOG_TURN_LIMIT
+    ? turnMarkerIndexes[turnMarkerIndexes.length - COMBAT_LOG_TURN_LIMIT] ?? 0
+    : 0;
+  const recent = ordered.slice(recentStartIndex);
+  if (recent.length === 0) return '（战斗日志为空）';
+  return recent.join('\n');
 };
 
 const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context: CombatContext, logs: string[]) => {
   const outcomeLine =
     outcome === 'win'
-      ? `<user>战斗结果：[胜利]，<user>战胜了${enemyName}。`
+      ? `战斗结果：[胜利]，战胜了${enemyName}。`
       : outcome === 'lose'
-        ? `<user>战斗结果：[败北]，<user>被${enemyName}击败。`
-        : '<user>战斗结果：[脱离]，一方逃离战斗。';
+        ? `战斗结果：[败北]，被${enemyName}击败。`
+        : '战斗结果：[脱离]，一方逃离战斗。';
   const contextLine =
     context === 'shopRobbery'
-      ? '<user>本次战斗发生在抢夺商店的冲突中。'
+      ? '本次战斗发生在抢夺商店的冲突中。'
       : context === 'chestMimic'
-        ? '<user>本次战斗发生在宝箱怪伏击中。'
+        ? '本次战斗发生在宝箱怪伏击中。'
         : context === 'combatTest'
-          ? '<user>本次战斗来自战斗测试。'
-          : '<user>本次战斗发生在地牢探索途中。';
+          ? '本次战斗来自战斗测试。'
+          : '本次战斗发生在地牢探索途中。';
   const followupLine =
     outcome === 'win'
-      ? '<user>请根据以下完整战斗日志继续剧情，并体现胜利后的后续发展。'
+      ? '请根据以下最近10个回合的完整战斗日志继续剧情，并体现胜利后的后续发展。'
       : outcome === 'lose'
-        ? '<user>请根据以下完整战斗日志继续剧情，并体现战败后的后续发展。'
-        : '<user>请根据以下完整战斗日志继续剧情，并体现脱离战斗后的后续发展。';
-  return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
+        ? '请根据以下最近10个回合的完整战斗日志继续剧情，并体现战败后的后续发展。'
+        : '请根据以下最近10个回合的完整战斗日志继续剧情，并体现脱离战斗后的后续发展。';
+  const writingInstruction = '写作要求：请先根据上述日志描写战斗中的关键场面、攻防变化与最终收束，再自然过渡到战斗结束后的状态；不要跳过战斗过程直接从战斗后的场景开始写。';
+  return `${outcomeLine}\n${contextLine}\n${followupLine}\n最近10个回合战斗日志（时间顺序，仅保留最终点数）：\n${formatCombatLogs(logs)}\n${writingInstruction}`;
 };
 
 const isFastModeSyncRoomType = (roomType: string): boolean =>

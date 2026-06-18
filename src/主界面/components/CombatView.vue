@@ -6015,7 +6015,7 @@ const notifyEnemyManaInsufficient = () => {
 };
 
 const log = (msg: string) => {
-  combatState.value.logs = [msg, ...combatState.value.logs].slice(0, 240);
+  combatState.value.logs = [msg, ...combatState.value.logs];
 };
 
 if (activePlayerRelics.length > 0) {
@@ -10623,6 +10623,16 @@ const resolveCombat = async (
   };
 
   applyPointSuppressBeforeQueue();
+
+  const playerFinalPointPreview = pSuccess
+    ? getCardFinalPoint('player', resolvedPlayerCard, resolvedPlayerDice, true)
+    : 0;
+  const enemyFinalPointPreview = eSuccess
+    ? getCardFinalPoint('enemy', resolvedEnemyCard, resolvedEnemyDice, true)
+    : 0;
+  log(
+    `<span class="text-zinc-300">最终点数：我方【${resolvedPlayerCard.name}】[${playerFinalPointPreview}] vs 敌方【${resolvedEnemyCard.name}】[${enemyFinalPointPreview}]</span>`,
+  );
 
   const queue: ActionEntry[] = [];
   let deferredEnemyAction: ActionEntry | null = null;
