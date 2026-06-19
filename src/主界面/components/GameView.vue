@@ -5875,6 +5875,7 @@ const setSingleLayerDisplay = (enabled: boolean) => {
   textSettings.singleLayerDisplay = enabled;
   if (!enabled) {
     isAutoScrollTopOnReplyEnabled.value = false;
+    scrollStoryTextToBottom();
   }
 };
 
@@ -6315,6 +6316,11 @@ interface InlineImageBlock {
 const STORY_MULTI_DIVIDER_MARKER = '__DUNGEON_STORY_MULTI_DIVIDER__';
 const STORY_MULTI_CURRENT_DIVIDER_MARKER = '__DUNGEON_STORY_MULTI_CURRENT_DIVIDER__';
 const STORY_MULTI_USER_LINE_MARKER = '__DUNGEON_STORY_MULTI_USER_LINE__';
+const FINAL_AREA_SYSTEM_RECORD_RE =
+  /<系统记录：终极区域外侧操作>[\s\S]*?<\/系统记录：终极区域外侧操作>|<命运涟漪>[\s\S]*?<\/命运涟漪>/g;
+
+const stripFinalAreaSystemRecordsForDisplay = (text: string): string =>
+  text.replace(FINAL_AREA_SYSTEM_RECORD_RE, '').replace(/\n{3,}/g, '\n\n').trim();
 
 const markStoryUserLines = (text: string): string =>
   text
@@ -6349,7 +6355,7 @@ const storyDisplaySourceText = computed<string>(() => {
       .map(message => {
         const messageId = Number(message.message_id);
         if (message.role === 'user') {
-          const userText = String(message.message ?? '').trim();
+          const userText = stripFinalAreaSystemRecordsForDisplay(String(message.message ?? ''));
           if (!userText) return '';
           return `${STORY_MULTI_DIVIDER_MARKER}\n${markStoryUserLines(userText)}`;
         }

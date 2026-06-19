@@ -1,5 +1,5 @@
 // Schema import removed - using raw MVU data directly
-import { getFloorNumberForArea } from './floor';
+import { FINAL_AREA_NAME, getFloorNumberForArea } from './floor';
 import {
   FIXED_OPENING_BACKGROUND_SETTING,
   buildOpeningBackstoryDraftPrompt,
@@ -51,6 +51,10 @@ export const useGameStore = defineStore('game', () => {
   const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
   const MIN_SUMMARY_VISIBLE_WINDOW = 1;
   const MAX_SUMMARY_VISIBLE_WINDOW = 60;
+  const META_SNIPPET_MAX_LENGTH = 420;
+
+  const FINAL_AREA_REROLL_INPUT =
+    '<user>试图重新摇动命运，让刚才那一幕从未发生。但这里是欲望之神的私人空间，地牢的一切法则在门后完全失效；欲望之神看见了这道改写的折痕，并且仍然记得被试图抹去的上一幕。请让欲望之神对此作出自然回应。</user>';
 
   function normalizeSummaryVisibleWindow(value: unknown): number {
     const parsed = Number(value);
@@ -198,6 +202,8 @@ export const useGameStore = defineStore('game', () => {
   // ── 编辑模式 ──
   const isEditing = ref(false);
   const editingText = ref('');
+  const pendingFinalAreaEditNotice = ref<string | null>(null);
+  const pendingFinalAreaRollbackNotice = ref<string | null>(null);
 
   // ── MVU 变量（解析后的 stat_data）──
   const statData = ref<Record<string, any>>({});
@@ -966,6 +972,107 @@ export const useGameStore = defineStore('game', () => {
     return mvuData;
   }
 
+  function isInFinalArea(): boolean {
+    return String(statData.value?._当前区域 ?? '').trim() === FINAL_AREA_NAME;
+  }
+
+  function isMvuInFinalArea(mvuData: any): boolean {
+    const area = String(_.get(mvuData, 'stat_data._当前区域') ?? '').trim();
+    return area === FINAL_AREA_NAME;
+  }
+
+  function truncateMetaSnippet(text: string, maxLength = META_SNIPPET_MAX_LENGTH): string {
+    const normalized = text.replace(/\r\n/g, '\n').trim();
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, maxLength)}...`;
+  }
+
+  function countNonEmptyLines(text: string): number {
+    return text
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .filter(line => line.trim().length > 0).length;
+  }
+
+  function buildEditChangeSummary(originalText: string, nextText: string): string {
+    if (originalText === nextText) {
+      return '玩家触碰了刚才那一幕的文字，但最终没有留下可见改动。';
+    }
+
+    let prefixLength = 0;
+    const minLength = Math.min(originalText.length, nextText.length);
+    while (prefixLength < minLength && originalText[prefixLength] === nextText[prefixLength]) {
+      prefixLength += 1;
+    }
+
+    let suffixLength = 0;
+    while (
+      suffixLength < originalText.length - prefixLength &&
+      suffixLength < nextText.length - prefixLength &&
+      originalText[originalText.length - 1 - suffixLength] === nextText[nextText.length - 1 - suffixLength]
+    ) {
+      suffixLength += 1;
+    }
+
+    const removed = originalText.slice(prefixLength, originalText.length - suffixLength);
+    const added = nextText.slice(prefixLength, nextText.length - suffixLength);
+    const removedLines = countNonEmptyLines(removed);
+    const addedLines = countNonEmptyLines(added);
+    const parts = [
+      `玩家改写了刚才那一幕。被抹去约 ${removed.length} 个字符/${removedLines} 行，新写入约 ${added.length} 个字符/${addedLines} 行。`,
+    ];
+
+    if (removed.trim()) {
+      parts.push(`被删除或替换的片段：\n${truncateMetaSnippet(removed)}`);
+    }
+    if (added.trim()) {
+      parts.push(`新增或替换后的片段：\n${truncateMetaSnippet(added)}`);
+    }
+    return parts.join('\n');
+  }
+
+  function buildRollbackChangeSummary(
+    fromMessageId: number,
+    targetMessageId: number,
+    crossedSummaries: Array<{ messageId: number; summary: string }>,
+  ): string {
+    const timeUnitCount = crossedSummaries.length;
+    const parts = [
+      `玩家折回了终极区域的时间线：从时间刻度 ${fromMessageId} 回到时间刻度 ${targetMessageId}，跨过 ${timeUnitCount} 段残影。`,
+    ];
+
+    if (crossedSummaries.length > 0) {
+      parts.push(
+        [
+          '被折回的残影：',
+          ...crossedSummaries.map(entry => `- 时间刻度 ${entry.messageId}：${entry.summary}`),
+        ].join('\n'),
+      );
+    } else {
+      parts.push('被折回的时间里没有留下清晰残影。');
+    }
+
+    return parts.join('\n');
+  }
+
+  function collectRollbackSummaries(targetMessageId: number, lastMessageId: number): Array<{ messageId: number; summary: string }> {
+    if (targetMessageId >= lastMessageId) return [];
+    const messages = getChatMessages(`0-${lastMessageId}`, { role: 'assistant' });
+    return messages
+      .filter(msg => msg.message_id > targetMessageId && msg.message_id <= lastMessageId)
+      .map(msg => ({
+        messageId: msg.message_id,
+        summary: extractSummary(msg.message, getResponseParserOptions()).trim(),
+      }))
+      .filter(entry => entry.summary.length > 0);
+  }
+
+  function appendFinalAreaMetaNotices(userInput: string, notices: Array<string | null>): string {
+    const activeNotices = notices.filter((notice): notice is string => Boolean(notice?.trim()));
+    if (activeNotices.length === 0) return userInput;
+    return `${userInput.trim()}\n\n<命运涟漪>\n${activeNotices.join('\n\n')}\n</命运涟漪>`;
+  }
+
   /**
    * 将传送门变量变更应用到 MVU 数据（写入 user 楼层）
    */
@@ -1606,6 +1713,12 @@ export const useGameStore = defineStore('game', () => {
       const currentPendingPortalChanges = pendingPortalChanges.value;
       const currentPendingCombatChanges = pendingCombatMvuChanges.value;
       const currentPendingStatDataChanges = pendingStatDataChanges.value;
+      const currentPendingFinalAreaEditNotice = isInFinalArea() ? pendingFinalAreaEditNotice.value : null;
+      const currentPendingFinalAreaRollbackNotice = isInFinalArea() ? pendingFinalAreaRollbackNotice.value : null;
+      const finalUserInput = appendFinalAreaMetaNotices(userInput, [
+        currentPendingFinalAreaRollbackNotice,
+        currentPendingFinalAreaEditNotice,
+      ]);
 
       // 2. 先将传送门变量写入 user 楼层对应的 MVU 数据
       const userMvuData = options?.userMvuDataOverride
@@ -1620,15 +1733,15 @@ export const useGameStore = defineStore('game', () => {
       syncFloorNumberByArea(userMvuData);
 
       // 3. 创建 user 楼层（携带已应用按钮变更后的 MVU 数据）
-      console.info('[GameStore] Creating user message:', userInput);
+      console.info('[GameStore] Creating user message:', finalUserInput);
       if (overwriteUserMessageId !== null) {
         console.info('[GameStore] Overwriting tail user message:', overwriteUserMessageId);
         await setChatMessages(
-          [{ message_id: overwriteUserMessageId, role: 'user', message: userInput, data: userMvuData }],
+          [{ message_id: overwriteUserMessageId, role: 'user', message: finalUserInput, data: userMvuData }],
           { refresh: 'none' },
         );
       } else {
-        await createChatMessages([{ role: 'user', message: userInput, data: userMvuData }], { refresh: 'none' });
+        await createChatMessages([{ role: 'user', message: finalUserInput, data: userMvuData }], { refresh: 'none' });
       }
       messageListRevision.value += 1;
 
@@ -1636,6 +1749,12 @@ export const useGameStore = defineStore('game', () => {
       pendingPortalChanges.value = null;
       pendingCombatMvuChanges.value = null;
       pendingStatDataChanges.value = null;
+      if (currentPendingFinalAreaEditNotice) {
+        pendingFinalAreaEditNotice.value = null;
+      }
+      if (currentPendingFinalAreaRollbackNotice) {
+        pendingFinalAreaRollbackNotice.value = null;
+      }
 
       // 4. 监听流式传输（可选）
       const streamListener = eventOn(
@@ -1648,7 +1767,7 @@ export const useGameStore = defineStore('game', () => {
       // 5. 调用 generate 生成回复
       console.info('[GameStore] Generating LLM response...');
       const result = await generate({
-        user_input: userInput,
+        user_input: finalUserInput,
         should_stream: useStreaming.value,
       });
       const resultText = getGeneratedText(result);
@@ -1779,6 +1898,12 @@ export const useGameStore = defineStore('game', () => {
         return;
       }
 
+      const targetMvuData = Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
+      const shouldRecordFinalAreaRollback = isMvuInFinalArea(targetMvuData);
+      const finalAreaRollbackNotice = shouldRecordFinalAreaRollback
+        ? buildRollbackChangeSummary(lastId, targetMessageId, collectRollbackSummaries(targetMessageId, lastId))
+        : null;
+
       // 删除 target 之后的所有楼层
       clearFastModeBuffer();
       const idsToDelete: number[] = [];
@@ -1804,6 +1929,9 @@ export const useGameStore = defineStore('game', () => {
         console.warn('[GameStore] Rollback: failed to load stat_data from target, falling back', e);
         loadStatData();
       }
+      if (finalAreaRollbackNotice && isInFinalArea()) {
+        pendingFinalAreaRollbackNotice.value = finalAreaRollbackNotice;
+      }
 
       // 刷新到最新消息窗口
       await ensureLatestMessageWindow();
@@ -1824,6 +1952,12 @@ export const useGameStore = defineStore('game', () => {
    */
   async function rerollCurrent() {
     if (isGenerating.value) return;
+
+    if (isInFinalArea()) {
+      toastr.info('这一次重Roll被欲望之神看见了。');
+      await sendAction(FINAL_AREA_REROLL_INPUT);
+      return;
+    }
 
     try {
       const lastId = getLastMessageId();
@@ -1929,6 +2063,9 @@ export const useGameStore = defineStore('game', () => {
     try {
       const lastId = getLastMessageId();
       if (lastId < 0) return;
+      const originalMessages = getChatMessages(`${lastId}-${lastId}`);
+      const originalText = originalMessages[0]?.message ?? '';
+      const wasEditingFinalArea = isInFinalArea();
 
       // 获取当前楼层已有的 MVU 数据（编辑前的）
       const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
@@ -1960,6 +2097,9 @@ export const useGameStore = defineStore('game', () => {
       // 保存编辑后的完整文本到楼层
       await setChatMessages([{ message_id: lastId, message: editingText.value }], { refresh: 'none' });
       lastResolvedAssistantMessageId.value = lastId;
+      if (wasEditingFinalArea) {
+        pendingFinalAreaEditNotice.value = buildEditChangeSummary(originalText, editingText.value);
+      }
 
       // 将 MVU 数据写回当前楼层
       if (newMvuData) {
