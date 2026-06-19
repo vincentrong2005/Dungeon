@@ -189,7 +189,12 @@
                 >
                   <!-- Streaming text (during generation) -->
                   <p
-                    v-if="isStreamingEnabled && gameStore.isGenerating && gameStore.streamingText"
+                    v-if="
+                      textSettings.singleLayerDisplay &&
+                      isStreamingEnabled &&
+                      gameStore.isGenerating &&
+                      gameStore.streamingText
+                    "
                     class="whitespace-pre-wrap text-dungeon-paper/85"
                   >
                     {{ streamingDisplayText }}
@@ -204,7 +209,16 @@
                         }}<span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.closeTag }}</span>
                       </div>
                       <!-- Normal text line -->
-                      <p v-else :class="['story-line', `story-line-level-${line.level}`]">
+                      <p
+                        v-else
+                        :class="[
+                          'story-line',
+                          `story-line-level-${line.level}`,
+                          line.align === 'right' ? 'story-line--right' : '',
+                          line.variant === 'divider' ? 'story-line--divider' : '',
+                          line.anchor === 'currentFloor' ? 'story-line--current-floor-start' : '',
+                        ]"
+                      >
                         <template v-if="line.segments.length > 0">
                           <span
                             v-for="segment in line.segments"
@@ -239,7 +253,13 @@
                             <p
                               v-for="line in section.lines"
                               :key="line.key"
-                              :class="['story-line', `story-line-level-${line.level}`]"
+                              :class="[
+                                'story-line',
+                                `story-line-level-${line.level}`,
+                                line.align === 'right' ? 'story-line--right' : '',
+                                line.variant === 'divider' ? 'story-line--divider' : '',
+                                line.anchor === 'currentFloor' ? 'story-line--current-floor-start' : '',
+                              ]"
                             >
                               <template v-if="line.segments.length > 0">
                                 <span
@@ -1715,6 +1735,44 @@
                     :aria-checked="isAutoScrollTopOnReplyEnabled"
                     role="switch"
                     @click="isAutoScrollTopOnReplyEnabled = !isAutoScrollTopOnReplyEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>单层显示</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('singleLayerDisplay')"
+                      @mouseleave="closeSettingsHelp('singleLayerDisplay')"
+                      @focus="openSettingsHelp('singleLayerDisplay')"
+                      @blur="closeSettingsHelp('singleLayerDisplay')"
+                      @touchstart.passive="startSettingsHelpTouch('singleLayerDisplay')"
+                      @touchend="endSettingsHelpTouch('singleLayerDisplay')"
+                      @touchcancel="endSettingsHelpTouch('singleLayerDisplay')"
+                      @click.stop.prevent="toggleSettingsHelp('singleLayerDisplay')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'singleLayerDisplay'" class="settings-help-popover">
+                        {{ settingsHelpText.singleLayerDisplay }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': textSettings.singleLayerDisplay }"
+                    :aria-checked="textSettings.singleLayerDisplay"
+                    role="switch"
+                    @click="setSingleLayerDisplay(!textSettings.singleLayerDisplay)"
                   >
                     <span class="settings-switch-track">
                       <span class="settings-switch-label settings-switch-label--off">关</span>
@@ -3289,6 +3347,7 @@ import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import type { OpeningInfoSubmission } from '../openingProfile';
+import { extractMainTextOnly } from '../responseParser';
 import { CardType, EffectType, type ActiveSkillData, type CardData, type EffectInstance, type EntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import CombatView from './CombatView.vue';
@@ -3502,6 +3561,24 @@ const scrollStoryTextToBottom = () => {
     const container = storyTextContainerRef.value;
     if (!container) return;
     container.scrollTop = container.scrollHeight;
+  });
+};
+const scrollStoryTextToReplyTop = () => {
+  nextTick(() => {
+    const container = storyTextContainerRef.value;
+    if (!container) return;
+    if (textSettings.singleLayerDisplay) {
+      container.scrollTop = 0;
+      return;
+    }
+    const currentFloorStart = container.querySelector<HTMLElement>('.story-line--current-floor-start');
+    if (!currentFloorStart) {
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = currentFloorStart.getBoundingClientRect();
+    container.scrollTop += targetRect.top - containerRect.top;
   });
 };
 type ButtonCompletionMenuKey = 'special' | 'leave' | 'rebirth';
@@ -5687,10 +5764,12 @@ type TextSettingsState = {
   lineHeight: number;
   fontFamily: string;
   containerWidth: number;
+  singleLayerDisplay: boolean;
 };
 
 type SettingsNavTab = 'text' | 'music' | 'ai' | 'summary';
 type SettingsHelpKey =
+  | 'singleLayerDisplay'
   | 'streamingEnabled'
   | 'forbidMatchingXmlInsideThink'
   | 'buttonCompletion'
@@ -5709,6 +5788,7 @@ const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
   lineHeight: 2.0,
   fontFamily: "'Cinzel', serif",
   containerWidth: 1300,
+  singleLayerDisplay: true,
 };
 const TEXT_FONT_FAMILY_OPTIONS = new Set<string>([
   "'Cinzel', serif",
@@ -5745,6 +5825,10 @@ const normalizeTextSettings = (value: unknown): TextSettingsState => {
       Math.round(
         clampTextSettingNumber(candidate.containerWidth, 600, 1600, DEFAULT_TEXT_SETTINGS.containerWidth) / 50,
       ) * 50,
+    singleLayerDisplay:
+      typeof candidate.singleLayerDisplay === 'boolean'
+        ? candidate.singleLayerDisplay
+        : DEFAULT_TEXT_SETTINGS.singleLayerDisplay,
   };
 };
 
@@ -5787,6 +5871,13 @@ const persistAutoScrollTopOnReplyEnabled = (enabled: boolean) => {
 const textSettings = reactive<TextSettingsState>(readTextSettings());
 const isAutoScrollTopOnReplyEnabled = ref(readAutoScrollTopOnReplyEnabled());
 
+const setSingleLayerDisplay = (enabled: boolean) => {
+  textSettings.singleLayerDisplay = enabled;
+  if (!enabled) {
+    isAutoScrollTopOnReplyEnabled.value = false;
+  }
+};
+
 const optionButtonFontSize = computed(() =>
   Math.round(clampTextSettingNumber(textSettings.fontSize * (14 / DEFAULT_TEXT_SETTINGS.fontSize), 11, 18, 14)),
 );
@@ -5813,6 +5904,7 @@ watch(
       lineHeight: value.lineHeight,
       fontFamily: value.fontFamily,
       containerWidth: value.containerWidth,
+      singleLayerDisplay: value.singleLayerDisplay,
     });
   },
   { deep: true },
@@ -5821,6 +5913,14 @@ watch(
 watch(isAutoScrollTopOnReplyEnabled, enabled => {
   persistAutoScrollTopOnReplyEnabled(enabled);
 });
+
+watch(
+  [() => gameStore.messageListRevision, () => gameStore.streamingText],
+  () => {
+    if (textSettings.singleLayerDisplay) return;
+    scrollStoryTextToBottom();
+  },
+);
 
 const isStreamingEnabled = computed<boolean>({
   get: () => gameStore.useStreaming,
@@ -5968,6 +6068,8 @@ watch(settingsNavTab, tab => {
 const activeSettingsHelp = ref<SettingsHelpKey | null>(null);
 let settingsHelpTouchTimer: number | null = null;
 const settingsHelpText: Record<SettingsHelpKey, string> = {
+  singleLayerDisplay:
+    '开启时正文框只显示最新AI楼层，保持原本体验；关闭后按消息顺序显示历史玩家输入与AI正文。（仅影响显示，有关回退楼层与编辑等操作依旧依靠读档界面）',
   streamingEnabled:
     '开启后，AI回复会边生成边显示预览文本，不必等完整回复结束才看到内容；关闭后只在生成完成后显示最终回复。',
   forbidMatchingXmlInsideThink:
@@ -6210,9 +6312,74 @@ interface InlineImageBlock {
   closeTag: string;
 }
 
+const STORY_MULTI_DIVIDER_MARKER = '__DUNGEON_STORY_MULTI_DIVIDER__';
+const STORY_MULTI_CURRENT_DIVIDER_MARKER = '__DUNGEON_STORY_MULTI_CURRENT_DIVIDER__';
+const STORY_MULTI_USER_LINE_MARKER = '__DUNGEON_STORY_MULTI_USER_LINE__';
+
+const markStoryUserLines = (text: string): string =>
+  text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => `${STORY_MULTI_USER_LINE_MARKER}${line}`)
+    .join('\n');
+
+const storyDisplaySourceText = computed<string>(() => {
+  const latestText = gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出';
+  if (textSettings.singleLayerDisplay) return latestText;
+
+  // 只影响正文框显示：选项、变量、总结和生成流程仍全部读取最新楼层的 store 状态。
+  void gameStore.currentSummary;
+  void gameStore.options.length;
+  void gameStore.isGenerating;
+  void gameStore.streamingText;
+  void gameStore.messageListRevision;
+
+  const lastMessageId = Number(getLastMessageId());
+  if (!Number.isFinite(lastMessageId) || lastMessageId < 0) return latestText;
+
+  try {
+    const parserOptions = { forbidMatchingXmlInsideThink: gameStore.forbidMatchingXmlInsideThink };
+    const messages = getChatMessages(`0-${Math.floor(lastMessageId)}`, { hide_state: 'all' });
+    const latestAssistantMessageId = messages.reduce((latestId, message) => {
+      if (message.role !== 'assistant') return latestId;
+      const messageId = Number(message.message_id);
+      return Number.isFinite(messageId) && messageId > latestId ? messageId : latestId;
+    }, -1);
+    const floorTexts = messages
+      .map(message => {
+        const messageId = Number(message.message_id);
+        if (message.role === 'user') {
+          const userText = String(message.message ?? '').trim();
+          if (!userText) return '';
+          return `${STORY_MULTI_DIVIDER_MARKER}\n${markStoryUserLines(userText)}`;
+        }
+        if (message.role !== 'assistant') return '';
+
+        const mainText =
+          messageId === latestAssistantMessageId
+            ? latestText.trim()
+            : extractMainTextOnly(String(message.message ?? ''), parserOptions).trim();
+        if (!mainText) return '';
+        const dividerMarker =
+          messageId === latestAssistantMessageId ? STORY_MULTI_CURRENT_DIVIDER_MARKER : STORY_MULTI_DIVIDER_MARKER;
+        return `${dividerMarker}\n${mainText}`;
+      })
+      .filter(text => text.length > 0);
+    const streamingText =
+      gameStore.isGenerating && gameStore.streamingText ? stripImageBlocks(gameStore.streamingText) : '';
+    if (streamingText) {
+      floorTexts.push(`${STORY_MULTI_DIVIDER_MARKER}\n${streamingText}`);
+    }
+    return floorTexts.length > 0 ? floorTexts.join('\n\n') : latestText;
+  } catch (err) {
+    console.warn('[GameView] Failed to build all-floor story display:', err);
+    return latestText;
+  }
+});
+
 /** Replace <image>…</image> blocks with placeholder markers, preserving positions */
 const processedMainText = computed<{ text: string; imageBlocks: InlineImageBlock[] }>(() => {
-  const raw = gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出';
+  const raw = storyDisplaySourceText.value;
   const blocks: InlineImageBlock[] = [];
   const imageRe = /<\s*(?:image|img)(?:\s[^>]*)?>[\s\S]*?<\/\s*(?:image|img)\s*>/gi;
   const replaced = raw.replace(imageRe, fullMatch => {
@@ -6464,6 +6631,9 @@ interface StoryLineBlock {
   key: string;
   level: 0 | 1 | 2 | 3 | 4;
   segments: StoryInlineSegment[];
+  align?: 'left' | 'right';
+  variant?: 'divider';
+  anchor?: 'currentFloor';
 }
 
 interface StoryTucaoSection {
@@ -6619,6 +6789,38 @@ function parseInlineSegments(line: string, keyPrefix: string): StoryInlineSegmen
 }
 
 function parseStoryLine(line: string, key: string): StoryLineBlock {
+  if (line === STORY_MULTI_CURRENT_DIVIDER_MARKER) {
+    return {
+      type: 'line',
+      key,
+      level: 0,
+      segments: [],
+      variant: 'divider',
+      anchor: 'currentFloor',
+    };
+  }
+
+  if (line === STORY_MULTI_DIVIDER_MARKER) {
+    return {
+      type: 'line',
+      key,
+      level: 0,
+      segments: [],
+      variant: 'divider',
+    };
+  }
+
+  if (line.startsWith(STORY_MULTI_USER_LINE_MARKER)) {
+    const content = line.slice(STORY_MULTI_USER_LINE_MARKER.length);
+    return {
+      type: 'line',
+      key,
+      level: 0,
+      segments: parseInlineSegments(content, key),
+      align: 'right',
+    };
+  }
+
   const match = headerMarkRegex.exec(line);
   let level: 0 | 1 | 2 | 3 | 4 = 0;
   let content = line;
@@ -8845,12 +9047,17 @@ watch(
     if (!isGenerating) {
       inputWaitingDotsStep.value = 1;
       if (wasGenerating && isAutoScrollTopOnReplyEnabled.value) {
-        nextTick(() => {
-          const container = storyTextContainerRef.value;
-          if (!container) return;
-          container.scrollTop = 0;
-        });
+        scrollStoryTextToReplyTop();
       }
+    }
+  },
+);
+
+watch(
+  () => gameStore.isEditing,
+  (isEditing, wasEditing) => {
+    if (!isEditing && wasEditing) {
+      scrollStoryTextToBottom();
     }
   },
 );
@@ -11372,6 +11579,21 @@ onBeforeUnmount(() => {
 .story-line {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.story-line--right {
+  text-align: right;
+  color: rgba(255, 239, 205, 0.88);
+}
+
+.story-line--divider {
+  min-height: 0;
+  margin: 1.1em 0;
+  border-top: 1px solid rgba(212, 175, 55, 0.24);
+}
+
+.story-line--divider .story-line-empty {
+  display: none;
 }
 
 .story-line-empty {

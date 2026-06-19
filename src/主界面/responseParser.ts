@@ -432,6 +432,16 @@ export function extractMainText(messageText: string, options?: ResponseParserOpt
 }
 
 /**
+ * 从已有消息文本中只提取正文标签本体。
+ * 不追加正文外的 catsay / SexualScene / image 等展示块。
+ */
+export function extractMainTextOnly(messageText: string, options?: ResponseParserOptions): string {
+  const clean = getParserSourceText(messageText, options);
+  const mainTextRaw = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
+  return removeHtmlComments(mainTextRaw);
+}
+
+/**
  * 从已有消息文本中快速提取变量更新块（<UpdateVariable> / <update>）
  */
 export function extractVariableUpdate(messageText: string, options?: ResponseParserOptions): string {

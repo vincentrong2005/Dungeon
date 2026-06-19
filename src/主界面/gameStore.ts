@@ -172,6 +172,7 @@ export const useGameStore = defineStore('game', () => {
   const currentSummary = ref('');
   const isGenerating = ref(false);
   const streamingText = ref('');
+  const messageListRevision = ref(0);
   const useStreaming = ref(readStreamingEnabledSetting());
   const forbidMatchingXmlInsideThink = ref(readForbidMatchingXmlInsideThinkSetting());
   const autoSummaryEnabled = ref(readAutoSummaryEnabledSetting());
@@ -1629,6 +1630,7 @@ export const useGameStore = defineStore('game', () => {
       } else {
         await createChatMessages([{ role: 'user', message: userInput, data: userMvuData }], { refresh: 'none' });
       }
+      messageListRevision.value += 1;
 
       // user 层已写入成功后，清空待应用变更，避免后续重复叠加
       pendingPortalChanges.value = null;
@@ -1678,6 +1680,7 @@ export const useGameStore = defineStore('game', () => {
       // 9. 创建 assistant 楼层，携带解析后的 MVU 数据
       console.info('[GameStore] Creating assistant message with MVU data');
       await createChatMessages([{ role: 'assistant', message: resultText, data: newMvuData }], { refresh: 'none' });
+      messageListRevision.value += 1;
       lastResolvedAssistantMessageId.value = getLastMessageId();
 
       // 10. 刷新本地 stat_data
@@ -2055,6 +2058,7 @@ export const useGameStore = defineStore('game', () => {
     fastModeBufferActive,
     fastActionEvents,
     streamingText,
+    messageListRevision,
     error,
     isInitialized,
     statData,
