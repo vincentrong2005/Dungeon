@@ -3284,7 +3284,7 @@ import {
   type CustomDifficultyInfluence,
   type DifficultyOption,
 } from '../difficulty';
-import { FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
+import { FINAL_AREA_NAME, FINAL_FLOOR_NAME, FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
@@ -9147,6 +9147,13 @@ const AREA_PORTAL_VISUAL: PortalVisual = {
   textColor: '#c7d2fe',
   glowColor: '#818cf8',
 };
+const FINAL_AREA_PORTAL_VISUAL: PortalVisual = {
+  icon: '🚪',
+  bgColor: 'rgba(88,28,135,0.55)',
+  borderColor: '#d946ef',
+  textColor: '#f5d0fe',
+  glowColor: '#f0abfc',
+};
 
 interface PortalChoice {
   label: string;
@@ -9240,6 +9247,16 @@ function generatePortals(): PortalChoice[] {
       if (currentFloor) targetFloor = getNextFloor(currentFloor);
     }
     if (targetFloor && FLOOR_MAP[targetFloor]) {
+      if (targetFloor === FINAL_FLOOR_NAME) {
+        return [{
+          label: FINAL_AREA_NAME,
+          roomType: '',
+          areaName: FINAL_AREA_NAME,
+          floorName: FINAL_FLOOR_NAME,
+          isFloorTransition: true,
+          ...FINAL_AREA_PORTAL_VISUAL,
+        }];
+      }
       const candidates = FLOOR_MAP[targetFloor].filter(a => a !== currentArea);
       const picked = shuffle(candidates).slice(0, 3);
       return picked.map(areaName => ({
@@ -9279,6 +9296,11 @@ const portalChoices = computed<PortalChoice[]>(() => {
   }
   // 构建状态指纹：区域 + 房间类型 + 统计，任何变化都重新生成
   const area = (gameStore.statData._当前区域 as string) || '';
+  if (area === FINAL_AREA_NAME) {
+    cachedPortals = [];
+    cachedPortalFingerprint = '';
+    return [];
+  }
   const roomType = (gameStore.statData._当前房间类型 as string) || '';
   const rooms = (gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0;
   const merchantDefeated = parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人);
@@ -9355,6 +9377,30 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
         ...(pendingStatDataFields ?? {}),
         ...buildInventoryUpdateFields({
           _圣遗物: buildStartingRelicInventoryForMetaGrowths(inventoryRelicMap.value),
+        }),
+      };
+    }
+    if (portal.areaName === FINAL_AREA_NAME) {
+      gameStore.setPendingPortalChanges({
+        area: FINAL_AREA_NAME,
+        roomType: '事件房',
+        resetRoomCounter: true,
+        resetPath: true,
+        incrementKeys: ['当前层已过房间', '累计已过房间', '累计经过事件'],
+        appendPathLabel: FINAL_AREA_NAME,
+        enemyName: '',
+      });
+      console.info(`[Portal] Final area transition queued → area: ${FINAL_AREA_NAME}, room: 事件房`);
+      const enterText = `推开了第五层领主房后出现的陌生门，进入了${FINAL_AREA_NAME}`;
+      return {
+        enterText,
+        targetRoomType: '事件房',
+        actionText: `<user>选择了继续前进，${enterText}。这里是欲望之神的私人空间，地牢的一切法则在门后完全失效；当前在场人物只有欲望之神。请根据世界书【终极区域】与【欲望之神】继续剧情。`,
+        pendingStatDataFields: normalizePendingStatDataFields({
+          ...(pendingStatDataFields ?? {}),
+          ...(worldGrowthPendingFields ?? {}),
+          在场人物: ['欲望之神'],
+          $当前事件: FINAL_AREA_NAME,
         }),
       };
     }
