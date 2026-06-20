@@ -7085,8 +7085,15 @@ const idolRewardSummary = computed(() => {
 });
 
 // ── Actions ──
+const isInFinalArea = computed(() => ((gameStore.statData._当前区域 as string) || '').trim() === FINAL_AREA_NAME);
+
 const handleSendInput = () => {
   if (!inputText.value.trim() || gameStore.isGenerating) return;
+  if (isInFinalArea.value && gameStore.hasRebirth) {
+    triggerRebirthAction();
+    inputText.value = '';
+    return;
+  }
   gameStore.sendAction(inputText.value);
   inputText.value = '';
 };
@@ -7198,7 +7205,7 @@ const resetTransientUiState = () => {
   requestAnimationFrame(() => updateViewportMetrics());
 };
 
-const handleRebirthClick = () => {
+const triggerRebirthAction = () => {
   if (gameStore.isGenerating) return;
   resetTransientUiState();
   gameStore.setPendingCombatMvuChanges(null);
@@ -7206,6 +7213,10 @@ const handleRebirthClick = () => {
   gameStore.sendAction(
     '<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。',
   );
+};
+
+const handleRebirthClick = () => {
+  triggerRebirthAction();
 };
 
 const isButtonCompletionTargetVisible = (target: ButtonCompletionMenuKey): boolean => {

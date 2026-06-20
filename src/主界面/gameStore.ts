@@ -10,6 +10,7 @@ import {
   detectOptionE,
   detectRebirth,
   extractMainText,
+  extractMainTextOnly,
   extractOptions,
   extractSummary,
   extractVariableUpdate,
@@ -51,10 +52,10 @@ export const useGameStore = defineStore('game', () => {
   const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
   const MIN_SUMMARY_VISIBLE_WINDOW = 1;
   const MAX_SUMMARY_VISIBLE_WINDOW = 60;
-  const META_SNIPPET_MAX_LENGTH = 420;
+  const META_SNIPPET_MAX_LENGTH = 1200;
 
   const FINAL_AREA_REROLL_INPUT =
-    '<user>试图重新摇动命运，让刚才那一幕从未发生。但这里是欲望之神的私人空间，地牢的一切法则在门后完全失效；欲望之神看见了这道改写的折痕，并且仍然记得被试图抹去的上一幕。请让欲望之神对此作出自然回应。</user>';
+    '<user>试图重新摇动命运，让刚才那一幕从未发生。但这里是欲望之神的私人空间，地牢的一切法则在门后完全失效；';
 
   function normalizeSummaryVisibleWindow(value: unknown): number {
     const parsed = Number(value);
@@ -202,7 +203,7 @@ export const useGameStore = defineStore('game', () => {
   // ── 编辑模式 ──
   const isEditing = ref(false);
   const editingText = ref('');
-  const pendingFinalAreaEditNotice = ref<string | null>(null);
+  const pendingFinalAreaEditNotices = ref<string[]>([]);
   const pendingFinalAreaRollbackNotice = ref<string | null>(null);
 
   // ── MVU 变量（解析后的 stat_data）──
@@ -987,47 +988,114 @@ export const useGameStore = defineStore('game', () => {
     return `${normalized.slice(0, maxLength)}...`;
   }
 
-  function countNonEmptyLines(text: string): number {
+  function normalizeTaglessEditText(text: string): string {
     return text
       .replace(/\r\n/g, '\n')
-      .split('\n')
-      .filter(line => line.trim().length > 0).length;
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<\s*\/?\s*[\w\u4e00-\u9fff:-]+(?:\s[^>]*)?>/g, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
-  function buildEditChangeSummary(originalText: string, nextText: string): string {
+  function expandChangeToLineContext(text: string, start: number, end: number): string {
+    if (!text) return '';
+    const safeStart = Math.max(0, Math.min(text.length, start));
+    const safeEnd = Math.max(safeStart, Math.min(text.length, end));
+    const searchStart = safeStart > 0 && safeStart === safeEnd ? safeStart - 1 : safeStart;
+    const before = text.lastIndexOf('\n', searchStart - 1);
+    const after = text.indexOf('\n', safeEnd);
+    const lineStart = before >= 0 ? before + 1 : 0;
+    const lineEnd = after >= 0 ? after : text.length;
+    return text.slice(lineStart, lineEnd).trim();
+  }
+
+  function expandChangeToParagraphContext(text: string, start: number, end: number): string {
+    if (!text) return '';
+    const safeStart = Math.max(0, Math.min(text.length, start));
+    const safeEnd = Math.max(safeStart, Math.min(text.length, end));
+    const paragraphRanges: Array<{ start: number; end: number }> = [];
+    const separatorRe = /\n[ \t]*\n/g;
+    let lastStart = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = separatorRe.exec(text)) !== null) {
+      const paragraphEnd = match.index;
+      if (text.slice(lastStart, paragraphEnd).trim()) {
+        paragraphRanges.push({ start: lastStart, end: paragraphEnd });
+      }
+      lastStart = match.index + match[0].length;
+    }
+
+    if (text.slice(lastStart).trim()) {
+      paragraphRanges.push({ start: lastStart, end: text.length });
+    }
+
+    if (paragraphRanges.length === 0) {
+      return expandChangeToLineContext(text, safeStart, safeEnd);
+    }
+
+    const intersectsChange = (range: { start: number; end: number }) => {
+      if (safeStart === safeEnd) return range.start <= safeStart && safeStart <= range.end;
+      return range.start < safeEnd && safeStart < range.end;
+    };
+    const firstIndex = paragraphRanges.findIndex(intersectsChange);
+    if (firstIndex < 0) {
+      return expandChangeToLineContext(text, safeStart, safeEnd);
+    }
+
+    let lastIndex = firstIndex;
+    for (let i = firstIndex + 1; i < paragraphRanges.length; i += 1) {
+      if (!intersectsChange(paragraphRanges[i])) break;
+      lastIndex = i;
+    }
+
+    const contextStartIndex = Math.max(0, firstIndex - 1);
+    const contextEndIndex = Math.min(paragraphRanges.length - 1, lastIndex + 1);
+    return text.slice(paragraphRanges[contextStartIndex].start, paragraphRanges[contextEndIndex].end).trim();
+  }
+
+  function buildEditChangeSummary(originalText: string, nextText: string): string | null {
     if (originalText === nextText) {
       return '玩家触碰了刚才那一幕的文字，但最终没有留下可见改动。';
     }
 
+    const originalStoryText = extractMainTextOnly(originalText, getResponseParserOptions()).trim();
+    const nextStoryText = extractMainTextOnly(nextText, getResponseParserOptions()).trim();
+    if (!originalStoryText || !nextStoryText) {
+      return null;
+    }
+    if (normalizeTaglessEditText(originalStoryText) === normalizeTaglessEditText(nextStoryText)) {
+      return null;
+    }
+
     let prefixLength = 0;
-    const minLength = Math.min(originalText.length, nextText.length);
-    while (prefixLength < minLength && originalText[prefixLength] === nextText[prefixLength]) {
+    const minLength = Math.min(originalStoryText.length, nextStoryText.length);
+    while (prefixLength < minLength && originalStoryText[prefixLength] === nextStoryText[prefixLength]) {
       prefixLength += 1;
     }
 
     let suffixLength = 0;
     while (
-      suffixLength < originalText.length - prefixLength &&
-      suffixLength < nextText.length - prefixLength &&
-      originalText[originalText.length - 1 - suffixLength] === nextText[nextText.length - 1 - suffixLength]
+      suffixLength < originalStoryText.length - prefixLength &&
+      suffixLength < nextStoryText.length - prefixLength &&
+      originalStoryText[originalStoryText.length - 1 - suffixLength] ===
+        nextStoryText[nextStoryText.length - 1 - suffixLength]
     ) {
       suffixLength += 1;
     }
 
-    const removed = originalText.slice(prefixLength, originalText.length - suffixLength);
-    const added = nextText.slice(prefixLength, nextText.length - suffixLength);
-    const removedLines = countNonEmptyLines(removed);
-    const addedLines = countNonEmptyLines(added);
-    const parts = [
-      `玩家改写了刚才那一幕。被抹去约 ${removed.length} 个字符/${removedLines} 行，新写入约 ${added.length} 个字符/${addedLines} 行。`,
-    ];
-
-    if (removed.trim()) {
-      parts.push(`被删除或替换的片段：\n${truncateMetaSnippet(removed)}`);
-    }
-    if (added.trim()) {
-      parts.push(`新增或替换后的片段：\n${truncateMetaSnippet(added)}`);
-    }
+    const removedStart = prefixLength;
+    const removedEnd = originalStoryText.length - suffixLength;
+    const addedStart = prefixLength;
+    const addedEnd = nextStoryText.length - suffixLength;
+    const removed = originalStoryText.slice(removedStart, removedEnd);
+    const added = nextStoryText.slice(addedStart, addedEnd);
+    const removedContext = expandChangeToParagraphContext(originalStoryText, removedStart, removedEnd);
+    const addedContext = expandChangeToParagraphContext(nextStoryText, addedStart, addedEnd);
+    const parts: string[] = [];
+    parts.push(`改写前：\n${truncateMetaSnippet(removedContext || removed)}`);
+    parts.push(`改写后：\n${truncateMetaSnippet(addedContext || added)}`);
     return parts.join('\n');
   }
 
@@ -1065,6 +1133,16 @@ export const useGameStore = defineStore('game', () => {
         summary: extractSummary(msg.message, getResponseParserOptions()).trim(),
       }))
       .filter(entry => entry.summary.length > 0);
+  }
+
+  function formatFinalAreaEditNotices(notices: string[]): string | null {
+    const activeNotices = notices.map(notice => notice.trim()).filter(notice => notice.length > 0);
+    if (activeNotices.length === 0) return null;
+    if (activeNotices.length === 1) return `玩家改写了刚才那一幕一处地方。\n第一处：\n${activeNotices[0]}`;
+    return [
+      `玩家改写了刚才那一幕${activeNotices.length}处地方。`,
+      ...activeNotices.map((notice, index) => `第${index + 1}处：\n${notice}`),
+    ].join('\n\n');
   }
 
   function appendFinalAreaMetaNotices(userInput: string, notices: Array<string | null>): string {
@@ -1713,8 +1791,9 @@ export const useGameStore = defineStore('game', () => {
       const currentPendingPortalChanges = pendingPortalChanges.value;
       const currentPendingCombatChanges = pendingCombatMvuChanges.value;
       const currentPendingStatDataChanges = pendingStatDataChanges.value;
-      const currentPendingFinalAreaEditNotice = isInFinalArea() ? pendingFinalAreaEditNotice.value : null;
+      const currentPendingFinalAreaEditNotices = isInFinalArea() ? [...pendingFinalAreaEditNotices.value] : [];
       const currentPendingFinalAreaRollbackNotice = isInFinalArea() ? pendingFinalAreaRollbackNotice.value : null;
+      const currentPendingFinalAreaEditNotice = formatFinalAreaEditNotices(currentPendingFinalAreaEditNotices);
       const finalUserInput = appendFinalAreaMetaNotices(userInput, [
         currentPendingFinalAreaRollbackNotice,
         currentPendingFinalAreaEditNotice,
@@ -1749,8 +1828,8 @@ export const useGameStore = defineStore('game', () => {
       pendingPortalChanges.value = null;
       pendingCombatMvuChanges.value = null;
       pendingStatDataChanges.value = null;
-      if (currentPendingFinalAreaEditNotice) {
-        pendingFinalAreaEditNotice.value = null;
+      if (currentPendingFinalAreaEditNotices.length > 0) {
+        pendingFinalAreaEditNotices.value = [];
       }
       if (currentPendingFinalAreaRollbackNotice) {
         pendingFinalAreaRollbackNotice.value = null;
@@ -2098,7 +2177,10 @@ export const useGameStore = defineStore('game', () => {
       await setChatMessages([{ message_id: lastId, message: editingText.value }], { refresh: 'none' });
       lastResolvedAssistantMessageId.value = lastId;
       if (wasEditingFinalArea) {
-        pendingFinalAreaEditNotice.value = buildEditChangeSummary(originalText, editingText.value);
+        const editNotice = buildEditChangeSummary(originalText, editingText.value);
+        if (editNotice) {
+          pendingFinalAreaEditNotices.value.push(editNotice);
+        }
       }
 
       // 将 MVU 数据写回当前楼层
