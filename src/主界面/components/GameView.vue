@@ -6316,11 +6316,17 @@ interface InlineImageBlock {
 const STORY_MULTI_DIVIDER_MARKER = '__DUNGEON_STORY_MULTI_DIVIDER__';
 const STORY_MULTI_CURRENT_DIVIDER_MARKER = '__DUNGEON_STORY_MULTI_CURRENT_DIVIDER__';
 const STORY_MULTI_USER_LINE_MARKER = '__DUNGEON_STORY_MULTI_USER_LINE__';
+const FINAL_AREA_META_OBSERVATION_TEXT =
+  '欲望之神捕捉到了来自故事外侧的扰动；那不是地牢里的事件，而是玩家亲手拨动命运时留下的涟漪。';
 const FINAL_AREA_SYSTEM_RECORD_RE =
   /<系统记录：终极区域外侧操作>[\s\S]*?<\/系统记录：终极区域外侧操作>|<命运涟漪>[\s\S]*?<\/命运涟漪>/g;
 
 const stripFinalAreaSystemRecordsForDisplay = (text: string): string =>
-  text.replace(FINAL_AREA_SYSTEM_RECORD_RE, '').replace(/\n{3,}/g, '\n\n').trim();
+  text
+    .replace(FINAL_AREA_SYSTEM_RECORD_RE, '')
+    .replaceAll(FINAL_AREA_META_OBSERVATION_TEXT, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
 const markStoryUserLines = (text: string): string =>
   text

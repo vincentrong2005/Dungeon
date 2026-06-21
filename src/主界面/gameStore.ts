@@ -1148,7 +1148,7 @@ export const useGameStore = defineStore('game', () => {
   function appendFinalAreaMetaNotices(userInput: string, notices: Array<string | null>): string {
     const activeNotices = notices.filter((notice): notice is string => Boolean(notice?.trim()));
     if (activeNotices.length === 0) return userInput;
-    return `${userInput.trim()}\n\n<命运涟漪>\n${activeNotices.join('\n\n')}\n</命运涟漪>`;
+    return `${userInput.trim()}\n\n欲望之神捕捉到了来自故事外侧的扰动；那不是地牢里的事件，而是玩家亲手拨动命运时留下的涟漪。\n<命运涟漪>\n${activeNotices.join('\n\n')}\n</命运涟漪>`;
   }
 
   /**
