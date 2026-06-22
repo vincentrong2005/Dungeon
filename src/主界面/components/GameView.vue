@@ -1940,6 +1940,45 @@
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>传送门/重生附带输入</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('portalRebirthInputAppend')"
+                      @mouseleave="closeSettingsHelp('portalRebirthInputAppend')"
+                      @focus="openSettingsHelp('portalRebirthInputAppend')"
+                      @blur="closeSettingsHelp('portalRebirthInputAppend')"
+                      @touchstart.passive="startSettingsHelpTouch('portalRebirthInputAppend')"
+                      @touchend="endSettingsHelpTouch('portalRebirthInputAppend')"
+                      @touchcancel="endSettingsHelpTouch('portalRebirthInputAppend')"
+                      @click.stop.prevent="toggleSettingsHelp('portalRebirthInputAppend')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'portalRebirthInputAppend'" class="settings-help-popover">
+                        {{ settingsHelpText.portalRebirthInputAppend }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isPortalRebirthInputAppendEnabled }"
+                    :aria-checked="isPortalRebirthInputAppendEnabled"
+                    role="switch"
+                    @click="isPortalRebirthInputAppendEnabled = !isPortalRebirthInputAppendEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
                     <span>剧情精简模式</span>
                     <button
                       type="button"
@@ -5773,6 +5812,7 @@ type SettingsHelpKey =
   | 'streamingEnabled'
   | 'forbidMatchingXmlInsideThink'
   | 'buttonCompletion'
+  | 'portalRebirthInputAppend'
   | 'fastMode'
   | 'autoSummaryEnabled'
   | 'summaryVisibleWindow'
@@ -5783,6 +5823,7 @@ type SettingsHelpKey =
 
 const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
 const AUTO_SCROLL_TOP_ON_REPLY_KEY = 'dungeon.auto_scroll_top_on_reply.v1';
+const PORTAL_REBIRTH_INPUT_APPEND_KEY = 'dungeon.portal_rebirth_input_append.v1';
 const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
   fontSize: 26,
   lineHeight: 2.0,
@@ -5868,8 +5909,25 @@ const persistAutoScrollTopOnReplyEnabled = (enabled: boolean) => {
   }
 };
 
+const readPortalRebirthInputAppendEnabled = (): boolean => {
+  try {
+    return localStorage.getItem(PORTAL_REBIRTH_INPUT_APPEND_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const persistPortalRebirthInputAppendEnabled = (enabled: boolean) => {
+  try {
+    localStorage.setItem(PORTAL_REBIRTH_INPUT_APPEND_KEY, String(enabled));
+  } catch {
+    // Ignore persistence errors in restricted environments
+  }
+};
+
 const textSettings = reactive<TextSettingsState>(readTextSettings());
 const isAutoScrollTopOnReplyEnabled = ref(readAutoScrollTopOnReplyEnabled());
+const isPortalRebirthInputAppendEnabled = ref(readPortalRebirthInputAppendEnabled());
 
 const setSingleLayerDisplay = (enabled: boolean) => {
   textSettings.singleLayerDisplay = enabled;
@@ -5913,6 +5971,10 @@ watch(
 
 watch(isAutoScrollTopOnReplyEnabled, enabled => {
   persistAutoScrollTopOnReplyEnabled(enabled);
+});
+
+watch(isPortalRebirthInputAppendEnabled, enabled => {
+  persistPortalRebirthInputAppendEnabled(enabled);
 });
 
 watch(
@@ -6076,6 +6138,8 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
   forbidMatchingXmlInsideThink:
     '开启后，系统解析 <status>、<options>、<sum> 等 XML 标签时，会忽略思维链内容里的同名标签，避免把AI思考过程中的示例标签误当成正式结果。',
   buttonCompletion: '开启后，输入框会根据当前可选项提供按钮式补全，方便快速选择剧情选项或行动；关闭后只保留手动输入。',
+  portalRebirthInputAppend:
+    '开启后，点击传送门或回溯重生时，若输入框已有内容，会把这段内容一并发送并清空输入框；关闭后保持原本只发送按钮行动。',
   fastMode:
     '开启后，部分行动会进入剧情精简模式：系统先快速记录已结算事件和变量变化，再把简化后的经过交给AI承认并续写，可减少长剧情消耗与等待时间。',
   autoSummaryEnabled:
@@ -7096,12 +7160,25 @@ const isInFinalArea = computed(() => ((gameStore.statData._当前区域 as strin
 const handleSendInput = () => {
   if (!inputText.value.trim() || gameStore.isGenerating) return;
   if (isInFinalArea.value && gameStore.hasRebirth) {
-    triggerRebirthAction();
+    triggerRebirthAction({ consumeInput: false });
     inputText.value = '';
     return;
   }
   gameStore.sendAction(inputText.value);
   inputText.value = '';
+};
+
+const consumePortalRebirthInputAppend = (): string => {
+  if (!isPortalRebirthInputAppendEnabled.value) return '';
+  const text = inputText.value.trim();
+  if (!text) return '';
+  inputText.value = '';
+  return text;
+};
+
+const appendInputToPortalRebirthAction = (actionText: string): string => {
+  const extraText = consumePortalRebirthInputAppend();
+  return extraText ? `${actionText}\n${extraText}` : actionText;
 };
 
 const handleOptionClick = (option: string) => {
@@ -7211,14 +7288,14 @@ const resetTransientUiState = () => {
   requestAnimationFrame(() => updateViewportMetrics());
 };
 
-const triggerRebirthAction = () => {
+const triggerRebirthAction = (options: { consumeInput?: boolean } = {}) => {
   if (gameStore.isGenerating) return;
+  const shouldConsumeInput = options.consumeInput !== false;
   resetTransientUiState();
   gameStore.setPendingCombatMvuChanges(null);
   gameStore.setPendingStatDataChanges(buildRebirthResetFields());
-  gameStore.sendAction(
-    '<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。',
-  );
+  const actionText = '<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。';
+  gameStore.sendAction(shouldConsumeInput ? appendInputToPortalRebirthAction(actionText) : actionText);
 };
 
 const handleRebirthClick = () => {
@@ -9738,7 +9815,7 @@ const handlePortalClick = async (portal: PortalChoice) => {
   resetShopSession();
   const { actionText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
   gameStore.setPendingStatDataChanges(pendingStatDataFields ?? null);
-  await submitGameAction(actionText, targetRoomType, 'portal');
+  await submitGameAction(appendInputToPortalRebirthAction(actionText), targetRoomType, 'portal');
 };
 
 const handleChestPortalClick = async (portal: PortalChoice) => {
@@ -9769,13 +9846,15 @@ const handleChestPortalClick = async (portal: PortalChoice) => {
   closeChestView();
   if (relicNameText) {
     await submitGameAction(
-      `<user>打开了箱子并从中获取了圣遗物${relicNameText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+      appendInputToPortalRebirthAction(
+        `<user>打开了箱子并从中获取了圣遗物${relicNameText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+      ),
       targetRoomType,
       'chest',
     );
     return;
   }
-  await submitGameAction(actionText, targetRoomType, 'portal');
+  await submitGameAction(appendInputToPortalRebirthAction(actionText), targetRoomType, 'portal');
 };
 
 const handleIdolPortalClick = async (portal: PortalChoice) => {
@@ -9796,14 +9875,18 @@ const handleIdolPortalClick = async (portal: PortalChoice) => {
   closeIdolView();
   if (!reward) {
     await submitGameAction(
-      `<user>没有膜拜任何一座神像，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+      appendInputToPortalRebirthAction(
+        `<user>没有膜拜任何一座神像，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+      ),
       targetRoomType,
       'idol',
     );
     return;
   }
   await submitGameAction(
-    `<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+    appendInputToPortalRebirthAction(
+      `<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+    ),
     targetRoomType,
     'idol',
   );
