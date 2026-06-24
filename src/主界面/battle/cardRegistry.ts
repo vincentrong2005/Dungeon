@@ -7046,6 +7046,23 @@ const 大地原液: CardData = {
   description: '为自身回复2倍点数的生命值，清除自身所有元素debuff并为双方赋予1层生命回复',
 };
 
+/** 原液增生：提升自身1点最小点数 */
+const 原液增生: CardData = {
+  id: 'enemy_undine_raw_liquid_growth',
+  name: '原液增生',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, minDiceDelta: 1 },
+  ],
+  description: '提升自身1点最小点数',
+};
+
 /** 主母的邀请：造成0.5倍点数伤害并施加4层中毒 */
 const 主母的邀请: CardData = {
   id: 'enemy_mata_matriarch_invitation',
@@ -9601,6 +9618,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [精华灌注.name, 精华灌注],
   [精神同化.name, 精神同化],
   [大地原液.name, 大地原液],
+  [原液增生.name, 原液增生],
   [主母的邀请.name, 主母的邀请],
   [裙下触手.name, 裙下触手],
   [菌群修复.name, 菌群修复],

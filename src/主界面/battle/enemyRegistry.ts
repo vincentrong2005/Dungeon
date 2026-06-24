@@ -403,6 +403,7 @@ const UNDINE_CARD = {
   ESSENCE_INFUSION: 'enemy_undine_essence_infusion',
   PSYCHIC_ASSIMILATION: 'enemy_undine_psychic_assimilation',
   EARTH_LIQUID: 'enemy_undine_earth_liquid',
+  RAW_LIQUID_GROWTH: 'enemy_undine_raw_liquid_growth',
 } as const;
 
 const MATA_CARD = {
@@ -2328,10 +2329,10 @@ const 温蒂尼: EnemyDefinition = {
   name: '温蒂尼',
   defeatNegativeStatus: '[被侵蚀]',
   stats: {
-    hp: 40,
-    maxHp: 40,
+    hp: 38,
+    maxHp: 38,
     mp: 0,
-    minDice: 3,
+    minDice: 2,
     maxDice: 8,
     effects: [
       { type: EffectType.WHITE_TURBID, stacks: 1, polarity: 'mixed' },
@@ -2345,12 +2346,17 @@ const 温蒂尼: EnemyDefinition = {
     UNDINE_CARD.ESSENCE_INFUSION,
     UNDINE_CARD.PSYCHIC_ASSIMILATION,
     UNDINE_CARD.EARTH_LIQUID,
+    UNDINE_CARD.RAW_LIQUID_GROWTH,
     UNDINE_CARD.EARTH_ESSENCE,
   ]),
   selectCard(ctx: EnemyAIContext) {
     if (!ctx.flags.undineUsedEarthLiquid && ctx.enemyStats.hp < ctx.enemyStats.maxHp * 0.5) {
       ctx.flags.undineUsedEarthLiquid = true;
       return pickCardById(ctx, UNDINE_CARD.EARTH_LIQUID);
+    }
+
+    if (ctx.turn > 0 && ctx.turn % 5 === 0) {
+      return pickCardById(ctx, UNDINE_CARD.RAW_LIQUID_GROWTH);
     }
 
     if (ctx.enemyStats.mp >= 5) {
