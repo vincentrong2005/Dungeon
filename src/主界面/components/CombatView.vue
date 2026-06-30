@@ -7889,9 +7889,22 @@ const isPhysicalMagicPair = (card1: CardData, card2: CardData): boolean => (
   || (card1.type === CardType.MAGIC && card2.type === CardType.PHYSICAL)
 );
 
+const isMagicRingClashPair = (card1: CardData, card2: CardData): boolean => (
+  getActiveRelicCount('basic_magic_ring') > 0 && isPhysicalMagicPair(card1, card2)
+);
+
+const isIgnoreDodgeBypassPair = (card1: CardData, card2: CardData): boolean => {
+  const t1 = card1.type;
+  const t2 = card2.type;
+  return (
+    (card1.ignoreDodge && t2 === CardType.DODGE && (t1 === CardType.PHYSICAL || t1 === CardType.MAGIC))
+    || (card2.ignoreDodge && t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC))
+  );
+};
+
 const isSameRuleClash = (card1: CardData, card2: CardData): boolean => (
   card1.type === card2.type
-  || (getActiveRelicCount('basic_magic_ring') > 0 && isPhysicalMagicPair(card1, card2))
+  || isMagicRingClashPair(card1, card2)
 );
 
 // Clashable check
@@ -7899,9 +7912,12 @@ const isClashable = (card1: CardData, card2: CardData): boolean => {
   const t1 = card1.type;
   const t2 = card2.type;
 
+  if (t1 === CardType.PHYSICAL && t2 === CardType.PHYSICAL) return true;
+  if (t1 === CardType.MAGIC && t2 === CardType.MAGIC) return true;
+  if (isMagicRingClashPair(card1, card2)) return true;
+
   const bypassDodge =
-    (card1.ignoreDodge && t2 === CardType.DODGE && (t1 === CardType.PHYSICAL || t1 === CardType.MAGIC))
-    || (card2.ignoreDodge && t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC))
+    isIgnoreDodgeBypassPair(card1, card2)
     || (
       card2.id === 'enemy_othello_annihilation_star'
       && t1 === CardType.DODGE
@@ -7909,11 +7925,6 @@ const isClashable = (card1: CardData, card2: CardData): boolean => {
     );
   if (bypassDodge) return false;
 
-  if (t1 === CardType.PHYSICAL && t2 === CardType.PHYSICAL) return true;
-  if (t1 === CardType.MAGIC && t2 === CardType.MAGIC) return true;
-  if (getActiveRelicCount('basic_magic_ring') > 0 && isPhysicalMagicPair(card1, card2)) {
-    return true;
-  }
   if (t1 === CardType.DODGE && (t2 === CardType.PHYSICAL || t2 === CardType.MAGIC)) return true;
   if (t2 === CardType.DODGE && (t1 === CardType.PHYSICAL || t1 === CardType.MAGIC)) return true;
   return false;
@@ -8063,13 +8074,7 @@ const resolveCombat = async (
   resolveMimicCurse('enemy');
 
   const shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
-  const clashBypassedByIgnoreDodge =
-    (resolvedPlayerCard.ignoreDodge
-      && resolvedEnemyCard.type === CardType.DODGE
-      && (resolvedPlayerCard.type === CardType.PHYSICAL || resolvedPlayerCard.type === CardType.MAGIC))
-    || (resolvedEnemyCard.ignoreDodge
-      && resolvedPlayerCard.type === CardType.DODGE
-      && (resolvedEnemyCard.type === CardType.PHYSICAL || resolvedEnemyCard.type === CardType.MAGIC));
+  const clashBypassedByIgnoreDodge = isIgnoreDodgeBypassPair(resolvedPlayerCard, resolvedEnemyCard);
   if (!shouldClash && clashBypassedByIgnoreDodge) {
     log('<span class="text-indigo-300">[无视闪避] 闪避拼点被跳过，卡牌将直接生效。</span>');
   }
