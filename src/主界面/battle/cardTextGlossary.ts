@@ -25,6 +25,7 @@ const TRAIT_LABELS = {
   unplayable: '无法打出',
   destroyOnClashWin: '销毁',
   purgeOnUse: '移除',
+  retain: '保留',
   insertCardsToEnemyDeck: '插入',
 } as const;
 
@@ -42,6 +43,8 @@ const getTraitDescription = (traits: CardTraits, key: keyof typeof TRAIT_LABELS)
       return '拼点胜利时，临时移除对方本次拼点失败的卡牌。';
     case 'purgeOnUse':
       return '打出后自我销毁，不进入弃牌堆。';
+    case 'retain':
+      return '回合结束后不进入弃牌堆，保留在手牌中并占据原手牌位。';
     case 'insertCardsToEnemyDeck': {
       const names = traits.insertCardsToEnemyDeck?.join('、') ?? '';
       return names ? `打出后向对方牌库插入：${names}。` : '打出后向对方牌库插入指定卡牌。';
@@ -153,6 +156,15 @@ export const getCardTraitGlossaryEntries = (traits: CardTraits | null | undefine
       key: 'trait:purgeOnUse',
       label: TRAIT_LABELS.purgeOnUse,
       description: getTraitDescription(traits, 'purgeOnUse'),
+      source: 'trait',
+      polarity: 'trait',
+    });
+  }
+  if (traits.retain) {
+    entries.push({
+      key: 'trait:retain',
+      label: TRAIT_LABELS.retain,
+      description: getTraitDescription(traits, 'retain'),
       source: 'trait',
       polarity: 'trait',
     });

@@ -1319,6 +1319,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.BLIND_ASH]: EyeOff,
   [ET.COGNITIVE_INTERFERENCE]: Brain,
   [ET.UNSEEABLE]: EyeOff,
+  [ET.INTANGIBLE]: Sparkles,
   [ET.TWINS]: Link2,
   [ET.MEMORY_FOG]: EyeOff,
   [ET.SIGHT_DEPRIVATION]: EyeOff,
@@ -1433,6 +1434,50 @@ const BEHEMOTH_ROASTED_RABBIT_LEG_ID = 'behemoth_food_roasted_rabbit_leg';
 const BEHEMOTH_ROAST_MEAT_ID = 'behemoth_food_roast_meat';
 const mimicDisplayCards = new WeakMap<CardData, CardData>();
 const mooreMimicPlayedThisTurn = ref(false);
+const PLAYER_HAND_SLOT_COUNT = 3;
+const playerHandSlotByCard = new WeakMap<CardData, number>();
+
+const clampPlayerHandSlot = (slot: number): number => Math.max(0, Math.min(PLAYER_HAND_SLOT_COUNT - 1, Math.floor(slot)));
+
+const firstOpenPlayerHandSlot = (slots: Array<CardData | null>): number => slots.findIndex(card => card === null);
+
+const mergePlayerHandWithDrawnCards = (existingCards: readonly CardData[], drawnCards: readonly CardData[]): CardData[] => {
+  const slots: Array<CardData | null> = Array.from({ length: PLAYER_HAND_SLOT_COUNT }, () => null);
+  const overflowExisting: CardData[] = [];
+
+  existingCards.slice(0, PLAYER_HAND_SLOT_COUNT).forEach((card, index) => {
+    const preferredSlot = clampPlayerHandSlot(playerHandSlotByCard.get(card) ?? index);
+    if (slots[preferredSlot]) {
+      overflowExisting.push(card);
+      return;
+    }
+    slots[preferredSlot] = card;
+  });
+
+  for (const card of overflowExisting) {
+    const slot = firstOpenPlayerHandSlot(slots);
+    if (slot < 0) break;
+    slots[slot] = card;
+  }
+
+  for (const card of drawnCards) {
+    const slot = firstOpenPlayerHandSlot(slots);
+    if (slot < 0) break;
+    slots[slot] = card;
+  }
+
+  slots.forEach((card, slot) => {
+    if (card) {
+      playerHandSlotByCard.set(card, slot);
+    }
+  });
+
+  return slots.filter((card): card is CardData => card !== null);
+};
+
+const getOpenPlayerHandSlotCount = (cards: readonly CardData[]): number => (
+  PLAYER_HAND_SLOT_COUNT - mergePlayerHandWithDrawnCards(cards, []).length
+);
 
 const combatState = ref<CombatState>({
   turn: 1,
@@ -2418,6 +2463,18 @@ const applyDamageToSideWithRelics = (
   if (damageOptions.isDirectDamage) {
     addDirectDamageTakenThisTurn(side, result.actualDamage);
   }
+  if (
+    damageOptions.isDirectDamage
+    && damageOptions.card?.swarmAttack
+    && result.actualDamage > 0
+  ) {
+    const intangible = findEffect(target, ET.INTANGIBLE);
+    if (intangible && intangible.stacks > 0) {
+      intangible.runtimeCounter = Math.max(0, Math.floor(intangible.runtimeCounter ?? 0)) + 1;
+      const targetLabel = side === 'player' ? '我方' : '敌方';
+      log(`<span class="text-violet-300">${targetLabel}[无形] 受到群攻伤害，下一次触发失效（累计跳过 ${intangible.runtimeCounter} 次）。</span>`);
+    }
+  }
   const wasLethalDamage = hpBeforeDamage > 0 && result.actualDamage >= hpBeforeDamage;
   triggerBloodpoolHeartMarkByDamage(side, result.actualDamage, reason, {
     ...damageOptions,
@@ -3338,12 +3395,14 @@ const playTurnEndInHandCardAnimation = async (card: CardData, index: number, tot
 };
 
 const putDrawnCardIntoHand = async (card: CardData, sourceText: string) => {
-  if (combatState.value.playerHand.length >= 3) {
+  if (combatState.value.playerHand.length >= PLAYER_HAND_SLOT_COUNT) {
     const replaceIdx = Math.floor(Math.random() * combatState.value.playerHand.length);
     const replaced = combatState.value.playerHand[replaceIdx]!;
+    const replacedSlot = playerHandSlotByCard.get(replaced) ?? replaceIdx;
     setHandCardAnimation(replaced, 'discard');
     await wait(HAND_CARD_ANIMATION_DURATION.discard);
     setHandCardAnimation(card, 'draw');
+    playerHandSlotByCard.set(card, clampPlayerHandSlot(replacedSlot));
     combatState.value.playerHand.splice(replaceIdx, 1, card);
     combatState.value.discardPile.push(replaced);
     setHandCardAnimation(replaced, null);
@@ -3354,7 +3413,7 @@ const putDrawnCardIntoHand = async (card: CardData, sourceText: string) => {
 
   setHandCardAnimation(card, 'draw');
   clearHandCardAnimationLater(card, 'draw');
-  combatState.value.playerHand = [...combatState.value.playerHand, card];
+  combatState.value.playerHand = mergePlayerHandWithDrawnCards(combatState.value.playerHand, [card]);
   log(`<span class="text-zinc-200">${sourceText}：抽到【${card.name}】。</span>`);
 };
 
@@ -3535,6 +3594,31 @@ const insertBehemothFoodIntoPlayerDiscard = () => {
   }
 };
 
+const insertHolyWaterIntoOpponentDeck = (source: BattleSide, count: number, reason: string) => {
+  const card = getCardByName('圣水');
+  if (!card) {
+    log('<span class="text-red-400">[圣水水母] 未找到【圣水】卡牌定义。</span>');
+    return;
+  }
+  const targetSide: BattleSide = source === 'player' ? 'enemy' : 'player';
+  const sourceLabel = source === 'player' ? '我方' : '敌方';
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  let inserted = 0;
+  for (let i = 0; i < Math.max(0, Math.floor(count)); i += 1) {
+    const battleCard = cloneCardForBattle(card);
+    if (targetSide === 'player') {
+      combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, battleCard);
+    } else {
+      combatState.value.enemyDeck = insertCardIntoDeckRandomly(combatState.value.enemyDeck, battleCard);
+    }
+    inserted += 1;
+  }
+  if (inserted > 0) {
+    const deckSize = targetSide === 'player' ? combatState.value.playerDeck.length : combatState.value.enemyDeck.length;
+    log(`<span class="text-fuchsia-300">${sourceLabel}【${reason}】向${targetLabel}抽牌堆插入了 ${inserted} 张【圣水】（牌库${deckSize}）。</span>`);
+  }
+};
+
 const insertPrayerCandleRetreatIntoPlayerDeck = () => {
   if (enemyDisplayName !== '祈祷烛灵') return;
   if (combatState.value.turn !== 12) return;
@@ -3610,11 +3694,13 @@ const processTurnEndInHandCardEffects = async () => {
       }
       applyCardEffectsByTrigger('player', card, finalPoint, 'on_turn_end_in_hand');
       await wait(card.id === MOORE_MIMIC_CARD_ID ? 720 : 430);
-      const currentIndex = combatState.value.playerHand.findIndex(entry => entry === card);
-      if (currentIndex >= 0) {
-        const [removed] = combatState.value.playerHand.splice(currentIndex, 1);
-        if (removed) {
-          combatState.value.discardPile.push(removed);
+      if (!card.traits.retain) {
+        const currentIndex = combatState.value.playerHand.findIndex(entry => entry === card);
+        if (currentIndex >= 0) {
+          const [removed] = combatState.value.playerHand.splice(currentIndex, 1);
+          if (removed) {
+            combatState.value.discardPile.push(removed);
+          }
         }
       }
     } finally {
@@ -6180,6 +6266,36 @@ const applyUnseeableAura = (ownerSide: BattleSide, reason: 'battle_start' | 'tur
   log(`<span class="text-violet-300">[${ownerLabel}特性][无法直视] ${reasonText}为${targetLabel}施加了${appliedEffects.join('与')}。</span>`);
 };
 
+const applyIntangibleAura = (ownerSide: BattleSide) => {
+  const owner = ownerSide === 'player' ? playerStats.value : enemyStats.value;
+  const intangible = findEffect(owner, ET.INTANGIBLE);
+  if (!intangible || intangible.stacks <= 0) return;
+  if (combatState.value.turn <= 0) return;
+
+  const ownerLabel = ownerSide === 'player' ? '我方' : '敌方';
+  const targetSide: BattleSide = ownerSide === 'player' ? 'enemy' : 'player';
+  const target = getEntityBySide(targetSide);
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  const skipCount = Math.max(0, Math.floor(intangible.runtimeCounter ?? 0));
+  if (skipCount > 0) {
+    intangible.runtimeCounter = skipCount - 1;
+    log(`<span class="text-violet-300">[${ownerLabel}特性][无形] 本次敌意隐藏触发被群攻打断，剩余跳过 ${Math.max(0, skipCount - 1)} 次。</span>`);
+    return;
+  }
+  if (getEffectStacks(target, ET.COGNITIVE_INTERFERENCE) > 0) {
+    log(`<span class="text-violet-300">[${ownerLabel}特性][无形] ${targetLabel}已有敌意隐藏，本次无需重复施加。</span>`);
+    return;
+  }
+
+  const applied = applyStatusEffectWithRelics(targetSide, ET.COGNITIVE_INTERFERENCE, 1, {
+    source: 'effect:intangible',
+    durationTurns: 1,
+  });
+  if (applied) {
+    log(`<span class="text-violet-300">[${ownerLabel}特性][无形] 回合开始为${targetLabel}施加了1回合敌意隐藏。</span>`);
+  }
+};
+
 const applyFantasyEmbraceBattleStart = (ownerSide: BattleSide) => {
   const owner = ownerSide === 'player' ? playerStats.value : enemyStats.value;
   const stacks = Math.max(0, getEffectStacks(owner, ET.FANTASY_EMBRACE));
@@ -6700,9 +6816,9 @@ const useActiveSkill = async (idx: number) => {
       combatState.value.playerHand = [];
       const { drawn, newDeck, newDiscard } = drawCards(Math.max(3, handCount), combatState.value.playerDeck, combatState.value.discardPile);
       applyOnDrawCardEffects(drawn);
-      const nextHand = drawn.slice(0, 3);
+      const nextHand = drawn.slice(0, PLAYER_HAND_SLOT_COUNT);
       markDrawnCardsAnimation(nextHand);
-      combatState.value.playerHand = nextHand;
+      combatState.value.playerHand = mergePlayerHandWithDrawnCards([], nextHand);
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
       log(`<span class="text-zinc-200">主动【${skill.name}】：重新抽取了 ${combatState.value.playerHand.length} 张卡牌。</span>`);
@@ -6734,7 +6850,7 @@ const useActiveSkill = async (idx: number) => {
       await playCardsToDiscardAnimation(oldHand);
       markDrawnCardsAnimation(nextHand);
       combatState.value.discardPile = [...combatState.value.discardPile, ...oldHand];
-      combatState.value.playerHand = nextHand;
+      combatState.value.playerHand = mergePlayerHandWithDrawnCards([], nextHand);
       log(`<span class="text-zinc-200">主动【${skill.name}】：将手牌替换为 ${nextHand.length} 张随机稀有卡牌。</span>`);
       break;
     }
@@ -7439,6 +7555,8 @@ watch(
       }
       applyUnseeableAura('player', 'turn_start');
       applyUnseeableAura('enemy', 'turn_start');
+      applyIntangibleAura('player');
+      applyIntangibleAura('enemy');
       applySinkingNegativeStatusOnTurnStart();
       insertPrayerCandleRetreatIntoPlayerDeck();
       applyTwinDreamControlThresholds();
@@ -7701,11 +7819,12 @@ watch(
       drawPhasePreparing.value = true;
       void (async () => {
         try {
-          const { drawn, newDeck, newDiscard } = drawCards(3, combatState.value.playerDeck, combatState.value.discardPile);
+          const drawCount = getOpenPlayerHandSlotCount(combatState.value.playerHand);
+          const { drawn, newDeck, newDiscard } = drawCards(drawCount, combatState.value.playerDeck, combatState.value.discardPile);
           applyOnDrawCardEffects(drawn);
           markDrawnCardsAnimation(drawn);
-          combatState.value.playerHand = drawn;
-          refreshPlayerSightDeprivationMask(drawn);
+          combatState.value.playerHand = mergePlayerHandWithDrawnCards(combatState.value.playerHand, drawn);
+          refreshPlayerSightDeprivationMask(combatState.value.playerHand);
           combatState.value.playerDeck = newDeck;
           combatState.value.discardPile = newDiscard;
           resetTwinTurnSelections();
@@ -8369,6 +8488,9 @@ const resolveCombat = async (
       if (resolvedPlayerCard.id === 'modao_kite') {
         grantNextTurnMagicPointBonus('player', 2, resolvedPlayerCard);
       }
+      if (resolvedPlayerCard.id === 'enemy_holy_water_jellyfish_swim') {
+        insertHolyWaterIntoOpponentDeck('player', 2, resolvedPlayerCard.name);
+      }
     } else if (successfulDodger === 'enemy') {
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
@@ -8381,6 +8503,9 @@ const resolveCombat = async (
         } else {
           log('<span class="text-red-400">敌方【寒星】未找到【陨】卡牌定义。</span>');
         }
+      }
+      if (resolvedEnemyCard.id === 'enemy_holy_water_jellyfish_swim') {
+        insertHolyWaterIntoOpponentDeck('enemy', 2, resolvedEnemyCard.name);
       }
       if (resolvedEnemyCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('enemy', resolvedEnemyCard);
@@ -8748,6 +8873,9 @@ const resolveCombat = async (
     if (opponentSkippedTurn) {
       applyCardEffects('on_opponent_skip');
       triggerShadowAssaultDamage(source, card, finalPoint, 'on_opponent_skip');
+      if (card.id === 'enemy_holy_water_jellyfish_swim') {
+        insertHolyWaterIntoOpponentDeck(source, 2, card.name);
+      }
     }
     if (!hasTakenDirectDamageThisTurn(source)) {
       applyCardEffects('on_no_direct_damage_taken_this_turn');
@@ -9631,6 +9759,36 @@ const resolveCombat = async (
           log(`<span class="text-cyan-300">${label}【${card.name}】清除了自身的【${effectName}】。</span>`);
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】未找到可清除的负面状态。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'enemy_holy_water_jellyfish_deep_assimilation') {
+        syncCurrentPointForUi();
+        const debuffs = attacker.effects.filter((effect) => effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff');
+        if (debuffs.length > 0) {
+          const picked = debuffs[Math.floor(Math.random() * debuffs.length)]!;
+          removeEffect(attacker, picked.type);
+          const effectName = EFFECT_REGISTRY[picked.type]?.name ?? picked.type;
+          log(`<span class="text-cyan-300">${label}【${card.name}】清除了自身的【${effectName}】。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可清除的负面状态。</span>`);
+        }
+
+        const opponentCard = source === 'player' ? resolvedEnemyCard : resolvedPlayerCard;
+        if (opponentCard.type !== CardType.FUNCTION && opponentCard.type !== CardType.DODGE) {
+          const beforeCorrosion = Math.max(0, getEffectStacks(defender, ET.CORROSION));
+          applyStatusEffectWithRelics(defenderSide, ET.CORROSION, 1, { source: card.id });
+          const corrosionAfterApply = Math.max(0, getEffectStacks(defender, ET.CORROSION));
+          if (corrosionAfterApply > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.CORROSION, corrosionAfterApply, { source: card.id });
+            const finalCorrosion = Math.max(0, getEffectStacks(defender, ET.CORROSION));
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】为${defenderLabel}施加1点侵蚀后，将侵蚀翻倍（${beforeCorrosion}→${finalCorrosion}）。</span>`);
+          } else {
+            log(`<span class="text-gray-400">${label}【${card.name}】${defenderLabel}没有侵蚀可翻倍。</span>`);
+          }
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】对方打出了功能/闪避卡牌，侵蚀未翻倍。</span>`);
         }
         finalizeAndTrack();
         return;
@@ -10785,7 +10943,7 @@ const resolveCombat = async (
       markDrawnCardsAnimation(drawn);
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
-      combatState.value.playerHand = [...combatState.value.playerHand, ...drawn];
+      combatState.value.playerHand = mergePlayerHandWithDrawnCards(combatState.value.playerHand, drawn);
     }
 
     if (options.twinDirectCombo && playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
@@ -11021,9 +11179,12 @@ const resolveCombat = async (
   }
 
   // Cleanup
-  await playCardsToDiscardAnimation([...combatState.value.playerHand]);
-  combatState.value.discardPile = [...combatState.value.discardPile, ...combatState.value.playerHand];
-  combatState.value.playerHand = [];
+  const handBeforeCleanup = [...combatState.value.playerHand];
+  const retainedCards = handBeforeCleanup.filter(card => card.traits.retain);
+  const discardingCards = handBeforeCleanup.filter(card => !card.traits.retain);
+  await playCardsToDiscardAnimation(discardingCards);
+  combatState.value.discardPile = [...combatState.value.discardPile, ...discardingCards];
+  combatState.value.playerHand = mergePlayerHandWithDrawnCards(retainedCards, []);
   resetTwinTurnSelections();
   combatState.value.turn += 1;
   combatState.value.phase = CombatPhase.TURN_START;

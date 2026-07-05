@@ -570,6 +570,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 1,
     description: '开局施加1层虚实不明与敌意隐藏；每回合开始为对手补上缺失的虚实不明/敌意隐藏',
   },
+  [EffectType.INTANGIBLE]: {
+    type: EffectType.INTANGIBLE,
+    name: '无形',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '每回合开始时，为对方施加1回合敌意隐藏；受到群攻伤害卡牌后跳过下一次触发',
+  },
   [EffectType.TWINS]: {
     type: EffectType.TWINS,
     name: '双生',
@@ -924,6 +933,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.BLIND_ASH,
   EffectType.COGNITIVE_INTERFERENCE,
   EffectType.UNSEEABLE,
+  EffectType.INTANGIBLE,
   EffectType.TWINS,
   EffectType.MEMORY_FOG,
   EffectType.SIGHT_DEPRIVATION,

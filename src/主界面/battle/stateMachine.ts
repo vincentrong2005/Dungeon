@@ -55,6 +55,7 @@ export class BattleStateMachine {
   private playerRelics: RelicModifiers;
   private enemyRelics: RelicModifiers;
   private playerTurnRawDice: number = 0;
+  private playerHandSlotByCard = new WeakMap<CardData, number>();
 
   constructor(
     playerStats: EntityStats,
@@ -248,6 +249,8 @@ export class BattleStateMachine {
     for (const eff of eResult.applyToOpponent) {
       applyEffect(this.playerStats, eff.type, eff.stacks);
     }
+    this.applyIntangibleAura(this.playerStats, this.enemyStats, '玩家', '敌人');
+    this.applyIntangibleAura(this.enemyStats, this.playerStats, '敌人', '玩家');
 
     // 检查死亡
     if (this.checkDeath()) return;
@@ -256,8 +259,9 @@ export class BattleStateMachine {
   }
 
   private executeDrawPhase(): void {
-    this.drawCards(DRAW_COUNT);
-    this.addLog(`抽取 ${DRAW_COUNT} 张牌（手牌: ${this.state.playerHand.length}）`);
+    const drawCount = this.getOpenPlayerHandSlotCount(this.state.playerHand);
+    const drawnCount = this.drawCards(drawCount);
+    this.addLog(`抽取 ${drawnCount} 张牌（手牌: ${this.state.playerHand.length}）`);
     this.state.phase = CombatPhase.INTENT_PREVIEW;
   }
 
@@ -334,13 +338,16 @@ export class BattleStateMachine {
 
   private executeDiscardPhase(): void {
     // 未打出的手牌移入弃牌堆
-    this.state.discardPile.push(...this.state.playerHand);
+    const handBeforeDiscard = [...this.state.playerHand];
+    const retainedCards = handBeforeDiscard.filter(card => card.traits.retain);
+    const discardingCards = handBeforeDiscard.filter(card => !card.traits.retain);
+    this.state.discardPile.push(...discardingCards);
     // 玩家打出的牌也入弃牌堆
     if (this.state.playerSelectedCard) {
       this.state.discardPile.push(this.state.playerSelectedCard);
       this.state.playerSelectedCard = null;
     }
-    this.state.playerHand = [];
+    this.state.playerHand = this.mergePlayerHandWithDrawnCards(retainedCards, []);
     this.state.phase = CombatPhase.TURN_END;
   }
 
@@ -464,12 +471,41 @@ export class BattleStateMachine {
         swarmAttack: !!card.swarmAttack,
       });
       this.state.logs.push(...result.logs);
+      if (card.swarmAttack && result.actualDamage > 0) {
+        const intangible = defender.effects.find(effect => effect.type === EffectType.INTANGIBLE && effect.stacks > 0);
+        if (intangible) {
+          intangible.runtimeCounter = Math.max(0, Math.floor(intangible.runtimeCounter ?? 0)) + 1;
+          this.state.logs.push(`[无形] 受到群攻伤害，下一次触发失效（累计跳过 ${intangible.runtimeCounter} 次）。`);
+        }
+      }
       this.state.logs.push(...consumeColdAfterDealingDamage(attacker, result.actualDamage));
       if (defender.hp <= 0) break;
     }
   }
 
-  private drawCards(count: number): void {
+  private applyIntangibleAura(owner: EntityStats, target: EntityStats, ownerLabel: string, targetLabel: string): void {
+    const intangible = owner.effects.find(effect => effect.type === EffectType.INTANGIBLE && effect.stacks > 0);
+    if (!intangible || this.state.turn <= 0) return;
+    const skipCount = Math.max(0, Math.floor(intangible.runtimeCounter ?? 0));
+    if (skipCount > 0) {
+      intangible.runtimeCounter = skipCount - 1;
+      this.addLog(`[${ownerLabel}][无形] 本次敌意隐藏触发被群攻打断，剩余跳过 ${Math.max(0, skipCount - 1)} 次。`);
+      return;
+    }
+    if (getEffectStacks(target, EffectType.COGNITIVE_INTERFERENCE) > 0) {
+      this.addLog(`[${ownerLabel}][无形] ${targetLabel}已有敌意隐藏，本次无需重复施加。`);
+      return;
+    }
+    if (applyEffect(target, EffectType.COGNITIVE_INTERFERENCE, 1, {
+      source: 'effect:intangible',
+      durationTurns: 1,
+    })) {
+      this.addLog(`[${ownerLabel}][无形] 回合开始为${targetLabel}施加1回合敌意隐藏。`);
+    }
+  }
+
+  private drawCards(count: number): number {
+    const drawn: CardData[] = [];
     for (let i = 0; i < count; i++) {
       if (this.state.playerDeck.length === 0) {
         if (this.state.discardPile.length === 0) break;
@@ -478,8 +514,50 @@ export class BattleStateMachine {
         this.addLog('牌库已空，弃牌堆洗入牌库。');
       }
       const card = this.state.playerDeck.pop();
-      if (card) this.state.playerHand.push(card);
+      if (card) drawn.push(card);
     }
+    this.state.playerHand = this.mergePlayerHandWithDrawnCards(this.state.playerHand, drawn);
+    return drawn.length;
+  }
+
+  private mergePlayerHandWithDrawnCards(existingCards: readonly CardData[], drawnCards: readonly CardData[]): CardData[] {
+    const slots: Array<CardData | null> = Array.from({ length: DRAW_COUNT }, () => null);
+    const overflowExisting: CardData[] = [];
+    const clampSlot = (slot: number): number => Math.max(0, Math.min(DRAW_COUNT - 1, Math.floor(slot)));
+    const firstOpenSlot = () => slots.findIndex(card => card === null);
+
+    existingCards.slice(0, DRAW_COUNT).forEach((card, index) => {
+      const preferredSlot = clampSlot(this.playerHandSlotByCard.get(card) ?? index);
+      if (slots[preferredSlot]) {
+        overflowExisting.push(card);
+        return;
+      }
+      slots[preferredSlot] = card;
+    });
+
+    for (const card of overflowExisting) {
+      const slot = firstOpenSlot();
+      if (slot < 0) break;
+      slots[slot] = card;
+    }
+
+    for (const card of drawnCards) {
+      const slot = firstOpenSlot();
+      if (slot < 0) break;
+      slots[slot] = card;
+    }
+
+    slots.forEach((card, slot) => {
+      if (card) {
+        this.playerHandSlotByCard.set(card, slot);
+      }
+    });
+
+    return slots.filter((card): card is CardData => card !== null);
+  }
+
+  private getOpenPlayerHandSlotCount(cards: readonly CardData[]): number {
+    return DRAW_COUNT - this.mergePlayerHandWithDrawnCards(cards, []).length;
   }
 
   private applyTurnStartResult(entity: EntityStats, r: TurnStartResult, label: string): void {

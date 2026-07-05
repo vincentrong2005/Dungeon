@@ -493,6 +493,7 @@ const allTraitEntries = (): CardGlossaryEntry[] => {
     unplayable: true,
     destroyOnClashWin: true,
     purgeOnUse: true,
+    retain: true,
     insertCardsToEnemyDeck: ['指定卡牌'],
   };
   return [

@@ -3723,6 +3723,13 @@ const BANQUET_ATTENDANT_CARD = {
   APHRO_FLUID: 'enemy_banquet_attendant_aphro_fluid',
 } as const;
 
+const HOLY_WATER_JELLYFISH_CARD = {
+  TENTACLE_BIND: 'enemy_holy_water_jellyfish_tentacle_bind',
+  HOLY_WATER_INJECTION: 'enemy_holy_water_jellyfish_holy_water_injection',
+  DEEP_ASSIMILATION: 'enemy_holy_water_jellyfish_deep_assimilation',
+  SWIM: 'enemy_holy_water_jellyfish_swim',
+} as const;
+
 const PENITENT_ANGEL_CARD = {
   IRON_PINCERS: 'enemy_penitent_angel_iron_pincers',
   HOLY_SCRIPT: 'enemy_penitent_angel_holy_script',
@@ -3877,6 +3884,43 @@ const 侍宴者: EnemyDefinition = {
     }
 
     const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'banquetAttendantLastWeightedCardId', pool);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 圣水水母: EnemyDefinition = {
+  name: '圣水水母',
+  defeatNegativeStatus: '[被侵蚀]',
+  stats: {
+    hp: 180,
+    maxHp: 180,
+    mp: 2,
+    minDice: 3,
+    maxDice: 7,
+    effects: [
+      { type: EffectType.SWARM, stacks: 1, polarity: 'buff' },
+      { type: EffectType.INTANGIBLE, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.ELEMENTAL_CORTEX, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    HOLY_WATER_JELLYFISH_CARD.TENTACLE_BIND,
+    HOLY_WATER_JELLYFISH_CARD.HOLY_WATER_INJECTION,
+    HOLY_WATER_JELLYFISH_CARD.DEEP_ASSIMILATION,
+    HOLY_WATER_JELLYFISH_CARD.SWIM,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const pool: Array<{ value: string; weight: number }> = [
+      { value: HOLY_WATER_JELLYFISH_CARD.TENTACLE_BIND, weight: 1 },
+      { value: HOLY_WATER_JELLYFISH_CARD.DEEP_ASSIMILATION, weight: 1 },
+      { value: HOLY_WATER_JELLYFISH_CARD.SWIM, weight: 1 },
+    ];
+    if (ctx.enemyStats.mp >= 2) {
+      pool.push({ value: HOLY_WATER_JELLYFISH_CARD.HOLY_WATER_INJECTION, weight: 1 });
+    }
+
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'holyWaterJellyfishLastCardId', pool);
     return pickCardById(ctx, chosen);
   },
 };
@@ -4218,6 +4262,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [米拉.name, 米拉],
   [贝希摩斯.name, 贝希摩斯],
   [侍宴者.name, 侍宴者],
+  [圣水水母.name, 圣水水母],
   [忏悔天使.name, 忏悔天使],
   [祭司傀儡.name, 祭司傀儡],
   [神恩触手.name, 神恩触手],

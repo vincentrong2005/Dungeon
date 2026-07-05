@@ -8844,6 +8844,94 @@ const 侍宴者_极乐佳肴: CardData = {
   description: '为自身施加1层性兴奋，回复15%生命值。若回合结束仍留在手牌，为自身施加7点侵蚀。移除。',
 };
 
+/** 圣水：诅咒，回复自身10点生命值，为自身施加3层侵蚀，移除，保留 */
+const 圣水水母_圣水: CardData = {
+  id: 'holy_water_jellyfish_holy_water',
+  name: '圣水',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true, retain: true },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'fixed', fixedValue: 10 },
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'self', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '回复自身10点生命值，为自身施加3层侵蚀。移除，保留。',
+};
+
+/** 触手缠绕：物理，束缚1回合，插入1张圣水 */
+const 圣水水母_触手缠绕: CardData = {
+  id: 'enemy_holy_water_jellyfish_tentacle_bind',
+  name: '触手缠绕',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, insertCardsToEnemyDeck: ['圣水'] },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '束缚1回合，向对方牌库插入1张圣水。',
+};
+
+/** 圣水注入：消耗2MP，为对方恢复2倍点数生命值，施加1倍点数侵蚀 */
+const 圣水水母_圣水注入: CardData = {
+  id: 'enemy_holy_water_jellyfish_holy_water_injection',
+  name: '圣水注入',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 2.0 },
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '消耗2MP，为对方恢复2倍点数生命值，施加1倍点数侵蚀。',
+};
+
+/** 深度同化：随机移除自身1项负面状态；若对方本次打出的不是功能卡牌，为对方施加1点侵蚀后，将对方侵蚀翻倍 */
+const 圣水水母_深度同化: CardData = {
+  id: 'enemy_holy_water_jellyfish_deep_assimilation',
+  name: '深度同化',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '随机移除自身1项负面状态；若对方本次打出的不是功能卡牌，为对方施加1点侵蚀后，将对方侵蚀翻倍。',
+};
+
+/** 游动：闪避，闪避成功或对方跳过回合后插入2张圣水 */
+const 圣水水母_游动: CardData = {
+  id: 'enemy_holy_water_jellyfish_swim',
+  name: '游动',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避。闪避成功或对方跳过回合后向对方牌库插入2张圣水。',
+};
+
 /** 天使铁钳：点数+2，造成1倍点数伤害，施加1层束缚 */
 const 忏悔天使_天使铁钳: CardData = {
   id: 'enemy_penitent_angel_iron_pincers',
@@ -9742,6 +9830,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [侍宴者_身体示范.name, 侍宴者_身体示范],
   [侍宴者_催情体液.name, 侍宴者_催情体液],
   [侍宴者_极乐佳肴.name, 侍宴者_极乐佳肴],
+  [圣水水母_圣水.name, 圣水水母_圣水],
+  ['圣水水母·触手缠绕', 圣水水母_触手缠绕],
+  [圣水水母_圣水注入.name, 圣水水母_圣水注入],
+  [圣水水母_深度同化.name, 圣水水母_深度同化],
+  [圣水水母_游动.name, 圣水水母_游动],
   [忏悔天使_天使铁钳.name, 忏悔天使_天使铁钳],
   [忏悔天使_圣洁书写.name, 忏悔天使_圣洁书写],
   [忏悔天使_催情圣泪.name, 忏悔天使_催情圣泪],

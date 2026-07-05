@@ -56,6 +56,8 @@ export interface CardTraits {
   insertCardsToEnemyDeck?: string[];
   /** 移除：打出后自我销毁（不进入弃牌堆）。 */
   purgeOnUse?: boolean;
+  /** 保留：回合结束后不进入弃牌堆，保留在手牌中并占据原手牌位。 */
+  retain?: boolean;
 }
 
 // ── 卡牌点数计算参数 ──────────────────────────────────────────
@@ -335,6 +337,8 @@ export enum EffectType {
   COGNITIVE_INTERFERENCE = '敌意隐藏',
   /** 无法直视 — 开局施加虚实不明与敌意隐藏；每回合开始为对手补上缺失的虚实不明/敌意隐藏 */
   UNSEEABLE = '无法直视',
+  /** 无形 — 每回合开始为对方施加敌意隐藏；受到群攻伤害后跳过下一次触发 */
+  INTANGIBLE = '无形',
   /** 双生 — 受到群攻卡牌的直接伤害翻倍，获得的治疗量翻倍，收到禁言后自身获得1层虚弱 */
   TWINS = '双生',
   /** 视野模糊 — 仅在出牌阶段隐藏自身手牌名称/描述（永久debuff） */
