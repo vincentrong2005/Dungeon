@@ -211,7 +211,8 @@
             <img
               v-else
               :src="enemyPortraitUrl"
-              class="w-full h-full object-contain object-bottom"
+              class="enemy-portrait-img w-full h-full object-contain object-bottom"
+              :class="{ 'enemy-portrait-img--intangible-active': isHolyWaterJellyfishIntangibleActive }"
               alt="enemy portrait"
               @error="onEnemyPortraitError"
             />
@@ -1394,6 +1395,29 @@ const playerVisibleEffects = computed(() => playerStats.value.effects
 const enemyVisibleEffects = computed(() => enemyStats.value.effects
   .filter(e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
   .sort((a, b) => getEffectDisplayOrder(a.type) - getEffectDisplayOrder(b.type)));
+const isEnemyPortraitHiddenTransitionReady = ref(false);
+const shouldBridgeHolyWaterJellyfishPortraitHidden = ref(false);
+let enemyPortraitHiddenTransitionFrameId: number | null = null;
+const canHolyWaterJellyfishRefreshIntangible = () => {
+  if (enemyDisplayName !== '圣水水母') return false;
+  if (playerStats.value.hp <= 0 || enemyStats.value.hp <= 0) return false;
+  const intangible = findEffect(enemyStats.value, ET.INTANGIBLE);
+  if (!intangible || intangible.stacks <= 0) return false;
+  return Math.max(0, Math.floor(intangible.runtimeCounter ?? 0)) <= 0;
+};
+const bridgeHolyWaterJellyfishPortraitHiddenForRefresh = () => {
+  shouldBridgeHolyWaterJellyfishPortraitHidden.value =
+    getEffectStacks(playerStats.value, ET.COGNITIVE_INTERFERENCE) > 0
+    && canHolyWaterJellyfishRefreshIntangible();
+};
+const isHolyWaterJellyfishIntangibleActive = computed(() => {
+  if (enemyDisplayName !== '圣水水母') return false;
+  if (!isEnemyPortraitHiddenTransitionReady.value) return false;
+  return (
+    getEffectStacks(playerStats.value, ET.COGNITIVE_INTERFERENCE) > 0
+    || shouldBridgeHolyWaterJellyfishPortraitHidden.value
+  );
+});
 const isPlayerDeckHiddenByFantasyEmbrace = computed(() => getEffectStacks(enemyStats.value, ET.FANTASY_EMBRACE) > 0);
 
 const cloneCardForBattle = (card: CardData): CardData => ({
@@ -6372,6 +6396,12 @@ applyUnseeableAura('enemy', 'battle_start');
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
   void initPortraitUrls();
+  enemyPortraitHiddenTransitionFrameId = requestAnimationFrame(() => {
+    enemyPortraitHiddenTransitionFrameId = requestAnimationFrame(() => {
+      enemyPortraitHiddenTransitionFrameId = null;
+      isEnemyPortraitHiddenTransitionReady.value = true;
+    });
+  });
 });
 watch(
   () => props.playerPortraitOverrideUrl,
@@ -6381,6 +6411,10 @@ watch(
 );
 onUnmounted(() => {
   portraitLoaderDisposed = true;
+  if (enemyPortraitHiddenTransitionFrameId !== null) {
+    cancelAnimationFrame(enemyPortraitHiddenTransitionFrameId);
+    enemyPortraitHiddenTransitionFrameId = null;
+  }
   if (hoverPreviewTimer) {
     clearTimeout(hoverPreviewTimer);
     hoverPreviewTimer = null;
@@ -7557,6 +7591,7 @@ watch(
       applyUnseeableAura('enemy', 'turn_start');
       applyIntangibleAura('player');
       applyIntangibleAura('enemy');
+      shouldBridgeHolyWaterJellyfishPortraitHidden.value = false;
       applySinkingNegativeStatusOnTurnStart();
       insertPrayerCandleRetreatIntoPlayerDeck();
       applyTwinDreamControlThresholds();
@@ -11032,6 +11067,7 @@ const resolveCombat = async (
   const enemyPoisonStacksBeforeEnd = Math.max(0, getEffectStacks(enemyStats.value, ET.POISON));
   processLustIllusionTurnEndForSide('player');
   processLustIllusionTurnEndForSide('enemy');
+  bridgeHolyWaterJellyfishPortraitHiddenForRefresh();
   const pEndLogs = processOnTurnEnd(playerStats.value);
   const eEndLogs = processOnTurnEnd(enemyStats.value);
   processPhaseTransitionTurnEnd('player');
@@ -12045,5 +12081,16 @@ watch(
 
 .enemy-portrait-scale {
   transform: translate(var(--enemy-portrait-translate-x), calc(var(--enemy-shell-height) * var(--enemy-portrait-translate-y-ratio))) scale(var(--enemy-portrait-scale));
+}
+
+.enemy-portrait-img {
+  transition:
+    opacity calc(0.7s / var(--combat-speed-multiplier)) ease,
+    filter calc(0.7s / var(--combat-speed-multiplier)) ease;
+}
+
+.enemy-portrait-img--intangible-active {
+  opacity: 0.08;
+  filter: saturate(0.82) brightness(1.12);
 }
 </style>

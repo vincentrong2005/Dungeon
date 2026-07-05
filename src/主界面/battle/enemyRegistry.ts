@@ -3892,8 +3892,8 @@ const 圣水水母: EnemyDefinition = {
   name: '圣水水母',
   defeatNegativeStatus: '[被侵蚀]',
   stats: {
-    hp: 180,
-    maxHp: 180,
+    hp: 220,
+    maxHp: 220,
     mp: 2,
     minDice: 3,
     maxDice: 7,
