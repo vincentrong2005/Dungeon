@@ -3730,6 +3730,14 @@ const HOLY_WATER_JELLYFISH_CARD = {
   SWIM: 'enemy_holy_water_jellyfish_swim',
 } as const;
 
+const ABYSS_SHOAL_CARD = {
+  GOLDEN_VORTEX: 'enemy_abyss_shoal_golden_vortex',
+  LINGCHI: 'enemy_abyss_shoal_lingchi',
+  FANGS: 'enemy_abyss_shoal_fangs',
+  GATHERING: 'enemy_abyss_shoal_gathering',
+  SCAVENGER: 'enemy_abyss_shoal_scavenger',
+} as const;
+
 const PENITENT_ANGEL_CARD = {
   IRON_PINCERS: 'enemy_penitent_angel_iron_pincers',
   HOLY_SCRIPT: 'enemy_penitent_angel_holy_script',
@@ -3895,8 +3903,8 @@ const 圣水水母: EnemyDefinition = {
     hp: 220,
     maxHp: 220,
     mp: 2,
-    minDice: 3,
-    maxDice: 7,
+    minDice: 5,
+    maxDice: 9,
     effects: [
       { type: EffectType.SWARM, stacks: 1, polarity: 'buff' },
       { type: EffectType.INTANGIBLE, stacks: 1, polarity: 'trait' },
@@ -3921,6 +3929,43 @@ const 圣水水母: EnemyDefinition = {
     }
 
     const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'holyWaterJellyfishLastCardId', pool);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 深渊鱼群: EnemyDefinition = {
+  name: '深渊鱼群',
+  stats: {
+    hp: 360,
+    maxHp: 360,
+    mp: 0,
+    minDice: 6,
+    maxDice: 12,
+    effects: [
+      { type: EffectType.CLUSTER_CREATURE, stacks: 1, polarity: 'trait' },
+      { type: EffectType.POINT_GROWTH_SMALL, stacks: 1, polarity: 'buff' },
+      { type: EffectType.POINT_GROWTH_BIG, stacks: 1, polarity: 'buff' },
+      { type: EffectType.BLOODBLADE_ATTACH, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    ABYSS_SHOAL_CARD.GOLDEN_VORTEX,
+    ABYSS_SHOAL_CARD.LINGCHI,
+    ABYSS_SHOAL_CARD.FANGS,
+    ABYSS_SHOAL_CARD.GATHERING,
+    ABYSS_SHOAL_CARD.SCAVENGER,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasElementalCortex = ctx.playerStats.effects.some(
+      effect => effect.type === EffectType.ELEMENTAL_CORTEX && effect.stacks > 0,
+    );
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'abyssShoalLastWeightedCardId', [
+      { value: ABYSS_SHOAL_CARD.GOLDEN_VORTEX, weight: 20 },
+      { value: ABYSS_SHOAL_CARD.LINGCHI, weight: 15 },
+      { value: ABYSS_SHOAL_CARD.FANGS, weight: 15 },
+      { value: ABYSS_SHOAL_CARD.GATHERING, weight: playerHasElementalCortex ? 50 : 25 },
+      { value: ABYSS_SHOAL_CARD.SCAVENGER, weight: 25 },
+    ]);
     return pickCardById(ctx, chosen);
   },
 };
@@ -4263,6 +4308,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [贝希摩斯.name, 贝希摩斯],
   [侍宴者.name, 侍宴者],
   [圣水水母.name, 圣水水母],
+  [深渊鱼群.name, 深渊鱼群],
   [忏悔天使.name, 忏悔天使],
   [祭司傀儡.name, 祭司傀儡],
   [神恩触手.name, 神恩触手],

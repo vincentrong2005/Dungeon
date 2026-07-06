@@ -1308,6 +1308,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.MANA_SPRING]: Waves,
   [ET.VOID_TAINT]: Sparkles,
   [ET.SWARM]: Bug,
+  [ET.CLUSTER_CREATURE]: Bug,
   [ET.BLOOD_COCOON]: Heart,
   [ET.INDOMITABLE]: Heart,
   [ET.MIRROR_REGENERATION]: SquareDashed,
@@ -4215,7 +4216,8 @@ const applyCardEffectsByTrigger = (
         && !damageResult.isTrueDamage
         && damageResult.damage > 0
         && barrierBeforeHit <= 0
-        && armorBeforeHit > 0;
+        && armorBeforeHit > 0
+        && applyLogs.some(applyLog => applyLog.startsWith('[护甲]'));
       if (actualDamage > 0 || armorBlocked) {
         const damageKind: FloatingNumberKind = damageResult.isTrueDamage
           ? 'true'
@@ -4386,7 +4388,8 @@ const triggerShadowAssaultDamage = (
     && !isTrueDamage
     && adjustedDamage > 0
     && barrierBeforeHit <= 0
-    && armorBeforeHit > 0;
+    && armorBeforeHit > 0
+    && applyLogs.some(applyLog => applyLog.startsWith('[护甲]'));
   if (actualDamage > 0 || armorBlocked) {
     pushFloatingNumber(defenderSide, actualDamage, isTrueDamage ? 'true' : 'physical', '-', {
       allowZero: armorBlocked,
@@ -5110,6 +5113,10 @@ const getCardFinalPoint = (
   if (card.id === 'bloodpool_blood_control') {
     finalPoint += Math.max(0, getEffectStacks(attacker, ET.BLEED) + 4);
   }
+  if (card.id === 'enemy_abyss_shoal_fangs') {
+    const bleedBonus = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
+    finalPoint += bleedBonus;
+  }
   if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
     if (executionerPuppetPointModifier.value !== null) {
       finalPoint += executionerPuppetPointModifier.value;
@@ -5437,6 +5444,14 @@ const buildCardPreviewLines = (
     if (bonus > 0) {
       finalPoint += bonus;
       lines.push(`驭血术（含新施加4层流血）+${bonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'enemy_abyss_shoal_fangs') {
+    const playerBleed = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
+    const bonus = playerBleed;
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`利齿（玩家流血${playerBleed}）+${bonus} => ${finalPoint}`);
     }
   }
   if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
@@ -5874,7 +5889,8 @@ const triggerMicroFloatingCannonDamage = (source: BattleSide, defenderSide: Batt
     && !isTrueDamage
     && damage > 0
     && barrierBefore <= 0
-    && armorBefore > 0;
+    && armorBefore > 0
+    && applyLogs.some(applyLog => applyLog.startsWith('[护甲]'));
   if (actualDamage > 0 || armorBlocked) {
     pushFloatingNumber('enemy', actualDamage, isTrueDamage ? 'true' : 'magic', '-', {
       allowZero: armorBlocked,
@@ -6381,11 +6397,27 @@ const applySightDeprivationBattleStart = (ownerSide: BattleSide) => {
   log(`<span class="text-violet-300">[${ownerLabel}][视线剥夺] 开局向${targetLabel}抽牌堆插入了1张【陨】。</span>`);
 };
 
+const insertHolyWaterBackflowForAbyssShoal = () => {
+  if (enemyDisplayName !== '深渊鱼群') return;
+  const card = getCardByName('圣水倒灌');
+  if (!card) {
+    log('<span class="text-red-400">[深渊鱼群] 未找到【圣水倒灌】卡牌定义。</span>');
+    return;
+  }
+
+  combatState.value.playerDeck = insertCardIntoDeckRandomly(
+    combatState.value.playerDeck,
+    cloneCardForBattle(card),
+  );
+  log(`<span class="text-fuchsia-300">[深渊鱼群] 开局向我方抽牌堆插入了1张【圣水倒灌】（牌库${combatState.value.playerDeck.length}）。</span>`);
+};
+
 triggerPlayerRelicLifecycleHooks('onBattleStart');
 applyAlchemyBattleStartRelics();
 applyMvuNegativeStatusesOnBattleStart();
 applyDifficultyBattleStartEffects();
 applyCustomDifficultyBattleStartEffects();
+insertHolyWaterBackflowForAbyssShoal();
 applyFantasyEmbraceBattleStart('player');
 applyFantasyEmbraceBattleStart('enemy');
 applySightDeprivationBattleStart('player');
@@ -9492,6 +9524,19 @@ const resolveCombat = async (
         finalizeAndTrack();
         return;
       }
+      if (card.id === 'abyss_shoal_holy_water_backflow') {
+        syncCurrentPointForUi();
+        const bleedStacks = Math.max(0, getEffectStacks(attacker, ET.BLEED));
+        if (bleedStacks > 0) {
+          removeEffect(attacker, ET.BLEED);
+          applyStatusEffectWithRelics(source, ET.CORROSION, bleedStacks, { source: card.id });
+          log(`<span class="text-cyan-300">${label}【${card.name}】接纳圣水：移除了自身 ${bleedStacks} 层流血，并施加 ${bleedStacks} 层侵蚀。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】接纳圣水：自身没有流血可移除。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
       if (card.id === 'burn_char_convert') {
         const burned = Math.max(0, getEffectStacks(attacker, ET.BURN));
         const chilled = Math.max(0, getEffectStacks(attacker, ET.COLD));
@@ -9994,6 +10039,13 @@ const resolveCombat = async (
           log(`<span class="text-fuchsia-300">${label}【${card.name}】按目标淫靡幻象追加 ${lustIllusionStacks} 次伤害</span>`);
         }
       }
+      if (card.id === 'enemy_abyss_shoal_golden_vortex') {
+        const bleedStacks = Math.max(0, getEffectStacks(defender, ET.BLEED));
+        extraHitCount += bleedStacks;
+        if (bleedStacks > 0) {
+          log(`<span class="text-rose-300">${label}【${card.name}】按目标流血追加 ${bleedStacks} 次命中</span>`);
+        }
+      }
       if (card.id === 'modao_ring_collapse') {
         const availableMp = Math.min(20, Math.max(0, Math.floor(attacker.mp)));
         const consumedMp = Math.floor(availableMp / 4) * 4;
@@ -10078,6 +10130,7 @@ const resolveCombat = async (
 
       let modaoMagicSwordTotalDamage = 0;
       let totalActualDamageDealt = 0;
+      let goldenVortexBleedApplied = 0;
       for (let hit = 0; hit < totalHitCount; hit++) {
         // Attack card: calculate damage through the full pipeline
         let cardForCalculation = card;
@@ -10180,7 +10233,8 @@ const resolveCombat = async (
           && !isTrueDamage
           && adjustedDamage > 0
           && barrierBeforeHit <= 0
-          && armorBeforeHit > 0;
+          && armorBeforeHit > 0
+          && applyLogs.some(applyLog => applyLog.startsWith('[护甲]'));
         if (actualDamage > 0 || armorBlocked) {
           const damageKind: FloatingNumberKind = isTrueDamage
             ? 'true'
@@ -10194,6 +10248,13 @@ const resolveCombat = async (
         }
         if (actualDamage > 0) {
           totalActualDamageDealt += actualDamage;
+        }
+        if (card.id === 'enemy_abyss_shoal_lingchi' && actualDamage > 0) {
+          const { healed } = healForSide(source, actualDamage, {
+            sourceSide: source,
+            reason: `卡牌【${card.name}】吸血`,
+          });
+          log(`<span class="text-green-300">${label}【${card.name}】第${hit + 1}段造成伤害，回复 ${healed} 点生命。</span>`);
         }
         if (source === 'enemy' && card.id === 'enemy_penitent_angel_holy_script' && actualDamage > 0) {
           aiFlags.penitentAngelHolyScriptHit = true;
@@ -10335,6 +10396,15 @@ const resolveCombat = async (
             }
           }
         }
+        if (card.id === 'enemy_abyss_shoal_golden_vortex' && actualDamage > 0) {
+          const applied = applyStatusEffectWithRelics(defenderSide, ET.BLEED, 1, {
+            source: card.id,
+            lockDecayThisTurn: true,
+          });
+          if (applied) {
+            goldenVortexBleedApplied += 1;
+          }
+        }
         if (
           source === 'enemy'
           && defenderSide === 'player'
@@ -10347,6 +10417,13 @@ const resolveCombat = async (
         if (defender.hp <= 0) break;
         if (totalHitCount > 1 && hit < totalHitCount - 1) {
           await wait(100);
+        }
+      }
+      if (card.id === 'enemy_abyss_shoal_golden_vortex') {
+        if (goldenVortexBleedApplied > 0) {
+          log(`<span class="text-rose-300">${label}【${card.name}】命中后施加了 ${goldenVortexBleedApplied} 层流血。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未造成生命伤害，未施加流血。</span>`);
         }
       }
       if (card.id === 'alchemy_gilded_strike') {

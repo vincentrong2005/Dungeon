@@ -329,6 +329,11 @@ export function applyDamageToEntity(
   options?: { disableRevive?: boolean; swarmAttack?: boolean },
 ): { actualDamage: number; logs: string[] } {
   const logs: string[] = [];
+  if (!options?.swarmAttack && getEffectStacks(target, EffectType.CLUSTER_CREATURE) > 0 && damage > 0) {
+    const beforeClusterReduction = Math.max(0, Math.floor(damage));
+    damage = Math.floor(beforeClusterReduction * 0.5);
+    logs.push(`[集群生物] 非群攻伤害减半：${beforeClusterReduction} -> ${damage}。`);
+  }
   const mirrorRegeneration = findEffect(target, EffectType.MIRROR_REGENERATION);
   if (mirrorRegeneration && mirrorRegeneration.stacks > 0 && Math.floor(mirrorRegeneration.runtimeCounter ?? 0) > 0) {
     const convertedDamage = Math.max(0, Math.floor(damage));

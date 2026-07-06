@@ -443,6 +443,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '生命值≤0时，消耗1层并恢复至生命上限',
   },
+  [EffectType.CLUSTER_CREATURE]: {
+    type: EffectType.CLUSTER_CREATURE,
+    name: '集群生物',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '受到非群攻伤害减半',
+  },
   [EffectType.MIRROR_SWARM]: {
     type: EffectType.MIRROR_SWARM,
     name: '镜·群集',
@@ -939,6 +948,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.SIGHT_DEPRIVATION,
   EffectType.FATE_OBSERVATION,
   EffectType.SWARM,
+  EffectType.CLUSTER_CREATURE,
   EffectType.WHITE_TURBID,
   EffectType.AMBUSH,
   EffectType.THORNS,

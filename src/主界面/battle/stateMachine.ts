@@ -297,20 +297,26 @@ export class BattleStateMachine {
     }
 
     // 计算最终点数
-    const pFinal = calculateFinalPoint({
+    let pFinal = calculateFinalPoint({
       baseDice: this.state.playerBaseDice,
       card: pCard,
       entityEffects: this.playerStats.effects,
       opponentEffects: this.enemyStats.effects,
       relicModifiers: this.playerRelics,
     });
-    const eFinal = calculateFinalPoint({
+    let eFinal = calculateFinalPoint({
       baseDice: this.state.enemyBaseDice,
       card: eCard,
       entityEffects: this.enemyStats.effects,
       opponentEffects: this.playerStats.effects,
       relicModifiers: this.enemyRelics,
     });
+    if (pCard.id === 'enemy_abyss_shoal_fangs') {
+      pFinal += Math.max(0, getEffectStacks(this.playerStats, EffectType.BLEED));
+    }
+    if (eCard.id === 'enemy_abyss_shoal_fangs') {
+      eFinal += Math.max(0, getEffectStacks(this.playerStats, EffectType.BLEED));
+    }
     this.addLog(`最终点数 — 玩家: ${pFinal} | 敌人: ${eFinal}`);
 
     // 拼点判定
@@ -438,9 +444,12 @@ export class BattleStateMachine {
     relicModifiers: RelicModifiers,
   ): void {
     const baseHitCount = Math.max(1, Math.floor(card.hitCount ?? 1));
-    const extraHitCount = card.id === 'enemy_moth_swarm_burst'
+    let extraHitCount = card.id === 'enemy_moth_swarm_burst'
       ? Math.max(0, getEffectStacks(attacker, EffectType.SWARM))
       : 0;
+    if (card.id === 'enemy_abyss_shoal_golden_vortex') {
+      extraHitCount += Math.max(0, getEffectStacks(defender, EffectType.BLEED));
+    }
     const totalHitCount = baseHitCount + extraHitCount;
 
     for (let hit = 0; hit < totalHitCount; hit++) {
@@ -471,6 +480,16 @@ export class BattleStateMachine {
         swarmAttack: !!card.swarmAttack,
       });
       this.state.logs.push(...result.logs);
+      if (card.id === 'enemy_abyss_shoal_lingchi' && result.actualDamage > 0) {
+        const beforeHp = attacker.hp;
+        attacker.hp = Math.min(attacker.maxHp, attacker.hp + result.actualDamage);
+        const healed = Math.max(0, attacker.hp - beforeHp);
+        this.state.logs.push(`[凌迟] 造成伤害后回复 ${healed} 点生命。`);
+      }
+      if (card.id === 'enemy_abyss_shoal_golden_vortex' && result.actualDamage > 0) {
+        applyEffect(defender, EffectType.BLEED, 1, { source: card.id, lockDecayThisTurn: true });
+        this.state.logs.push('[金色涡流] 命中后施加1层流血。');
+      }
       if (card.swarmAttack && result.actualDamage > 0) {
         const intangible = defender.effects.find(effect => effect.type === EffectType.INTANGIBLE && effect.stacks > 0);
         if (intangible) {

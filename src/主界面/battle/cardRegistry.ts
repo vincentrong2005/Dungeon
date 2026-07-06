@@ -8932,6 +8932,110 @@ const 圣水水母_游动: CardData = {
   description: '闪避。闪避成功或对方跳过回合后向对方牌库插入2张圣水。',
 };
 
+/** 圣水倒灌：接纳圣水，移除自身所有流血并为自身施加等量侵蚀 */
+const 深渊鱼群_圣水倒灌: CardData = {
+  id: 'abyss_shoal_holy_water_backflow',
+  name: '圣水倒灌',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '接纳圣水：移除自身所有流血，并为自身施加等量侵蚀。',
+};
+
+/** 金色涡流：造成0.3倍点数伤害；对方每有1层流血额外命中1次，每次命中施加1层流血 */
+const 深渊鱼群_金色涡流: CardData = {
+  id: 'enemy_abyss_shoal_golden_vortex',
+  name: '金色涡流',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.3, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.3倍点数伤害；对方每有1层流血额外命中1次，每次命中施加1层流血。',
+};
+
+/** 凌迟：造成0.4倍点数伤害，5连击，每次造成伤害回复自身等量生命值 */
+const 深渊鱼群_凌迟: CardData = {
+  id: 'enemy_abyss_shoal_lingchi',
+  name: '凌迟',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 5,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成0.4倍点数伤害，5连击；每次造成生命伤害时，回复自身等量生命值。',
+};
+
+/** 利齿：造成1倍点数伤害，施加1层敏感；玩家每有1层流血点数+1 */
+const 深渊鱼群_利齿: CardData = {
+  id: 'enemy_abyss_shoal_fangs',
+  name: '利齿',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，施加1层敏感；玩家每有1层流血，点数+1。',
+};
+
+/** 汇聚：获得2倍点数护甲并获得1层血刃附加 */
+const 深渊鱼群_汇聚: CardData = {
+  id: 'enemy_abyss_shoal_gathering',
+  name: '汇聚',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 2.0 },
+    { kind: 'apply_buff', effectType: EffectType.BLOODBLADE_ATTACH, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '获得2倍点数护甲并获得1层血刃附加。',
+};
+
+/** 清道夫：回复1倍点数生命并为自身施加1层增伤 */
+const 深渊鱼群_清道夫: CardData = {
+  id: 'enemy_abyss_shoal_scavenger',
+  name: '清道夫',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '回复1倍点数生命并为自身施加1层增伤。',
+};
+
 /** 天使铁钳：点数+2，造成1倍点数伤害，施加1层束缚 */
 const 忏悔天使_天使铁钳: CardData = {
   id: 'enemy_penitent_angel_iron_pincers',
@@ -9835,6 +9939,12 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [圣水水母_圣水注入.name, 圣水水母_圣水注入],
   [圣水水母_深度同化.name, 圣水水母_深度同化],
   [圣水水母_游动.name, 圣水水母_游动],
+  [深渊鱼群_圣水倒灌.name, 深渊鱼群_圣水倒灌],
+  [深渊鱼群_金色涡流.name, 深渊鱼群_金色涡流],
+  [深渊鱼群_凌迟.name, 深渊鱼群_凌迟],
+  [深渊鱼群_利齿.name, 深渊鱼群_利齿],
+  [深渊鱼群_汇聚.name, 深渊鱼群_汇聚],
+  [深渊鱼群_清道夫.name, 深渊鱼群_清道夫],
   [忏悔天使_天使铁钳.name, 忏悔天使_天使铁钳],
   [忏悔天使_圣洁书写.name, 忏悔天使_圣洁书写],
   [忏悔天使_催情圣泪.name, 忏悔天使_催情圣泪],

@@ -43,6 +43,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.FANTASY_EMBRACE]: 'fa-brands fa-soundcloud',
   [ET.VOID_TAINT]: 'fa-brands fa-cloudversify',
   [ET.SWARM]: 'fa-solid fa-bugs',
+  [ET.CLUSTER_CREATURE]: 'fa-solid fa-bugs',
   [ET.MIRROR_SWARM]: 'fa-solid fa-bugs',
   [ET.LUST_ILLUSION]: 'fa-brands fa-snapchat',
   [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
