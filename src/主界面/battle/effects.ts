@@ -642,6 +642,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合只能使用与对手意图同类型卡牌。每回合结束层数-1',
   },
+  [EffectType.RESONANCE_LOCK]: {
+    type: EffectType.RESONANCE_LOCK,
+    name: '共鸣锁',
+    polarity: 'debuff',
+    timings: ['onCardPlay', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '无法使用与上一张卡牌同类型的卡牌。每回合结束层数-1',
+  },
   [EffectType.STURDY]: {
     type: EffectType.STURDY,
     name: '坚固',
@@ -894,6 +903,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.VULNERABLE,
   EffectType.MERCY,
   EffectType.STIGMATA,
+  EffectType.RESONANCE_LOCK,
   EffectType.BRAND_MARK,
   EffectType.DAMAGE_BOOST,
   EffectType.IGNORE_DODGE,
@@ -935,6 +945,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.BIND,
   EffectType.SILENCE,
   EffectType.CONTROLLED,
+  EffectType.RESONANCE_LOCK,
   EffectType.MANA_DRAIN,
   EffectType.CO_DAMAGE,
   EffectType.LUST_ILLUSION,
@@ -1028,6 +1039,7 @@ const DECAY_GRACE_EFFECT_TYPES = new Set<EffectType>([
   EffectType.SILENCE,
   EffectType.STUN,
   EffectType.CONTROLLED,
+  EffectType.RESONANCE_LOCK,
   EffectType.BLEED,
   EffectType.CORRODE,
   EffectType.CO_DAMAGE,
@@ -1533,7 +1545,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
 
 /**
  * 处理回合结束时所有效果触发
- * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 被操控(-1) → 眩晕(-1)
+ * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 被操控(-1) → 共鸣锁(-1) → 眩晕(-1)
  */
 export function processOnTurnEnd(entity: EntityStats): string[] {
   const logs: string[] = [];
@@ -1616,6 +1628,18 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     }
   }
 
+  // 共鸣锁
+  const resonanceLockEffect = findEffect(entity, EffectType.RESONANCE_LOCK);
+  if (resonanceLockEffect && resonanceLockEffect.stacks > 0) {
+    if (resonanceLockEffect.lockDecayThisTurn) {
+      resonanceLockEffect.lockDecayThisTurn = false;
+      logs.push('[共鸣锁] 新施加，本回合不衰减。');
+    } else {
+      reduceEffectStacks(entity, EffectType.RESONANCE_LOCK);
+      logs.push('[共鸣锁] 层数衰减。');
+    }
+  }
+
   // 坚固：1回合后清空
   // 眩晕
   const stunEffect = findEffect(entity, EffectType.STUN);
@@ -1692,20 +1716,29 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
 /**
  * 检查指定卡牌是否可使用（考虑束缚、被吞食效果）
  */
+export type CardPlayBlockerKind = 'card' | 'mana' | 'effect';
+
+export interface CanPlayCardResult {
+  allowed: boolean;
+  reason?: string;
+  blockerKind?: CardPlayBlockerKind;
+  blockerEffectType?: EffectType;
+}
+
 export function canPlayCard(
   entity: EntityStats,
   card: CardData,
   baseRawDice: number,
-  options?: { controlledExpectedType?: CardType | null; ignoreMana?: boolean },
-): { allowed: boolean; reason?: string } {
+  options?: { controlledExpectedType?: CardType | null; ignoreMana?: boolean; previousCardType?: CardType | null },
+): CanPlayCardResult {
   // 无法打出
   if (card.traits.unplayable) {
-    return { allowed: false, reason: '该卡牌当前无法打出。' };
+    return { allowed: false, reason: '该卡牌当前无法打出。', blockerKind: 'card' };
   }
 
   // 眩晕：完全不能出牌
   if (hasEffect(entity, EffectType.STUN)) {
-    return { allowed: false, reason: '眩晕状态，无法行动。' };
+    return { allowed: false, reason: '眩晕状态，无法行动。', blockerKind: 'effect', blockerEffectType: EffectType.STUN };
   }
 
   // 束缚：固定限制物理/闪避
@@ -1713,7 +1746,7 @@ export function canPlayCard(
   if (bindEffect) {
     const restrictedTypes = ['物理', '闪避'] as CardType[];
     if (restrictedTypes.includes(card.type)) {
-      return { allowed: false, reason: `束缚中，无法使用${card.type}类型卡牌。` };
+      return { allowed: false, reason: `束缚中，无法使用${card.type}类型卡牌。`, blockerKind: 'effect', blockerEffectType: EffectType.BIND };
     }
   }
 
@@ -1724,24 +1757,31 @@ export function canPlayCard(
       card.type === ('魔法' as CardType) ||
       card.type === ('闪避' as CardType)
     ) {
-      return { allowed: false, reason: `被吞食效果生效（基础骰值≤3），无法使用${card.type}卡牌。` };
+      return { allowed: false, reason: `被吞食效果生效（基础骰值≤3），无法使用${card.type}卡牌。`, blockerKind: 'effect', blockerEffectType: EffectType.DEVOUR };
     }
   }
 
   // 法力不足（仅魔法卡有费用）
   if (!options?.ignoreMana && card.type === ('魔法' as CardType) && card.manaCost > entity.mp) {
-    return { allowed: false, reason: `法力不足（需要${card.manaCost}，当前${entity.mp}）。` };
+    return { allowed: false, reason: `法力不足（需要${card.manaCost}，当前${entity.mp}）。`, blockerKind: 'mana' };
   }
 
   // 禁言：禁用魔法
   if (card.type === ('魔法' as CardType) && hasEffect(entity, EffectType.SILENCE)) {
-    return { allowed: false, reason: '禁言中，无法使用魔法卡牌。' };
+    return { allowed: false, reason: '禁言中，无法使用魔法卡牌。', blockerKind: 'effect', blockerEffectType: EffectType.SILENCE };
   }
 
   // 被操控：只能使用与对手意图同类型卡牌
   if (hasEffect(entity, EffectType.CONTROLLED) && options?.controlledExpectedType) {
     if (card.type !== options.controlledExpectedType) {
-      return { allowed: false, reason: `被操控中，仅可使用${options.controlledExpectedType}卡牌或跳过。` };
+      return { allowed: false, reason: `被操控中，仅可使用${options.controlledExpectedType}卡牌或跳过。`, blockerKind: 'effect', blockerEffectType: EffectType.CONTROLLED };
+    }
+  }
+
+  // 共鸣锁：不能使用与上一张卡牌同类型的卡牌
+  if (hasEffect(entity, EffectType.RESONANCE_LOCK) && options?.previousCardType) {
+    if (card.type === options.previousCardType) {
+      return { allowed: false, reason: `共鸣锁中，无法连续使用${card.type}卡牌。`, blockerKind: 'effect', blockerEffectType: EffectType.RESONANCE_LOCK };
     }
   }
 

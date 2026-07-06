@@ -3738,6 +3738,17 @@ const ABYSS_SHOAL_CARD = {
   SCAVENGER: 'enemy_abyss_shoal_scavenger',
 } as const;
 
+const HOLY_WATER_SPRITE_CARD = {
+  EMBRACE: 'enemy_holy_water_sprite_embrace',
+  STRUGGLE: 'enemy_holy_water_sprite_struggle',
+  GOLDEN_RIPPLE: 'enemy_holy_water_sprite_golden_ripple',
+  MIND_ECHO: 'enemy_holy_water_sprite_mind_echo',
+  HOLY_WATER_CAGE: 'enemy_holy_water_sprite_holy_water_cage',
+  FAREWELL_LIGHT: 'enemy_holy_water_sprite_farewell_light',
+  PAST_ELEGY: 'enemy_holy_water_sprite_past_elegy',
+  HOLY_PRAYER: 'enemy_holy_water_sprite_holy_prayer',
+} as const;
+
 const PENITENT_ANGEL_CARD = {
   IRON_PINCERS: 'enemy_penitent_angel_iron_pincers',
   HOLY_SCRIPT: 'enemy_penitent_angel_holy_script',
@@ -3966,6 +3977,73 @@ const 深渊鱼群: EnemyDefinition = {
       { value: ABYSS_SHOAL_CARD.GATHERING, weight: playerHasElementalCortex ? 50 : 25 },
       { value: ABYSS_SHOAL_CARD.SCAVENGER, weight: 25 },
     ]);
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 圣水精灵: EnemyDefinition = {
+  name: '圣水精灵',
+  stats: {
+    hp: 800,
+    maxHp: 800,
+    mp: 2,
+    minDice: 6,
+    maxDice: 12,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.ILLUSORY_BODY, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    HOLY_WATER_SPRITE_CARD.EMBRACE,
+    HOLY_WATER_SPRITE_CARD.STRUGGLE,
+    HOLY_WATER_SPRITE_CARD.GOLDEN_RIPPLE,
+    HOLY_WATER_SPRITE_CARD.MIND_ECHO,
+    HOLY_WATER_SPRITE_CARD.HOLY_WATER_CAGE,
+    HOLY_WATER_SPRITE_CARD.FAREWELL_LIGHT,
+    HOLY_WATER_SPRITE_CARD.PAST_ELEGY,
+    HOLY_WATER_SPRITE_CARD.HOLY_PRAYER,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const prayerStacks = Math.max(
+      0,
+      Math.floor(ctx.enemyStats.effects.find(effect => effect.type === EffectType.PRAYER)?.stacks ?? 0),
+    );
+    const enemyMp = Math.max(0, Math.floor(ctx.enemyStats.mp));
+    if (prayerStacks >= 3 && enemyMp >= 6) {
+      return pickCardById(ctx, HOLY_WATER_SPRITE_CARD.FAREWELL_LIGHT);
+    }
+
+    const enemyHpRate = ctx.enemyStats.maxHp > 0 ? ctx.enemyStats.hp / ctx.enemyStats.maxHp : 1;
+    const playerHpRate = ctx.playerStats.maxHp > 0 ? ctx.playerStats.hp / ctx.playerStats.maxHp : 1;
+    const playerHasStigmata = ctx.playerStats.effects.some(
+      effect => effect.type === EffectType.STIGMATA && effect.stacks > 0,
+    );
+    const pool: Array<{ value: string; weight: number }> = [
+      { value: HOLY_WATER_SPRITE_CARD.EMBRACE, weight: 25 },
+      { value: HOLY_WATER_SPRITE_CARD.STRUGGLE, weight: playerHpRate <= 0.5 ? 45 : 15 },
+      { value: HOLY_WATER_SPRITE_CARD.PAST_ELEGY, weight: playerHasStigmata ? 25 : 0 },
+      { value: HOLY_WATER_SPRITE_CARD.HOLY_PRAYER, weight: enemyHpRate <= 0.3 ? 30 : 10 },
+    ];
+
+    if (enemyMp >= 2) {
+      pool.push({ value: HOLY_WATER_SPRITE_CARD.GOLDEN_RIPPLE, weight: 25 });
+    }
+    if (enemyMp >= 3) {
+      pool.push({ value: HOLY_WATER_SPRITE_CARD.MIND_ECHO, weight: 15 });
+    }
+    if (enemyMp >= 4) {
+      pool.push({ value: HOLY_WATER_SPRITE_CARD.HOLY_WATER_CAGE, weight: 20 });
+    }
+    if (enemyMp >= 6) {
+      pool.push({ value: HOLY_WATER_SPRITE_CARD.FAREWELL_LIGHT, weight: prayerStacks >= 3 ? 200 : 0 });
+    }
+
+    const chosen = weightedRandomWithoutImmediateRepeat(
+      ctx,
+      'holyWaterSpriteLastWeightedCardId',
+      pool.filter(option => option.weight > 0),
+    );
     return pickCardById(ctx, chosen);
   },
 };
@@ -4309,6 +4387,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [侍宴者.name, 侍宴者],
   [圣水水母.name, 圣水水母],
   [深渊鱼群.name, 深渊鱼群],
+  [圣水精灵.name, 圣水精灵],
   [忏悔天使.name, 忏悔天使],
   [祭司傀儡.name, 祭司傀儡],
   [神恩触手.name, 神恩触手],

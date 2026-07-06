@@ -56,6 +56,8 @@ export class BattleStateMachine {
   private enemyRelics: RelicModifiers;
   private playerTurnRawDice: number = 0;
   private playerHandSlotByCard = new WeakMap<CardData, number>();
+  private previousPlayerLastCardType: CardType | null = null;
+  private previousEnemyLastCardType: CardType | null = null;
 
   constructor(
     playerStats: EntityStats,
@@ -157,7 +159,9 @@ export class BattleStateMachine {
     }
 
     // 效果限制检查
-    const check = canPlayCard(this.playerStats, card, this.playerTurnRawDice);
+    const check = canPlayCard(this.playerStats, card, this.playerTurnRawDice, {
+      previousCardType: this.previousPlayerLastCardType,
+    });
     if (!check.allowed) {
       return { success: false, reason: check.reason };
     }
@@ -176,6 +180,7 @@ export class BattleStateMachine {
     this.state.playerHand.splice(idx, 1);
     this.state.playerSelectedCard = card;
     this.state.lastPlayedCard = card;
+    this.previousPlayerLastCardType = card.type;
 
     // 消耗行动次数（连击不消耗）
     if (!card.traits.combo) {
@@ -214,6 +219,7 @@ export class BattleStateMachine {
    */
   endPlayerInput(): void {
     if (this.state.phase !== CombatPhase.PLAYER_INPUT) return;
+    this.previousPlayerLastCardType = null;
     this.state.phase = CombatPhase.RESOLUTION;
   }
 
@@ -272,8 +278,13 @@ export class BattleStateMachine {
       this.state.enemyDiscard = [];
     }
     if (this.state.enemyDeck.length > 0) {
-      const idx = Math.floor(Math.random() * this.state.enemyDeck.length);
-      this.state.enemyIntentCard = this.state.enemyDeck.splice(idx, 1)[0]!;
+      const playableCards = this.state.enemyDeck.filter(card => canPlayCard(this.enemyStats, card, this.state.enemyBaseDice, {
+        previousCardType: this.previousEnemyLastCardType,
+      }).allowed);
+      const candidatePool = playableCards.length > 0 ? playableCards : this.state.enemyDeck;
+      const picked = candidatePool[Math.floor(Math.random() * candidatePool.length)]!;
+      const idx = this.state.enemyDeck.findIndex(card => card === picked);
+      this.state.enemyIntentCard = this.state.enemyDeck.splice(Math.max(0, idx), 1)[0]!;
 
       // 预测点数
       const avgDice = (this.enemyStats.minDice + this.enemyStats.maxDice) / 2;
@@ -317,6 +328,13 @@ export class BattleStateMachine {
     if (eCard.id === 'enemy_abyss_shoal_fangs') {
       eFinal += Math.max(0, getEffectStacks(this.playerStats, EffectType.BLEED));
     }
+    if (pCard.id === 'enemy_holy_water_sprite_struggle') {
+      pFinal += Math.floor(this.getHolyWaterSpriteStruggleSelfDamageAmount(this.playerStats) / 10);
+    }
+    if (eCard.id === 'enemy_holy_water_sprite_struggle') {
+      eFinal += Math.floor(this.getHolyWaterSpriteStruggleSelfDamageAmount(this.enemyStats) / 10);
+    }
+    this.previousEnemyLastCardType = eCard.type;
     this.addLog(`最终点数 — 玩家: ${pFinal} | 敌人: ${eFinal}`);
 
     // 拼点判定
@@ -383,11 +401,15 @@ export class BattleStateMachine {
     switch (clash.outcome) {
       case 'player_win': {
         this.resolveAttackHits(this.playerStats, this.enemyStats, pCard, pFinal, this.playerRelics);
+        this.resolveHolyWaterSpriteCardEffect('player', pCard, pFinal);
+        this.resolveHolyWaterSpriteClashFail('enemy', eCard);
         this.state.logs.push(...processClashEffects(this.playerStats, this.enemyStats));
         break;
       }
       case 'enemy_win': {
         this.resolveAttackHits(this.enemyStats, this.playerStats, eCard, eFinal, this.enemyRelics);
+        this.resolveHolyWaterSpriteCardEffect('enemy', eCard, eFinal);
+        this.resolveHolyWaterSpriteClashFail('player', pCard);
         this.state.logs.push(...processClashEffects(this.enemyStats, this.playerStats));
         break;
       }
@@ -395,6 +417,8 @@ export class BattleStateMachine {
         this.addLog('闪避成功，免疫伤害。');
         break;
       case 'draw':
+        this.resolveHolyWaterSpriteClashFail('player', pCard);
+        this.resolveHolyWaterSpriteClashFail('enemy', eCard);
         this.addLog('平局，双方均不受伤。');
         break;
     }
@@ -409,9 +433,89 @@ export class BattleStateMachine {
     if (pCard.type === CardType.PHYSICAL || pCard.type === CardType.MAGIC) {
       this.resolveAttackHits(this.playerStats, this.enemyStats, pCard, pFinal, this.playerRelics);
     }
+    this.resolveHolyWaterSpriteCardEffect('player', pCard, pFinal);
     // 敌人 → 玩家
     if (eCard.type === CardType.PHYSICAL || eCard.type === CardType.MAGIC) {
       this.resolveAttackHits(this.enemyStats, this.playerStats, eCard, eFinal, this.enemyRelics);
+    }
+    this.resolveHolyWaterSpriteCardEffect('enemy', eCard, eFinal);
+  }
+
+  private getHolyWaterSpriteStruggleSelfDamageAmount(entity: EntityStats): number {
+    return Math.max(0, Math.floor(Math.max(0, entity.hp) * 0.2));
+  }
+
+  private resolveHolyWaterSpriteClashFail(source: 'player' | 'enemy', card: CardData): void {
+    if (card.id !== 'enemy_holy_water_sprite_embrace') return;
+    const defender = source === 'player' ? this.enemyStats : this.playerStats;
+    applyEffect(defender, EffectType.STIGMATA, 1, { source: card.id });
+    this.addLog(`[相拥] 拼点失败，目标获得1层圣痕。`);
+  }
+
+  private resolveHolyWaterSpriteCardEffect(source: 'player' | 'enemy', card: CardData, finalPoint: number): void {
+    const attacker = source === 'player' ? this.playerStats : this.enemyStats;
+    const defender = source === 'player' ? this.enemyStats : this.playerStats;
+    const stacks = Math.max(0, Math.floor(finalPoint));
+
+    switch (card.id) {
+      case 'enemy_holy_water_sprite_embrace':
+        if (stacks > 0) {
+          applyEffect(defender, EffectType.CORROSION, stacks, { source: card.id });
+          this.addLog(`[相拥] 目标侵蚀 +${stacks}。`);
+        }
+        break;
+      case 'enemy_holy_water_sprite_struggle': {
+        const selfDamage = Math.min(attacker.hp, this.getHolyWaterSpriteStruggleSelfDamageAmount(attacker));
+        attacker.hp = Math.max(0, attacker.hp - selfDamage);
+        defender.hp = Math.min(defender.maxHp, defender.hp + selfDamage);
+        applyEffect(defender, EffectType.STIGMATA, 2, { source: card.id });
+        this.addLog(`[挣扎] 自伤 ${selfDamage}，为目标回复 ${selfDamage} 点生命并施加2层圣痕。`);
+        break;
+      }
+      case 'enemy_holy_water_sprite_golden_ripple':
+        applyEffect(defender, EffectType.STIGMATA, 1, { source: card.id });
+        this.addLog('[金色涟漪] 目标圣痕 +1。');
+        break;
+      case 'enemy_holy_water_sprite_mind_echo':
+        if (stacks > 0) {
+          applyEffect(defender, EffectType.RESONANCE_LOCK, stacks, { source: card.id, lockDecayThisTurn: true });
+          this.addLog(`[精神回响] 目标共鸣锁 +${stacks}。`);
+        }
+        break;
+      case 'enemy_holy_water_sprite_holy_water_cage':
+        if (stacks > 0) {
+          applyEffect(defender, EffectType.COLD, stacks, { source: card.id });
+        }
+        applyEffect(defender, EffectType.BIND, 1, { source: card.id, lockDecayThisTurn: true });
+        this.addLog(`[圣水牢笼] 目标寒冷 +${stacks}，束缚 +1。`);
+        break;
+      case 'enemy_holy_water_sprite_farewell_light': {
+        const prayer = Math.max(0, getEffectStacks(attacker, EffectType.PRAYER));
+        if (prayer > 0) removeEffect(attacker, EffectType.PRAYER);
+        this.addLog(`[诀别之光] 清空自身 ${prayer} 层祈祷。`);
+        break;
+      }
+      case 'enemy_holy_water_sprite_past_elegy': {
+        const healed = Math.max(0, Math.min(defender.maxHp - defender.hp, stacks));
+        defender.hp += healed;
+        if (getEffectStacks(defender, EffectType.STIGMATA) > 0) {
+          applyEffect(defender, EffectType.RESONANCE_LOCK, 4, { source: card.id, lockDecayThisTurn: true });
+          this.addLog(`[往昔的挽歌] 目标回复 ${healed} 点生命，并因圣痕获得4层共鸣锁。`);
+        } else {
+          this.addLog(`[往昔的挽歌] 目标回复 ${healed} 点生命。`);
+        }
+        break;
+      }
+      case 'enemy_holy_water_sprite_holy_prayer': {
+        const healAmount = stacks * 3;
+        const healed = Math.max(0, Math.min(attacker.maxHp - attacker.hp, healAmount));
+        attacker.hp += healed;
+        applyEffect(attacker, EffectType.PRAYER, 1, { source: card.id });
+        this.addLog(`[圣灵祈祷] 自身回复 ${healed} 点生命并获得1层祈祷。`);
+        break;
+      }
+      default:
+        break;
     }
   }
 
@@ -474,6 +578,7 @@ export class BattleStateMachine {
         attackerEffects: attacker.effects,
         defenderEffects: defender.effects,
         relicModifiers,
+        isTrueDamage: card.id === 'enemy_holy_water_sprite_farewell_light',
       });
       this.state.logs.push(...dmg.logs);
       const result = applyDamageToEntity(defender, dmg.damage, dmg.isTrueDamage, {

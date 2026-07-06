@@ -341,7 +341,7 @@
               :key="`enemy-${eff.type}`"
               type="button"
               class="effect-icon-btn"
-              :class="effectIconBoxClass(eff.polarity)"
+              :class="[effectIconBoxClass(eff.polarity), isBlockedEffectAnimating('enemy', eff.type) ? 'effect-blocked-shake' : '']"
               :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
               @mouseenter="showEffectTooltip($event, eff)"
               @mouseleave="hideEffectTooltip"
@@ -511,7 +511,10 @@
           <!-- MP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-[10px] text-[#55aaff] font-bold w-6">MP</span>
-            <div class="flex-1 h-2 bg-[#0a0a1a] rounded-full overflow-hidden border border-blue-900/20">
+            <div
+              class="flex-1 h-2 bg-[#0a0a1a] rounded-full overflow-hidden border border-blue-900/20"
+              :class="{ 'mana-bar-blocked-shake': playerManaBlockedShake }"
+            >
               <div
                 class="h-full bg-gradient-to-r from-[#0066cc] to-[#0088ee] rounded-full transition-all duration-500"
                 :style="withTransition({ width: `${Math.min((playerStats.mp / 20) * 100, 100)}%` }, 500)"
@@ -536,7 +539,7 @@
               :key="`player-${eff.type}`"
               type="button"
               class="effect-icon-btn"
-              :class="effectIconBoxClass(eff.polarity)"
+              :class="[effectIconBoxClass(eff.polarity), isBlockedEffectAnimating('player', eff.type) ? 'effect-blocked-shake' : '']"
               :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
               @mouseenter="showEffectTooltip($event, eff, 'right')"
               @mouseleave="hideEffectTooltip"
@@ -909,6 +912,7 @@ import {
     Eye,
     EyeOff,
     Flame,
+    GitCommit,
     Heart,
     Info,
     Layers,
@@ -1327,6 +1331,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.SIGHT_DEPRIVATION]: EyeOff,
   [ET.FATE_OBSERVATION]: Sparkles,
   [ET.SILENCE]: Ban,
+  [ET.RESONANCE_LOCK]: GitCommit,
   [ET.STURDY]: Shield,
   [ET.SHOCK]: Zap,
   [ET.FLAME_ATTACH]: Flame,
@@ -1658,6 +1663,52 @@ type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana' | 't
 type ResolvedCardAnimVariant = 'attack' | 'self' | 'fade';
 type HandCardAnimationKind = 'draw' | 'discard' | 'turn_end_in_hand';
 type TooltipAlign = 'center' | 'right';
+type CardPlayCheckResult = ReturnType<typeof canPlayCard>;
+
+const playerManaBlockedShake = ref(false);
+const blockedEffectAnimation = ref<{ side: BattleSide; type: EffectType; token: number } | null>(null);
+let playerManaBlockedShakeToken = 0;
+let blockedEffectAnimationToken = 0;
+
+const triggerPlayerManaBlockedFeedback = () => {
+  const token = ++playerManaBlockedShakeToken;
+  playerManaBlockedShake.value = false;
+  requestAnimationFrame(() => {
+    playerManaBlockedShake.value = true;
+    setTimeout(() => {
+      if (playerManaBlockedShakeToken === token) {
+        playerManaBlockedShake.value = false;
+      }
+    }, 460);
+  });
+};
+
+const triggerBlockedEffectFeedback = (side: BattleSide, type: EffectType) => {
+  const token = ++blockedEffectAnimationToken;
+  blockedEffectAnimation.value = null;
+  requestAnimationFrame(() => {
+    blockedEffectAnimation.value = { side, type, token };
+    setTimeout(() => {
+      if (blockedEffectAnimation.value?.token === token) {
+        blockedEffectAnimation.value = null;
+      }
+    }, 520);
+  });
+};
+
+const triggerCardPlayBlockedFeedback = (check: CardPlayCheckResult) => {
+  if (check.blockerEffectType) {
+    triggerBlockedEffectFeedback('player', check.blockerEffectType);
+    return;
+  }
+  if (check.blockerKind === 'mana') {
+    triggerPlayerManaBlockedFeedback();
+  }
+};
+
+const isBlockedEffectAnimating = (side: BattleSide, type: EffectType): boolean => (
+  blockedEffectAnimation.value?.side === side && blockedEffectAnimation.value.type === type
+);
 
 interface ActiveSkillRuntimeState {
   nextAvailableTurn: number;
@@ -2121,6 +2172,7 @@ const previousTurnManaSnapshot = ref<Record<BattleSide, number>>({
 const playerPlayedPhysicalOrMagicThisTurn = ref(false);
 const playerPreviewCardForPointContext = ref<CardData | null>(null);
 const previousPlayerLastCardType = ref<CardType | null>(null);
+const previousEnemyLastCardType = ref<CardType | null>(null);
 const previousPlayerFinalPoint = ref<number | null>(null);
 
 const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
@@ -4254,6 +4306,7 @@ const applyCardEffectsByTrigger = (
           || ce.effectType === ET.SILENCE
           || ce.effectType === ET.STUN
           || ce.effectType === ET.CONTROLLED
+          || ce.effectType === ET.RESONANCE_LOCK
           || ce.effectType === ET.BLEED
           || ce.effectType === ET.CORRODE
           || ce.effectType === ET.CO_DAMAGE,
@@ -5117,6 +5170,9 @@ const getCardFinalPoint = (
     const bleedBonus = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
     finalPoint += bleedBonus;
   }
+  if (card.id === 'enemy_holy_water_sprite_struggle') {
+    finalPoint += Math.floor(getHolyWaterSpriteStruggleSelfDamageAmount(attacker) / 10);
+  }
   if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
     if (executionerPuppetPointModifier.value !== null) {
       finalPoint += executionerPuppetPointModifier.value;
@@ -5343,6 +5399,10 @@ const formatPointValue = (value: number): string => {
   return rounded.toFixed(2).replace(/\.?0+$/, '');
 };
 
+const getHolyWaterSpriteStruggleSelfDamageAmount = (entity: EntityStats): number => (
+  Math.max(0, Math.floor(Math.max(0, entity.hp) * 0.2))
+);
+
 const getPlayerCardContextForEnemyPointPreview = (): CardData | null => {
   const selectedOrPreviewed = combatState.value.playerSelectedCard ?? playerPreviewCardForPointContext.value;
   if (selectedOrPreviewed) return selectedOrPreviewed;
@@ -5350,7 +5410,9 @@ const getPlayerCardContextForEnemyPointPreview = (): CardData | null => {
   return combatState.value.playerHand.find((handCard) => {
     if (handCard.id === PASS_CARD.id || handCard.traits.combo) return false;
     const runtimeCard = withEffectiveManaCost('player', handCard);
-    return canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice).allowed;
+    return canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
+      previousCardType: previousPlayerLastCardType.value,
+    }).allowed;
   }) ?? null;
 };
 
@@ -5452,6 +5514,14 @@ const buildCardPreviewLines = (
     if (bonus > 0) {
       finalPoint += bonus;
       lines.push(`利齿（玩家流血${playerBleed}）+${bonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'enemy_holy_water_sprite_struggle') {
+    const selfDamage = getHolyWaterSpriteStruggleSelfDamageAmount(attacker);
+    const bonus = Math.floor(selfDamage / 10);
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`挣扎（预估自伤${selfDamage}）+${bonus} => ${finalPoint}`);
     }
   }
   if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
@@ -7589,6 +7659,7 @@ watch(
           enemy: { turn: 0, amount: 0 },
         };
         previousPlayerLastCardType.value = null;
+        previousEnemyLastCardType.value = null;
         previousPlayerFinalPoint.value = null;
         const voidCards = combatState.value.playerDeck.filter(card => card.id === 'alchemy_void').length;
         if (voidCards > 0) {
@@ -7942,15 +8013,22 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
       const controlledExpectedType = allowedTypes.length === 1 ? allowedTypes[0] : null;
       const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
         controlledExpectedType,
+        previousCardType: previousPlayerLastCardType.value,
       });
       const controlledReason = check.allowed ? getTwinDirectComboControlledReason(runtimeCard) : null;
       if (!check.allowed || controlledReason) {
         triggerInvalidCardShake(card);
+        if (!check.allowed) {
+          triggerCardPlayBlockedFeedback(check);
+        } else {
+          triggerBlockedEffectFeedback('player', ET.CONTROLLED);
+        }
         log(`<span class="text-red-400">${controlledReason ?? check.reason ?? '当前无法使用这张卡牌。'}</span>`);
         return;
       }
       if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
         triggerInvalidCardShake(card);
+        triggerPlayerManaBlockedFeedback();
         log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
         return;
       }
@@ -7975,14 +8053,17 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     })();
     const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
       controlledExpectedType,
+      previousCardType: previousPlayerLastCardType.value,
     });
     if (!check.allowed) {
       triggerInvalidCardShake(card);
+      triggerCardPlayBlockedFeedback(check);
       log(`<span class="text-red-400">${check.reason ?? '当前无法使用这张卡牌。'}</span>`);
       return;
     }
     if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
       triggerInvalidCardShake(card);
+      triggerPlayerManaBlockedFeedback();
       log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
       return;
     }
@@ -8005,15 +8086,18 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   })();
   const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
     controlledExpectedType,
+    previousCardType: previousPlayerLastCardType.value,
   });
   if (!check.allowed) {
     triggerInvalidCardShake(card);
+    triggerCardPlayBlockedFeedback(check);
     log(`<span class="text-red-400">${check.reason ?? '当前无法使用该卡牌。'}</span>`);
     return;
   }
 
   if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
     triggerInvalidCardShake(card);
+    triggerPlayerManaBlockedFeedback();
     log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
     return;
   }
@@ -8144,6 +8228,7 @@ const resolveCombat = async (
     const deferEnemyManaCheck = !isEnemyComboPrelude && resolvedPlayerCard.traits.combo;
     const enemyPlayCheck = canPlayCard(enemyStats.value, resolvedEnemyCard, eDice, {
       ignoreMana: deferEnemyManaCheck,
+      previousCardType: previousEnemyLastCardType.value,
     });
     if (!enemyPlayCheck.allowed) {
       triggerEnemyIntentInvalidShake(options.twinSlotIndex, resolvedEnemyCard);
@@ -8198,6 +8283,7 @@ const resolveCombat = async (
         triggerEnemyIntentInvalidShake(options.twinSlotIndex, card);
         notifyEnemyManaInsufficient();
       } else {
+        triggerPlayerManaBlockedFeedback();
         log(`<span class="text-red-400">我方【${runtimeCard.name}】发动失败：法力已不足。</span>`);
       }
       return false;
@@ -8331,6 +8417,7 @@ const resolveCombat = async (
   const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
   if (!isEnemyComboPrelude) {
     previousPlayerLastCardType.value = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard.type;
+    previousEnemyLastCardType.value = resolvedEnemyCard.id === PASS_CARD.id ? null : resolvedEnemyCard.type;
     previousPlayerFinalPoint.value = resolvedPlayerCard.id === PASS_CARD.id ? resolvedPlayerDice : pClashPoint;
     combatState.value.lastPlayedCard = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard;
   }
@@ -8630,6 +8717,7 @@ const resolveCombat = async (
       const enemyRuntimeCard = withEffectiveManaCost('enemy', card);
       const enemyPlayCheck = canPlayCard(enemyStats.value, enemyRuntimeCard, baseDice, {
         ignoreMana: executeOptions.skipManaCost,
+        previousCardType: previousEnemyLastCardType.value,
       });
       if (!enemyPlayCheck.allowed) {
         triggerEnemyIntentInvalidShake(options.twinSlotIndex, card);
@@ -8862,6 +8950,13 @@ const resolveCombat = async (
           reduceEffectStacks(attacker, ET.PRAYER, consumedPrayer);
         }
         log(`<span class="text-violet-300">${label}【${card.name}】移除了自身 ${consumedPrayer} 层祈祷。</span>`);
+      }
+      if (card.id === 'enemy_holy_water_sprite_farewell_light') {
+        const prayerStacks = Math.max(0, getEffectStacks(attacker, ET.PRAYER));
+        if (prayerStacks > 0) {
+          removeEffect(attacker, ET.PRAYER);
+        }
+        log(`<span class="text-violet-300">${label}【${card.name}】清空了自身 ${prayerStacks} 层祈祷。</span>`);
       }
       if (card.id === 'enemy_penitent_angel_lust_mark_script') {
         const beforeStigmata = Math.max(0, getEffectStacks(defender, ET.STIGMATA));
@@ -9901,6 +9996,18 @@ const resolveCombat = async (
           }
         }
       }
+      if (card.id === 'enemy_holy_water_sprite_past_elegy') {
+        if (getEffectStacks(defender, ET.STIGMATA) > 0) {
+          if (applyStatusEffectWithRelics(defenderSide, ET.RESONANCE_LOCK, 4, {
+            source: card.id,
+            lockDecayThisTurn: true,
+          })) {
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】触发：目标拥有圣痕，额外施加 4 层共鸣锁</span>`);
+          }
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】目标没有圣痕，未施加共鸣锁。</span>`);
+        }
+      }
       if (!hasEffect) {
         // Fallback for special function cards (e.g. MP recovery)
         if (card.id === 'c5') {
@@ -9942,6 +10049,32 @@ const resolveCombat = async (
       if (card.id === 'enemy_kraken_exclusive' && targetHasIndomitableBeforeOnUse) {
         reduceEffectStacks(defender, ET.INDOMITABLE, 1);
         log(`<span class="text-rose-300">${label}【${card.name}】移除了目标 1 层不屈</span>`);
+      }
+      if (card.id === 'enemy_holy_water_sprite_struggle') {
+        syncCurrentPointForUi();
+        const expectedSelfDamage = getHolyWaterSpriteStruggleSelfDamageAmount(attacker);
+        const actualSelfDamage = applyDirectHpLossWithRelics(source, attacker, expectedSelfDamage, `卡牌【${card.name}】自伤`);
+        if (actualSelfDamage > 0) {
+          pushFloatingNumber(source, actualSelfDamage, 'true', '-');
+        }
+        const { healed, convertedDamage } = healForSide(defenderSide, actualSelfDamage, {
+          sourceSide: source,
+          reason: `卡牌【${card.name}】治疗`,
+        });
+        if (applyStatusEffectWithRelics(defenderSide, ET.STIGMATA, 2, { source: card.id })) {
+          log(`<span class="text-amber-300">${label}【${card.name}】为${defenderLabel}施加 2 层圣痕。</span>`);
+        }
+        log(`<span class="text-rose-300">${label}【${card.name}】自伤 ${actualSelfDamage} 点，${convertedDamage > 0 ? `${defenderLabel}因血族反噬受到 ${convertedDamage} 点伤害` : `为${defenderLabel}回复 ${healed} 点生命`}。</span>`);
+        const selfReviveResult = triggerSwarmReviveIfNeeded(attacker, source);
+        for (const reviveLog of selfReviveResult.logs) {
+          log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+        }
+        const defenderReviveResult = triggerSwarmReviveIfNeeded(defender, defenderSide);
+        for (const reviveLog of defenderReviveResult.logs) {
+          log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+        }
+        finalizeAndTrack();
+        return;
       }
       if (card.id === 'enemy_selina_detain') {
         syncCurrentPointForUi();
@@ -10179,6 +10312,7 @@ const resolveCombat = async (
           || card.id === 'bloodpool_life_drain'
           || card.id === 'enemy_dream_demon_twin_misa_nightmare_domination'
           || card.id === 'enemy_grace_tentacle_lotus_suck'
+          || card.id === 'enemy_holy_water_sprite_farewell_light'
           || (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24);
         const attackerEffectsForDamage = card.id === 'modao_big_destruction'
           ? attacker.effects.filter(effect => effect.type !== ET.DAMAGE_BOOST)
@@ -11827,6 +11961,26 @@ watch(
   transform: scale(1);
 }
 
+.effect-blocked-shake {
+  z-index: 2;
+  animation: effect-blocked-shake calc(0.46s / var(--combat-speed-multiplier)) ease both;
+  box-shadow: 0 0 18px rgba(248, 113, 113, 0.38), 0 0 8px rgba(255, 255, 255, 0.16);
+}
+
+.effect-blocked-shake::before {
+  opacity: 0.72;
+  transform: scale(1.18);
+}
+
+@keyframes effect-blocked-shake {
+  0% { transform: translate3d(0, 0, 0) scale(1); filter: brightness(1); }
+  18% { transform: translate3d(-4px, 0, 0) scale(1.08); filter: brightness(1.55); }
+  36% { transform: translate3d(4px, 0, 0) scale(1.08); filter: brightness(1.38); }
+  54% { transform: translate3d(-3px, 0, 0) scale(1.04); filter: brightness(1.28); }
+  72% { transform: translate3d(2px, 0, 0) scale(1.02); filter: brightness(1.18); }
+  100% { transform: translate3d(0, 0, 0) scale(1); filter: brightness(1); }
+}
+
 .status-effect-list,
 .status-value-list {
   position: relative;
@@ -12024,6 +12178,21 @@ watch(
   54% { left: -5px; }
   72% { left: 4px; }
   100% { left: 0; }
+}
+
+.mana-bar-blocked-shake {
+  position: relative;
+  animation: mana-bar-blocked-shake calc(0.38s / var(--combat-speed-multiplier)) ease both;
+  box-shadow: 0 0 14px rgba(96, 165, 250, 0.5), inset 0 0 8px rgba(59, 130, 246, 0.35);
+}
+
+@keyframes mana-bar-blocked-shake {
+  0% { transform: translate3d(0, 0, 0); filter: brightness(1); }
+  18% { transform: translate3d(-7px, 0, 0); filter: brightness(1.5); }
+  36% { transform: translate3d(6px, 0, 0); filter: brightness(1.35); }
+  54% { transform: translate3d(-4px, 0, 0); filter: brightness(1.22); }
+  72% { transform: translate3d(3px, 0, 0); filter: brightness(1.12); }
+  100% { transform: translate3d(0, 0, 0); filter: brightness(1); }
 }
 
 .combat-button-cluster {

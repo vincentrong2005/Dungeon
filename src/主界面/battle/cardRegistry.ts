@@ -9036,6 +9036,157 @@ const 深渊鱼群_清道夫: CardData = {
   description: '回复1倍点数生命并为自身施加1层增伤。',
 };
 
+/** 相拥：造成1倍点数侵蚀；若拼点失败，施加1层圣痕 */
+const 圣水精灵_相拥: CardData = {
+  id: 'enemy_holy_water_sprite_embrace',
+  name: '相拥',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.STIGMATA,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '造成1倍点数侵蚀；若拼点失败，施加1层圣痕。',
+};
+
+/** 挣扎：自伤20%当前生命值，每自伤10点点数+1；为对方回复等量生命值并施加2层圣痕 */
+const 圣水精灵_挣扎: CardData = {
+  id: 'enemy_holy_water_sprite_struggle',
+  name: '挣扎',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '自伤20%当前生命值，每自伤10点点数+1。为对方回复等量生命值并施加2层圣痕。',
+};
+
+/** 金色涟漪：消耗2，造成1倍点数伤害，施加1层圣痕 */
+const 圣水精灵_金色涟漪: CardData = {
+  id: 'enemy_holy_water_sprite_golden_ripple',
+  name: '金色涟漪',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STIGMATA, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '造成1倍点数伤害，施加1层圣痕。',
+};
+
+/** 精神回响：消耗3，点数*1.5，施加0.5倍点数的共鸣锁 */
+const 圣水精灵_精神回响: CardData = {
+  id: 'enemy_holy_water_sprite_mind_echo',
+  name: '精神回响',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.RESONANCE_LOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数*1.5，施加0.5倍点数的共鸣锁。',
+};
+
+/** 圣水牢笼：消耗4，点数*2，施加1倍点数寒冷与1层束缚 */
+const 圣水精灵_圣水牢笼: CardData = {
+  id: 'enemy_holy_water_sprite_holy_water_cage',
+  name: '圣水牢笼',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.COLD, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数*2，施加1倍点数寒冷与1层束缚。',
+};
+
+/** 诀别之光：消耗6，点数*3，造成1倍点数真实伤害，清空自身祈祷，无视闪避 */
+const 圣水精灵_诀别之光: CardData = {
+  id: 'enemy_holy_water_sprite_farewell_light',
+  name: '诀别之光',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  ignoreDodge: true,
+  description: '点数*3，造成1倍点数真实伤害，清空自身祈祷，无视闪避。',
+};
+
+/** 往昔的挽歌：为对方回复1倍点数生命；若对方拥有圣痕，则额外施加4层共鸣锁 */
+const 圣水精灵_往昔的挽歌: CardData = {
+  id: 'enemy_holy_water_sprite_past_elegy',
+  name: '往昔的挽歌',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '为对方回复1倍点数生命；若对方拥有圣痕，则额外施加4层共鸣锁。',
+};
+
+/** 圣灵祈祷：为自身回复4倍点数生命值并施加1层祈祷 */
+const 圣水精灵_圣灵祈祷: CardData = {
+  id: 'enemy_holy_water_sprite_holy_prayer',
+  name: '圣灵祈祷',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 4.0 },
+    { kind: 'apply_buff', effectType: EffectType.PRAYER, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '为自身回复4倍点数生命值并施加1层祈祷。',
+};
+
 /** 天使铁钳：点数+2，造成1倍点数伤害，施加1层束缚 */
 const 忏悔天使_天使铁钳: CardData = {
   id: 'enemy_penitent_angel_iron_pincers',
@@ -9945,6 +10096,14 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [深渊鱼群_利齿.name, 深渊鱼群_利齿],
   [深渊鱼群_汇聚.name, 深渊鱼群_汇聚],
   [深渊鱼群_清道夫.name, 深渊鱼群_清道夫],
+  [圣水精灵_相拥.name, 圣水精灵_相拥],
+  [圣水精灵_挣扎.name, 圣水精灵_挣扎],
+  [圣水精灵_金色涟漪.name, 圣水精灵_金色涟漪],
+  [圣水精灵_精神回响.name, 圣水精灵_精神回响],
+  [圣水精灵_圣水牢笼.name, 圣水精灵_圣水牢笼],
+  [圣水精灵_诀别之光.name, 圣水精灵_诀别之光],
+  [圣水精灵_往昔的挽歌.name, 圣水精灵_往昔的挽歌],
+  [圣水精灵_圣灵祈祷.name, 圣水精灵_圣灵祈祷],
   [忏悔天使_天使铁钳.name, 忏悔天使_天使铁钳],
   [忏悔天使_圣洁书写.name, 忏悔天使_圣洁书写],
   [忏悔天使_催情圣泪.name, 忏悔天使_催情圣泪],
