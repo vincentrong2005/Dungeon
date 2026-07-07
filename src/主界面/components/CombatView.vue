@@ -204,6 +204,8 @@
         <div class="relative w-full flex-1 min-h-0">
           <div
             class="enemy-portrait-scale absolute bottom-0 left-1/2 -translate-x-1/2 origin-bottom w-full h-full flex items-end justify-center overflow-hidden"
+            :class="[isLeviathanBattle ? 'leviathan-body-target pointer-events-auto' : '', leviathanBodyTargetClass]"
+            @click="selectLeviathanTarget('body')"
           >
             <!-- Placeholder icon (shown when portrait fails to load) -->
             <Skull v-if="enemyPortraitError" class="w-48 h-48 text-red-900/20 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
@@ -217,6 +219,126 @@
               @error="onEnemyPortraitError"
             />
           </div>
+          <TransitionGroup
+            v-if="isLeviathanBattle"
+            tag="div"
+            name="leviathan-summon"
+            class="leviathan-summons-layer pointer-events-auto"
+          >
+            <div
+              v-for="(summon, summonIndex) in leviathanSummons"
+              :key="summon.id"
+              class="leviathan-summon-node"
+              :class="[
+                getLeviathanSummonPositionClass(summonIndex),
+                leviathanSelectedTargetId === summon.id ? 'leviathan-summon-node--selected' : '',
+              ]"
+              role="button"
+              tabindex="0"
+              @click.stop="selectLeviathanTarget(summon.id)"
+              @keydown.enter.prevent="selectLeviathanTarget(summon.id)"
+              @keydown.space.prevent="selectLeviathanTarget(summon.id)"
+            >
+              <div
+                v-if="summon.intentCard && summon.intentCard.id !== PASS_CARD.id"
+                class="leviathan-summon-card"
+                :data-leviathan-summon-card-id="summon.id"
+              >
+                <DungeonCard
+                  :card="summon.intentCard"
+                  :mask-level="enemyIntentMaskLevel"
+                  is-enemy
+                  disabled
+                />
+              </div>
+              <div class="leviathan-summon-dice">
+                <DungeonDice
+                  :value="summon.baseDice"
+                  :rolling="false"
+                  :rolling-min="summon.stats.minDice"
+                  :rolling-max="summon.stats.maxDice"
+                  color="red"
+                  size="sm"
+                />
+              </div>
+              <div class="leviathan-summon-portrait">
+                <Skull v-if="summon.portraitError" class="size-16 text-red-900/35" />
+                <img
+                  v-else
+                  :src="summon.portraitUrl"
+                  class="size-full object-contain object-bottom"
+                  :alt="summon.name"
+                  @error="summon.portraitError = true"
+                />
+              </div>
+              <div class="leviathan-summon-float-layer pointer-events-none">
+                <div
+                  v-for="popup in floatingNumbersFor('enemy', summon.id)"
+                  :key="popup.id"
+                  class="combat-float-number absolute text-lg font-extrabold tracking-wide"
+                  :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '']"
+                  :style="{
+                    left: `calc(50% + ${popup.leftOffset}px)`,
+                    top: `${popup.topOffset}px`,
+                    animationDuration: `${popup.duration}ms`,
+                  }"
+                >
+                  {{ popup.text }}
+                </div>
+              </div>
+              <div class="leviathan-summon-status">
+                <div class="leviathan-summon-status-row">
+                  <span class="leviathan-summon-name">{{ summon.name }}</span>
+                  <span class="leviathan-summon-hp">{{ summon.stats.hp }}/{{ summon.stats.maxHp }}</span>
+                </div>
+                <div class="leviathan-summon-hpbar">
+                  <div
+                    class="leviathan-summon-hpbar-fill"
+                    :style="withTransition({ width: `${getLeviathanSummonHpPercent(summon)}%` }, 500)"
+                  ></div>
+                </div>
+                <div class="leviathan-summon-meta">
+                  <span>MP {{ summon.stats.mp }}</span>
+                  <span v-if="getLeviathanSummonArmor(summon) > 0">护甲 {{ getLeviathanSummonArmor(summon) }}</span>
+                  <span>{{ summon.stats.minDice }}~{{ summon.stats.maxDice }}</span>
+                </div>
+                <div
+                  v-if="getLeviathanSummonVisibleEffects(summon).length > 0"
+                  class="leviathan-summon-effects"
+                >
+                  <button
+                    v-for="eff in getLeviathanSummonVisibleEffects(summon)"
+                    :key="`${summon.id}-${eff.type}`"
+                    type="button"
+                    class="effect-icon-btn leviathan-summon-effect"
+                    :class="effectIconBoxClass(eff.polarity)"
+                    :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
+                    @click.stop
+                    @mouseenter="showEffectTooltip($event, eff)"
+                    @mouseleave="hideEffectTooltip"
+                    @focus="showEffectTooltip($event, eff)"
+                    @blur="hideEffectTooltip"
+                    @touchstart.passive="handleEffectTouchStart($event, eff)"
+                    @touchend="handleEffectTouchEnd"
+                    @touchcancel="handleEffectTouchEnd"
+                  >
+                    <i
+                      v-if="getEffectFontAwesomeClass(eff.type)"
+                      :class="[getEffectFontAwesomeClass(eff.type), 'text-[11px] leading-none']"
+                      :style="getEffectFontAwesomeStyle(eff.type)"
+                      aria-hidden="true"
+                    ></i>
+                    <component
+                      :is="getEffectIconComponent(eff.type)"
+                      v-else
+                      class="size-3"
+                    />
+                    <span v-if="eff.stacks > 1" class="effect-stack-badge">{{ eff.stacks }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </TransitionGroup>
         </div>
 
         <!-- Enemy Status Bar -->
@@ -226,7 +348,7 @@
           </div>
           <div class="pointer-events-none absolute inset-0 z-30 overflow-visible">
             <div
-              v-for="popup in floatingNumbersFor('enemy')"
+              v-for="popup in floatingNumbersFor('enemy', 'body')"
               :key="popup.id"
               class="combat-float-number absolute text-xl font-extrabold tracking-wide"
               :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '']"
@@ -586,6 +708,7 @@
         :key="visual.id"
         class="resolved-card-visual"
         :class="visual.source === 'player' ? 'resolved-card-visual--player' : 'resolved-card-visual--enemy'"
+        :style="resolvedCardVisualStyle(visual)"
       >
         <div class="resolved-card-visual-inner" :class="resolvedCardVisualInnerClass(visual)">
           <div class="combat-card-visual-scale">
@@ -977,7 +1100,7 @@ import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
-import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EntityStats } from '../types';
+import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EnemyDefinition, type EntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
@@ -1035,6 +1158,7 @@ const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
 const enemyDisplayName = enemyDef?.name ?? props.enemyName;
 const isTwinBattle = Boolean(enemyDef?.selectTwinCards);
 const isMirrorCloneBattle = enemyDisplayName === '镜像分身';
+const isLeviathanBattle = enemyDisplayName === '利维坦';
 const usesPlayerPreviousPointDice = isMirrorCloneBattle || enemyDisplayName === '米拉';
 
 // --- Portrait URLs ---
@@ -1457,6 +1581,147 @@ const PASS_CARD: CardData = {
   traits: { combo: false, reroll: 'none', draw: false }, cardEffects: [], description: '无行动',
 };
 
+const getLeviathanSummonPositionClass = (index: number): string => {
+  switch (index) {
+    case 0: return 'leviathan-summon-node--left';
+    case 1: return 'leviathan-summon-node--left-top';
+    default: return 'leviathan-summon-node--top';
+  }
+};
+
+const getLeviathanSummonVisibleEffects = (summon: LeviathanSummonRuntime) => summon.stats.effects
+  .filter(e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
+  .sort((a, b) => getEffectDisplayOrder(a.type) - getEffectDisplayOrder(b.type));
+
+const getLeviathanSummonArmor = (summon: LeviathanSummonRuntime): number => (
+  Math.max(0, getEffectStacks(summon.stats, ET.ARMOR))
+);
+
+const getLeviathanSummonHpPercent = (summon: LeviathanSummonRuntime): number => (
+  summon.stats.maxHp > 0 ? Math.max(0, Math.min(100, (summon.stats.hp / summon.stats.maxHp) * 100)) : 0
+);
+
+const getLeviathanSummonById = (id: LeviathanTargetId): LeviathanSummonRuntime | null => (
+  id === 'body' ? null : (leviathanSummons.value.find(summon => summon.id === id && summon.stats.hp > 0) ?? null)
+);
+
+const getSelectedLeviathanSummon = (): LeviathanSummonRuntime | null => (
+  getLeviathanSummonById(leviathanSelectedTargetId.value)
+);
+
+const getCurrentEnemyIntentForPlayerInput = (): CardData | null => (
+  isLeviathanBattle
+    ? (getSelectedLeviathanSummon()
+      ? (getSelectedLeviathanSummon()?.intentCard ?? PASS_CARD)
+      : combatState.value.enemyIntentCard)
+    : combatState.value.enemyIntentCard
+);
+
+const ensureLeviathanSelectedTarget = () => {
+  if (!isLeviathanBattle) return;
+  if (leviathanSelectedTargetId.value === 'body') return;
+  if (getSelectedLeviathanSummon()) return;
+  leviathanSelectedTargetId.value = enemyStats.value.hp > 0 ? 'body' : (getAliveLeviathanSummons()[0]?.id ?? 'body');
+};
+
+const selectLeviathanTarget = (targetId: LeviathanTargetId) => {
+  if (!isLeviathanBattle || combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  if (targetId !== 'body' && !getLeviathanSummonById(targetId)) return;
+  leviathanSelectedTargetId.value = targetId;
+  const targetName = targetId === 'body' ? '利维坦' : (getLeviathanSummonById(targetId)?.name ?? '召唤物');
+  log(`<span class="text-cyan-300">本轮目标切换为【${targetName}】。</span>`);
+};
+
+const leviathanBodyTargetClass = computed(() => (
+  isLeviathanBattle && leviathanSelectedTargetId.value === 'body'
+    ? 'leviathan-body-target--selected'
+    : ''
+));
+
+const removeDefeatedLeviathanSummons = () => {
+  if (!isLeviathanBattle || leviathanSummons.value.length <= 0) return;
+  const defeated = leviathanSummons.value.filter(summon => summon.stats.hp <= 0);
+  if (defeated.length <= 0) return;
+  leviathanSummons.value = leviathanSummons.value.filter(summon => summon.stats.hp > 0);
+  for (const summon of defeated) {
+    log(`<span class="text-violet-300">【${summon.name}】被击溃，离开了战场。</span>`);
+  }
+  ensureLeviathanSelectedTarget();
+};
+
+const buildLeviathanSummonRuntime = (name: LeviathanSummonRuntime['name']): LeviathanSummonRuntime | null => {
+  const def = getEnemyByName(name, currentFloorNumber);
+  if (!def) return null;
+  const stats = cloneEntityStats(def.stats);
+  const summonMaxHp = Math.max(1, Math.ceil(def.stats.maxHp / 3));
+  stats.maxHp = summonMaxHp;
+  stats.hp = summonMaxHp;
+  return {
+    id: `leviathan-summon-${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name,
+    def,
+    stats,
+    deck: toBattleDeck(def.deck),
+    discard: [],
+    intentCard: null,
+    baseDice: 0,
+    rawDice: 0,
+    portraitUrl: toResolveUrl(`${HF_MONSTER_DIR}/${name}.png`),
+    portraitError: false,
+    flags: {},
+    previousCardType: null,
+    createdTurn: combatState.value.turn,
+    nextActionTurn: combatState.value.turn + 1,
+  };
+};
+
+const summonLeviathanUnit = (name: LeviathanSummonRuntime['name']) => {
+  if (!isLeviathanBattle) return;
+  const existing = leviathanSummons.value.find(summon => summon.name === name && summon.stats.hp > 0);
+  if (existing) {
+    const before = existing.stats.hp;
+    existing.stats.hp = existing.stats.maxHp;
+    const healed = Math.max(0, existing.stats.hp - before);
+    if (healed > 0) {
+      pushFloatingNumber('enemy', healed, 'heal', '+', { targetEntity: existing.stats });
+    }
+    log(`<span class="text-emerald-300">利维坦重新召唤【${name}】，已存在的个体恢复至满生命。</span>`);
+    return;
+  }
+
+  const runtime = buildLeviathanSummonRuntime(name);
+  if (!runtime) {
+    log(`<span class="text-red-400">[利维坦] 未找到召唤物【${name}】定义。</span>`);
+    return;
+  }
+  leviathanSummons.value.push(runtime);
+  log(`<span class="text-violet-300">利维坦召唤了【${name}】。</span>`);
+};
+
+const countLeviathanTeamDebuffStacks = (): number => (
+  getLeviathanTeamEntities().reduce((sum, entity) => (
+    sum + entity.effects.reduce((effectSum, effect) => (
+      effectSum + (EFFECT_REGISTRY[effect.type]?.polarity === 'debuff' ? Math.max(0, Math.floor(effect.stacks)) : 0)
+    ), 0)
+  ), 0)
+);
+
+const refreshLeviathanAiFlags = () => {
+  if (!isLeviathanBattle) return;
+  const aliveSummons = getAliveLeviathanSummons();
+  const aliveNames = new Set(aliveSummons.map(summon => summon.name));
+  aiFlags.leviathanSummonCount = aliveSummons.length;
+  aiFlags.leviathanHasHolyWaterSprite = aliveNames.has('圣水精灵');
+  aiFlags.leviathanHasHolyWaterJellyfish = aliveNames.has('圣水水母');
+  aiFlags.leviathanHasAbyssShoal = aliveNames.has('深渊鱼群');
+  aiFlags.leviathanTeamDebuffStacks = countLeviathanTeamDebuffStacks();
+};
+
+const resetLeviathanSummonCardWeight = () => {
+  aiFlags.leviathanSummonCardWeight = 10;
+  aiFlags.leviathanSummonCardWeightTurn = combatState.value.turn;
+};
+
 const MOORE_MIMIC_CARD_KEY = '摩尔·梦境';
 const MOORE_MIMIC_CARD_ID = 'enemy_moore_mimic';
 const BEHEMOTH_FOOD_CARD_NAMES = ['烤兔腿', '烤肉', '浓汤', '脂肪块'] as const;
@@ -1661,6 +1926,16 @@ type BattleSide = 'player' | 'enemy';
 type CombatOutcome = 'win' | 'lose' | 'escape';
 type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana' | 'true';
 type ResolvedCardAnimVariant = 'attack' | 'self' | 'fade';
+interface ResolvedCardVisualOrigin {
+  left: string;
+  top: string;
+  midX?: string;
+  midY?: string;
+  targetX?: string;
+  targetY?: string;
+  targetEndX?: string;
+  targetEndY?: string;
+}
 type HandCardAnimationKind = 'draw' | 'discard' | 'turn_end_in_hand';
 type TooltipAlign = 'center' | 'right';
 type CardPlayCheckResult = ReturnType<typeof canPlayCard>;
@@ -1728,6 +2003,7 @@ interface ActiveSkillSlotView {
 interface FloatingNumberEntry {
   id: number;
   side: BattleSide;
+  targetId?: LeviathanTargetId;
   kind?: FloatingNumberKind;
   text: string;
   colorClass: string;
@@ -1747,6 +2023,7 @@ interface ResolvedCardVisual {
   source: BattleSide;
   card: CardData;
   variant: ResolvedCardAnimVariant;
+  origin?: ResolvedCardVisualOrigin;
 }
 
 interface DicePreviewPanel {
@@ -1944,16 +2221,28 @@ const displayPlayerDice = computed(() => {
   if (!isPlayerDiceObscured.value) return base;
   return Math.max(0, base + playerDiceUiNoise.value);
 });
+const selectedLeviathanDiceDisplaySummon = computed(() => (
+  isLeviathanBattle ? getSelectedLeviathanSummon() : null
+));
+const currentEnemyBaseDiceForUi = computed(() => (
+  selectedLeviathanDiceDisplaySummon.value?.baseDice ?? combatState.value.enemyBaseDice
+));
 const displayEnemyDice = computed(() => {
-  const base = (isEnemyIntentHiddenForPlayer.value ? null : previewEnemyDice.value) ?? combatState.value.enemyBaseDice;
+  const base = (isEnemyIntentHiddenForPlayer.value ? null : previewEnemyDice.value) ?? currentEnemyBaseDiceForUi.value;
   if (!isEnemyDiceObscured.value) return base;
   return Math.max(0, base + enemyDiceUiNoise.value);
 });
 const twinEnemyDiceBonus = computed(() => (
   isTwinBattle && dreamControlPercent.value <= 39 ? 2 : 0
 ));
-const effectiveEnemyMinDice = computed(() => Math.max(0, enemyStats.value.minDice + twinEnemyDiceBonus.value));
-const effectiveEnemyMaxDice = computed(() => Math.max(effectiveEnemyMinDice.value, enemyStats.value.maxDice + twinEnemyDiceBonus.value));
+const effectiveEnemyMinDice = computed(() => Math.max(
+  0,
+  (selectedLeviathanDiceDisplaySummon.value?.stats.minDice ?? enemyStats.value.minDice) + twinEnemyDiceBonus.value,
+));
+const effectiveEnemyMaxDice = computed(() => Math.max(
+  effectiveEnemyMinDice.value,
+  (selectedLeviathanDiceDisplaySummon.value?.stats.maxDice ?? enemyStats.value.maxDice) + twinEnemyDiceBonus.value,
+));
 const canPlayerRerollDice = computed(() => (
   playerDiceRerollCharges.value > 0
   && combatState.value.phase === CombatPhase.PLAYER_INPUT
@@ -1972,7 +2261,7 @@ const playerDicePreviewChanged = computed(() => (
   previewPlayerDice.value !== null && previewPlayerDice.value !== combatState.value.playerBaseDice
 ));
 const enemyDicePreviewChanged = computed(() => (
-  previewEnemyDice.value !== null && previewEnemyDice.value !== combatState.value.enemyBaseDice
+  previewEnemyDice.value !== null && previewEnemyDice.value !== currentEnemyBaseDiceForUi.value
 ));
 const playerDiceNumberClass = computed(() => {
   if (isPlayerDiceObscured.value) return 'text-[#3550c9] [text-shadow:0_1px_0_rgba(255,248,220,0.55),0_0_10px_rgba(96,165,250,0.22)]';
@@ -2175,7 +2464,69 @@ const previousPlayerLastCardType = ref<CardType | null>(null);
 const previousEnemyLastCardType = ref<CardType | null>(null);
 const previousPlayerFinalPoint = ref<number | null>(null);
 
-const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : enemyStats.value);
+type LeviathanTargetId = 'body' | string;
+interface LeviathanSummonRuntime {
+  id: string;
+  name: '圣水精灵' | '圣水水母' | '深渊鱼群';
+  def: EnemyDefinition;
+  stats: EntityStats;
+  deck: CardData[];
+  discard: CardData[];
+  intentCard: CardData | null;
+  baseDice: number;
+  rawDice: number;
+  portraitUrl: string;
+  portraitError: boolean;
+  flags: Record<string, any>;
+  previousCardType: CardType | null;
+  createdTurn: number;
+  nextActionTurn: number;
+}
+
+const LEVIATHAN_SUMMON_CARD_ID = 'enemy_leviathan_newborn_tide';
+const LEVIATHAN_SUMMON_NAMES: LeviathanSummonRuntime['name'][] = ['圣水精灵', '圣水水母', '深渊鱼群'];
+const LEVIATHAN_SUMMON_PRIORITY: LeviathanSummonRuntime['name'][] = ['深渊鱼群', '圣水精灵', '圣水水母'];
+
+const leviathanSummons = ref<LeviathanSummonRuntime[]>([]);
+const leviathanSelectedTargetId = ref<LeviathanTargetId>('body');
+const leviathanEnemyTargetOverride = ref<EntityStats | null>(null);
+const leviathanEnemySourceOverride = ref<EntityStats | null>(null);
+const leviathanEnemySelfOverride = ref<EntityStats | null>(null);
+const leviathanActingSummon = ref<LeviathanSummonRuntime | null>(null);
+const leviathanEcologicalRhythmActive = ref(false);
+const leviathanMirrorSeaOathPendingPoint = ref(0);
+const leviathanMirrorSeaOathActiveTurn = ref(0);
+const leviathanTidalLockCheckTurn = ref(0);
+const leviathanTidalLockPendingTurn = ref(0);
+const leviathanSummonActionsResolvedTurn = ref(0);
+
+const getAliveLeviathanSummons = () => leviathanSummons.value.filter(summon => summon.stats.hp > 0);
+const getLeviathanTargetIdByEntity = (entity: EntityStats | null | undefined): LeviathanTargetId => {
+  if (!isLeviathanBattle || !entity || entity === enemyStats.value) return 'body';
+  return leviathanSummons.value.find(summon => summon.stats === entity)?.id ?? 'body';
+};
+const pickRandomLeviathanSummonName = (
+  names: readonly LeviathanSummonRuntime['name'][],
+): LeviathanSummonRuntime['name'] => names[Math.floor(Math.random() * names.length)] ?? LEVIATHAN_SUMMON_NAMES[0]!;
+const pickLeviathanSummonName = (): LeviathanSummonRuntime['name'] => {
+  const aliveNames = new Set(getAliveLeviathanSummons().map(summon => summon.name));
+  const absentNames = LEVIATHAN_SUMMON_NAMES.filter(name => !aliveNames.has(name));
+  return pickRandomLeviathanSummonName(absentNames.length > 0 ? absentNames : LEVIATHAN_SUMMON_NAMES);
+};
+const getLeviathanTeamEntities = (): EntityStats[] => [
+  enemyStats.value,
+  ...getAliveLeviathanSummons().map(summon => summon.stats),
+];
+const isLeviathanSummonActionTurn = (summon: LeviathanSummonRuntime): boolean => (
+  combatState.value.turn >= Math.max(1, Math.floor(summon.nextActionTurn))
+);
+const markLeviathanSummonActionOpportunityUsed = (summon: LeviathanSummonRuntime) => {
+  summon.nextActionTurn = combatState.value.turn + 2;
+};
+const getLeviathanEnemyEntity = (): EntityStats => (
+  leviathanEnemyTargetOverride.value ?? leviathanEnemySelfOverride.value ?? leviathanEnemySourceOverride.value ?? enemyStats.value
+);
+const getEntityBySide = (side: RelicSide): EntityStats => (side === 'player' ? playerStats.value : getLeviathanEnemyEntity());
 
 const getRelicRuntimeState = (relicId: string) => {
   if (!relicRuntimeState[relicId]) {
@@ -2561,6 +2912,9 @@ const applyDamageToSideWithRelics = (
     triggerBloodlineLifesteal(damageOptions.sourceSide, result.actualDamage, reason);
   }
   if (result.actualDamage > 0) {
+    if (side === 'player' && damageOptions.sourceSide === 'enemy') {
+      grantLeviathanGenesisFromSummonDamage('');
+    }
     triggerColdRetaliationOnDamageTaken(side, '受到伤害触发');
     const dreamControlKind = damageOptions.dreamControlKind ?? (damageOptions.isDirectDamage ? 'direct' : undefined);
     if (dreamControlKind) {
@@ -2661,6 +3015,9 @@ const applyDirectHpLossWithRelics = (
     triggerBloodlineLifesteal(damageOptions.sourceSide, actualDamage, reason);
   }
   if (actualDamage > 0) {
+    if (side === 'player' && damageOptions.sourceSide === 'enemy') {
+      grantLeviathanGenesisFromSummonDamage('');
+    }
     triggerColdRetaliationOnDamageTaken(side, '受到生命损失触发');
     const dreamControlKind = damageOptions.dreamControlKind ?? (damageOptions.isDirectDamage ? 'direct' : undefined);
     if (dreamControlKind) {
@@ -2843,6 +3200,9 @@ const healForSide = (
   const overflowRaw = Math.max(0, value - healed);
   if (healed > 0) {
     pushFloatingNumber(side, healed, 'heal', '+');
+    if (side === 'player') {
+      triggerLeviathanMirrorSeaOathRecovery(healed);
+    }
   }
   if (options?.overflowToArmor && overflowRaw > 0) {
     addArmorForSide(side, overflowRaw);
@@ -3321,13 +3681,31 @@ const resolvedCardVisualInnerClass = (visual: ResolvedCardVisual) => {
   const sideClass = visual.source === 'player'
     ? 'resolved-card-visual-inner--player'
     : 'resolved-card-visual-inner--enemy';
+  const originClass = visual.origin && visual.source === 'enemy'
+    ? ' resolved-card-visual-inner--summon'
+    : '';
   const variantClass = visual.variant === 'attack'
     ? 'resolved-card-visual-inner--attack'
     : (visual.variant === 'self'
       ? 'resolved-card-visual-inner--self'
       : 'resolved-card-visual-inner--fade');
-  return `${sideClass} ${variantClass}`;
+  return `${sideClass}${originClass} ${variantClass}`;
 };
+
+const resolvedCardVisualStyle = (visual: ResolvedCardVisual): Record<string, string> | undefined => (
+  visual.origin
+    ? {
+      left: visual.origin.left,
+      top: visual.origin.top,
+      ...(visual.origin.midX ? { '--resolved-card-mid-x': visual.origin.midX } : {}),
+      ...(visual.origin.midY ? { '--resolved-card-mid-y': visual.origin.midY } : {}),
+      ...(visual.origin.targetX ? { '--resolved-card-target-x': visual.origin.targetX } : {}),
+      ...(visual.origin.targetY ? { '--resolved-card-target-y': visual.origin.targetY } : {}),
+      ...(visual.origin.targetEndX ? { '--resolved-card-target-end-x': visual.origin.targetEndX } : {}),
+      ...(visual.origin.targetEndY ? { '--resolved-card-target-end-y': visual.origin.targetEndY } : {}),
+    }
+    : undefined
+);
 
 const showEnemyIntentCard = computed(() => {
   if (!combatState.value.enemyIntentCard) return false;
@@ -3373,7 +3751,19 @@ const floatingColors: Record<FloatingNumberKind, string> = {
   true: 'text-zinc-500 drop-shadow-[0_0_8px_rgba(39,39,42,0.9)]',
 };
 
-const floatingNumbersFor = (side: BattleSide) => floatingNumbers.value.filter((entry) => entry.side === side);
+interface FloatingNumberOptions {
+  allowZero?: boolean;
+  targetEntity?: EntityStats | null;
+  targetId?: LeviathanTargetId;
+}
+
+const floatingNumbersFor = (side: BattleSide, targetId?: LeviathanTargetId) => floatingNumbers.value.filter((entry) => {
+  if (entry.side !== side) return false;
+  if (side === 'enemy' && isLeviathanBattle) {
+    return (entry.targetId ?? 'body') === (targetId ?? 'body');
+  }
+  return true;
+});
 const handCardKey = (card: CardData) => {
   let key = handCardKeys.get(card);
   if (!key) {
@@ -3810,7 +4200,7 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
   const loss = Math.max(0, Math.floor(lostMp));
   if (loss <= 0) return;
 
-  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  const target = getEntityBySide(side);
   const label = side === 'player' ? '我方' : '敌方';
   const shockStacks = getEffectStacks(target, ET.SHOCK);
   if (shockStacks <= 0) return;
@@ -3849,7 +4239,7 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
 };
 
 const triggerShockProc = (targetSide: BattleSide, reason: string): number => {
-  const target = targetSide === 'player' ? playerStats.value : enemyStats.value;
+  const target = getEntityBySide(targetSide);
   const targetLabel = targetSide === 'player' ? '我方' : '敌方';
   const shockStacks = Math.max(0, getEffectStacks(target, ET.SHOCK));
   if (shockStacks <= 0) {
@@ -3901,7 +4291,7 @@ const changeManaWithShock = (
   const value = Math.floor(delta);
   if (value === 0) return { ok: true, actualDelta: 0 };
 
-  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  const target = getEntityBySide(side);
   const before = target.mp;
 
   if (value < 0 && options?.requireEnoughForDecrease && before < -value) {
@@ -4105,7 +4495,7 @@ const resolveCardSelfDamage = (
 };
 
 const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
-  const target = targetSide === 'player' ? playerStats.value : enemyStats.value;
+  const target = getEntityBySide(targetSide);
   const targetLabel = targetSide === 'player' ? '我方' : '敌方';
   const bleedStacks = Math.max(0, getEffectStacks(target, ET.BLEED));
   if (bleedStacks <= 0) {
@@ -4151,7 +4541,7 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
 };
 
 const applyBloodbladeAttachOnClash = (sourceSide: BattleSide, targetSide: BattleSide) => {
-  const sourceStats = sourceSide === 'player' ? playerStats.value : enemyStats.value;
+  const sourceStats = getEntityBySide(sourceSide);
   const stacks = getEffectStacks(sourceStats, ET.BLOODBLADE_ATTACH);
   if (stacks <= 0) return;
   applyStatusEffectWithRelics(targetSide, ET.BLEED, stacks, { source: 'effect:bloodblade_attach', lockDecayThisTurn: true });
@@ -4172,7 +4562,7 @@ const applyEerieStatueOnPlayerActionCard = (card: CardData) => {
 };
 
 const applyLightningAttachOnDodge = (dodgerSide: BattleSide, targetSide: BattleSide) => {
-  const sourceStats = dodgerSide === 'player' ? playerStats.value : enemyStats.value;
+  const sourceStats = getEntityBySide(dodgerSide);
   const stacks = getEffectStacks(sourceStats, ET.LIGHTNING_ATTACH);
   if (stacks <= 0) return;
   applyStatusEffectWithRelics(targetSide, ET.SHOCK, stacks, { source: 'effect:lightning_attach' });
@@ -4191,9 +4581,10 @@ const applyCardEffectsByTrigger = (
   finalPoint: number,
   trigger: CardEffectTrigger = 'on_use',
   kindMode: 'all' | 'pre_reroll_self_buff_only' | 'post_reroll_on_use' = 'all',
+  targetMode: 'all' | 'enemy_only' | 'self_only' = 'all',
 ) => {
-  const attacker = source === 'player' ? playerStats.value : enemyStats.value;
-  const defender = source === 'player' ? enemyStats.value : playerStats.value;
+  const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
+  const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
   const label = source === 'player' ? '我方' : '敌方';
   const triggerTextMap: Partial<Record<CardEffectTrigger, string>> = {
     on_clash_fail: '拼点失败',
@@ -4206,6 +4597,8 @@ const applyCardEffectsByTrigger = (
   for (const ce of card.cardEffects) {
     if (!cardEffectMatchesTrigger(ce.triggers, trigger)) continue;
     const targetKey = ce.target ?? 'self';
+    if (targetMode === 'enemy_only' && targetKey !== 'enemy') continue;
+    if (targetMode === 'self_only' && targetKey !== 'self') continue;
     if (kindMode === 'pre_reroll_self_buff_only') {
       if (trigger !== 'on_use' || ce.kind !== 'apply_buff' || targetKey !== 'self') continue;
     }
@@ -4276,6 +4669,7 @@ const applyCardEffectsByTrigger = (
           : (card.type === CardType.MAGIC ? 'magic' : 'physical');
         pushFloatingNumber(targetSide, actualDamage, damageKind, '-', {
           allowZero: armorBlocked,
+          targetEntity,
         });
       }
       const targetLabel = targetSide === 'player' ? '我方' : '敌方';
@@ -4315,7 +4709,7 @@ const applyCardEffectsByTrigger = (
         continue;
       }
       if (ce.effectType === ET.ARMOR) {
-        pushFloatingNumber(targetSide, stacks, 'shield', '+');
+        pushFloatingNumber(targetSide, stacks, 'shield', '+', { targetEntity });
         if (targetSide === 'player') {
           handlePlayerArmorGainFromSingleEvent(stacks, `卡牌【${card.name}】`);
         }
@@ -4324,7 +4718,7 @@ const applyCardEffectsByTrigger = (
         const actualMaxHpLoss = Math.max(0, beforeMaxHp - targetEntity.maxHp);
         const hpLossByCap = Math.max(0, beforeHp - targetEntity.hp);
         if (hpLossByCap > 0) {
-          pushFloatingNumber(targetSide, hpLossByCap, 'true', '-');
+          pushFloatingNumber(targetSide, hpLossByCap, 'true', '-', { targetEntity });
         }
         log(`<span class="text-fuchsia-300">${label}【${card.name}】使目标生命上限 -${actualMaxHpLoss}${hpLossByCap > 0 ? `（当前生命 -${hpLossByCap}）` : ''}</span>`);
       } else if (ce.effectType === ET.TEMP_MAX_HP) {
@@ -4401,8 +4795,8 @@ const triggerShadowAssaultDamage = (
 ) => {
   if (card.id !== 'enemy_shadow_jailer_shadow_assault') return;
 
-  const attacker = source === 'player' ? playerStats.value : enemyStats.value;
-  const defender = source === 'player' ? enemyStats.value : playerStats.value;
+  const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
+  const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
   const label = source === 'player' ? '我方' : '敌方';
   const defenderSide = source === 'player' ? 'enemy' : 'player';
   const defenderLabel = defenderSide === 'player' ? '我方' : '敌方';
@@ -4477,7 +4871,7 @@ const applyToxinSpreadOnPhysicalPlay = (source: BattleSide, card: CardData) => {
   if (card.id === PASS_CARD.id || card.type !== CardType.PHYSICAL) return;
 
   const spreadOwnerSide: BattleSide = source === 'player' ? 'enemy' : 'player';
-  const spreadOwner = spreadOwnerSide === 'player' ? playerStats.value : enemyStats.value;
+  const spreadOwner = getEntityBySide(spreadOwnerSide);
   const spreadStacks = getEffectStacks(spreadOwner, ET.TOXIN_SPREAD);
   if (spreadStacks <= 0) return;
 
@@ -4492,7 +4886,7 @@ const applyAmbushOnCardPlay = (source: BattleSide, card: CardData) => {
   if (card.type !== CardType.PHYSICAL && card.type !== CardType.DODGE) return;
 
   const ambushOwnerSide: BattleSide = source === 'player' ? 'enemy' : 'player';
-  const ambushOwner = ambushOwnerSide === 'player' ? playerStats.value : enemyStats.value;
+  const ambushOwner = getEntityBySide(ambushOwnerSide);
   const ambushStacks = getEffectStacks(ambushOwner, ET.AMBUSH);
   if (ambushStacks <= 0) return;
 
@@ -4511,7 +4905,7 @@ const withIgnoreDodgeBuffOnAttackCard = (source: BattleSide, card: CardData): Ca
   if (card.id === PASS_CARD.id) return card;
   if (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC) return card;
 
-  const sourceStats = source === 'player' ? playerStats.value : enemyStats.value;
+  const sourceStats = getEntityBySide(source);
   const stacks = getEffectStacks(sourceStats, ET.IGNORE_DODGE);
   if (stacks <= 0) return card;
 
@@ -4529,8 +4923,8 @@ const triggerObedienceBrandOnDirectHit = (
   attackerSide: BattleSide,
   defenderSide: BattleSide,
 ) => {
-  const attacker = attackerSide === 'player' ? playerStats.value : enemyStats.value;
-  const defender = defenderSide === 'player' ? playerStats.value : enemyStats.value;
+  const attacker = getEntityBySide(attackerSide);
+  const defender = getEntityBySide(defenderSide);
   const attackerLabel = attackerSide === 'player' ? '我方' : '敌方';
   const defenderLabel = defenderSide === 'player' ? '我方' : '敌方';
 
@@ -4611,10 +5005,11 @@ const getActiveSkillManaCost = (idx: number): number => {
 
 const getOpposingCardForPointComparison = (source: BattleSide): { side: BattleSide; card: CardData | null; baseDice: number } => {
   if (source === 'player') {
+    const selectedSummon = isLeviathanBattle ? getSelectedLeviathanSummon() : null;
     return {
       side: 'enemy',
-      card: combatState.value.enemyIntentCard ?? null,
-      baseDice: combatState.value.enemyBaseDice,
+      card: selectedSummon ? (selectedSummon.intentCard ?? null) : (combatState.value.enemyIntentCard ?? null),
+      baseDice: selectedSummon ? selectedSummon.baseDice : combatState.value.enemyBaseDice,
     };
   }
   return {
@@ -4634,8 +5029,8 @@ const COGNITIVE_SWAP_BLOCKED_EFFECTS = new Set<EffectType>([
 ]);
 
 const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number => {
-  const sourceStats = from === 'player' ? playerStats.value : enemyStats.value;
-  const targetStats = to === 'player' ? playerStats.value : enemyStats.value;
+  const sourceStats = getEntityBySide(from);
+  const targetStats = getEntityBySide(to);
   const debuffs = sourceStats.effects
     .filter(effect => (
       EFFECT_REGISTRY[effect.type]?.polarity === 'debuff'
@@ -4896,7 +5291,7 @@ const hasNoPhysicalOrMagicInHand = (side: BattleSide, currentCard?: CardData): b
 
 let poisonAmountImmediateCheckRunning = false;
 const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
-  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  const target = getEntityBySide(side);
   if (target.hp <= 0) return;
 
   const poisonAmount = getEffectStacks(target, ET.POISON_AMOUNT);
@@ -4927,7 +5322,7 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
 };
 
 const processPhaseTransitionTurnEnd = (side: BattleSide) => {
-  const target = side === 'player' ? playerStats.value : enemyStats.value;
+  const target = getEntityBySide(side);
   if (target.hp <= 0) return;
 
   const phaseTransitionStacks = Math.max(0, getEffectStacks(target, ET.PHASE_TRANSITION));
@@ -5086,6 +5481,44 @@ const showPlayerPlayedCard = (card: CardData) => {
   });
 };
 
+const getLeviathanSummonCardAnimationOrigin = (summon: LeviathanSummonRuntime): ResolvedCardVisualOrigin => {
+  const root = combatRootEl.value;
+  if (root) {
+    const cardEl = Array.from(root.querySelectorAll<HTMLElement>('[data-leviathan-summon-card-id]'))
+      .find(el => el.dataset.leviathanSummonCardId === summon.id);
+    if (cardEl) {
+      const rootRect = root.getBoundingClientRect();
+      const cardRect = cardEl.getBoundingClientRect();
+      if (rootRect.width > 0 && rootRect.height > 0) {
+        const cardCenterX = cardRect.left + cardRect.width / 2 - rootRect.left;
+        const cardCenterY = cardRect.top + cardRect.height / 2 - rootRect.top;
+        const centerX = (cardCenterX / rootRect.width) * 100;
+        const centerY = (cardCenterY / rootRect.height) * 100;
+        return {
+          left: `${Math.max(0, Math.min(100, centerX)).toFixed(2)}%`,
+          top: `${Math.max(0, Math.min(100, centerY)).toFixed(2)}%`,
+          midX: `${Math.round(rootRect.width * 0.5 - cardCenterX)}px`,
+          midY: `${Math.round(rootRect.height * 0.34 - cardCenterY)}px`,
+          targetX: `${Math.round(rootRect.width * 0.24 - cardCenterX)}px`,
+          targetY: `${Math.round(rootRect.height * 0.56 - cardCenterY)}px`,
+          targetEndX: `${Math.round(rootRect.width * 0.22 - cardCenterX)}px`,
+          targetEndY: `${Math.round(rootRect.height * 0.58 - cardCenterY)}px`,
+        };
+      }
+    }
+  }
+
+  const index = Math.max(0, leviathanSummons.value.findIndex(entry => entry.id === summon.id));
+  switch (index) {
+    case 0:
+      return { left: '70%', top: '58%' };
+    case 1:
+      return { left: '63%', top: '18%' };
+    default:
+      return { left: '76%', top: '13%' };
+  }
+};
+
 const playResolvedCardAnimation = async (source: BattleSide, card: CardData) => {
   if (card.id === PASS_CARD.id || endCombatPending.value) return;
 
@@ -5097,7 +5530,10 @@ const playResolvedCardAnimation = async (source: BattleSide, card: CardData) => 
       : (card.type === CardType.DODGE ? 'fade' : 'self');
   const id = ++resolvedCardVisualId;
   const slot = source === 'player' ? resolvedPlayerCardVisual : resolvedEnemyCardVisual;
-  slot.value = { id, source, card, variant };
+  const origin = source === 'enemy' && leviathanActingSummon.value
+    ? getLeviathanSummonCardAnimationOrigin(leviathanActingSummon.value)
+    : undefined;
+  slot.value = { id, source, card, variant, origin };
 
   if (variant === 'attack') {
     const impactDelay = scaleDuration(720);
@@ -5136,8 +5572,8 @@ const getCardFinalPoint = (
   isPreview: boolean = false,
   suppressComparisonSpecials: boolean = false,
 ) => {
-  const attacker = source === 'player' ? playerStats.value : enemyStats.value;
-  const defender = source === 'player' ? enemyStats.value : playerStats.value;
+  const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
+  const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
   const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
 
   let finalPoint = shriveledHandActive
@@ -5450,8 +5886,8 @@ const buildCardPreviewLines = (
   baseDice: number,
   options?: { hideDetails?: boolean },
 ): string[] => {
-  const attacker = source === 'player' ? playerStats.value : enemyStats.value;
-  const defender = source === 'player' ? enemyStats.value : playerStats.value;
+  const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
+  const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
   const lines: string[] = [];
   const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
 
@@ -5913,7 +6349,7 @@ const triggerPlayerAfterRerollRelics = (before: number, after: number) => {
       isDirectDamage: true,
     });
     if (actualDamage > 0) {
-      pushFloatingNumber('enemy', actualDamage, 'physical', '-');
+      pushFloatingNumber('enemy', actualDamage, 'physical', '-', { targetEntity: enemyStats.value });
     }
     logRelicMessage(`[异色玻璃球] 重掷后造成 ${actualDamage} 点伤害。`);
   }
@@ -5964,6 +6400,7 @@ const triggerMicroFloatingCannonDamage = (source: BattleSide, defenderSide: Batt
   if (actualDamage > 0 || armorBlocked) {
     pushFloatingNumber('enemy', actualDamage, isTrueDamage ? 'true' : 'magic', '-', {
       allowZero: armorBlocked,
+      targetEntity: enemyStats.value,
     });
   }
   logRelicMessage(`[微型悬浮炮] 额外造成 ${actualDamage} 点伤害。`);
@@ -6159,16 +6596,20 @@ const pushFloatingNumber = (
   value: number,
   kind: FloatingNumberKind,
   sign: '+' | '-' = '+',
-  options?: { allowZero?: boolean },
+  options?: FloatingNumberOptions,
 ) => {
   const amount = Math.max(0, Math.floor(value));
   if (amount <= 0 && !options?.allowZero) return;
 
   const id = ++floatingNumberId;
   const duration = kind === 'heal' ? scaleDuration(1800) : scaleDuration(1350);
+  const targetId = side === 'enemy' && isLeviathanBattle
+    ? (options?.targetId ?? getLeviathanTargetIdByEntity(options?.targetEntity ?? getLeviathanEnemyEntity()))
+    : undefined;
   floatingNumbers.value.push({
     id,
     side,
+    targetId,
     kind,
     text: `${sign}${amount}`,
     colorClass: floatingColors[kind],
@@ -6406,6 +6847,270 @@ const applyIntangibleAura = (ownerSide: BattleSide) => {
   }
 };
 
+const applyLeviathanSummonIntangibleAura = (summon: LeviathanSummonRuntime) => {
+  const intangible = findEffect(summon.stats, ET.INTANGIBLE);
+  if (!intangible || intangible.stacks <= 0) return;
+  const skipCount = Math.max(0, Math.floor(intangible.runtimeCounter ?? 0));
+  if (skipCount > 0) {
+    intangible.runtimeCounter = skipCount - 1;
+    log(`<span class="text-violet-300">[${summon.name}特性][无形] 本次敌意隐藏触发被群攻打断，剩余跳过 ${Math.max(0, skipCount - 1)} 次。</span>`);
+    return;
+  }
+  if (getEffectStacks(playerStats.value, ET.COGNITIVE_INTERFERENCE) > 0) {
+    log(`<span class="text-violet-300">[${summon.name}特性][无形] 我方已有敌意隐藏，本次无需重复施加。</span>`);
+    return;
+  }
+  const applied = applyStatusEffectWithRelics('player', ET.COGNITIVE_INTERFERENCE, 1, {
+    source: 'effect:intangible',
+    durationTurns: 1,
+  });
+  if (applied) {
+    log(`<span class="text-violet-300">[${summon.name}特性][无形] 回合开始为我方施加了1回合敌意隐藏。</span>`);
+  }
+};
+
+const processLeviathanSummonTurnStart = (summon: LeviathanSummonRuntime) => {
+  if (summon.stats.hp <= 0) return;
+  const previousSourceOverride = leviathanEnemySourceOverride.value;
+  const previousTargetOverride = leviathanEnemyTargetOverride.value;
+  leviathanEnemySourceOverride.value = summon.stats;
+  leviathanEnemyTargetOverride.value = summon.stats;
+  try {
+    applyLeviathanSummonIntangibleAura(summon);
+    const result = processOnTurnStart(summon.stats);
+    const logs = [...result.logs];
+
+    if (combatState.value.turn % 3 === 0) {
+      const growthBigStacks = getEffectStacks(summon.stats, ET.POINT_GROWTH_BIG);
+      if (growthBigStacks > 0) {
+        summon.stats.maxDice += growthBigStacks;
+        logs.push(`[点数成长（大）] 最大骰子点数 +${growthBigStacks}（当前 ${summon.stats.maxDice}）`);
+      }
+      const growthSmallStacks = getEffectStacks(summon.stats, ET.POINT_GROWTH_SMALL);
+      if (growthSmallStacks > 0) {
+        summon.stats.minDice += growthSmallStacks;
+        if (summon.stats.minDice > summon.stats.maxDice) {
+          summon.stats.maxDice = summon.stats.minDice;
+        }
+        logs.push(`[点数成长（小）] 最小骰子点数 +${growthSmallStacks}（当前 ${summon.stats.minDice}）`);
+      }
+    }
+
+    for (const pending of result.applyToOpponent) {
+      applyStatusEffectWithRelics('player', pending.type, pending.stacks, { source: `effect:${pending.type}` });
+    }
+    if (result.opponentHpChange > 0) {
+      healForSide('player', result.opponentHpChange, {
+        sourceSide: 'enemy',
+        reason: '召唤物回合开始效果治疗',
+      });
+    } else if (result.opponentHpChange < 0) {
+      const before = playerStats.value.hp;
+      playerStats.value.hp = Math.max(0, Math.min(playerStats.value.maxHp, playerStats.value.hp + result.opponentHpChange));
+      const delta = playerStats.value.hp - before;
+      if (delta < 0) {
+        pushFloatingNumber('player', Math.abs(delta), 'magic', '-');
+      }
+    }
+    if (result.hpChange > 0) {
+      healForSide('enemy', result.hpChange);
+    } else if (result.hpChange < 0) {
+      const { actualDamage, logs: damageLogs } = applyDamageToSideWithRelics(
+        'enemy',
+        summon.stats,
+        -result.hpChange,
+        false,
+        '召唤物回合开始伤害',
+        { sourceSide: 'player', dreamControlKind: 'status' },
+      );
+      if (actualDamage > 0) {
+        pushFloatingNumber('enemy', actualDamage, 'magic', '-', { targetEntity: summon.stats });
+      }
+      logs.push(...damageLogs);
+    }
+    if (result.trueDamage > 0) {
+      const { actualDamage, logs: damageLogs } = applyDamageToSideWithRelics(
+        'enemy',
+        summon.stats,
+        result.trueDamage,
+        true,
+        '召唤物回合开始真实伤害',
+        { sourceSide: 'player', dreamControlKind: 'status' },
+      );
+      if (actualDamage > 0) {
+        pushFloatingNumber('enemy', actualDamage, 'true', '-', { targetEntity: summon.stats });
+      }
+      logs.push(...damageLogs);
+    }
+    if (result.mpChange !== 0) {
+      changeManaWithShock('enemy', result.mpChange, '召唤物法力变化（回合开始）', { showPositiveFloating: true });
+    }
+    const reviveResult = triggerSwarmReviveIfNeeded(summon.stats, 'enemy');
+    logs.push(...reviveResult.logs);
+    for (const entry of logs) {
+      log(`<span class="text-gray-400 text-[9px]">召唤物【${summon.name}】: ${entry}</span>`);
+    }
+  } finally {
+    leviathanEnemySourceOverride.value = previousSourceOverride;
+    leviathanEnemyTargetOverride.value = previousTargetOverride;
+  }
+};
+
+const processLeviathanSummonTurnEnd = (summon: LeviathanSummonRuntime) => {
+  if (summon.stats.hp <= 0) return;
+  const previousSourceOverride = leviathanEnemySourceOverride.value;
+  const previousTargetOverride = leviathanEnemyTargetOverride.value;
+  leviathanEnemySourceOverride.value = summon.stats;
+  leviathanEnemyTargetOverride.value = summon.stats;
+  try {
+    const logs = processOnTurnEnd(summon.stats);
+    for (const entry of logs) {
+      log(`<span class="text-gray-500 text-[9px]">召唤物【${summon.name}】: ${entry}</span>`);
+    }
+  } finally {
+    leviathanEnemySourceOverride.value = previousSourceOverride;
+    leviathanEnemyTargetOverride.value = previousTargetOverride;
+  }
+};
+
+const isLeviathanMirrorSeaOathActive = (): boolean => (
+  isLeviathanBattle && leviathanMirrorSeaOathActiveTurn.value === combatState.value.turn
+);
+
+const healLeviathanEntityDirect = (entity: EntityStats, amount: number): number => {
+  const value = Math.max(0, Math.floor(amount));
+  if (value <= 0 || entity.hp <= 0) return 0;
+  const before = entity.hp;
+  entity.hp = Math.max(0, Math.min(entity.maxHp, entity.hp + value));
+  return Math.max(0, entity.hp - before);
+};
+
+const pushLeviathanEntityRecoveryNumber = (
+  entity: EntityStats,
+  amount: number,
+  kind: 'hp' | 'mp',
+) => {
+  pushFloatingNumber('enemy', amount, kind === 'hp' ? 'heal' : 'mana', '+', { targetEntity: entity });
+};
+
+const triggerLeviathanMirrorSeaOathRecovery = (amount: number) => {
+  if (!isLeviathanMirrorSeaOathActive()) return;
+  const baseAmount = Math.max(0, Math.floor(amount));
+  if (baseAmount <= 0) return;
+  const teamAmount = baseAmount * 10;
+  let recoveredTotal = 0;
+  for (const entity of getLeviathanTeamEntities()) {
+    const recovered = healLeviathanEntityDirect(entity, teamAmount);
+    recoveredTotal += recovered;
+    if (recovered > 0) {
+      pushLeviathanEntityRecoveryNumber(entity, recovered, 'hp');
+    }
+  }
+  log(`<span class="text-cyan-300">利维坦[镜海之誓] 感应到我方回复生命 ${baseAmount}，己方全体回复 ${teamAmount} 点生命（合计 ${recoveredTotal}）。</span>`);
+};
+
+const activateLeviathanMirrorSeaOathIfPending = () => {
+  if (!isLeviathanBattle || leviathanMirrorSeaOathPendingPoint.value <= 0) return;
+  const sturdyStacks = Math.max(0, Math.floor(leviathanMirrorSeaOathPendingPoint.value));
+  leviathanMirrorSeaOathPendingPoint.value = 0;
+  leviathanMirrorSeaOathActiveTurn.value = combatState.value.turn;
+  let appliedCount = 0;
+  if (sturdyStacks > 0) {
+    for (const entity of getLeviathanTeamEntities()) {
+      if (applyEffect(entity, ET.STURDY, sturdyStacks, {
+        source: 'enemy_leviathan_mirror_sea_oath',
+        durationTurns: 1,
+      })) {
+        appliedCount += 1;
+      }
+    }
+  }
+  log(`<span class="text-cyan-300">利维坦[镜海之誓] 生效：己方 ${appliedCount} 个单位获得 ${sturdyStacks} 层坚固，本回合生命回复共鸣已开启。</span>`);
+};
+
+const activateLeviathanTidalLockIfPending = () => {
+  if (!isLeviathanBattle || leviathanTidalLockPendingTurn.value <= 0) return;
+  if (combatState.value.turn < leviathanTidalLockPendingTurn.value) return;
+  leviathanTidalLockPendingTurn.value = 0;
+  applyStatusEffectWithRelics('player', ET.BIND, 2, {
+    source: 'enemy_leviathan_tidal_lock',
+    lockDecayThisTurn: true,
+  });
+  applyStatusEffectWithRelics('player', ET.RESONANCE_LOCK, 4, {
+    source: 'enemy_leviathan_tidal_lock',
+    lockDecayThisTurn: true,
+  });
+  log('<span class="text-violet-300">利维坦[潮汐锁定] 生效：我方获得2层束缚与4层共鸣锁。</span>');
+};
+
+const resolveLeviathanTidalLockCheckIfPending = () => {
+  if (!isLeviathanBattle || leviathanTidalLockCheckTurn.value !== combatState.value.turn) return;
+  leviathanTidalLockCheckTurn.value = 0;
+  if (getDamageHitTakenThisTurn('enemy') <= 0) {
+    leviathanTidalLockPendingTurn.value = Math.max(
+      leviathanTidalLockPendingTurn.value,
+      combatState.value.turn + 1,
+    );
+    log('<span class="text-violet-300">利维坦[潮汐锁定] 判定：我方本回合未能造成伤害，下回合将获得2层束缚与4层共鸣锁。</span>');
+  } else {
+    log('<span class="text-gray-400">利维坦[潮汐锁定] 判定：我方本回合已经造成过伤害，潮汐锁定未触发。</span>');
+  }
+};
+
+const grantLeviathanGenesisFromSummonDamage = (reason: string) => {
+  const summon = leviathanActingSummon.value;
+  if (!isLeviathanBattle || !summon) return;
+  if (enemyStats.value.hp <= 0) return;
+  if (applyEffect(enemyStats.value, ET.GENESIS, 1, { source: `summon:${summon.name}` })) {
+    log(`<span class="text-violet-300">利维坦[创世] ${summon.name}${reason}造成伤害，创世 +1（当前 ${getEffectStacks(enemyStats.value, ET.GENESIS)}）。</span>`);
+  }
+};
+
+const consumeLeviathanGenesisKeepingOne = (limit: number = Number.POSITIVE_INFINITY): number => {
+  const stacks = Math.max(0, getEffectStacks(enemyStats.value, ET.GENESIS));
+  const consumable = Math.max(0, stacks - 1);
+  const consumed = Math.min(consumable, Math.max(0, Math.floor(limit)));
+  if (consumed > 0) {
+    reduceEffectStacks(enemyStats.value, ET.GENESIS, consumed);
+  }
+  return consumed;
+};
+
+const removeRandomDebuffStacksFromEntity = (entity: EntityStats, count: number): number => {
+  let removed = 0;
+  let remaining = Math.max(0, Math.floor(count));
+  while (remaining > 0) {
+    const debuffs = entity.effects.filter(effect => (
+      effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff'
+    ));
+    if (debuffs.length <= 0) break;
+    const picked = debuffs[Math.floor(Math.random() * debuffs.length)]!;
+    reduceEffectStacks(entity, picked.type, 1);
+    removed += 1;
+    remaining -= 1;
+  }
+  return removed;
+};
+
+const healLeviathanTeam = (amount: number, showFloating: boolean = false): number => (
+  getLeviathanTeamEntities().reduce((sum, entity) => {
+    const healed = healLeviathanEntityDirect(entity, amount);
+    if (showFloating && healed > 0) {
+      pushLeviathanEntityRecoveryNumber(entity, healed, 'hp');
+    }
+    return sum + healed;
+  }, 0)
+);
+
+const getLeviathanSupportTarget = (): LeviathanSummonRuntime | null => {
+  const alive = getAliveLeviathanSummons();
+  for (const name of LEVIATHAN_SUMMON_PRIORITY) {
+    const picked = alive.find(summon => summon.name === name);
+    if (picked) return picked;
+  }
+  return null;
+};
+
 const applyFantasyEmbraceBattleStart = (ownerSide: BattleSide) => {
   const owner = ownerSide === 'player' ? playerStats.value : enemyStats.value;
   const stacks = Math.max(0, getEffectStacks(owner, ET.FANTASY_EMBRACE));
@@ -6591,7 +7296,7 @@ const applyOnDrawCardEffects = (drawn: CardData[]) => {
             isDirectDamage: true,
           });
           if (actualDamage > 0) {
-            pushFloatingNumber('enemy', actualDamage, 'true', '-');
+            pushFloatingNumber('enemy', actualDamage, 'true', '-', { targetEntity: enemyStats.value });
           }
           logRelicMessage(`[黑色残渣] 抽到诅咒牌【${card.name}】，造成 ${actualDamage} 点真实伤害。`);
           for (const damageLog of damageLogs) {
@@ -7419,6 +8124,7 @@ function selectEnemyCard(): CardData {
   let selectedCard: CardData;
   if (enemyDef) {
     // Use the enemy's custom AI logic
+    refreshLeviathanAiFlags();
     aiFlags.dreamControlPercent = dreamControlPercent.value;
     const ctx: EnemyAIContext = {
       enemyStats: enemyStats.value,
@@ -7453,6 +8159,50 @@ function selectEnemyCard(): CardData {
 
   return selectedCard;
 }
+
+const selectLeviathanSummonCard = (summon: LeviathanSummonRuntime): CardData => {
+  if (summon.stats.hp <= 0) return PASS_CARD;
+  if (getEffectStacks(summon.stats, ET.STUN) > 0) {
+    log(`<span class="text-gray-400">【${summon.name}】处于眩晕，跳过回合。</span>`);
+    return PASS_CARD;
+  }
+  const previousSourceOverride = leviathanEnemySourceOverride.value;
+  leviathanEnemySourceOverride.value = summon.stats;
+  try {
+    const ctx: EnemyAIContext = {
+      enemyStats: summon.stats,
+      playerStats: playerStats.value,
+      deck: summon.deck,
+      playerHand: combatState.value.playerHand,
+      playerBaseDice: combatState.value.playerBaseDice,
+      enemyBaseDice: summon.baseDice,
+      getFinalPoint: (source, card, baseDice) => getCardFinalPoint(source, card, baseDice, true),
+      playerDeck: combatState.value.playerDeck,
+      playerDiscard: combatState.value.discardPile,
+      previousPlayerCardType: previousPlayerLastCardType.value,
+      turn: combatState.value.turn,
+      flags: summon.flags,
+    };
+    return summon.def.selectCard(ctx);
+  } finally {
+    leviathanEnemySourceOverride.value = previousSourceOverride;
+  }
+};
+
+const selectLeviathanSummonIntents = () => {
+  if (!isLeviathanBattle) return;
+  for (const summon of getAliveLeviathanSummons()) {
+    if (!isLeviathanSummonActionTurn(summon) || (summon.createdTurn >= combatState.value.turn && summon.baseDice <= 0)) {
+      summon.intentCard = null;
+      continue;
+    }
+    const intent = selectLeviathanSummonCard(summon);
+    summon.intentCard = intent;
+    if (intent.id === PASS_CARD.id) {
+      markLeviathanSummonActionOpportunityUsed(summon);
+    }
+  }
+};
 
 const resolveEnemyComboPreludeIfNeeded = async (initialCard: CardData): Promise<CardData> => {
   let current = initialCard;
@@ -7546,6 +8296,8 @@ const startTurn = () => {
   shatteringTarget.value = null;
   showClashAnimation.value = false;
   playerPlayedPhysicalOrMagicThisTurn.value = false;
+  leviathanEcologicalRhythmActive.value = false;
+  leviathanSummonActionsResolvedTurn.value = 0;
   mooreMimicPlayedThisTurn.value = false;
   alchemyBlackComboTriggeredThisTurn.value = false;
   triggerPlayerRelicLifecycleHooks('onTurnStart');
@@ -7592,6 +8344,28 @@ const startTurn = () => {
     isRolling.value = false;
     combatState.value.playerBaseDice = pRoll;
     combatState.value.enemyBaseDice = eRoll;
+    if (isLeviathanBattle) {
+      for (const summon of getAliveLeviathanSummons()) {
+        if (!isLeviathanSummonActionTurn(summon)) {
+          summon.rawDice = 0;
+          summon.baseDice = 0;
+          summon.intentCard = null;
+          continue;
+        }
+        const rawSummonRoll = rollDiceInRange(summon.stats.minDice, summon.stats.maxDice);
+        const summonRoll = consumeChargeOnRoll(summon.stats, `敌方【${summon.name}】`, rawSummonRoll);
+        summon.rawDice = rawSummonRoll;
+        summon.baseDice = summonRoll;
+      }
+      const actingSummons = getAliveLeviathanSummons().filter(isLeviathanSummonActionTurn);
+      if (actingSummons.length > 0) {
+        const rolls = getAliveLeviathanSummons()
+          .filter(isLeviathanSummonActionTurn)
+          .map(summon => `${summon.name}[${summon.baseDice}]`)
+          .join('，');
+        log(`召唤物掷骰结果：${rolls}`);
+      }
+    }
     combatState.value.phase = CombatPhase.DRAW_PHASE;
     log(`掷骰结果：我方 [${pRoll}] vs 敌方 [${eRoll}]`);
   }, scaleDuration(1500));
@@ -7661,6 +8435,18 @@ watch(
         previousPlayerLastCardType.value = null;
         previousEnemyLastCardType.value = null;
         previousPlayerFinalPoint.value = null;
+        leviathanSummons.value = [];
+        leviathanSelectedTargetId.value = 'body';
+        leviathanEnemyTargetOverride.value = null;
+        leviathanEnemySourceOverride.value = null;
+        leviathanEnemySelfOverride.value = null;
+        leviathanActingSummon.value = null;
+        leviathanEcologicalRhythmActive.value = false;
+        leviathanMirrorSeaOathPendingPoint.value = 0;
+        leviathanMirrorSeaOathActiveTurn.value = 0;
+        leviathanTidalLockCheckTurn.value = 0;
+        leviathanTidalLockPendingTurn.value = 0;
+        leviathanSummonActionsResolvedTurn.value = 0;
         const voidCards = combatState.value.playerDeck.filter(card => card.id === 'alchemy_void').length;
         if (voidCards > 0) {
           combatState.value.playerDeck = combatState.value.playerDeck.filter(card => card.id !== 'alchemy_void');
@@ -7698,6 +8484,8 @@ watch(
       applySinkingNegativeStatusOnTurnStart();
       insertPrayerCandleRetreatIntoPlayerDeck();
       applyTwinDreamControlThresholds();
+      activateLeviathanMirrorSeaOathIfPending();
+      activateLeviathanTidalLockIfPending();
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
         for (const [side, label, stats] of [['player', '我方', playerStats], ['enemy', '敌方', enemyStats]] as const) {
@@ -7929,6 +8717,12 @@ watch(
           }
         }
       }
+      if (combatState.value.turn > 1 && isLeviathanBattle) {
+        for (const summon of getAliveLeviathanSummons()) {
+          processLeviathanSummonTurnStart(summon);
+        }
+        removeDefeatedLeviathanSummons();
+      }
       if (combatState.value.turn > 1) {
         previousTurnManaSnapshot.value = { ...currentTurnManaSnapshot.value };
       }
@@ -7982,6 +8776,7 @@ watch(
           if (endCombatPending.value) return;
 
           combatState.value.enemyIntentCard = eCard;
+          selectLeviathanSummonIntents();
           enemyIntentConsumedThisTurn.value = false;
           enemyIntentManaSpentThisTurn.value = false;
           combatState.value.phase = CombatPhase.PLAYER_INPUT;
@@ -8080,7 +8875,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   const runtimeCard = previewFlowingLightRingCombo(withEffectiveManaCost('player', card));
   const controlledExpectedType = (() => {
     if (getEffectStacks(playerStats.value, ET.CONTROLLED) <= 0) return null;
-    const intentCard = combatState.value.enemyIntentCard;
+    const intentCard = getCurrentEnemyIntentForPlayerInput();
     if (!intentCard || intentCard.id === PASS_CARD.id) return null;
     return intentCard.type;
   })();
@@ -8215,24 +9010,48 @@ const resolveCombat = async (
   } = {},
 ) => {
   if (endCombatPending.value) return;
+  const previousEnemyTargetOverride = leviathanEnemyTargetOverride.value;
+  const previousEnemySourceOverride = leviathanEnemySourceOverride.value;
+  const previousEnemySelfOverride = leviathanEnemySelfOverride.value;
+  const previousActingSummon = leviathanActingSummon.value;
   try {
   nonLivingConversionGuard.clear();
   const isEnemyComboPrelude = options.enemyComboPrelude === true;
   if (options.twinSlotIndex) {
     log(`<span class="text-fuchsia-300">[双子机制] ${getTwinTargetLabel(options.twinSlotIndex)}开始结算。</span>`);
   }
+  ensureLeviathanSelectedTarget();
+  const leviathanSelectedSummonForClash = (
+    isLeviathanBattle && !isEnemyComboPrelude ? getSelectedLeviathanSummon() : null
+  );
+  const leviathanDeferredBodyCard = leviathanSelectedSummonForClash ? eCard : null;
+  const leviathanDeferredBodyDice = leviathanSelectedSummonForClash ? eDice : 0;
+  const leviathanSelectedSummonUnready = Boolean(leviathanSelectedSummonForClash && !leviathanSelectedSummonForClash.intentCard);
+  if (leviathanSelectedSummonForClash) {
+    leviathanEnemyTargetOverride.value = leviathanSelectedSummonForClash.stats;
+    leviathanEnemySourceOverride.value = leviathanSelectedSummonForClash.stats;
+    leviathanActingSummon.value = leviathanSelectedSummonForClash;
+    if (leviathanSelectedSummonUnready) {
+      log(`<span class="text-cyan-300">本轮目标为尚未掷骰的【${leviathanSelectedSummonForClash.name}】；利维坦本体稍后正常行动。</span>`);
+    } else {
+      log(`<span class="text-cyan-300">本轮与【${leviathanSelectedSummonForClash.name}】进行拼点；利维坦本体稍后正常行动。</span>`);
+    }
+  }
   let resolvedPlayerCard = pCard;
-  let resolvedEnemyCard = eCard;
+  let resolvedEnemyCard = leviathanSelectedSummonForClash
+    ? (leviathanSelectedSummonForClash.intentCard ?? PASS_CARD)
+    : eCard;
+  const activeEnemyDice = leviathanSelectedSummonForClash?.baseDice ?? eDice;
   resolvedEnemyCard = withEffectiveManaCost('enemy', resolvedEnemyCard);
   if (resolvedEnemyCard.id !== PASS_CARD.id) {
     const deferEnemyManaCheck = !isEnemyComboPrelude && resolvedPlayerCard.traits.combo;
-    const enemyPlayCheck = canPlayCard(enemyStats.value, resolvedEnemyCard, eDice, {
+    const enemyPlayCheck = canPlayCard(getEntityBySide('enemy'), resolvedEnemyCard, activeEnemyDice, {
       ignoreMana: deferEnemyManaCheck,
-      previousCardType: previousEnemyLastCardType.value,
+      previousCardType: leviathanSelectedSummonForClash?.previousCardType ?? previousEnemyLastCardType.value,
     });
     if (!enemyPlayCheck.allowed) {
       triggerEnemyIntentInvalidShake(options.twinSlotIndex, resolvedEnemyCard);
-      if (resolvedEnemyCard.type === CardType.MAGIC && resolvedEnemyCard.manaCost > enemyStats.value.mp) {
+      if (resolvedEnemyCard.type === CardType.MAGIC && resolvedEnemyCard.manaCost > getEntityBySide('enemy').mp) {
         notifyEnemyManaInsufficient();
       } else {
         log(`<span class="text-gray-400">敌方无法出牌：${enemyPlayCheck.reason ?? '本回合跳过。'}</span>`);
@@ -8273,7 +9092,7 @@ const resolveCombat = async (
   const spendMagicManaOnPlay = (side: BattleSide, card: CardData): boolean => {
     if (card.id === PASS_CARD.id || card.type !== CardType.MAGIC) return true;
     const runtimeCard = withEffectiveManaCost(side, card);
-    const stats = side === 'player' ? playerStats.value : enemyStats.value;
+    const stats = getEntityBySide(side);
     const manaCost = runtimeCard.id === 'enemy_selina_space_fold'
       ? getSelinaSpaceFoldManaSpend(stats)
       : runtimeCard.manaCost;
@@ -8288,7 +9107,7 @@ const resolveCombat = async (
       }
       return false;
     }
-    if (side === 'enemy') {
+    if (side === 'enemy' && !leviathanActingSummon.value) {
       enemyIntentManaSpentThisTurn.value = true;
     }
     return true;
@@ -8319,7 +9138,7 @@ const resolveCombat = async (
     const mimicCard = isPlayerSource ? resolvedPlayerCard : resolvedEnemyCard;
     if (mimicCard.id !== MOORE_MIMIC_CARD_ID) return;
 
-    const target = isPlayerSource ? enemyStats.value : playerStats.value;
+    const target = isPlayerSource ? getEntityBySide('enemy') : playerStats.value;
     const beforeStacks = Math.max(0, getEffectStacks(target, ET.FANTASY_EMBRACE));
     if (beforeStacks > 0) {
       reduceEffectStacks(target, ET.FANTASY_EMBRACE, 1);
@@ -8351,9 +9170,17 @@ const resolveCombat = async (
     log('<span class="text-indigo-300">[无视闪避] 闪避拼点被跳过，卡牌将直接生效。</span>');
   }
   const playerSkippedTurn = !isEnemyComboPrelude && resolvedPlayerCard.id === PASS_CARD.id;
-  const enemySkippedTurn = resolvedEnemyCard.id === PASS_CARD.id;
+  const enemySkippedTurn = resolvedEnemyCard.id === PASS_CARD.id && !leviathanSelectedSummonUnready;
   let resolvedPlayerDice = pDice;
-  let resolvedEnemyDice = eDice;
+  let resolvedEnemyDice = activeEnemyDice;
+  const setResolvedEnemyDice = (nextDice: number) => {
+    resolvedEnemyDice = Math.max(0, Math.floor(nextDice));
+    if (leviathanSelectedSummonForClash) {
+      leviathanSelectedSummonForClash.baseDice = resolvedEnemyDice;
+    } else {
+      combatState.value.enemyBaseDice = resolvedEnemyDice;
+    }
+  };
   if (resolvedPlayerCard.traits.reroll !== 'none') {
     applyCardEffectsByTrigger(
       'player',
@@ -8380,7 +9207,7 @@ const resolveCombat = async (
       target = source === 'player' ? 'enemy' : 'player';
     }
     const targetLabel = target === 'player' ? '我方' : '敌方';
-    const targetStats = target === 'player' ? playerStats.value : enemyStats.value;
+    const targetStats = target === 'player' ? playerStats.value : getEntityBySide('enemy');
     const rerolledRaw = target === 'player'
       ? rollPlayerDiceInRange(targetStats.minDice, targetStats.maxDice)
       : rollDiceInRange(targetStats.minDice, targetStats.maxDice);
@@ -8394,8 +9221,7 @@ const resolveCombat = async (
       resolvedPlayerDice = rerolled;
       combatState.value.playerBaseDice = rerolled;
     } else {
-      resolvedEnemyDice = rerolled;
-      combatState.value.enemyBaseDice = rerolled;
+      setResolvedEnemyDice(rerolled);
     }
     log(`<span class="text-amber-300">${sourceLabel}【${card.name}】触发重掷：${targetLabel}骰子 ${before} → ${rerolled}</span>`);
     if (target === 'player') {
@@ -8417,13 +9243,12 @@ const resolveCombat = async (
   const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
   if (!isEnemyComboPrelude) {
     previousPlayerLastCardType.value = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard.type;
-    previousEnemyLastCardType.value = resolvedEnemyCard.id === PASS_CARD.id ? null : resolvedEnemyCard.type;
     previousPlayerFinalPoint.value = resolvedPlayerCard.id === PASS_CARD.id ? resolvedPlayerDice : pClashPoint;
     combatState.value.lastPlayedCard = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard;
   }
 
   const clearBurnForSide = (side: 'player' | 'enemy', reason: string) => {
-    const target = side === 'player' ? playerStats.value : enemyStats.value;
+    const target = getEntityBySide(side);
     const label = side === 'player' ? '我方' : '敌方';
     const burnStacks = getEffectStacks(target, ET.BURN);
     if (burnStacks <= 0) return;
@@ -8431,12 +9256,12 @@ const resolveCombat = async (
       const purpleLightCount = getActiveRelicCount('burn_gloom_purple_light');
       if (purpleLightCount > 0) {
         const trueDamage = burnStacks * 2 * purpleLightCount;
-        const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, trueDamage, true, '幽幽紫光', {
+        const { actualDamage } = applyDamageToSideWithRelics('enemy', target, trueDamage, true, '幽幽紫光', {
           sourceSide: 'player',
           isDirectDamage: true,
         });
         if (actualDamage > 0) {
-          pushFloatingNumber('enemy', actualDamage, 'true', '-');
+          pushFloatingNumber('enemy', actualDamage, 'true', '-', { targetEntity: target });
         }
         logRelicMessage(`[幽幽紫光] 敌方燃烧即将消失，造成 ${actualDamage} 点真实伤害。`);
       }
@@ -8461,14 +9286,14 @@ const resolveCombat = async (
   }
 
   const triggerDanceHallForSide = (holderSide: BattleSide, holderCard: CardData, opponentCard: CardData) => {
-    const holder = holderSide === 'player' ? playerStats.value : enemyStats.value;
+    const holder = holderSide === 'player' ? playerStats.value : getEntityBySide('enemy');
     if (getEffectStacks(holder, ET.DANCE_HALL) <= 0) return;
     const opponentSide = holderSide === 'player' ? 'enemy' : 'player';
     const holderLabel = holderSide === 'player' ? '我方' : '敌方';
     const opponentLabel = opponentSide === 'player' ? '我方' : '敌方';
 
     if (opponentCard.id === PASS_CARD.id) {
-      const opponent = opponentSide === 'player' ? playerStats.value : enemyStats.value;
+      const opponent = getEntityBySide(opponentSide);
       const coDanceBefore = getEffectStacks(opponent, ET.CO_DANCE);
       const solitudeBefore = getEffectStacks(holder, ET.SOLITUDE);
       if (getEffectStacks(opponent, ET.CO_DANCE) > 0) {
@@ -8583,7 +9408,7 @@ const resolveCombat = async (
     if (playerBleedStacksOnClash > 0) {
       triggerBleedProc('player', '拼点阶段');
     }
-    const enemyBleedStacksOnClash = Math.max(0, getEffectStacks(enemyStats.value, ET.BLEED));
+    const enemyBleedStacksOnClash = Math.max(0, getEffectStacks(getEntityBySide('enemy'), ET.BLEED));
     if (enemyBleedStacksOnClash > 0 && getActiveRelicCount('bloodpool_eerie_statue') <= 0) {
       triggerBleedProc('enemy', '拼点阶段');
     } else if (enemyBleedStacksOnClash > 0) {
@@ -8701,8 +9526,8 @@ const resolveCombat = async (
     executeOptions: { skipManaCost?: boolean; manaCostAlreadyPaid?: boolean } = {},
   ) => {
     if (endCombatPending.value) return;
-    const attacker = source === 'player' ? playerStats.value : enemyStats.value;
-    const defender = source === 'player' ? enemyStats.value : playerStats.value;
+    const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
+    const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
     const label = source === 'player' ? '我方' : '敌方';
     const defenderSide = source === 'player' ? 'enemy' : 'player';
     const defenderLabel = defenderSide === 'player' ? '我方' : '敌方';
@@ -8713,24 +9538,32 @@ const resolveCombat = async (
     const playerHpBeforeAction = playerStats.value.hp;
     let relicTrackingHandled = false;
 
+    if (attacker.hp <= 0) {
+      if (source === 'enemy' && leviathanActingSummon.value) {
+        log(`<span class="text-gray-400">召唤物【${leviathanActingSummon.value.name}】已无法行动。</span>`);
+      }
+      return;
+    }
+
     if (source === 'enemy' && card.id !== PASS_CARD.id) {
       const enemyRuntimeCard = withEffectiveManaCost('enemy', card);
-      const enemyPlayCheck = canPlayCard(enemyStats.value, enemyRuntimeCard, baseDice, {
+      const enemyPlayCheck = canPlayCard(attacker, enemyRuntimeCard, baseDice, {
         ignoreMana: executeOptions.skipManaCost,
-        previousCardType: previousEnemyLastCardType.value,
+        previousCardType: leviathanActingSummon.value?.previousCardType ?? previousEnemyLastCardType.value,
       });
       if (!enemyPlayCheck.allowed) {
         triggerEnemyIntentInvalidShake(options.twinSlotIndex, card);
-        if (enemyRuntimeCard.type === CardType.MAGIC && enemyRuntimeCard.manaCost > enemyStats.value.mp) {
+        if (enemyRuntimeCard.type === CardType.MAGIC && enemyRuntimeCard.manaCost > attacker.mp) {
           notifyEnemyManaInsufficient();
         } else {
           log(`<span class="text-gray-400">敌方无法出牌：${enemyPlayCheck.reason ?? '本回合跳过。'}</span>`);
         }
         return;
       }
-      if (enemyRuntimeCard.type === CardType.MAGIC && !executeOptions.skipManaCost && !enemyIntentManaSpentThisTurn.value) {
+      const isSummonEnemyAction = leviathanActingSummon.value !== null;
+      if (enemyRuntimeCard.type === CardType.MAGIC && !executeOptions.skipManaCost && (isSummonEnemyAction || !enemyIntentManaSpentThisTurn.value)) {
         const enemyManaCost = enemyRuntimeCard.id === 'enemy_selina_space_fold'
-          ? getSelinaSpaceFoldManaSpend(enemyStats.value)
+          ? getSelinaSpaceFoldManaSpend(attacker)
           : enemyRuntimeCard.manaCost;
         const canSpend = spendManaWithShock('enemy', enemyManaCost, `使用【${enemyRuntimeCard.name}】`);
         if (!canSpend) {
@@ -8738,7 +9571,9 @@ const resolveCombat = async (
           notifyEnemyManaInsufficient();
           return;
         }
-        enemyIntentManaSpentThisTurn.value = true;
+        if (!isSummonEnemyAction) {
+          enemyIntentManaSpentThisTurn.value = true;
+        }
       }
     }
 
@@ -8888,7 +9723,7 @@ const resolveCombat = async (
             '寒渊裂隙',
             { sourceSide: 'player', isDirectDamage: true },
           );
-          pushFloatingNumber('enemy', actualTrueDamage, 'true', '-');
+          pushFloatingNumber('enemy', actualTrueDamage, 'true', '-', { targetEntity: enemyStats.value });
           logRelicMessage(`[寒渊裂隙] 检测到敌方寒冷减少，对敌方造成 ${actualTrueDamage} 点真实伤害。`);
           const reviveResult = triggerSwarmReviveIfNeeded(enemyStats.value);
           for (const reviveLog of reviveResult.logs) {
@@ -9020,6 +9855,10 @@ const resolveCombat = async (
           combatState.value.playerBaseDice = nextPoint;
           log(`<span class="text-dungeon-gold/80">我方当前点数调整为 ${nextPoint}</span>`);
         }
+      } else if (leviathanActingSummon.value) {
+        if (leviathanActingSummon.value.baseDice !== nextPoint) {
+          leviathanActingSummon.value.baseDice = nextPoint;
+        }
       } else if (combatState.value.enemyBaseDice !== nextPoint) {
         combatState.value.enemyBaseDice = nextPoint;
       }
@@ -9028,9 +9867,31 @@ const resolveCombat = async (
     const applyCardEffects = (
       trigger: CardEffectTrigger = 'on_use',
       kindMode: 'all' | 'pre_reroll_self_buff_only' | 'post_reroll_on_use' = 'post_reroll_on_use',
-    ) => (
-      applyCardEffectsByTrigger(source, card, finalPoint, trigger, kindMode)
-    );
+    ) => {
+      const primaryApplied = applyCardEffectsByTrigger(source, card, finalPoint, trigger, kindMode);
+      if (!(source === 'player' && isLeviathanBattle && card.swarmAttack)) {
+        return primaryApplied;
+      }
+      const hasOpponentEffects = card.cardEffects.some(ce => (
+        (ce.target ?? 'self') === 'enemy' && cardEffectMatchesTrigger(ce.triggers, trigger)
+      ));
+      if (!hasOpponentEffects) return primaryApplied;
+
+      const splashTargets = getLeviathanTeamEntities().filter(entity => entity !== defender && entity.hp > 0);
+      if (splashTargets.length <= 0) return primaryApplied;
+
+      let splashApplied = false;
+      const previousTargetOverride = leviathanEnemyTargetOverride.value;
+      try {
+        for (const target of splashTargets) {
+          leviathanEnemyTargetOverride.value = target;
+          splashApplied = applyCardEffectsByTrigger(source, card, finalPoint, trigger, kindMode, 'enemy_only') || splashApplied;
+        }
+      } finally {
+        leviathanEnemyTargetOverride.value = previousTargetOverride;
+      }
+      return primaryApplied || splashApplied;
+    };
 
     if (opponentSkippedTurn) {
       applyCardEffects('on_opponent_skip');
@@ -9605,6 +10466,94 @@ const resolveCombat = async (
     }
 
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
+      if (source === 'enemy' && card.id === LEVIATHAN_SUMMON_CARD_ID) {
+        syncCurrentPointForUi();
+        const leviathanSummonName = pickLeviathanSummonName();
+        summonLeviathanUnit(leviathanSummonName);
+        resetLeviathanSummonCardWeight();
+        refreshLeviathanAiFlags();
+        finalizeAndTrack();
+        return;
+      }
+      if (source === 'enemy' && card.id === 'enemy_leviathan_ecological_rhythm') {
+        syncCurrentPointForUi();
+        leviathanEcologicalRhythmActive.value = true;
+        log('<span class="text-violet-300">利维坦【生态律动】生效：本回合召唤物打出物理/魔法牌时，利维坦获得1层创世。</span>');
+        finalizeAndTrack();
+        return;
+      }
+      if (source === 'enemy' && card.id === 'enemy_leviathan_deep_sea_support') {
+        syncCurrentPointForUi();
+        const targetSummon = getLeviathanSupportTarget();
+        if (targetSummon) {
+          applyEffect(targetSummon.stats, ET.DAMAGE_BOOST, 2, { source: card.id });
+          applyEffect(targetSummon.stats, ET.IGNORE_DODGE, 3, { source: card.id });
+          log(`<span class="text-violet-300">利维坦【${card.name}】强化了【${targetSummon.name}】：增伤 +2，无视闪避 +3。</span>`);
+        } else {
+          log(`<span class="text-gray-400">利维坦【${card.name}】没有可援护的召唤物。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
+      if (source === 'enemy' && card.id === 'enemy_leviathan_mirror_sea_oath') {
+        syncCurrentPointForUi();
+        const oathPoint = Math.max(0, Math.floor(finalPoint));
+        leviathanMirrorSeaOathPendingPoint.value = Math.max(leviathanMirrorSeaOathPendingPoint.value, oathPoint);
+        log(`<span class="text-cyan-300">利维坦【${card.name}】立下镜海之誓：下回合己方全体获得 ${oathPoint} 层坚固并开启生命回复共鸣。</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (source === 'enemy' && card.id === 'enemy_leviathan_crystallized_holy_water') {
+        syncCurrentPointForUi();
+        const consumed = consumeLeviathanGenesisKeepingOne(5);
+        let removedTotal = 0;
+        let healedTotal = 0;
+        const healedByEntity = new Map<EntityStats, number>();
+        for (let i = 0; i < consumed; i += 1) {
+          for (const entity of getLeviathanTeamEntities()) {
+            removedTotal += removeRandomDebuffStacksFromEntity(entity, 3);
+            const healed = healLeviathanEntityDirect(entity, 10);
+            healedTotal += healed;
+            if (healed > 0) {
+              healedByEntity.set(entity, (healedByEntity.get(entity) ?? 0) + healed);
+            }
+          }
+        }
+        for (const [entity, healed] of healedByEntity) {
+          pushLeviathanEntityRecoveryNumber(entity, healed, 'hp');
+        }
+        log(`<span class="text-cyan-300">利维坦【${card.name}】消耗 ${consumed} 层创世，己方全体合计移除 ${removedTotal} 层负面效果并回复 ${healedTotal} 点生命。</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (source === 'enemy' && card.id === 'enemy_leviathan_tidal_lock') {
+        syncCurrentPointForUi();
+        leviathanTidalLockCheckTurn.value = combatState.value.turn;
+        log(`<span class="text-violet-300">利维坦【${card.name}】张开潮汐锁定：将在本回合结算结束后检查我方是否造成过伤害。</span>`);
+        finalizeAndTrack();
+        return;
+      }
+      if (source === 'enemy' && card.id === 'enemy_leviathan_reincarnation_vortex') {
+        syncCurrentPointForUi();
+        if (getDamageHitTakenThisTurn('enemy') <= 0) {
+          const targetSummon = getAliveLeviathanSummons()
+            .sort((a, b) => (a.stats.hp / Math.max(1, a.stats.maxHp)) - (b.stats.hp / Math.max(1, b.stats.maxHp)))[0] ?? null;
+          if (targetSummon) {
+            const healAmount = Math.max(1, Math.floor(targetSummon.stats.maxHp * 0.3));
+            const healed = healLeviathanEntityDirect(targetSummon.stats, healAmount);
+            if (healed > 0) {
+              pushFloatingNumber('enemy', healed, 'heal', '+', { targetEntity: targetSummon.stats });
+            }
+            log(`<span class="text-emerald-300">利维坦【${card.name}】触发：为生命最低的【${targetSummon.name}】回复 ${healed} 点生命。</span>`);
+          } else {
+            log(`<span class="text-gray-400">利维坦【${card.name}】没有可治疗的召唤物。</span>`);
+          }
+        } else {
+          log(`<span class="text-gray-400">利维坦【${card.name}】未触发：本回合己方已经受到伤害。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
       if (card.id === 'enemy_behemoth_greed') {
         syncCurrentPointForUi();
         const targetHand = defenderSide === 'player' ? combatState.value.playerHand : [];
@@ -10076,6 +11025,35 @@ const resolveCombat = async (
         finalizeAndTrack();
         return;
       }
+      if (source === 'enemy' && card.id === 'enemy_leviathan_return_to_ruins') {
+        syncCurrentPointForUi();
+        const consumed = consumeLeviathanGenesisKeepingOne();
+        const summonCount = getAliveLeviathanSummons().length;
+        const trueDamage = Math.max(0, consumed * summonCount);
+        const { actualDamage, logs: damageLogs } = applyDamageToSideWithRelics(
+          'player',
+          playerStats.value,
+          trueDamage,
+          true,
+          `卡牌【${card.name}】`,
+          { sourceSide: 'enemy', isDirectDamage: true, card },
+        );
+        if (actualDamage > 0) {
+          pushFloatingNumber('player', actualDamage, 'true', '-');
+        }
+        const healedTotal = healLeviathanTeam(actualDamage, true);
+        log(`<span class="text-violet-300">利维坦【${card.name}】消耗 ${consumed} 层创世，按 ${summonCount} 个召唤物造成 ${actualDamage} 点真实伤害，并为己方全体合计回复 ${healedTotal} 点生命。</span>`);
+        for (const damageLog of damageLogs) {
+          const normalized = damageLog.startsWith('受到') ? `我方${damageLog}` : damageLog;
+          log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+        }
+        const reviveResult = triggerSwarmReviveIfNeeded(playerStats.value, 'player');
+        for (const reviveLog of reviveResult.logs) {
+          log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
       if (card.id === 'enemy_selina_detain') {
         syncCurrentPointForUi();
         const consumedMp = Math.max(0, Math.floor(attacker.mp));
@@ -10448,7 +11426,7 @@ const resolveCombat = async (
               isDirectDamage: true,
             });
             if (ghostBoneActualDamage > 0) {
-              pushFloatingNumber('enemy', ghostBoneActualDamage, 'true', '-');
+              pushFloatingNumber('enemy', ghostBoneActualDamage, 'true', '-', { targetEntity: enemyStats.value });
             }
             logRelicMessage(`[幽灵骨] 敌方触发寒冷，造成 ${ghostBoneActualDamage} 点伤害。`);
           }
@@ -10464,6 +11442,55 @@ const resolveCombat = async (
         for (const dl of applyLogs) {
           const normalized = dl.startsWith('受到') ? `${defenderLabel}${dl}` : dl;
           log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+        }
+        if (source === 'player' && isLeviathanBattle && card.swarmAttack) {
+          const splashTargets = getLeviathanTeamEntities().filter(entity => entity !== defender && entity.hp > 0);
+          for (const splashTarget of splashTargets) {
+            const splashDamageResult = calculateFinalDamage({
+              finalPoint,
+              card: cardForCalculation,
+              attackerEffects: attackerEffectsForDamage,
+              defenderEffects: splashTarget.effects,
+              relicModifiers: NO_RELIC_MOD,
+              isTrueDamage: forceTrueDamage,
+            });
+            const splashArmorBefore = getEffectStacks(splashTarget, ET.ARMOR);
+            const splashBarrierBefore = getEffectStacks(splashTarget, ET.BARRIER);
+            const { actualDamage: splashActualDamage, logs: splashApplyLogs } = applyDamageToSideWithRelics(
+              'enemy',
+              splashTarget,
+              splashDamageResult.damage,
+              splashDamageResult.isTrueDamage,
+              `卡牌【${card.name}】群攻`,
+              { sourceSide: 'player', isDirectDamage: true, card: cardForCalculation },
+            );
+            const splashArmorBlocked =
+              splashActualDamage <= 0
+              && !splashDamageResult.isTrueDamage
+              && splashDamageResult.damage > 0
+              && splashBarrierBefore <= 0
+              && splashArmorBefore > 0
+              && splashApplyLogs.some(applyLog => applyLog.startsWith('[护甲]'));
+            if (splashActualDamage > 0 || splashArmorBlocked) {
+              pushFloatingNumber('enemy', splashActualDamage, splashDamageResult.isTrueDamage ? 'true' : (card.type === CardType.MAGIC ? 'magic' : 'physical'), '-', {
+                allowZero: splashArmorBlocked,
+                targetEntity: splashTarget,
+              });
+            }
+            if (splashActualDamage > 0) {
+              totalActualDamageDealt += splashActualDamage;
+            }
+            log(`<span class="text-red-300">我方【${card.name}】群攻波及敌方单位，造成 ${splashActualDamage} 点伤害。</span>`);
+            for (const splashLog of splashDamageResult.logs) {
+              if (splashLog.startsWith('原始伤害:')) continue;
+              log(`<span class="text-gray-500 text-[9px]">${splashLog}</span>`);
+            }
+            for (const splashLog of splashApplyLogs) {
+              const normalized = splashLog.startsWith('受到') ? `敌方${splashLog}` : splashLog;
+              log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+            }
+          }
+          removeDefeatedLeviathanSummons();
         }
         triggerPlayerRelicHitHooks(
           source,
@@ -10980,6 +12007,24 @@ const resolveCombat = async (
         }
       }
       finalizeAndTrack();
+    } else if (source === 'enemy' && card.id === 'enemy_leviathan_reincarnation_vortex') {
+      if (getDamageHitTakenThisTurn('enemy') <= 0) {
+        const targetSummon = getAliveLeviathanSummons()
+          .sort((a, b) => (a.stats.hp / Math.max(1, a.stats.maxHp)) - (b.stats.hp / Math.max(1, b.stats.maxHp)))[0] ?? null;
+        if (targetSummon) {
+          const healAmount = Math.max(1, Math.floor(targetSummon.stats.maxHp * 0.3));
+          const healed = healLeviathanEntityDirect(targetSummon.stats, healAmount);
+          if (healed > 0) {
+            pushFloatingNumber('enemy', healed, 'heal', '+', { targetEntity: targetSummon.stats });
+          }
+          log(`<span class="text-emerald-300">利维坦【${card.name}】触发：为生命最低的【${targetSummon.name}】回复 ${healed} 点生命。</span>`);
+        } else {
+          log(`<span class="text-gray-400">利维坦【${card.name}】没有可治疗的召唤物。</span>`);
+        }
+      } else {
+        log(`<span class="text-gray-400">利维坦【${card.name}】未触发：本回合己方已经受到伤害。</span>`);
+      }
+      finalizeAndTrack();
     } else if (card.id === 'enemy_othello_star_hidden') {
       applyCardEffects();
       finalizeAndTrack();
@@ -11012,10 +12057,9 @@ const resolveCombat = async (
 
     if (playerSuppress > 0 && resolvedEnemyCard.id !== PASS_CARD.id) {
       const before = resolvedEnemyDice;
-      resolvedEnemyDice = Math.max(0, resolvedEnemyDice - playerSuppress);
+      setResolvedEnemyDice(resolvedEnemyDice - playerSuppress);
       const reduced = Math.max(0, before - resolvedEnemyDice);
       if (reduced > 0) {
-        combatState.value.enemyBaseDice = resolvedEnemyDice;
         log(`<span class="text-amber-300">我方【${resolvedPlayerCard.name}】使敌方原始点数 -${reduced}（${before}→${resolvedEnemyDice}）</span>`);
       }
     }
@@ -11079,7 +12123,33 @@ const resolveCombat = async (
 
   queue.sort((a, b) => typePriority(b.type) - typePriority(a.type));
 
+  const markEnemyResolvedCardType = (card: CardData) => {
+    const nextType = card.id === PASS_CARD.id ? null : card.type;
+    if (leviathanActingSummon.value) {
+      leviathanActingSummon.value.previousCardType = nextType;
+      if (card.id !== PASS_CARD.id) {
+        markLeviathanSummonActionOpportunityUsed(leviathanActingSummon.value);
+      }
+    } else {
+      previousEnemyLastCardType.value = nextType;
+    }
+  };
+
   const executeActionWithMagicEcho = async (action: ActionEntry) => {
+    const executeCardWithEnemySelfLock = async (
+      executeOptions: { skipManaCost?: boolean; manaCostAlreadyPaid?: boolean } = {},
+    ) => {
+      const previousSelfOverride = leviathanEnemySelfOverride.value;
+      if (action.source === 'enemy' && leviathanActingSummon.value) {
+        leviathanEnemySelfOverride.value = leviathanActingSummon.value.stats;
+      }
+      try {
+        await executeCard(action.source, action.card, action.baseDice, executeOptions);
+      } finally {
+        leviathanEnemySelfOverride.value = previousSelfOverride;
+      }
+    };
+
     const manaCostBeforeUse = action.source === 'player' && action.type === CardType.MAGIC
       ? getEffectiveManaCost('player', action.card)
       : 0;
@@ -11093,10 +12163,13 @@ const resolveCombat = async (
         logRelicMessage('[星之核] 本场第一张法术牌将额外结算一次。');
       }
     }
-    await executeCard(action.source, action.card, action.baseDice, {
+    await executeCardWithEnemySelfLock({
       skipManaCost: action.magicManaPaidOnPlay,
       manaCostAlreadyPaid: action.magicManaPaidOnPlay,
     });
+    if (action.source === 'enemy') {
+      markEnemyResolvedCardType(action.card);
+    }
     if (
       action.source === 'player'
       && action.card.id !== PASS_CARD.id
@@ -11110,7 +12183,7 @@ const resolveCombat = async (
       logRelicMessage(`[黑色] 本回合第一张连击牌【${action.card.name}】额外结算一次。`);
       await wait(320);
       if (endCombatPending.value) return;
-      await executeCard(action.source, action.card, action.baseDice, { skipManaCost: action.type === CardType.MAGIC });
+      await executeCardWithEnemySelfLock({ skipManaCost: action.type === CardType.MAGIC });
     }
     if (action.source === 'player' && action.card.id !== PASS_CARD.id) {
       if (action.type === CardType.MAGIC) {
@@ -11157,7 +12230,88 @@ const resolveCombat = async (
 
     await wait(320);
     if (endCombatPending.value) return;
-    await executeCard(action.source, action.card, action.baseDice, { skipManaCost: skipExtraManaCost });
+    await executeCardWithEnemySelfLock({ skipManaCost: skipExtraManaCost });
+    if (action.source === 'enemy') {
+      markEnemyResolvedCardType(action.card);
+    }
+  };
+
+  const executeLeviathanEnemyUnitAction = async (
+    card: CardData,
+    baseDice: number,
+    summon: LeviathanSummonRuntime | null,
+  ) => {
+    if (card.id === PASS_CARD.id || endCombatPending.value) return;
+    const previousTargetOverride = leviathanEnemyTargetOverride.value;
+    const previousSourceOverride = leviathanEnemySourceOverride.value;
+    const previousSelfOverride = leviathanEnemySelfOverride.value;
+    const previousSummon = leviathanActingSummon.value;
+    if (summon) {
+      leviathanEnemyTargetOverride.value = summon.stats;
+      leviathanEnemySourceOverride.value = summon.stats;
+      leviathanEnemySelfOverride.value = summon.stats;
+      leviathanActingSummon.value = summon;
+      if (
+        leviathanEcologicalRhythmActive.value
+        && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
+        && applyEffect(enemyStats.value, ET.GENESIS, 1, { source: 'enemy_leviathan_ecological_rhythm' })
+      ) {
+        log(`<span class="text-violet-300">利维坦[生态律动] ${summon.name}打出${card.type}牌，创世 +1（当前 ${getEffectStacks(enemyStats.value, ET.GENESIS)}）。</span>`);
+      }
+    } else {
+      leviathanEnemyTargetOverride.value = null;
+      leviathanEnemySourceOverride.value = null;
+      leviathanEnemySelfOverride.value = null;
+      leviathanActingSummon.value = null;
+    }
+    try {
+      await executeActionWithMagicEcho({
+        source: 'enemy',
+        card,
+        type: card.type,
+        baseDice,
+        magicManaPaidOnPlay: false,
+      });
+      if (summon) {
+        summon.previousCardType = card.id === PASS_CARD.id ? null : card.type;
+      } else {
+        previousEnemyLastCardType.value = card.id === PASS_CARD.id ? null : card.type;
+      }
+    } finally {
+      leviathanEnemyTargetOverride.value = previousTargetOverride;
+      leviathanEnemySourceOverride.value = previousSourceOverride;
+      leviathanEnemySelfOverride.value = previousSelfOverride;
+      leviathanActingSummon.value = previousSummon;
+    }
+  };
+
+  const executeLeviathanRemainingActions = async () => {
+    if (!isLeviathanBattle || leviathanSummonActionsResolvedTurn.value === combatState.value.turn) return;
+    leviathanSummonActionsResolvedTurn.value = combatState.value.turn;
+
+    if (
+      leviathanDeferredBodyCard
+      && leviathanDeferredBodyCard.id !== PASS_CARD.id
+      && enemyStats.value.hp > 0
+    ) {
+      log(`<span class="text-violet-300">利维坦本体【${leviathanDeferredBodyCard.name}】开始正常结算。</span>`);
+      await executeLeviathanEnemyUnitAction(leviathanDeferredBodyCard, leviathanDeferredBodyDice, null);
+      if (endCombatPending.value || playerStats.value.hp <= 0) return;
+      await wait(630);
+    }
+
+    const alreadyResolvedSummonId = leviathanSelectedSummonForClash?.id ?? null;
+    for (const summon of getAliveLeviathanSummons()) {
+      if (endCombatPending.value || playerStats.value.hp <= 0) return;
+      if (summon.id === alreadyResolvedSummonId) continue;
+      const intent = summon.intentCard ?? PASS_CARD;
+      if (intent.id === PASS_CARD.id) continue;
+      log(`<span class="text-violet-300">召唤物【${summon.name}】的【${intent.name}】开始结算。</span>`);
+      await executeLeviathanEnemyUnitAction(intent, summon.baseDice, summon);
+      removeDefeatedLeviathanSummons();
+      if (endCombatPending.value || playerStats.value.hp <= 0) return;
+      await wait(630);
+    }
   };
 
   const shouldRunSimultaneousVisuals = (
@@ -11213,6 +12367,11 @@ const resolveCombat = async (
     }
   }
 
+  await executeLeviathanRemainingActions();
+  if (endCombatPending.value) return;
+  removeDefeatedLeviathanSummons();
+  resolveLeviathanTidalLockCheckIfPending();
+
   if (playerStats.value.hp <= 0 || enemyStats.value.hp <= 0) return;
 
   if (options.suppressTurnCleanup) {
@@ -11238,7 +12397,7 @@ const resolveCombat = async (
       isDirectDamage: true,
     });
     if (actualDamage > 0) {
-      pushFloatingNumber('enemy', actualDamage, 'physical', '-');
+      pushFloatingNumber('enemy', actualDamage, 'physical', '-', { targetEntity: enemyStats.value });
     }
     logRelicMessage(`[招架盾] 回合结束护甲 ${playerArmorBeforeEnd}，造成 ${actualDamage} 点伤害。`);
   }
@@ -11372,6 +12531,12 @@ const resolveCombat = async (
   for (const l of [...pEndLogs, ...eEndLogs]) {
     log(`<span class="text-gray-500 text-[9px]">${l}</span>`);
   }
+  if (isLeviathanBattle) {
+    for (const summon of getAliveLeviathanSummons()) {
+      processLeviathanSummonTurnEnd(summon);
+    }
+    removeDefeatedLeviathanSummons();
+  }
   insertBehemothFoodIntoPlayerDiscard();
   triggerPlayerRelicLifecycleHooks('onTurnEnd');
   if (instantFreezeClearColdAtTurnEnd.value) {
@@ -11403,7 +12568,7 @@ const resolveCombat = async (
         { sourceSide: 'player', isDirectDamage: true, card: MAGIC_DOLL_DAMAGE_CARD },
       );
       if (actualDamage > 0) {
-        pushFloatingNumber('enemy', actualDamage, 'magic', '-');
+        pushFloatingNumber('enemy', actualDamage, 'magic', '-', { targetEntity: enemyStats.value });
       }
       logRelicMessage(`[魔法玩偶] 消耗1点魔力，对敌方造成 ${actualDamage} 点伤害。`);
       for (const dl of dollDamageLogs) {
@@ -11444,6 +12609,10 @@ const resolveCombat = async (
   } finally {
     unlockCardManaCost(pCard);
     unlockCardManaCost(eCard);
+    leviathanEnemyTargetOverride.value = previousEnemyTargetOverride;
+    leviathanEnemySourceOverride.value = previousEnemySourceOverride;
+    leviathanEnemySelfOverride.value = previousEnemySelfOverride;
+    leviathanActingSummon.value = previousActingSummon;
     comboUiMaskBridge.value = false;
   }
 };
@@ -11687,6 +12856,10 @@ watch(
   animation: card-attack-enemy calc(0.93s / var(--combat-speed-multiplier)) cubic-bezier(0.18, 0.9, 0.2, 1) forwards;
 }
 
+.resolved-card-visual-inner--summon.resolved-card-visual-inner--attack {
+  animation-name: card-attack-summon-enemy;
+}
+
 .resolved-card-visual-inner--player.resolved-card-visual-inner--self {
   animation: card-self-player calc(0.57s / var(--combat-speed-multiplier)) ease-out forwards;
 }
@@ -11735,6 +12908,25 @@ watch(
   100% {
     opacity: 0;
     transform: translate3d(-52vw, 34vh, 0) scale(0.74);
+  }
+}
+
+@keyframes card-attack-summon-enemy {
+  0% {
+    opacity: 0.96;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  42% {
+    opacity: 1;
+    transform: translate3d(var(--resolved-card-mid-x, -150px), var(--resolved-card-mid-y, -24px), 0) scale(1.03);
+  }
+  78% {
+    opacity: 1;
+    transform: translate3d(var(--resolved-card-target-x, -560px), var(--resolved-card-target-y, 310px), 0) scale(0.79);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--resolved-card-target-end-x, -590px), var(--resolved-card-target-end-y, 330px), 0) scale(0.74);
   }
 }
 
@@ -12338,5 +13530,336 @@ watch(
 .enemy-portrait-img--intangible-active {
   opacity: 0.08;
   filter: saturate(0.82) brightness(1.12);
+}
+
+.leviathan-body-target {
+  cursor: pointer;
+  border-radius: 1rem;
+}
+
+.leviathan-body-target--selected {
+  filter:
+    brightness(1.08)
+    saturate(1.06)
+    drop-shadow(0 0 18px rgba(250, 204, 21, 0.26));
+}
+
+.leviathan-summons-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 32;
+  pointer-events: none;
+}
+
+.leviathan-summon-node {
+  --leviathan-summon-card-scale: 0.62;
+  --leviathan-summon-card-visual-width: 4.03rem;
+  --leviathan-summon-card-width: 6.5rem;
+  --leviathan-summon-hover-y: 0rem;
+  --leviathan-summon-portrait-bottom: 2.7rem;
+  --leviathan-summon-scale: 1;
+  --leviathan-summon-enter-scale: 0.76;
+  --leviathan-summon-leave-scale: 0.72;
+  --leviathan-summon-overshoot-scale: 1.04;
+  --leviathan-summon-status-left: 0.65rem;
+  position: absolute;
+  width: 21.6rem;
+  height: 15.85rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translateY(var(--leviathan-summon-hover-y)) scale(var(--leviathan-summon-scale));
+  transform-origin: bottom right;
+  transition:
+    filter 180ms ease,
+    transform 180ms ease;
+}
+
+.leviathan-summon-enter-active {
+  animation: leviathan-summon-enter calc(0.62s / var(--combat-speed-multiplier)) cubic-bezier(0.18, 0.92, 0.22, 1) both;
+}
+
+.leviathan-summon-leave-active {
+  animation: leviathan-summon-leave calc(0.58s / var(--combat-speed-multiplier)) cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: none;
+}
+
+@keyframes leviathan-summon-enter {
+  0% {
+    opacity: 0;
+    filter: blur(8px) brightness(1.42) saturate(1.25);
+    transform: translateY(calc(var(--leviathan-summon-hover-y) + 1.35rem)) scale(var(--leviathan-summon-enter-scale));
+  }
+
+  58% {
+    opacity: 1;
+    filter: blur(1.5px) brightness(1.18) saturate(1.12);
+    transform: translateY(calc(var(--leviathan-summon-hover-y) - 0.2rem)) scale(var(--leviathan-summon-overshoot-scale));
+  }
+
+  100% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(var(--leviathan-summon-hover-y)) scale(var(--leviathan-summon-scale));
+  }
+}
+
+@keyframes leviathan-summon-leave {
+  0% {
+    opacity: 1;
+    filter: none;
+    transform: translateY(var(--leviathan-summon-hover-y)) scale(var(--leviathan-summon-scale));
+  }
+
+  36% {
+    opacity: 0.78;
+    filter: blur(1px) brightness(1.25) saturate(0.92);
+    transform: translateY(calc(var(--leviathan-summon-hover-y) - 0.35rem)) scale(var(--leviathan-summon-overshoot-scale));
+  }
+
+  100% {
+    opacity: 0;
+    filter: blur(10px) brightness(0.85) saturate(0.65);
+    transform: translateY(calc(var(--leviathan-summon-hover-y) + 2.1rem)) scale(var(--leviathan-summon-leave-scale));
+  }
+}
+
+.leviathan-summon-node::before {
+  content: '';
+  position: absolute;
+  inset: 0.95rem 0.3rem 1.65rem;
+  z-index: 0;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at 58% 50%, rgba(250, 204, 21, 0.28), rgba(250, 204, 21, 0.12) 38%, transparent 72%);
+  filter: blur(12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.leviathan-summon-node:hover,
+.leviathan-summon-node:focus-visible {
+  filter: drop-shadow(0 0 14px rgba(125, 211, 252, 0.18));
+  outline: none;
+}
+
+.leviathan-summon-node--selected {
+  filter:
+    brightness(1.14)
+    sepia(0.12)
+    saturate(1.16)
+    drop-shadow(0 0 22px rgba(250, 204, 21, 0.5))
+    drop-shadow(0 0 38px rgba(125, 211, 252, 0.18));
+}
+
+.leviathan-summon-node--selected::before {
+  opacity: 1;
+}
+
+.leviathan-summon-node--left {
+  left: 2rem;
+  bottom: 8.9rem;
+}
+
+.leviathan-summon-node--left-top {
+  left: -23.6rem;
+  top: -14.6rem;
+}
+
+.leviathan-summon-node--top {
+  right: 2rem;
+  top: -12.6rem;
+}
+
+.leviathan-summon-node--top:hover,
+.leviathan-summon-node--top:focus-visible,
+.leviathan-summon-node--top.leviathan-summon-node--selected {
+  --leviathan-summon-hover-y: -0.15rem;
+}
+
+.leviathan-summon-node--left:hover,
+.leviathan-summon-node--left:focus-visible,
+.leviathan-summon-node--left.leviathan-summon-node--selected,
+.leviathan-summon-node--left-top:hover,
+.leviathan-summon-node--left-top:focus-visible,
+.leviathan-summon-node--left-top.leviathan-summon-node--selected {
+  --leviathan-summon-hover-y: -0.15rem;
+}
+
+.leviathan-summon-card {
+  position: absolute;
+  top: 0.75rem;
+  left: calc(var(--leviathan-summon-status-left) - var(--leviathan-summon-card-visual-width));
+  width: var(--leviathan-summon-card-width);
+  height: 8.9rem;
+  overflow: visible;
+  transform: scale(var(--leviathan-summon-card-scale));
+  transform-origin: top left;
+  z-index: 6;
+  pointer-events: auto;
+  transition:
+    left 180ms ease,
+    top 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.leviathan-summon-node:hover .leviathan-summon-card,
+.leviathan-summon-node:focus-visible .leviathan-summon-card,
+.leviathan-summon-node--selected .leviathan-summon-card {
+  top: 0.15rem;
+  left: calc(var(--leviathan-summon-status-left) - var(--leviathan-summon-card-width));
+  z-index: 24;
+  transform: scale(1);
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.48));
+}
+
+.leviathan-summon-dice {
+  position: absolute;
+  left: 1.35rem;
+  bottom: 7.3rem;
+  z-index: 18;
+  transform: scale(1.32);
+  transform-origin: left bottom;
+  pointer-events: auto;
+}
+
+.leviathan-summon-portrait {
+  position: absolute;
+  right: 0.45rem;
+  bottom: var(--leviathan-summon-portrait-bottom);
+  width: 12.7rem;
+  height: 12.7rem;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.leviathan-summon-float-layer {
+  position: absolute;
+  left: var(--leviathan-summon-status-left);
+  right: 0.65rem;
+  top: calc(100% - var(--leviathan-summon-portrait-bottom) - 0.25rem);
+  height: 4.5rem;
+  z-index: 34;
+  overflow: visible;
+}
+
+.leviathan-summon-status {
+  position: absolute;
+  left: var(--leviathan-summon-status-left);
+  right: 0.65rem;
+  top: calc(100% - var(--leviathan-summon-portrait-bottom));
+  bottom: auto;
+  z-index: 10;
+  min-width: 0;
+  padding: 0.5rem 0.65rem 0.58rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 0.55rem;
+  background: rgba(4, 8, 18, 0.64);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(0.45rem);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.leviathan-summon-node:hover .leviathan-summon-status,
+.leviathan-summon-node:focus-visible .leviathan-summon-status,
+.leviathan-summon-node--selected .leviathan-summon-status {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.leviathan-summon-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.leviathan-summon-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 244, 214, 0.94);
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.leviathan-summon-hp {
+  flex: none;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.74rem;
+}
+
+.leviathan-summon-hpbar {
+  position: relative;
+  height: 0.38rem;
+  margin: 0.24rem 0 0.3rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(69, 10, 10, 0.85);
+}
+
+.leviathan-summon-hpbar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(190, 36, 20), rgb(239, 68, 45));
+}
+
+.leviathan-summon-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.7rem;
+}
+
+.leviathan-summon-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.26rem;
+  margin-top: 0.36rem;
+}
+
+.leviathan-summon-effect {
+  width: 1.62rem;
+  height: 1.62rem;
+}
+
+@media (max-width: 900px) {
+  .leviathan-summon-node {
+    --leviathan-summon-scale: 0.72;
+    --leviathan-summon-enter-scale: 0.55;
+    --leviathan-summon-leave-scale: 0.52;
+    --leviathan-summon-overshoot-scale: 0.76;
+  }
+
+  .leviathan-summon-node--left {
+    left: -1.2rem;
+    bottom: 7.7rem;
+  }
+
+  .leviathan-summon-node--left-top {
+    left: -17.8rem;
+    top: -10.5rem;
+  }
+
+  .leviathan-summon-node--top {
+    right: -0.4rem;
+    top: -8.9rem;
+  }
 }
 </style>

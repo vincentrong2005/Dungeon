@@ -91,6 +91,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.PRAYER]: 'fa-solid fa-book-bible',
   [ET.MERCY]: 'fa-solid fa-mercury',
   [ET.STIGMATA]: 'fa-brands fa-creative-commons-sampling-plus',
+  [ET.GENESIS]: 'fa-solid fa-earth-americas',
 };
 
 export const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {

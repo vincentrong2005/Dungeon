@@ -9187,6 +9187,134 @@ const 圣水精灵_圣灵祈祷: CardData = {
   description: '为自身回复4倍点数生命值并施加1层祈祷。',
 };
 
+/** 新生的潮汐：召唤一位深海魔物，连击 */
+const 利维坦_新生的潮汐: CardData = {
+  id: 'enemy_leviathan_newborn_tide',
+  name: '新生的潮汐',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '召唤一位深海魔物。优先召唤不在场的魔物；召唤到已在场的魔物则为其回复全部生命值。连击。',
+};
+
+/** 生态律动：本回合召唤物每打出物理/魔法，为自身施加1层创世，连击 */
+const 利维坦_生态律动: CardData = {
+  id: 'enemy_leviathan_ecological_rhythm',
+  name: '生态律动',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '本回合内，每有一个召唤物打出物理/魔法，为自身施加1层创世。连击。',
+};
+
+/** 深海的援护：强化一名召唤物 */
+const 利维坦_深海的援护: CardData = {
+  id: 'enemy_leviathan_deep_sea_support',
+  name: '深海的援护',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '施加给一名召唤物2层增伤、3层无视闪避。',
+};
+
+/** 镜海之誓：下回合坚固与回复共鸣 */
+const 利维坦_镜海之誓: CardData = {
+  id: 'enemy_leviathan_mirror_sea_oath',
+  name: '镜海之誓',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '下个回合，己方全体获得1倍点数持续1回合的坚固，且敌方回复生命值时，我方全体回复10倍生命值。',
+};
+
+/** 结晶化圣水：消耗创世，净化并回复友方 */
+const 利维坦_结晶化圣水: CardData = {
+  id: 'enemy_leviathan_crystallized_holy_water',
+  name: '结晶化圣水',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗自身最多5层创世（至少保留1层），每消耗1层随机为己方全体移除自身3层负面效果并回复10点生命值。',
+};
+
+/** 潮汐锁定：若敌方未造成伤害，下回合施加束缚与共鸣锁 */
+const 利维坦_潮汐锁定: CardData = {
+  id: 'enemy_leviathan_tidal_lock',
+  name: '潮汐锁定',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若本回合敌方未能造成伤害，则下回合为对方施加2层束缚与4层共鸣锁。',
+};
+
+/** 轮回漩涡：闪避，未受伤时治疗最低血召唤物 */
+const 利维坦_轮回漩涡: CardData = {
+  id: 'enemy_leviathan_reincarnation_vortex',
+  name: '轮回漩涡',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避。若本回合没有收到伤害，血量最低的召唤物回复30%最大生命值。',
+};
+
+/** 归墟：消耗创世造成真实伤害并治疗友方 */
+const 利维坦_归墟: CardData = {
+  id: 'enemy_leviathan_return_to_ruins',
+  name: '归墟',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 10,
+  calculation: { multiplier: 5.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*5。消耗所有创世（至少保留1层），对敌方造成等同于“消耗层数×我方场上召唤物数量”的真实伤害，然后为所有友方单位恢复等同于总伤害量的生命值。',
+};
+
 /** 天使铁钳：点数+2，造成1倍点数伤害，施加1层束缚 */
 const 忏悔天使_天使铁钳: CardData = {
   id: 'enemy_penitent_angel_iron_pincers',
@@ -10104,6 +10232,14 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [圣水精灵_诀别之光.name, 圣水精灵_诀别之光],
   [圣水精灵_往昔的挽歌.name, 圣水精灵_往昔的挽歌],
   [圣水精灵_圣灵祈祷.name, 圣水精灵_圣灵祈祷],
+  [利维坦_新生的潮汐.name, 利维坦_新生的潮汐],
+  [利维坦_生态律动.name, 利维坦_生态律动],
+  [利维坦_深海的援护.name, 利维坦_深海的援护],
+  [利维坦_镜海之誓.name, 利维坦_镜海之誓],
+  [利维坦_结晶化圣水.name, 利维坦_结晶化圣水],
+  [利维坦_潮汐锁定.name, 利维坦_潮汐锁定],
+  [利维坦_轮回漩涡.name, 利维坦_轮回漩涡],
+  [利维坦_归墟.name, 利维坦_归墟],
   [忏悔天使_天使铁钳.name, 忏悔天使_天使铁钳],
   [忏悔天使_圣洁书写.name, 忏悔天使_圣洁书写],
   [忏悔天使_催情圣泪.name, 忏悔天使_催情圣泪],

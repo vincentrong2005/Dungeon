@@ -3749,6 +3749,17 @@ const HOLY_WATER_SPRITE_CARD = {
   HOLY_PRAYER: 'enemy_holy_water_sprite_holy_prayer',
 } as const;
 
+const LEVIATHAN_CARD = {
+  NEWBORN_TIDE: 'enemy_leviathan_newborn_tide',
+  ECOLOGICAL_RHYTHM: 'enemy_leviathan_ecological_rhythm',
+  DEEP_SEA_SUPPORT: 'enemy_leviathan_deep_sea_support',
+  MIRROR_SEA_OATH: 'enemy_leviathan_mirror_sea_oath',
+  CRYSTALLIZED_HOLY_WATER: 'enemy_leviathan_crystallized_holy_water',
+  TIDAL_LOCK: 'enemy_leviathan_tidal_lock',
+  REINCARNATION_VORTEX: 'enemy_leviathan_reincarnation_vortex',
+  RETURN_TO_RUINS: 'enemy_leviathan_return_to_ruins',
+} as const;
+
 const PENITENT_ANGEL_CARD = {
   IRON_PINCERS: 'enemy_penitent_angel_iron_pincers',
   HOLY_SCRIPT: 'enemy_penitent_angel_holy_script',
@@ -3911,8 +3922,8 @@ const 圣水水母: EnemyDefinition = {
   name: '圣水水母',
   defeatNegativeStatus: '[被侵蚀]',
   stats: {
-    hp: 220,
-    maxHp: 220,
+    hp: 240,
+    maxHp: 240,
     mp: 2,
     minDice: 5,
     maxDice: 9,
@@ -4043,6 +4054,84 @@ const 圣水精灵: EnemyDefinition = {
       ctx,
       'holyWaterSpriteLastWeightedCardId',
       pool.filter(option => option.weight > 0),
+    );
+    return pickCardById(ctx, chosen);
+  },
+};
+
+const 利维坦: EnemyDefinition = {
+  name: '利维坦',
+  stats: {
+    hp: 700,
+    maxHp: 700,
+    mp: 0,
+    minDice: 6,
+    maxDice: 16,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.GENESIS, stacks: 1, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    LEVIATHAN_CARD.NEWBORN_TIDE,
+    LEVIATHAN_CARD.ECOLOGICAL_RHYTHM,
+    LEVIATHAN_CARD.DEEP_SEA_SUPPORT,
+    LEVIATHAN_CARD.MIRROR_SEA_OATH,
+    LEVIATHAN_CARD.CRYSTALLIZED_HOLY_WATER,
+    LEVIATHAN_CARD.TIDAL_LOCK,
+    LEVIATHAN_CARD.REINCARNATION_VORTEX,
+    LEVIATHAN_CARD.RETURN_TO_RUINS,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1) {
+      return pickCardById(ctx, LEVIATHAN_CARD.NEWBORN_TIDE);
+    }
+
+    const genesisStacks = Math.max(
+      0,
+      Math.floor(ctx.enemyStats.effects.find(effect => effect.type === EffectType.GENESIS)?.stacks ?? 0),
+    );
+    const summonCount = Math.max(0, Math.floor(Number(ctx.flags.leviathanSummonCount ?? 0)));
+    const teamDebuffStacks = Math.max(0, Math.floor(Number(ctx.flags.leviathanTeamDebuffStacks ?? 0)));
+    const enemyMp = Math.max(0, Math.floor(ctx.enemyStats.mp));
+    const turn = Math.max(0, Math.floor(ctx.turn));
+    let summonCardWeight = 100;
+    if (summonCount <= 0) {
+      ctx.flags.leviathanSummonCardWeight = 10;
+      ctx.flags.leviathanSummonCardWeightTurn = turn;
+    } else if (summonCount >= 3) {
+      summonCardWeight = 10;
+      ctx.flags.leviathanSummonCardWeight = 10;
+      ctx.flags.leviathanSummonCardWeightTurn = turn;
+    } else {
+      const rawStoredWeight = Number(ctx.flags.leviathanSummonCardWeight ?? 10);
+      const rawStoredTurn = Number(ctx.flags.leviathanSummonCardWeightTurn ?? turn);
+      const storedWeight = Number.isFinite(rawStoredWeight) ? Math.max(10, rawStoredWeight) : 10;
+      const storedTurn = Number.isFinite(rawStoredTurn) ? Math.max(0, Math.floor(rawStoredTurn)) : turn;
+      const elapsedTurns = Math.max(0, turn - storedTurn);
+      summonCardWeight = storedWeight * (1.28 ** elapsedTurns);
+      ctx.flags.leviathanSummonCardWeight = summonCardWeight;
+      ctx.flags.leviathanSummonCardWeightTurn = turn;
+    }
+
+    const pool: Array<{ value: string; weight: number }> = [
+      { value: LEVIATHAN_CARD.NEWBORN_TIDE, weight: summonCardWeight },
+      { value: LEVIATHAN_CARD.ECOLOGICAL_RHYTHM, weight: genesisStacks <= 5 ? 30 : 15 },
+      { value: LEVIATHAN_CARD.DEEP_SEA_SUPPORT, weight: summonCount <= 0 ? 0 : 20 },
+      { value: LEVIATHAN_CARD.MIRROR_SEA_OATH, weight: 20 },
+      { value: LEVIATHAN_CARD.CRYSTALLIZED_HOLY_WATER, weight: teamDebuffStacks >= 15 ? 30 : 0 },
+      { value: LEVIATHAN_CARD.TIDAL_LOCK, weight: 20 },
+      { value: LEVIATHAN_CARD.REINCARNATION_VORTEX, weight: 25 },
+      {
+        value: LEVIATHAN_CARD.RETURN_TO_RUINS,
+        weight: genesisStacks >= 12 && summonCount >= 1 && enemyMp >= 10 ? 100 : 0,
+      },
+    ].filter(option => option.weight > 0);
+
+    const chosen = weightedRandomWithoutImmediateRepeat(
+      ctx,
+      'leviathanLastWeightedCardId',
+      pool.length > 0 ? pool : [{ value: LEVIATHAN_CARD.MIRROR_SEA_OATH, weight: 1 }],
     );
     return pickCardById(ctx, chosen);
   },
@@ -4180,8 +4269,8 @@ const 神恩触手: EnemyDefinition = {
 const 奥赛罗: EnemyDefinition = {
   name: '奥赛罗',
   stats: {
-    hp: 600,
-    maxHp: 600,
+    hp: 650,
+    maxHp: 650,
     mp: 0,
     minDice: 9,
     maxDice: 16,
@@ -4388,6 +4477,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [圣水水母.name, 圣水水母],
   [深渊鱼群.name, 深渊鱼群],
   [圣水精灵.name, 圣水精灵],
+  [利维坦.name, 利维坦],
   [忏悔天使.name, 忏悔天使],
   [祭司傀儡.name, 祭司傀儡],
   [神恩触手.name, 神恩触手],

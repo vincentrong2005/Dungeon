@@ -885,6 +885,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每打出1张牌时，受到等同层数的真实伤害。战斗中每跳过2次回合减少1层',
   },
+  [EffectType.GENESIS]: {
+    type: EffectType.GENESIS,
+    name: '创世',
+    polarity: 'buff',
+    timings: ['onTurnStart', 'passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '回合开始时，获得等量护甲；召唤物每造成1次伤害，层数+1。',
+  },
 };
 
 const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
@@ -903,6 +912,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.VULNERABLE,
   EffectType.MERCY,
   EffectType.STIGMATA,
+  EffectType.GENESIS,
   EffectType.RESONANCE_LOCK,
   EffectType.BRAND_MARK,
   EffectType.DAMAGE_BOOST,
@@ -1359,6 +1369,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
   if (regenStacks > 0) {
     result.hpChange += regenStacks;
     result.logs.push(`[生命回复] 回复 ${regenStacks} 点生命。`);
+  }
+
+  // 创世：回合开始时获得等同层数的护甲
+  const genesisStacks = getEffectStacks(entity, EffectType.GENESIS);
+  if (genesisStacks > 0) {
+    applyEffect(entity, EffectType.ARMOR, genesisStacks, { source: 'effect:genesis' });
+    result.logs.push(`[创世] 获得 ${genesisStacks} 点护甲。`);
   }
 
   // 自修复：生命低于50%时，按层数回复生命并随机移除等量元素debuff；每累计3层回复计数增加2层生命上限削减
