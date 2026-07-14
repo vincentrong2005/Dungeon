@@ -16,6 +16,7 @@ interface CardKeywordInput {
   swarmAttack?: boolean;
   excape?: boolean;
   selfDamage?: number | CardSelfDamageConfig | null;
+  gluttonyEnchanted?: boolean;
 }
 
 const TRAIT_LABELS = {
@@ -234,6 +235,13 @@ export const getCardKeywordGlossaryEntries = (
       source: 'keyword',
       polarity: 'debuff',
     },
+    {
+      key: 'keyword:gluttonyEnchanted',
+      label: '饕餮魔素',
+      description: '这张牌已被贝希摩斯侵蚀。若回合结束时仍留在手牌中，会为持有者施加3层侵蚀。',
+      source: 'keyword',
+      polarity: 'debuff',
+    },
   ];
 
   const matchedEntries = findNonOverlappingEntries(text, keywordEntries);
@@ -254,6 +262,9 @@ export const getCardKeywordGlossaryEntries = (
   if (input.selfDamage !== undefined && input.selfDamage !== null) {
     propertyEntries.push(keywordEntries[4]!);
   }
+  if (input.gluttonyEnchanted) {
+    propertyEntries.push(keywordEntries[5]!);
+  }
 
   return uniqGlossaryEntries([...matchedEntries, ...propertyEntries]);
 };
@@ -267,6 +278,7 @@ export const collectCardGlossaryEntries = (input: {
   swarmAttack?: boolean;
   excape?: boolean;
   selfDamage?: number | CardSelfDamageConfig | null;
+  gluttonyEnchanted?: boolean;
 }): CardGlossaryEntry[] => {
   const text = [input.title ?? '', input.description ?? ''].filter(Boolean).join(' ');
   const effectEntries = getCardEffectGlossaryEntries(text);
@@ -276,6 +288,7 @@ export const collectCardGlossaryEntries = (input: {
     swarmAttack: input.swarmAttack,
     excape: input.excape,
     selfDamage: input.selfDamage,
+    gluttonyEnchanted: input.gluttonyEnchanted,
   });
   const traitEntries = getCardTraitGlossaryEntries(input.traits);
   return uniqGlossaryEntries([...effectEntries, ...keywordEntries, ...traitEntries]);

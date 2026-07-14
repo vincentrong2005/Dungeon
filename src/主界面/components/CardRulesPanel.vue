@@ -67,6 +67,7 @@ const props = withDefaults(
     swarmAttack?: boolean;
     excape?: boolean;
     selfDamage?: number | CardSelfDamageConfig | null;
+    gluttonyEnchanted?: boolean;
     compact?: boolean;
     centered?: boolean;
     surfaceClass?: string;
@@ -80,6 +81,7 @@ const props = withDefaults(
     swarmAttack: false,
     excape: false,
     selfDamage: null,
+    gluttonyEnchanted: false,
     compact: false,
     centered: true,
     surfaceClass: 'border border-white/10 bg-[#0d0d10]/85 text-gray-300 font-ui leading-tight',
@@ -120,6 +122,7 @@ const glossaryEntries = computed(() => collectCardGlossaryEntries({
   swarmAttack: props.swarmAttack,
   excape: props.excape,
   selfDamage: props.selfDamage,
+  gluttonyEnchanted: props.gluttonyEnchanted,
 }));
 const hasGlossary = computed(() => glossaryEntries.value.length > 0);
 const showTooltip = computed(() => hasGlossary.value && (hoverVisible.value || tooltipHoverVisible.value || pinnedVisible.value));

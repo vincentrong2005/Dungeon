@@ -63,6 +63,7 @@
         :swarm-attack="maskLevel === 'none' ? card.swarmAttack === true : false"
         :excape="maskLevel === 'none' ? card.excape === true : false"
         :self-damage="maskLevel === 'none' ? card.selfDamage ?? null : null"
+        :gluttony-enchanted="hasGluttonyEnchant"
         surface-class="border border-white/10 bg-[#0d0d10]/85 text-gray-300 font-ui leading-tight"
         desc-class="text-center"
       />
