@@ -7570,7 +7570,7 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
 };
 
 const isFastModeSyncRoomType = (roomType: string): boolean =>
-  roomType === '商店房' || roomType === '领主房' || roomType === '陷阱房';
+  roomType === '商店房' || roomType === '领主房' || roomType === '陷阱房' || roomType === FINAL_AREA_NAME;
 
 const submitGameAction = async (text: string, targetRoomType: string, type = 'action') => {
   if (!gameStore.fastModeEnabled) {
@@ -9701,7 +9701,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
       const enterText = `推开了第五层领主房后出现的陌生门，进入了${FINAL_AREA_NAME}`;
       return {
         enterText,
-        targetRoomType: '事件房',
+        targetRoomType: FINAL_AREA_NAME,
         actionText: `<user>选择了继续前进，${enterText}。这里是欲望之神的私人空间，地牢的一切法则在门后完全失效；当前在场人物只有欲望之神。请根据世界书【终极区域】与【欲望之神】继续剧情。`,
         pendingStatDataFields: normalizePendingStatDataFields({
           ...(pendingStatDataFields ?? {}),

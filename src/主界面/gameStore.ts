@@ -1492,9 +1492,16 @@ export const useGameStore = defineStore('game', () => {
     return typeof sd?._当前房间类型 === 'string' ? sd._当前房间类型.trim() : '';
   }
 
+  function getFastModeCurrentArea(): string {
+    const sd = _.get(fastModeMvuData.value, 'stat_data') ?? statData.value;
+    return typeof sd?._当前区域 === 'string' ? sd._当前区域.trim() : '';
+  }
+
   function exposeFastModeInteractionButtons() {
     const roomType = getFastModeCurrentRoomType();
-    const roomHasSpecial = ['宝箱房', '商店房', '温泉房', '神像房', '战斗房', '领主房'].includes(roomType);
+    const area = getFastModeCurrentArea();
+    const roomHasSpecial =
+      area === FINAL_AREA_NAME || ['宝箱房', '商店房', '温泉房', '神像房', '战斗房', '领主房'].includes(roomType);
     manualHasOptionE.value = roomHasSpecial;
     manualHasLeave.value = true;
   }
