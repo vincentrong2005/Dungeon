@@ -5393,6 +5393,7 @@ const applyHitAttachEffects = (
   card: CardData,
   attacker: EntityStats,
   defenderSide: RelicSide,
+  options: { allowPoisonAttach?: boolean } = {},
 ) => {
   const flameStacks = getEffectStacks(attacker, ET.FLAME_ATTACH);
   if (flameStacks > 0 && card.type === CardType.PHYSICAL) {
@@ -5400,11 +5401,14 @@ const applyHitAttachEffects = (
   }
 
   const poisonStacks = getEffectStacks(attacker, ET.POISON_ATTACH);
-  if (poisonStacks > 0 && card.type === CardType.MAGIC) {
+  const canApplyPoisonAttach = options.allowPoisonAttach !== false;
+  if (poisonStacks > 0 && card.type === CardType.MAGIC && canApplyPoisonAttach) {
     applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: 'effect:poison_attach' });
   }
 
-  const totalApplied = (card.type === CardType.PHYSICAL ? flameStacks : 0) + (card.type === CardType.MAGIC ? poisonStacks : 0);
+  const totalApplied =
+    (card.type === CardType.PHYSICAL ? flameStacks : 0) +
+    (card.type === CardType.MAGIC && canApplyPoisonAttach ? poisonStacks : 0);
   if (totalApplied > 0) {
     const label = source === 'player' ? '我方' : '敌方';
     log(`<span class="text-orange-300">${label}[附加效果] 命中后追加了状态效果。</span>`);
@@ -11177,6 +11181,16 @@ const resolveCombat = async (
         extraHitCount += bonusHits;
         log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
       }
+      if (card.id === 'enemy_muxinlan_unstable_reagent') {
+        const availableMp = Math.min(20, Math.max(0, Math.floor(attacker.mp)));
+        const consumedMp = Math.floor(availableMp / 2) * 2;
+        const bonusHits = Math.floor(consumedMp / 2);
+        if (consumedMp > 0) {
+          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+        }
+        extraHitCount += bonusHits;
+        log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
+      }
       if (card.id === 'modao_arcane_lance' && attacker.mp >= 8) {
         const canConsume = spendManaWithShock(source, 4, `法力变化（${label}【${card.name}】额外结算）`);
         if (canConsume) {
@@ -11520,7 +11534,7 @@ const resolveCombat = async (
           }
         }
         triggerObedienceBrandOnDirectHit(source, defenderSide);
-        applyHitAttachEffects(source, card, attacker, defenderSide);
+        applyHitAttachEffects(source, card, attacker, defenderSide, { allowPoisonAttach: hit === 0 });
         if (card.type === CardType.PHYSICAL) {
           reduceTargetMaxDiceByVoidTaint(source, defenderSide, '对方被自己的物理牌命中');
         }

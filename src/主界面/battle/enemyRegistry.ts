@@ -640,6 +640,8 @@ const MIRA_CARD = {
 
 function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
   const floor = Math.max(1, Math.floor(currentFloor));
+  const attachStacks = Math.floor((floor + 1) / 2);
+  const growthStacks = Math.max(1, Math.floor(floor / 2));
   return {
     name: 沐芯兰名称,
     stats: {
@@ -650,14 +652,15 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
       maxDice: 6 + floor,
       effects: [
         { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
-        { type: EffectType.FLAME_ATTACH, stacks: 1, polarity: 'buff' },
-        { type: EffectType.POISON_ATTACH, stacks: 1, polarity: 'buff' },
-        { type: EffectType.FROST_ATTACH, stacks: 1, polarity: 'buff' },
-        { type: EffectType.BLOODBLADE_ATTACH, stacks: 1, polarity: 'buff' },
-        { type: EffectType.LIGHTNING_ATTACH, stacks: 1, polarity: 'buff' },
-        { type: EffectType.ELEMENTAL_ADAPTATION, stacks: 1, polarity: 'buff' },
-        { type: EffectType.INDOMITABLE, stacks: 1, polarity: 'buff' },
-        { type: EffectType.POINT_GROWTH_BIG, stacks: 1, polarity: 'buff' },
+        { type: EffectType.FLAME_ATTACH, stacks: attachStacks, polarity: 'buff' },
+        { type: EffectType.POISON_ATTACH, stacks: attachStacks, polarity: 'buff' },
+        { type: EffectType.FROST_ATTACH, stacks: attachStacks, polarity: 'buff' },
+        { type: EffectType.BLOODBLADE_ATTACH, stacks: attachStacks, polarity: 'buff' },
+        { type: EffectType.LIGHTNING_ATTACH, stacks: attachStacks, polarity: 'buff' },
+        { type: EffectType.ELEMENTAL_ADAPTATION, stacks: growthStacks, polarity: 'buff' },
+        { type: EffectType.INDOMITABLE, stacks: growthStacks, polarity: 'buff' },
+        { type: EffectType.POINT_GROWTH_BIG, stacks: growthStacks, polarity: 'buff' },
+        { type: EffectType.POINT_GROWTH_SMALL, stacks: growthStacks, polarity: 'buff' },
       ],
     },
     deck: buildDeckById([
@@ -688,11 +691,11 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
       }
 
       const elementalTotal = ELEMENTAL_DEBUFF_TYPES.reduce((sum, type) => sum + getStacks(type), 0);
-      if (elementalTotal >= 12) {
+      if (elementalTotal >= 15) {
         return pickCardById(ctx, MUXINLAN_CARD.LIQUIDATION);
       }
 
-      if (ctx.turn > 0 && ctx.turn % 8 === 0) {
+      if (ctx.turn > 0 && ctx.turn % 7 === 0) {
         return pickCardById(ctx, MUXINLAN_CARD.CORRUPT);
       }
 

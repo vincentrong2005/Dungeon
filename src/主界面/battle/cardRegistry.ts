@@ -7496,7 +7496,7 @@ const 回复: CardData = {
   description: '回复1倍点数的生命值',
 };
 
-/** 炼金废料：诅咒卡，污染牌库并附带抽牌 */
+/** 炼金废料：诅咒卡，不可打出 */
 const 炼金废料: CardData = {
   id: 'curse_alchemy_waste',
   name: '炼金废料',
@@ -7504,11 +7504,11 @@ const 炼金废料: CardData = {
   category: '敌人',
   rarity: '普通',
   manaCost: 0,
-  calculation: { multiplier: 1.0, addition: -3 },
+  calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'none', draw: true },
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
   cardEffects: [],
-  description: '点数-3，连击，过牌。暂时无用的废料。',
+  description: '不可打出。',
 };
 
 /** 惑心咒：开局仅使用一次，为对手施加虚实不明（结算逻辑在 CombatView） */
@@ -7559,7 +7559,7 @@ const 清算: CardData = {
   description: '点数*2，移除对方所有元素debuff，每移除1层造成2点真实伤害，无视闪避',
 };
 
-/** 不稳定试剂：点数*1.5，造成0.2倍最终点数伤害，5连击；每次命中随机附加一种元素debuff 1层（结算逻辑在 CombatView） */
+/** 不稳定试剂：点数*1.5，造成0.1倍最终点数伤害，3连击；可额外消耗魔力追加连击（结算逻辑在 CombatView） */
 const 不稳定试剂: CardData = {
   id: 'enemy_muxinlan_unstable_reagent',
   name: '不稳定试剂',
@@ -7568,11 +7568,11 @@ const 不稳定试剂: CardData = {
   rarity: '普通',
   manaCost: 4,
   calculation: { multiplier: 1.5, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.2, scaleAddition: 0 },
-  hitCount: 5,
+  damageLogic: { mode: 'relative', scale: 0.1, scaleAddition: 0 },
+  hitCount: 3,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.5，造成0.2倍最终点数伤害，5连击；每次命中随机附加1层元素debuff',
+  description: '点数*1.5，造成0.1倍最终点数伤害，3连击；每次命中随机附加1层元素debuff。可额外消耗最多20魔力，每消耗2点连击+1',
 };
 
 /** 液态火：施加0.6倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧（结算逻辑在 CombatView） */
