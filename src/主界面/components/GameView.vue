@@ -2219,6 +2219,48 @@
                 </div>
 
                 <div class="space-y-2">
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                      <span>大总结提示词</span>
+                      <button
+                        type="button"
+                        class="settings-help-trigger"
+                        @mouseenter="openSettingsHelp('bigSummaryPrompt')"
+                        @mouseleave="closeSettingsHelp('bigSummaryPrompt')"
+                        @focus="openSettingsHelp('bigSummaryPrompt')"
+                        @blur="closeSettingsHelp('bigSummaryPrompt')"
+                        @touchstart.passive="startSettingsHelpTouch('bigSummaryPrompt')"
+                        @touchend="endSettingsHelpTouch('bigSummaryPrompt')"
+                        @touchcancel="endSettingsHelpTouch('bigSummaryPrompt')"
+                        @click.stop.prevent="toggleSettingsHelp('bigSummaryPrompt')"
+                      >
+                        ?
+                      </button>
+                      <Transition name="settings-help-fade">
+                        <div v-if="activeSettingsHelp === 'bigSummaryPrompt'" class="settings-help-popover">
+                          {{ settingsHelpText.bigSummaryPrompt }}
+                        </div>
+                      </Transition>
+                    </div>
+                    <button
+                      type="button"
+                      class="settings-prompt-reset-btn"
+                      title="恢复默认提示词"
+                      @click="restoreDefaultBigSummaryPrompt"
+                    >
+                      <RotateCcw class="size-4" />
+                      <span>恢复默认</span>
+                    </button>
+                  </div>
+                  <textarea
+                    v-model="bigSummaryPromptTemplateValue"
+                    class="settings-big-summary-prompt"
+                    rows="13"
+                    spellcheck="false"
+                  ></textarea>
+                </div>
+
+                <div class="space-y-2">
                   <div class="flex items-center justify-between">
                     <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
                       <span>当前可总结条目</span>
@@ -5819,6 +5861,7 @@ type SettingsHelpKey =
   | 'manualSummary'
   | 'bigSummaryRange'
   | 'bigSummaryWords'
+  | 'bigSummaryPrompt'
   | 'bigSummaryEntries';
 
 const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
@@ -6031,6 +6074,16 @@ const summaryVisibleWindowValue = computed<number>({
   },
 });
 
+const bigSummaryPromptTemplateValue = computed<string>({
+  get: () => gameStore.bigSummaryPromptTemplate,
+  set: value => gameStore.setBigSummaryPromptTemplate(value),
+});
+
+const restoreDefaultBigSummaryPrompt = () => {
+  gameStore.resetBigSummaryPromptTemplate();
+  toastr.success('大总结提示词已恢复默认。');
+};
+
 type BigSummaryDraft = {
   originalSummary: string;
   editedSummary: string;
@@ -6150,6 +6203,8 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
     '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用（注意！会覆盖大总结内容且不可逆！没事别点。）。',
   bigSummaryRange: '决定本次会抽取哪些小总结条目来合并。起始和结束编号都会包含在内，建议每次总结条目在50以内',
   bigSummaryWords: '用于约束大总结的目标篇幅。',
+  bigSummaryPrompt:
+    '这里的内容会作为大总结提示词直接发送给AI，并自动保存在当前浏览器。可使用 {{minWords}}、{{maxWords}} 和 {{summaries}} 占位符；若省略 {{summaries}}，阶段小结仍会自动附加在提示词末尾。',
   bigSummaryEntries:
     '这里展示自动总结条目中当前可用于合并的所有小总结，并高亮你选中范围内的条目，方便确认本次大总结到底会覆盖哪些内容。',
 };
@@ -14014,6 +14069,47 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(120, 85, 56, 0.6);
   background: rgba(10, 7, 6, 0.72);
   padding: 0.5rem;
+}
+
+.settings-big-summary-prompt {
+  width: 100%;
+  min-height: 16rem;
+  resize: vertical;
+  border-radius: 0.58rem;
+  border: 1px solid rgba(120, 85, 56, 0.72);
+  background: rgba(9, 6, 5, 0.9);
+  color: rgba(237, 226, 205, 0.95);
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  padding: 0.75rem 0.85rem;
+}
+
+.settings-big-summary-prompt:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.76);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.26);
+}
+
+.settings-prompt-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(120, 85, 56, 0.72);
+  background: rgba(26, 15, 8, 0.76);
+  color: rgba(222, 211, 190, 0.88);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  padding: 0.36rem 0.58rem;
+}
+
+.settings-prompt-reset-btn:hover,
+.settings-prompt-reset-btn:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.76);
+  color: rgba(255, 237, 213, 0.98);
 }
 
 .settings-summary-list-empty {

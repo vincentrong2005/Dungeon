@@ -35,6 +35,19 @@ export interface SaveEntry {
   summary: string;
 }
 
+export const DEFAULT_BIG_SUMMARY_PROMPT_TEMPLATE = `你是一名忠实的剧情记录员。请根据下方各阶段小结，按事件实际发生的先后顺序，写成一篇流水账式但清晰连贯的完整剧情总结，目标长度为 {{minWords}} 到 {{maxWords}} 字。
+
+要求：
+1. 行为优先：重点记录“谁在何时何地，对谁做了什么、怎么做、造成了什么结果”，保留关键动作、对话、反应、状态变化与因果，不要只写笼统评价。
+2. 具体保真：冲突、战斗、性、暴力、凌辱、控制等高强度或敏感情节，也要按原小结已有信息直白、具体地记录；不要拒绝、说教、回避或淡化，不要用“进行了恶毒行为”“发生了激烈冲突”等空泛措辞代替实际行为。
+3. 只写事实：不得进行道德评判，不得擅自揣测人物心理、动机或关系；只有原小结明确写出的内容才能作为事实保留。
+4. 背景克制：人物背景、身份和关系仅在首次出现或影响事件理解时简要交代，不要反复介绍，不要让背景说明挤占具体行动。
+5. 顺序整合：合并重复信息，理清前因后果和状态变化，但不要为了“宏观概括”跳过过程、压缩关键行为或虚构过渡。
+6. 纯净输出：直接输出总结正文，不要开场白、标题、说明、致歉、警告或其他无关内容。
+
+【阶段小结】
+{{summaries}}`;
+
 /**
  * 游戏主 Store
  * 管理伪同层的游戏循环：用户输入 → 创建 user 楼层 → generate → 解析回复 → 创建 assistant 楼层
@@ -44,6 +57,7 @@ export const useGameStore = defineStore('game', () => {
   const FORBID_MATCHING_XML_INSIDE_THINK_KEY = 'dungeon.forbid_matching_xml_inside_think';
   const AUTO_SUMMARY_ENABLED_KEY = 'dungeon.auto_summary_enabled';
   const SUMMARY_VISIBLE_WINDOW_KEY = 'dungeon.summary_visible_window';
+  const BIG_SUMMARY_PROMPT_TEMPLATE_KEY = 'dungeon.big_summary_prompt_template.v1';
   const BUTTON_COMPLETION_ENABLED_KEY = 'dungeon.button_completion_enabled';
   const FAST_MODE_ENABLED_KEY = 'dungeon.fast_mode_enabled';
   const FAST_MODE_CHAT_VARIABLE_KEY = '__dungeon_fast_mode_buffer';
@@ -135,6 +149,23 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function readBigSummaryPromptTemplateSetting(): string {
+    try {
+      const raw = localStorage.getItem(BIG_SUMMARY_PROMPT_TEMPLATE_KEY);
+      return raw === null ? DEFAULT_BIG_SUMMARY_PROMPT_TEMPLATE : raw;
+    } catch {
+      return DEFAULT_BIG_SUMMARY_PROMPT_TEMPLATE;
+    }
+  }
+
+  function persistBigSummaryPromptTemplateSetting(template: string) {
+    try {
+      localStorage.setItem(BIG_SUMMARY_PROMPT_TEMPLATE_KEY, template);
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
   function readButtonCompletionEnabledSetting(): boolean {
     try {
       const raw = localStorage.getItem(BUTTON_COMPLETION_ENABLED_KEY);
@@ -182,6 +213,7 @@ export const useGameStore = defineStore('game', () => {
   const forbidMatchingXmlInsideThink = ref(readForbidMatchingXmlInsideThinkSetting());
   const autoSummaryEnabled = ref(readAutoSummaryEnabledSetting());
   const summaryVisibleWindow = ref(readSummaryVisibleWindowSetting());
+  const bigSummaryPromptTemplate = ref(readBigSummaryPromptTemplateSetting());
   const buttonCompletionEnabled = ref(readButtonCompletionEnabledSetting());
   const fastModeEnabled = ref(readFastModeEnabledSetting());
   const error = ref<string | null>(null);
@@ -636,16 +668,17 @@ export const useGameStore = defineStore('game', () => {
 
   const formatBigSummaryPrompt = (entries: ChronicleEntry[], minWords: number, maxWords: number): string => {
     const lines = entries.map(entry => `${entry.index}. ${entry.summary}`).join('\n');
+    const sourceTemplate = bigSummaryPromptTemplate.value.trim() || DEFAULT_BIG_SUMMARY_PROMPT_TEMPLATE;
+    const hasSummariesPlaceholder = sourceTemplate.includes('{{summaries}}');
+    const renderedTemplate = sourceTemplate
+      .split('{{minWords}}')
+      .join(String(minWords))
+      .split('{{maxWords}}')
+      .join(String(maxWords))
+      .split('{{summaries}}')
+      .join(lines);
 
-    return [
-      `我将为你提供一段故事的不同阶段小结。请你将这些片段深度整合，重构为一篇 ${minWords}到${maxWords} 字左右的完整剧情总结。`,
-      '要求：',
-      '消除冗余：合并各小结中重复的人物介绍和背景说明。',
-      '宏观视角：不要只是拼接，要从全局高度概括故事的起因、高潮和最终走向。',
-      '纯净输出：不输出任何开场白，干净、精确、无废话、不丢失关键信息地直接输出总结文本，不要有其他结果。',
-      '',
-      lines,
-    ].join('\n');
+    return hasSummariesPlaceholder ? renderedTemplate : `${renderedTemplate}\n\n【阶段小结】\n${lines}`;
   };
 
   const generateBigSummary = async (input: BigSummaryGenerateInput): Promise<BigSummaryGenerateResult> => {
@@ -935,6 +968,16 @@ export const useGameStore = defineStore('game', () => {
     summaryVisibleWindow.value = nextVisibleWindow;
     persistSummaryVisibleWindowSetting(nextVisibleWindow);
     await ensureLatestMessageWindow(nextVisibleWindow);
+  }
+
+  function setBigSummaryPromptTemplate(template: string) {
+    const nextTemplate = String(template ?? '');
+    bigSummaryPromptTemplate.value = nextTemplate;
+    persistBigSummaryPromptTemplateSetting(nextTemplate);
+  }
+
+  function resetBigSummaryPromptTemplate() {
+    setBigSummaryPromptTemplate(DEFAULT_BIG_SUMMARY_PROMPT_TEMPLATE);
   }
 
   function setButtonCompletionEnabled(enabled: boolean) {
@@ -2282,6 +2325,7 @@ export const useGameStore = defineStore('game', () => {
     forbidMatchingXmlInsideThink,
     autoSummaryEnabled,
     summaryVisibleWindow,
+    bigSummaryPromptTemplate,
     buttonCompletionEnabled,
     fastModeEnabled,
     fastModeBufferActive,
@@ -2311,6 +2355,8 @@ export const useGameStore = defineStore('game', () => {
     setForbidMatchingXmlInsideThink,
     setAutoSummaryEnabled,
     setSummaryVisibleWindow,
+    setBigSummaryPromptTemplate,
+    resetBigSummaryPromptTemplate,
     setButtonCompletionEnabled,
     setFastModeEnabled,
     queueFastAction,
