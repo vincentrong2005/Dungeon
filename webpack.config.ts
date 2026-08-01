@@ -553,10 +553,6 @@ function parse_configuration(entry: Entry): (_env: any, argv: any) => webpack.Co
         return callback();
       }
 
-      if (entry.html !== undefined) {
-        return callback();
-      }
-
       if (
         ['vue', 'vue-router'].every(key => request !== key) &&
         ['pixi', 'react', 'vue'].some(key => request.includes(key))
