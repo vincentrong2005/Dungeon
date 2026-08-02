@@ -499,6 +499,11 @@ function parse_configuration(entry: Entry): (_env: any, argv: any) => webpack.Co
       ),
     optimization: {
       minimize: true,
+      // Webpack 5.109 may drop the runtime declaration from concatenated
+      // self-contained HTML bundles while retaining __webpack_require__.cjs.
+      // Keep interface modules separate so jQuery.load() receives a complete
+      // executable bundle. Script-only entries can still be concatenated.
+      concatenateModules: entry.html === undefined,
       minimizer: [
         argv.mode === 'production'
           ? new TerserPlugin({
