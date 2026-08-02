@@ -553,6 +553,13 @@ function parse_configuration(entry: Entry): (_env: any, argv: any) => webpack.Co
         return callback();
       }
 
+      // HTML interfaces are injected with jQuery.load(), so their module
+      // dependencies must stay in the inline bundle instead of becoming
+      // asynchronous CDN imports that will not execute after injection.
+      if (entry.html !== undefined) {
+        return callback();
+      }
+
       if (
         ['vue', 'vue-router'].every(key => request !== key) &&
         ['pixi', 'react', 'vue'].some(key => request.includes(key))
