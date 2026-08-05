@@ -6319,6 +6319,11 @@ const applyFlowingLightRingComboIfNeeded = (card: CardData): CardData => {
   return nextCard;
 };
 
+const getDiscardCardAfterTemporaryRuntimeTraits = (playedCard: CardData, runtimeCard: CardData): CardData => {
+  if (runtimeCard === playedCard) return playedCard;
+  return cloneCardForBattle(playedCard);
+};
+
 const previewFlowingLightRingCombo = (card: CardData): CardData => {
   if (!canApplyFlowingLightRingCombo(card)) return card;
   return {
@@ -7963,10 +7968,11 @@ const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
     return;
   }
   const playedCard = applyFlowingLightRingComboIfNeeded(played);
+  const discardCard = getDiscardCardAfterTemporaryRuntimeTraits(played, playedCard);
 
   clearDicePreview();
   showPlayerPlayedCard(playedCard);
-  combatState.value.discardPile.push(playedCard);
+  combatState.value.discardPile.push(discardCard);
   combatState.value.playerSelectedCard = playedCard;
   twinDirectComboResolving.value = true;
   combatState.value.phase = CombatPhase.RESOLUTION;
@@ -8053,10 +8059,11 @@ const resolveTwinCombatSequence = async () => {
         const [played] = combatState.value.playerHand.splice(handIndex, 1);
         if (played) {
           playerCardToResolve = applyFlowingLightRingComboIfNeeded(played);
+          const discardCard = getDiscardCardAfterTemporaryRuntimeTraits(played, playerCardToResolve);
           if (playerCardToResolve !== played) {
             unlockCardManaCost(played);
           }
-          combatState.value.discardPile.push(playerCardToResolve);
+          combatState.value.discardPile.push(discardCard);
         }
       } else {
         playerCardToResolve = PASS_CARD;
@@ -8914,12 +8921,13 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     return;
   }
   const playedCard = applyFlowingLightRingComboIfNeeded(played);
+  const discardCard = getDiscardCardAfterTemporaryRuntimeTraits(played, playedCard);
   if (playedCard !== played) {
     unlockCardManaCost(played);
   }
   clearDicePreview();
   showPlayerPlayedCard(playedCard);
-  combatState.value.discardPile.push(playedCard);
+  combatState.value.discardPile.push(discardCard);
   combatState.value.playerSelectedCard = playedCard;
   combatState.value.phase = CombatPhase.RESOLUTION;
 };

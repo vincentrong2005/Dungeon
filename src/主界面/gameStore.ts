@@ -772,7 +772,7 @@ export const useGameStore = defineStore('game', () => {
       );
     } catch (err) {
       console.warn('[GameStore] applyBigSummary failed:', err);
-      throw new Error('覆盖自动总结条目失败。');
+      throw new Error('覆盖自动总结条目失败。', { cause: err });
     }
 
     return {

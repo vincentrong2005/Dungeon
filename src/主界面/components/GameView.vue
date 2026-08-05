@@ -404,14 +404,14 @@
           >
             <div class="ui-input-shell bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
               <div class="w-full flex items-stretch gap-2">
-                <input
+                <textarea
                   v-model="inputText"
-                  type="text"
                   :disabled="gameStore.isGenerating"
                   :placeholder="inputPlaceholder"
-                  class="ui-input-field flex-1 h-[4.5rem] bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-tight px-5 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  @keydown.enter="handleSendInput"
-                />
+                  rows="2"
+                  class="ui-input-field flex-1 h-[4.5rem] resize-none overflow-y-auto bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-normal px-5 py-3 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  @keydown.enter.exact.prevent="handleSendInput"
+                ></textarea>
                 <div v-if="isButtonCompletionEnabled" ref="buttonCompletionMenuRef" class="ui-option-completion-wrap">
                   <button
                     type="button"
