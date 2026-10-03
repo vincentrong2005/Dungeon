@@ -175,7 +175,6 @@ const footerToneClass = computed(() => {
 .active-face-rules :deep(.active-face-rules-surface > div) {
   height: 100%;
   max-height: none;
-  scrollbar-width: thin;
 }
 
 .active-face-footer {

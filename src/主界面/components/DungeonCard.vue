@@ -244,7 +244,6 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face-rules :deep(.card-face-rules-surface > div) {
   height: 100%;
   max-height: none;
-  scrollbar-width: thin;
 }
 
 .card-face-type {

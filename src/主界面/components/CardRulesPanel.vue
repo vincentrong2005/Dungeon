@@ -287,7 +287,12 @@ onBeforeUnmount(() => {
 .card-rules-scroll {
   min-height: 0;
   overscroll-behavior: contain;
+  scrollbar-width: none;
   touch-action: pan-y;
+}
+
+.card-rules-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .card-rules-side-tooltip-entry {
