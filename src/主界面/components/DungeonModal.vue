@@ -21,8 +21,14 @@
         >
           <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)] opacity-40"></div>
           <h2 class="relative text-xl font-heading tracking-[0.2em] text-amber-100 drop-shadow-[0_0_10px_rgba(251,191,36,0.35)]">{{ title }}</h2>
-          <button class="relative rounded-full border border-amber-300/30 bg-black/20 p-1 text-amber-200/80 transition-colors hover:text-amber-100" @click="$emit('close')">
-            <X class="size-6" />
+          <button
+            type="button"
+            class="relative size-[68px] shrink-0 border-0 bg-transparent p-0 transition-[transform,filter] hover:scale-105 hover:brightness-125 focus-visible:outline-2 focus-visible:outline-amber-300"
+            title="关闭"
+            aria-label="关闭"
+            @click="$emit('close')"
+          >
+            <MainButtonSkin skin="close" />
           </button>
         </div>
 
@@ -47,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { X } from 'lucide-vue-next';
+import MainButtonSkin from './MainButtonSkin.vue';
 
 defineProps<{
   title: string;

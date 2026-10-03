@@ -47,59 +47,34 @@
       <Maximize class="size-4" />
     </button>
 
-    <div class="z-10 flex w-full max-w-5xl flex-col items-center space-y-6 px-4 py-6 sm:space-y-10 sm:px-6 sm:py-10">
-      <div class="relative space-y-4 text-center">
-        <div
-          class="absolute -left-5 top-0 h-16 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50 sm:-left-12 sm:h-24"
-        ></div>
-        <div
-          class="absolute -right-5 top-0 h-16 w-1 bg-gradient-to-b from-transparent via-dungeon-gold to-transparent opacity-50 sm:-right-12 sm:h-24"
-        ></div>
+    <div class="splash-content z-10 flex w-full max-w-5xl flex-col items-center px-4 py-6 sm:px-6">
+      <h1 class="splash-title">
+        <img :src="titleSkin" alt="欲望地牢" width="2017" height="780" />
+      </h1>
 
-        <h1
-          class="bg-gradient-to-b from-[#f9e6a0] to-dungeon-gold-dim bg-clip-text font-heading text-5xl tracking-wide text-transparent drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] sm:text-6xl md:text-8xl"
-        >
-          欲望地牢
-        </h1>
-        <h2
-          class="mt-2 border-t border-dungeon-brown pt-4 font-body text-base uppercase tracking-[0.24em] text-[#f9e6a0] sm:text-xl sm:tracking-[0.35em] md:text-2xl"
-        >
-          Created by Vin
-        </h2>
-      </div>
-
-      <div class="flex w-full max-w-[22rem] flex-col space-y-4">
-        <button
-          class="group relative flex min-w-0 items-center justify-center space-x-3 overflow-hidden border border-dungeon-gold/30 bg-[#1a0f08] px-6 py-4 transition-all duration-300 hover:border-dungeon-gold hover:bg-dungeon-brown disabled:cursor-wait disabled:opacity-75 sm:px-8"
-          :disabled="environmentChecking"
-          @click="$emit('start')"
-        >
-          <div class="absolute inset-0 w-0 bg-dungeon-gold/10 transition-all duration-300 group-hover:w-full"></div>
-          <LoaderCircle v-if="environmentChecking" class="size-5 animate-spin text-dungeon-gold" />
-          <Play v-else class="size-5 text-dungeon-gold transition-transform group-hover:scale-110" />
-          <span
-            class="font-heading text-base tracking-[0.18em] text-dungeon-paper transition-colors group-hover:text-dungeon-gold sm:text-lg sm:tracking-widest"
-          >
+      <div class="splash-menu" aria-label="主菜单">
+        <button type="button" class="splash-menu-button" :disabled="environmentChecking" @click="$emit('start')">
+          <img class="splash-menu-button__skin" :src="buttonSkin" alt="" aria-hidden="true" width="2172" height="724" />
+          <span class="splash-menu-button__content">
             {{ environmentChecking ? '检测环境中' : '进入地牢' }}
           </span>
         </button>
 
         <button
-          class="group relative flex min-w-0 items-center justify-center space-x-2 border border-dungeon-gold/20 bg-[#120b08] px-6 py-3 font-heading tracking-[0.2em] text-dungeon-paper/90 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-[#26150d] disabled:cursor-wait disabled:opacity-75 sm:px-8 sm:tracking-[0.28em]"
+          type="button"
+          class="splash-menu-button"
           :disabled="environmentChecking"
           @click="$emit('checkEnvironment')"
         >
-          <LoaderCircle v-if="environmentChecking" class="size-4 animate-spin text-dungeon-gold" />
-          <ShieldCheck v-else class="size-4 text-dungeon-gold" />
-          <span>{{ environmentChecking ? '检测中' : '环境检测' }}</span>
+          <img class="splash-menu-button__skin" :src="buttonSkin" alt="" aria-hidden="true" width="2172" height="724" />
+          <span class="splash-menu-button__content">
+            {{ environmentChecking ? '检测中' : '环境检测' }}
+          </span>
         </button>
 
-        <button
-          class="group relative flex min-w-0 items-center justify-center space-x-2 border border-dungeon-brown/80 bg-[#120b08] px-6 py-3 font-heading tracking-[0.18em] text-dungeon-paper/85 transition-all duration-300 hover:border-dungeon-gold/60 hover:bg-dungeon-brown/80 sm:px-8 sm:tracking-widest"
-          @click="$emit('openCollection')"
-        >
-          <Star class="size-4" />
-          <span>魔女的收藏</span>
+        <button type="button" class="splash-menu-button" @click="$emit('openCollection')">
+          <img class="splash-menu-button__skin" :src="buttonSkin" alt="" aria-hidden="true" width="2172" height="724" />
+          <span class="splash-menu-button__content"> 魔女的收藏 </span>
         </button>
       </div>
 
@@ -172,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { AlertTriangle, LoaderCircle, Maximize, Play, ShieldCheck, Star, X } from 'lucide-vue-next';
+import { AlertTriangle, Maximize, ShieldCheck, X } from 'lucide-vue-next';
 import type { EnvironmentCheckReport, EnvironmentDependencyStatus } from '../environmentCheck';
 
 const props = defineProps<{
@@ -191,6 +166,9 @@ const emit = defineEmits<{
 
 const isVisible = ref(false);
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
+const TITLE_SCREEN_ASSET_ROOT = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E6%A0%87%E9%A2%98%E7%95%8C%E9%9D%A2`;
+const titleSkin = `${TITLE_SCREEN_ASSET_ROOT}/%E6%A0%87%E9%A2%98.png`;
+const buttonSkin = `${TITLE_SCREEN_ASSET_ROOT}/%E6%A0%87%E9%A2%98%E6%8C%89%E9%92%AE.png`;
 const SPLASH_BACKGROUND_COUNT = 14;
 const splashBackgrounds: string[] = Array.from(
   { length: SPLASH_BACKGROUND_COUNT },
@@ -348,6 +326,92 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.splash-content {
+  gap: clamp(0.25rem, 1.3vw, 0.9rem);
+}
+
+.splash-title {
+  width: min(78vw, 740px);
+  margin: 0;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.7));
+}
+
+.splash-title img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.splash-menu {
+  display: grid;
+  justify-items: center;
+  gap: clamp(0.1rem, 0.35vw, 0.3rem);
+  width: 100%;
+}
+
+.splash-menu-button {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: min(80vw, 330px);
+  aspect-ratio: 3 / 1;
+  padding: 0;
+  border: 0;
+  color: #ffe5b4;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.splash-menu-button__skin {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.splash-menu-button__content {
+  display: block;
+  max-width: 100%;
+  font-family: 'MaShanZheng', 'Microsoft YaHei', sans-serif;
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow:
+    0 2px 3px #090402,
+    0 0 12px rgba(246, 85, 22, 0.68);
+}
+
+.splash-menu-button:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.025);
+  filter: brightness(1.18) drop-shadow(0 0 12px rgba(255, 80, 20, 0.45));
+}
+
+.splash-menu-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  filter: brightness(1.35);
+}
+
+.splash-menu-button:focus-visible {
+  outline: 2px solid #ffbf75;
+  outline-offset: -8px;
+  filter: brightness(1.18) drop-shadow(0 0 12px rgba(255, 80, 20, 0.45));
+}
+
+.splash-menu-button:disabled {
+  cursor: wait;
+  filter: grayscale(0.45) brightness(0.72);
+}
+
 .splash-screen {
   height: 100vh;
   height: 100dvh;
@@ -357,6 +421,22 @@ onBeforeUnmount(() => {
   padding-right: max(1rem, env(safe-area-inset-right));
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
   padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+@media (max-height: 720px) and (min-width: 600px) {
+  .splash-title {
+    width: min(65vw, 580px);
+  }
+
+  .splash-menu-button {
+    width: min(70vw, 280px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-menu-button {
+    transition: none;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {

@@ -73,7 +73,9 @@
                 <div class="tutorial-meter tutorial-meter--mp"><i style="width: 35%"></i></div>
                 <strong>3</strong>
               </div>
-              <div class="tutorial-stat-line"><span><i class="fa-solid fa-dice"></i></span><strong>1 ~ 8</strong></div>
+              <div class="tutorial-stat-line">
+                <span><i class="fa-solid fa-dice"></i></span><strong>1 ~ 8</strong>
+              </div>
               <div class="tutorial-status-icons">
                 <span class="tutorial-effect-dot tutorial-effect-dot--cold" title="普通状态"></span>
                 <span class="tutorial-effect-dot tutorial-effect-dot--buff" title="普通状态"></span>
@@ -82,6 +84,7 @@
 
             <div class="tutorial-active-row">
               <div class="tutorial-active-slot tutorial-active-slot--compact">
+                <CardFrameSkin type="active" />
                 <div class="tutorial-active-cost">2</div>
                 <div class="tutorial-active-badge">主动</div>
                 <div class="tutorial-active-name">主动技</div>
@@ -90,9 +93,18 @@
             </div>
 
             <div class="battle-tutorial-hand">
-              <div class="mock-mini-card mock-mini-card--dodge">闪避</div>
-              <div class="mock-mini-card mock-mini-card--skill">功能</div>
-              <div class="mock-mini-card mock-mini-card--dodge">闪避</div>
+              <div class="mock-mini-card mock-mini-card--dodge">
+                <CardFrameSkin type="dodge" />
+                <span>闪避</span>
+              </div>
+              <div class="mock-mini-card mock-mini-card--skill">
+                <CardFrameSkin type="function" />
+                <span>功能</span>
+              </div>
+              <div class="mock-mini-card mock-mini-card--dodge">
+                <CardFrameSkin type="dodge" />
+                <span>闪避</span>
+              </div>
             </div>
 
             <div class="tutorial-status-panel tutorial-status-panel--enemy">
@@ -107,7 +119,9 @@
                 <div class="tutorial-meter tutorial-meter--mp"><i style="width: 10%"></i></div>
                 <strong>1</strong>
               </div>
-              <div class="tutorial-stat-line"><span><i class="fa-solid fa-dice"></i></span><strong>7 ~ 11</strong></div>
+              <div class="tutorial-stat-line">
+                <span><i class="fa-solid fa-dice"></i></span><strong>7 ~ 11</strong>
+              </div>
               <div class="tutorial-status-icons">
                 <span class="tutorial-effect-dot tutorial-effect-dot--debuff" title="普通状态"></span>
                 <span class="tutorial-effect-dot tutorial-effect-dot--poison" title="普通状态"></span>
@@ -124,12 +138,14 @@
         <div class="battle-tutorial-grid">
           <article class="battle-tutorial-card battle-tutorial-card--wide">
             <div class="battle-tutorial-card-visual card-type-board">
-              <div
+                <div
                 v-for="cardType in cardTypeGuides"
                 :key="cardType.name"
                 class="tutorial-type-card"
                 :class="`tutorial-type-card--${cardType.tone}`"
+                  :title="cardType.short"
               >
+                <CardFrameSkin :type="getCardFrameType(cardType.tone)" />
                 <div class="tutorial-type-card-cost">{{ cardType.cost }}</div>
                 <div class="tutorial-type-card-art">
                   <i :class="cardType.icon"></i>
@@ -140,7 +156,10 @@
             </div>
             <div class="battle-tutorial-card-text">
               <h3>卡牌分为六类</h3>
-              <p>物理偏直接攻击；魔法常消耗 MP、倍率更高或有额外机制；功能牌通常叠甲、回蓝、抽牌、铺状态；闪避牌专门应对攻击；主动牌来自主动技能槽；诅咒多为负面或污染牌库。</p>
+              <p>
+                物理偏直接攻击；魔法常消耗
+                MP、倍率更高或有额外机制；功能牌通常叠甲、回蓝、抽牌、铺状态；闪避牌专门应对攻击；主动牌来自主动技能槽；诅咒多为负面或污染牌库。
+              </p>
             </div>
           </article>
 
@@ -156,7 +175,9 @@
             </div>
             <div class="battle-tutorial-card-text">
               <h3>骰子不是最终结果</h3>
-              <p>骰子先给基础点数，卡牌倍率/加值、状态、圣遗物和卡牌专属效果会继续修正。界面上方的预览会列出这条计算链，最后向下取整。</p>
+              <p>
+                骰子先给基础点数，卡牌倍率/加值、状态、圣遗物和卡牌专属效果会继续修正。界面上方的预览会列出这条计算链，最后向下取整。
+              </p>
             </div>
           </article>
 
@@ -164,6 +185,7 @@
             <div class="battle-tutorial-card-visual clash-board">
               <div class="clash-side">
                 <div class="tutorial-type-card tutorial-type-card--physical">
+                  <CardFrameSkin type="physical" />
                   <div class="tutorial-type-card-art"><i class="fa-solid fa-khanda"></i></div>
                   <div class="tutorial-type-card-name">物理</div>
                 </div>
@@ -177,6 +199,7 @@
               </div>
               <div class="clash-side">
                 <div class="tutorial-type-card tutorial-type-card--physical">
+                  <CardFrameSkin type="physical" />
                   <div class="tutorial-type-card-art"><i class="fa-solid fa-khanda"></i></div>
                   <div class="tutorial-type-card-name">物理</div>
                 </div>
@@ -185,8 +208,12 @@
             </div>
             <div class="battle-tutorial-card-text">
               <h3>拼点什么时候发生</h3>
-              <p>物理对物理、魔法对魔法会拼点，最终点数高的一方成功，低的一方失败；平局时双方都失败。功能牌通常不拼点，会按结算优先级直接执行。</p>
-              <p>闪避遇到物理/魔法时也会拼点，但判定很特别：攻击方最终点数高于闪避点数时，闪避成功，攻击失效；否则闪避失败，攻击继续生效。</p>
+              <p>
+                物理对物理、魔法对魔法会拼点，最终点数高的一方成功，低的一方失败；平局时双方都失败。功能牌通常不拼点，会按结算优先级直接执行。
+              </p>
+              <p>
+                闪避遇到物理/魔法时也会拼点，但判定很特别：攻击方最终点数高于闪避点数时，闪避成功，攻击失效；否则闪避失败，攻击继续生效。
+              </p>
             </div>
           </article>
 
@@ -196,8 +223,12 @@
             </div>
             <div class="battle-tutorial-card-text">
               <h3>哪些东西会影响拼点</h3>
-              <p>重掷会先改骰子；蓄力、疲劳等会影响原始骰子；卡牌自身的倍率/加值改最终点数；部分状态、圣遗物、主动技能和卡牌专属文字也会继续改点数。</p>
-              <p>还有少数效果会绕开拼点，例如“无视闪避”会让攻击跳过闪避拼点；“压势/弱魔术”这类牌会在行动队列前削减对方原始点数。</p>
+              <p>
+                重掷会先改骰子；蓄力、疲劳等会影响原始骰子；卡牌自身的倍率/加值改最终点数；部分状态、圣遗物、主动技能和卡牌专属文字也会继续改点数。
+              </p>
+              <p>
+                还有少数效果会绕开拼点，例如“无视闪避”会让攻击跳过闪避拼点；“压势/弱魔术”这类牌会在行动队列前削减对方原始点数。
+              </p>
             </div>
           </article>
 
@@ -214,6 +245,7 @@
           <article class="battle-tutorial-card battle-tutorial-card--wide">
             <div class="battle-tutorial-card-visual active-skill-board">
               <div class="tutorial-active-slot tutorial-active-slot--large">
+                <CardFrameSkin type="active" />
                 <div class="tutorial-active-cost">2</div>
                 <div class="tutorial-active-badge">主动</div>
                 <div class="tutorial-active-name">抽牌</div>
@@ -229,8 +261,12 @@
             </div>
             <div class="battle-tutorial-card-text">
               <h3>主动技能是额外工具</h3>
-              <p>主动技能显示在战斗左下角，不占手牌格。它们通常用来重掷骰子、抽牌、加护甲、改双方点数或施加特殊效果。</p>
-              <p>主动技能只能在玩家输入阶段使用，并会受到 MP、冷却、次数上限、眩晕等限制。用完后通常还能继续选择手牌。</p>
+              <p>
+                主动技能显示在战斗左下角，不占手牌格。它们通常用来重掷骰子、抽牌、加护甲、改双方点数或施加特殊效果。
+              </p>
+              <p>
+                主动技能只能在玩家输入阶段使用，并会受到 MP、冷却、次数上限、眩晕等限制。用完后通常还能继续选择手牌。
+              </p>
             </div>
           </article>
 
@@ -263,7 +299,10 @@
             </div>
             <div class="battle-tutorial-card-text">
               <h3>状态栏要重点看这些</h3>
-              <p>HP 是生死线；MP 决定能否使用魔法牌和主动技能；骰子范围决定本回合原始点数的上下限；护甲/中毒量/临时生命上限等会以小图标显示。</p>
+              <p>
+                HP 是生死线；MP
+                决定能否使用魔法牌和主动技能；骰子范围决定本回合原始点数的上下限；护甲/中毒量/临时生命上限等会以小图标显示。
+              </p>
               <p>状态图标下方的数字是层数。鼠标或长按查看详细说明；状态的完整解释可以切到“已解锁状态”页。</p>
             </div>
           </article>
@@ -280,7 +319,10 @@
             </div>
             <div class="battle-tutorial-card-text">
               <h3>新手决策顺序</h3>
-              <p>先看敌方意图，再看自己的 HP/MP/骰子点数。敌人要攻击时优先保命；敌人要铺垫时可以叠状态或输出；手里有连击牌时，先用它调整资源，再打主牌。</p>
+              <p>
+                先看敌方意图，再看自己的
+                HP/MP/骰子点数。敌人要攻击时优先保命；敌人要铺垫时可以叠状态或输出；手里有连击牌时，先用它调整资源，再打主牌。
+              </p>
             </div>
           </article>
         </div>
@@ -338,11 +380,7 @@
         </div>
 
         <div v-if="unlockedEffectEntries.length > 0">
-          <div
-            v-if="referenceLayout === 'readable'"
-            class="glossary-reference-status-index"
-            aria-label="状态索引"
-          >
+          <div v-if="referenceLayout === 'readable'" class="glossary-reference-status-index" aria-label="状态索引">
             <div
               v-for="group in unlockedEffectGroups"
               :key="`index-group-${group.polarity}`"
@@ -414,20 +452,24 @@
             </section>
           </div>
         </div>
-        <div v-else class="glossary-reference-empty">
-          尚未记录任何状态。战斗中遇到状态后会自动加入这里。
-        </div>
+        <div v-else class="glossary-reference-empty">尚未记录任何状态。战斗中遇到状态后会自动加入这里。</div>
       </section>
     </div>
   </DungeonModal>
 </template>
 
 <script setup lang="ts">
-import { getCardKeywordGlossaryEntries, getCardTraitGlossaryEntries, type CardGlossaryEntry } from '../battle/cardTextGlossary';
+import {
+  getCardKeywordGlossaryEntries,
+  getCardTraitGlossaryEntries,
+  type CardGlossaryEntry,
+} from '../battle/cardTextGlossary';
 import { EFFECT_REGISTRY, getEffectDisplayOrder } from '../battle/effects';
 import { loadCodexState } from '../codexStore';
 import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import type { CardTraits, EffectPolarity, EffectType } from '../types';
+import type { CardFrameType } from './CardFrameSkin.vue';
+import CardFrameSkin from './CardFrameSkin.vue';
 import DungeonModal from './DungeonModal.vue';
 
 const props = defineProps<{ isOpen: boolean }>();
@@ -467,6 +509,20 @@ const cardTypeGuides = [
   { name: '主动', tone: 'active', cost: '1', icon: 'fa-solid fa-bolt', short: '来自主动槽，不占手牌。' },
   { name: '诅咒', tone: 'curse', cost: '-', icon: 'fa-solid fa-skull', short: '多为负面、污染或限制牌。' },
 ];
+
+const getCardFrameType = (tone: string): CardFrameType => {
+  switch (tone) {
+    case 'physical':
+    case 'magic':
+    case 'function':
+    case 'dodge':
+    case 'curse':
+    case 'active':
+      return tone;
+    default:
+      return 'function';
+  }
+};
 const clashModifiers = [
   '重掷自己/对手',
   '蓄力 +骰子',
@@ -504,21 +560,20 @@ const allTraitEntries = (): CardGlossaryEntry[] => {
 
 const uniqGlossaryEntries = (entries: CardGlossaryEntry[]): CardGlossaryEntry[] => {
   const seen = new Set<string>();
-  return entries.filter((entry) => {
+  return entries.filter(entry => {
     if (seen.has(entry.key)) return false;
     seen.add(entry.key);
     return true;
   });
 };
 
-const termEntries = computed(() => uniqGlossaryEntries([
-  ...allTraitEntries(),
-  ...getCardKeywordGlossaryEntries('负面效果 法力汲取 群攻 逃离 自伤'),
-]));
+const termEntries = computed(() =>
+  uniqGlossaryEntries([...allTraitEntries(), ...getCardKeywordGlossaryEntries('负面效果 法力汲取 群攻 逃离 自伤')]),
+);
 
 const codex = ref(loadCodexState());
 const unlockedEffectTypes = computed(() => new Set(codex.value.effects));
-const unlockedEffectEntries = computed(() => (
+const unlockedEffectEntries = computed(() =>
   Object.entries(EFFECT_REGISTRY)
     .filter(([type]) => unlockedEffectTypes.value.has(type as EffectType))
     .map(([type, def]) => ({
@@ -533,31 +588,33 @@ const unlockedEffectEntries = computed(() => (
       const orderComp = getEffectDisplayOrder(a.type as EffectType) - getEffectDisplayOrder(b.type as EffectType);
       if (orderComp !== 0) return orderComp;
       return a.name.localeCompare(b.name, 'zh-Hans-CN');
-    })
-));
+    }),
+);
 
-const unlockedEffectGroups = computed(() => (
+const unlockedEffectGroups = computed(() =>
   statusGroupDefinitions
     .map(group => ({
       ...group,
       entries: unlockedEffectEntries.value.filter(entry => entry.polarity === group.polarity),
     }))
-    .filter(group => group.entries.length > 0)
-));
+    .filter(group => group.entries.length > 0),
+);
 
 const tutorialEffectNames = ['寒冷', '燃烧', '中毒', '敏感', '虚弱', '流血'];
-const tutorialEffects = computed(() => tutorialEffectNames
-  .map((name) => {
-    const entry = Object.values(EFFECT_REGISTRY).find(effect => effect.name === name);
-    if (!entry) return null;
-    return {
-      type: entry.type,
-      name: entry.name,
-      faClass: getEffectFontAwesomeClass(entry.type),
-      faStyle: getEffectFontAwesomeStyle(entry.type),
-    };
-  })
-  .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)));
+const tutorialEffects = computed(() =>
+  tutorialEffectNames
+    .map(name => {
+      const entry = Object.values(EFFECT_REGISTRY).find(effect => effect.name === name);
+      if (!entry) return null;
+      return {
+        type: entry.type,
+        name: entry.name,
+        faClass: getEffectFontAwesomeClass(entry.type),
+        faStyle: getEffectFontAwesomeStyle(entry.type),
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+);
 const turnSteps = ['回合开始', '抽牌', '掷骰', '选牌', '结算', '回合结束'];
 
 const toneClass = (polarity?: EffectPolarity | 'trait') => {
@@ -580,7 +637,7 @@ const scrollToStatus = (type: string) => {
 
 watch(
   () => props.isOpen,
-  (open) => {
+  open => {
     if (open) {
       codex.value = loadCodexState();
       activeTab.value = 'tutorial';
@@ -802,9 +859,7 @@ watch(
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-left-width: 3px;
   border-radius: 0.5rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 34%),
-    rgba(0, 0, 0, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 34%), rgba(0, 0, 0, 0.14);
   padding: 0.72rem;
 }
 
@@ -1309,7 +1364,7 @@ watch(
   border-radius: 0.35rem;
   background:
     linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(251, 191, 36, 0.14)),
-    repeating-linear-gradient(135deg, rgba(255,255,255,0.08) 0 1px, transparent 1px 7px);
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 7px);
 }
 
 .mock-card-desc,
@@ -1403,34 +1458,52 @@ watch(
 }
 
 .mock-mini-card {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   width: 3.5rem;
   height: 4.6rem;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0.42rem;
-  padding-bottom: 0.42rem;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
   color: rgba(255, 247, 237, 0.9);
   font-size: 0.68rem;
   font-weight: 700;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  background: transparent;
+}
+
+.mock-mini-card::before {
+  content: '';
+  position: absolute;
+  inset: 22% 22% 24%;
+  z-index: 1;
+  background: #16141d;
+}
+
+.mock-mini-card > span {
+  position: relative;
+  z-index: 2;
+  margin-top: 0.8rem;
+  font-size: 0.6rem;
 }
 
 .mock-mini-card--attack {
-  background: linear-gradient(160deg, rgba(127, 29, 29, 0.86), rgba(38, 18, 18, 0.94));
+  color: #ffd2c9;
 }
 
 .mock-mini-card--magic {
-  background: linear-gradient(160deg, rgba(88, 28, 135, 0.86), rgba(30, 18, 45, 0.94));
+  color: #c7e2ff;
 }
 
 .mock-mini-card--skill {
-  background: linear-gradient(160deg, rgba(133, 77, 14, 0.86), rgba(42, 30, 12, 0.94));
+  color: #ffe4a6;
 }
 
 .mock-mini-card--dodge {
-  background: linear-gradient(160deg, rgba(21, 128, 61, 0.74), rgba(12, 28, 22, 0.94));
+  color: #d0f5cf;
 }
 
 .battle-tutorial-hero-copy {
@@ -1484,7 +1557,7 @@ watch(
   border-radius: 0.42rem;
   background:
     linear-gradient(145deg, rgba(15, 23, 42, 0.5), rgba(0, 0, 0, 0.18)),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 10px);
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 10px);
   padding: 0.7rem;
 }
 
@@ -1604,87 +1677,88 @@ watch(
 
 .tutorial-type-card {
   width: 6.25rem;
-  min-height: 8.5rem;
+  height: 8.5rem;
   flex: 0 0 auto;
   position: relative;
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0.62rem;
-  background: rgba(22, 18, 30, 0.95);
-  padding: 0.48rem;
+  border: 0;
+  isolation: isolate;
+  background: transparent;
+  padding: 0;
   color: rgba(255, 247, 237, 0.9);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
 }
 
-.tutorial-type-card--physical {
-  border-color: rgba(127, 29, 29, 0.88);
-  background: linear-gradient(160deg, rgba(69, 10, 10, 0.72), rgba(22, 18, 30, 0.96));
-}
-
-.tutorial-type-card--magic {
-  border-color: rgba(88, 28, 135, 0.9);
-  background: linear-gradient(160deg, rgba(59, 7, 100, 0.66), rgba(22, 18, 30, 0.96));
-}
-
-.tutorial-type-card--function {
-  border-color: rgba(133, 77, 14, 0.92);
-  background: linear-gradient(160deg, rgba(113, 63, 18, 0.62), rgba(22, 18, 30, 0.96));
-}
-
-.tutorial-type-card--dodge {
-  border-color: rgba(6, 78, 59, 0.9);
-  background: linear-gradient(160deg, rgba(6, 78, 59, 0.62), rgba(22, 18, 30, 0.96));
-}
-
-.tutorial-type-card--active {
-  border-color: rgba(228, 228, 231, 0.72);
-  background: linear-gradient(160deg, rgba(212, 212, 216, 0.16), rgba(22, 18, 30, 0.96));
-}
-
-.tutorial-type-card--curse {
-  border-color: rgba(0, 0, 0, 0.95);
-  background: linear-gradient(160deg, rgba(0, 0, 0, 0.78), rgba(22, 18, 30, 0.96));
+.tutorial-type-card::before {
+  content: '';
+  position: absolute;
+  inset: 22% 22% 24%;
+  z-index: 1;
+  border-radius: 4px;
+  background: linear-gradient(165deg, rgba(35, 32, 41, 0.94), rgba(9, 9, 15, 0.98));
 }
 
 .tutorial-type-card-cost {
-  display: inline-flex;
-  width: 1.35rem;
-  height: 1.35rem;
+  position: absolute;
+  top: 24%;
+  left: 24%;
+  z-index: 2;
+  display: flex;
+  width: 0.9rem;
+  height: 0.9rem;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(192, 132, 252, 0.38);
   border-radius: 9999px;
   background: rgba(126, 34, 206, 0.82);
   color: white;
-  font-size: 0.66rem;
+  font-size: 0.5rem;
   font-weight: 800;
 }
 
 .tutorial-type-card-art {
+  position: absolute;
+  top: 35%;
+  left: 23%;
+  z-index: 2;
   display: flex;
-  height: 3rem;
+  width: 54%;
+  height: 1.3rem;
   align-items: center;
   justify-content: center;
-  margin: 0.42rem 0;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 0.4rem;
-  background: rgba(0, 0, 0, 0.28);
+  margin: 0;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.16), transparent 70%);
   color: rgba(254, 243, 199, 0.82);
   font-size: 1.1rem;
 }
 
 .tutorial-type-card-name {
+  position: absolute;
+  top: 53%;
+  left: 21%;
+  z-index: 2;
+  width: 58%;
   color: rgba(254, 243, 199, 0.98);
-  font-size: 0.74rem;
+  font-size: 0.62rem;
   font-weight: 900;
   text-align: center;
 }
 
 .tutorial-type-card-desc {
-  margin-top: 0.3rem;
+  position: absolute;
+  top: 64%;
+  left: 22%;
+  z-index: 2;
+  display: -webkit-box;
+  overflow: hidden;
+  width: 56%;
+  max-height: 1rem;
+  margin: 0;
   color: rgba(255, 237, 213, 0.66);
-  font-size: 0.62rem;
-  line-height: 1.38;
+  font-size: 0.47rem;
+  line-height: 1.2;
   text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .clash-board {
@@ -1750,85 +1824,105 @@ watch(
 
 .tutorial-active-slot {
   width: 7.5rem;
-  min-height: 4.9rem;
+  height: 10.5rem;
   position: relative;
-  border: 2px solid rgba(244, 244, 245, 0.76);
-  border-radius: 0.62rem;
-  background:
-    radial-gradient(circle at 32% 18%, rgba(255, 255, 255, 0.2), rgba(20, 18, 28, 0.95) 66%);
-  padding: 0.5rem;
+  isolation: isolate;
   color: rgba(255, 247, 237, 0.9);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.35));
+}
+
+.tutorial-active-slot::before {
+  content: '';
+  position: absolute;
+  inset: 22% 22% 24%;
+  z-index: 1;
+  background: linear-gradient(160deg, #292d3c, #0c101c);
 }
 
 .tutorial-active-slot--large {
   width: 8.8rem;
-  min-height: 8.8rem;
+  height: 12.2rem;
 }
 
 .tutorial-active-slot--compact {
   width: 5.6rem;
-  min-height: 6.4rem;
-  padding: 0.42rem;
+  height: 8.2rem;
 }
 
 .tutorial-active-slot--compact .tutorial-active-name {
-  margin-top: 0.72rem;
-  font-size: 0.72rem;
-}
-
-.tutorial-active-slot--compact .tutorial-active-cd {
-  margin-top: 1rem;
+  top: 44%;
   font-size: 0.58rem;
 }
 
+.tutorial-active-slot--compact .tutorial-active-cd {
+  top: 66%;
+  font-size: 0.48rem;
+}
+
 .tutorial-active-cost {
-  display: inline-flex;
-  width: 1.45rem;
-  height: 1.45rem;
+  position: absolute;
+  top: 25%;
+  left: 23%;
+  z-index: 2;
+  display: flex;
+  width: 1rem;
+  height: 1rem;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(192, 132, 252, 0.4);
   border-radius: 9999px;
   background: rgba(126, 34, 206, 0.8);
   color: white;
-  font-size: 0.68rem;
+  font-size: 0.55rem;
   font-weight: 800;
 }
 
 .tutorial-active-badge {
   position: absolute;
-  right: 0.45rem;
-  top: 0.45rem;
+  right: 23%;
+  top: 25%;
+  z-index: 2;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
   background: rgba(0, 0, 0, 0.55);
-  padding: 0.1rem 0.35rem;
+  padding: 0.05rem 0.15rem;
   color: rgba(244, 244, 245, 0.9);
-  font-size: 0.58rem;
+  font-size: 0.48rem;
 }
 
 .tutorial-active-name {
-  margin-top: 0.5rem;
+  position: absolute;
+  top: 42%;
+  left: 22%;
+  z-index: 2;
+  width: 56%;
   color: rgba(255, 247, 237, 0.96);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 900;
   text-align: center;
 }
 
 .tutorial-active-desc {
-  margin-top: 0.65rem;
+  position: absolute;
+  top: 55%;
+  left: 23%;
+  z-index: 2;
+  width: 54%;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.35rem;
   background: rgba(0, 0, 0, 0.35);
-  padding: 0.42rem;
+  padding: 0.2rem;
   color: rgba(255, 237, 213, 0.68);
   font-size: 0.66rem;
   text-align: center;
 }
 
 .tutorial-active-cd {
-  margin-top: 0.5rem;
+  position: absolute;
+  top: 69%;
+  left: 21%;
+  z-index: 2;
+  width: 58%;
   color: rgba(187, 247, 208, 0.86);
   font-size: 0.62rem;
   text-align: center;

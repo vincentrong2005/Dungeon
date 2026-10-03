@@ -32,85 +32,85 @@
         </div>
 
         <!-- Sidebar: Individual Icons Top-Left (no back button, settings already has exit) -->
-        <div class="absolute top-8 left-8 z-50 flex flex-col space-y-4 ui-buttons-left">
+        <div class="absolute top-8 left-8 z-50 flex flex-col space-y-2 ui-buttons-left">
           <SidebarIcon
-            :icon="SettingsIcon"
+            skin="settings"
             label="设置"
             tooltip-side="right"
             :active="activeModal === 'settings'"
             @click="activeModal = 'settings'"
           />
           <SidebarIcon
-            :icon="Scroll"
+            skin="deck"
             label="卡组"
             tooltip-side="right"
             :active="activeModal === 'deck'"
             @click="activeModal = 'deck'"
           />
           <SidebarIcon
-            :icon="Box"
+            skin="inventory"
             label="背包"
             tooltip-side="right"
             :active="activeModal === 'statusDetails' && playerDetailTab === 'inventory'"
             @click="openInventoryModal('items')"
           />
           <SidebarIcon
-            :icon="Users"
+            skin="bonds"
             label="羁绊"
             tooltip-side="right"
             :active="activeModal === 'bonds'"
             @click="activeModal = 'bonds'"
           />
           <SidebarIcon
-            :icon="MapIcon"
+            skin="map"
             label="地图"
             tooltip-side="right"
             :active="activeModal === 'map'"
             @click="activeModal = 'map'"
           />
-          <SidebarIcon
-            :icon="magicBookSidebarIcon"
-            :label="canEditMagicBooks ? '魔法书' : '魔法书（锁定）'"
-            tooltip-side="right"
-            :active="canEditMagicBooks && activeModal === 'magicBooks'"
-            :highlight="canEditMagicBooks"
-            :disabled="!canEditMagicBooks"
-            @click="openMagicBookModal"
-          />
-          <SidebarIcon
-            :icon="magicHatSidebarIcon"
-            :label="canEditMagicBooks ? '魔法帽' : '魔法帽（锁定）'"
-            tooltip-side="right"
-            :active="canEditMagicBooks && activeModal === 'magicHat'"
-            :highlight="canEditMagicBooks"
-            :disabled="!canEditMagicBooks"
-            @click="openMagicHatModal"
-          />
         </div>
 
         <!-- Right sidebar: save/load only (reroll & edit moved into panel) -->
-        <div class="absolute top-8 right-8 z-50 flex flex-col space-y-4 ui-buttons-right">
-          <SidebarIcon :icon="Maximize" label="全屏模式" tooltip-side="left" @click="toggleFullScreen" />
+        <div class="absolute top-8 right-8 z-50 flex flex-col space-y-2 ui-buttons-right">
+          <SidebarIcon skin="fullscreen" label="全屏模式" tooltip-side="left" @click="toggleFullScreen" />
           <SidebarIcon
-            :icon="BookOpen"
+            skin="load"
             label="读档"
             tooltip-side="left"
             :active="gameStore.isSaveLoadOpen"
             @click="openSaveLoad"
           />
           <SidebarIcon
-            :icon="FileText"
+            skin="variableUpdate"
             label="变量更新"
             tooltip-side="left"
             :active="isVariableUpdateOpen"
             @click="openVariableUpdate"
           />
           <SidebarIcon
-            :icon="Info"
+            skin="help"
             label="词条与状态"
             tooltip-side="left"
             :active="isGlossaryReferenceOpen"
             @click="isGlossaryReferenceOpen = true"
+          />
+          <SidebarIcon
+            :skin="canEditMagicBooks ? 'magicBook' : 'lock'"
+            :label="canEditMagicBooks ? '魔法书' : '魔法书（锁定）'"
+            tooltip-side="left"
+            :active="canEditMagicBooks && activeModal === 'magicBooks'"
+            :highlight="canEditMagicBooks"
+            :disabled="!canEditMagicBooks"
+            @click="openMagicBookModal"
+          />
+          <SidebarIcon
+            :skin="canEditMagicBooks ? 'magicHat' : 'lock'"
+            :label="canEditMagicBooks ? '魔法帽' : '魔法帽（锁定）'"
+            tooltip-side="left"
+            :active="canEditMagicBooks && activeModal === 'magicHat'"
+            :highlight="canEditMagicBooks"
+            :disabled="!canEditMagicBooks"
+            @click="openMagicHatModal"
           />
         </div>
 
@@ -462,17 +462,19 @@
             <button
               class="status-hud-control-btn"
               :title="isStatusOpen ? '折叠状态栏' : '展开状态栏'"
+              :aria-label="isStatusOpen ? '折叠状态栏' : '展开状态栏'"
               @click="isStatusOpen = !isStatusOpen"
             >
-              <ChevronDown class="size-5 transition-transform duration-200" :class="isStatusOpen ? '' : '-rotate-90'" />
+              <MainButtonSkin :skin="isStatusOpen ? 'collapse' : 'expand'" />
             </button>
 
             <button
               class="status-hud-control-btn"
               title="打开详细状态栏"
+              aria-label="打开详细状态栏"
               @click="openStatusDetailsModal()"
             >
-              <FileText class="size-5" />
+              <MainButtonSkin skin="statusDetails" />
             </button>
           </div>
 
@@ -3386,24 +3388,18 @@
 <script setup lang="ts">
 import {
   ArrowLeft,
-  Book,
-  BookOpen,
   Box,
   ChevronDown,
   Coins,
   Dices,
   FileText,
-  Info,
-  Lock,
-  Map as MapIcon,
-  Maximize,
   RotateCcw,
   Scroll,
   Send,
-  Settings as SettingsIcon,
   Upload,
   Users,
 } from 'lucide-vue-next';
+import type { PropType } from 'vue';
 import { hasAuthorTestAccess, unlockAuthorTestAccess, verifyAuthorTestPassword } from '../authorTestAccess';
 import { getAllActiveSkills, resolveActiveSkillNames } from '../battle/activeSkillRegistry';
 import { getAllCards, getCardByName, resolveCardNames } from '../battle/cardRegistry';
@@ -3436,6 +3432,7 @@ import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 import DungeonModal from './DungeonModal.vue';
 import GlossaryReferenceModal from './GlossaryReferenceModal.vue';
+import MainButtonSkin from './MainButtonSkin.vue';
 import OpeningInfoEntryView from './OpeningInfoEntryView.vue';
 import SaveLoadPanel from './SaveLoadPanel.vue';
 
@@ -3461,7 +3458,7 @@ const emit = defineEmits<{
 
 const SidebarIcon = defineComponent({
   props: {
-    icon: { type: Object, required: true },
+    skin: { type: String as PropType<InstanceType<typeof MainButtonSkin>['$props']['skin']>, required: true },
     active: { type: Boolean, default: false },
     label: { type: String, default: '' },
     tooltipSide: { type: String, default: 'right' },
@@ -3475,17 +3472,11 @@ const SidebarIcon = defineComponent({
         'button',
         {
           disabled: props.disabled,
+          'aria-label': props.label,
           class: [
-            'w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200 shadow-lg border relative group backdrop-blur-sm disabled:cursor-not-allowed',
-            props.disabled
-              ? 'bg-[#120d0a] text-dungeon-paper/35 border-dungeon-brown/70'
-              : props.active
-                ? props.highlight
-                  ? 'bg-dungeon-gold text-[#221507] border-amber-100 shadow-[0_0_18px_rgba(212,175,55,0.68)]'
-                  : 'bg-[#e3be63] text-[#221507] border-amber-100 shadow-[0_0_14px_rgba(212,175,55,0.52)]'
-                : props.highlight
-                  ? 'bg-[#1d130b]/95 text-dungeon-gold border-dungeon-gold/70 shadow-[0_0_11px_rgba(212,175,55,0.42)] hover:bg-[#2a180c] hover:text-amber-100 hover:border-dungeon-gold hover:-translate-y-0.5 hover:shadow-[0_0_14px_rgba(212,175,55,0.46)]'
-                  : 'bg-[#1a0f08]/95 text-dungeon-gold-dim border-dungeon-brown/90 hover:bg-[#28170c] hover:text-dungeon-gold hover:border-dungeon-gold/60 hover:-translate-y-0.5 hover:shadow-[0_0_10px_rgba(212,175,55,0.22)]',
+            'main-sidebar-button group relative size-24 shrink-0 border-0 bg-transparent p-0 transition-[transform,filter] duration-200 disabled:cursor-not-allowed',
+            props.active ? 'main-sidebar-button--active' : '',
+            props.highlight ? 'main-sidebar-button--highlight' : '',
           ],
           onClick: () => {
             if (!props.disabled) {
@@ -3494,14 +3485,14 @@ const SidebarIcon = defineComponent({
           },
         },
         [
-          h(props.icon as any, { class: 'size-6' }),
+          h(MainButtonSkin, { skin: props.skin }),
           props.label
             ? h(
                 'div',
                 {
                   class: [
                     'absolute bg-[#0b0908]/95 text-dungeon-paper/90 text-xs px-2.5 py-1.5 rounded-md border border-dungeon-brown/85 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none',
-                    props.tooltipSide === 'left' ? 'right-14' : 'left-14',
+                    props.tooltipSide === 'left' ? 'right-28' : 'left-28',
                   ],
                 },
                 props.label,
@@ -3509,12 +3500,6 @@ const SidebarIcon = defineComponent({
             : null,
         ],
       );
-  },
-});
-
-const WizardHatIcon = defineComponent({
-  setup() {
-    return () => h('i', { class: 'fa-solid fa-hat-wizard text-[20px]' });
   },
 });
 
@@ -4580,8 +4565,6 @@ const shopRobBtnOpacity = computed(() => {
   return (0.32 + revealed * 0.13).toFixed(2);
 });
 const canEditMagicBooks = computed(() => ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝');
-const magicBookSidebarIcon = computed(() => (canEditMagicBooks.value ? Book : Lock));
-const magicHatSidebarIcon = computed(() => (canEditMagicBooks.value ? WizardHatIcon : Lock));
 const isUpdatingMagicBooks = ref(false);
 const magicBooksNavTab = ref<'books' | 'active'>('books');
 const selectedStartingActiveSlot = ref(0);
@@ -10271,6 +10254,26 @@ onBeforeUnmount(() => {
   transform-origin: top right;
 }
 
+.main-sidebar-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.18) drop-shadow(0 0 8px rgba(245, 170, 45, 0.5));
+}
+
+.main-sidebar-button--active,
+.main-sidebar-button--highlight {
+  filter: brightness(1.15) drop-shadow(0 0 8px rgba(245, 170, 45, 0.45));
+}
+
+.main-sidebar-button:disabled {
+  opacity: 0.48;
+}
+
+.main-sidebar-button:focus-visible,
+.status-hud-control-btn:focus-visible {
+  outline: 2px solid #ffcf70;
+  outline-offset: 2px;
+}
+
 .ui-viewport--compact-portrait .ui-stage {
   left: 0;
   top: 0;
@@ -10873,35 +10876,23 @@ onBeforeUnmount(() => {
 }
 
 .status-hud-control-btn {
-  width: 2.55rem;
-  height: 2.55rem;
+  position: relative;
+  width: 5.1rem;
+  height: 5.1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(212, 175, 55, 0.36);
-  background:
-    linear-gradient(180deg, rgba(34, 27, 22, 0.94), rgba(11, 10, 12, 0.94)),
-    rgba(10, 10, 12, 0.88);
-  color: rgba(232, 204, 117, 0.9);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 10px 24px rgba(0, 0, 0, 0.36);
-  backdrop-filter: blur(10px);
+  padding: 0;
+  border: 0;
+  background: transparent;
   transition:
     transform 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    background 0.18s ease;
+    filter 0.18s ease;
 }
 
 .status-hud-control-btn:hover {
   transform: translateY(-1px);
-  border-color: rgba(252, 211, 77, 0.72);
-  background:
-    linear-gradient(180deg, rgba(63, 43, 25, 0.96), rgba(18, 15, 17, 0.95)),
-    rgba(10, 10, 12, 0.88);
-  color: rgba(255, 242, 178, 0.98);
+  filter: brightness(1.18) drop-shadow(0 0 7px rgba(245, 170, 45, 0.5));
 }
 
 .status-hud-panel {

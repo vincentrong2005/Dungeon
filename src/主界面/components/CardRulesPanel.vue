@@ -15,10 +15,10 @@
       :class="[surfaceClass, compact ? 'max-h-[44px] p-1.5 text-[10px]' : 'max-h-[76px] p-2 text-[10px]']"
     >
       <div
-        class="overflow-y-auto whitespace-pre-wrap"
-        :class="[centered ? 'flex items-center justify-center text-center' : '', descClass]"
+        class="card-rules-scroll overflow-y-auto whitespace-pre-wrap"
+        :class="[compact ? 'max-h-[32px]' : 'max-h-[60px]', centered ? 'text-center' : '', descClass]"
       >
-        <div>{{ description }}</div>
+        <div :class="centered ? 'flex min-h-full flex-col justify-center' : ''">{{ description }}</div>
       </div>
     </div>
 
@@ -284,6 +284,12 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.card-rules-scroll {
+  min-height: 0;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
 .card-rules-side-tooltip-entry {
   border-radius: 0.6rem;
   box-shadow:

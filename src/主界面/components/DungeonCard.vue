@@ -2,20 +2,21 @@
   <!-- Face Down Card -->
   <div
     v-if="faceDown"
-    class="w-40 h-60 rounded-xl bg-[#252030] border-2 border-[#3a3040] shadow-xl relative overflow-hidden group transition-transform duration-300 hover:-translate-y-2"
+    class="dungeon-card relative w-40 h-60 shadow-xl transition-transform duration-300 hover:-translate-y-2"
     :class="className"
   >
-    <div class="absolute inset-2 flex items-center justify-center border border-[#4a2e1a] opacity-50">
-      <div class="size-16 rounded-full border-2 border-[#5c3a21] opacity-30"></div>
+    <CardFrameSkin :type="frameType" />
+    <div class="card-face card-face--back">
+      <CircleHelp class="size-8 text-white/35" />
     </div>
   </div>
 
   <!-- Face Up Card -->
   <div
     v-else
-    class="relative w-40 h-60 rounded-xl shadow-2xl transition-all duration-300 transform bg-[#16121e] border-2 cursor-pointer"
+    class="dungeon-card relative w-40 h-60 cursor-pointer shadow-2xl transition-all duration-300"
     :class="[
-      typeColorClass,
+      `card-tone--${frameType}`,
       isRareCard ? 'rare-card-glow' : '',
       hasGluttonyEnchant ? 'gluttony-card-glow' : '',
       selected ? 'ring-4 ring-dungeon-gold -translate-y-6 scale-105 z-20' : 'hover:-translate-y-2 hover:z-10',
@@ -24,52 +25,29 @@
     ]"
     @click="!disabled && $emit('click')"
   >
-    <!-- Header -->
-    <div class="absolute top-0 left-0 w-full p-2 flex justify-between items-start z-10">
-      <div
-        class="w-6 h-6 rounded-full bg-purple-700/80 text-white font-bold text-[10px] flex items-center justify-center border border-purple-400/40 shadow-md"
-        :class="!showManaBadge ? 'opacity-0' : ''"
-      >
-        {{ card.manaCost }}
+    <CardFrameSkin :type="frameType" />
+    <div class="card-face">
+      <div class="card-face-heading">
+        <span v-if="showManaBadge" class="card-face-cost">{{ card.manaCost }}</span>
+        <h3 class="card-face-name" :title="displayName">{{ displayName }}</h3>
       </div>
-      <div class="bg-black/60 p-1 rounded-full border border-white/10">
-        <component :is="typeIcon" class="size-5" :class="typeIconColor" />
+      <div class="card-face-emblem">
+        <component :is="typeIcon" class="card-face-icon" />
       </div>
-    </div>
-
-    <!-- Image Placeholder -->
-    <div
-      class="absolute top-8 left-2 right-2 h-24 bg-black/50 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
-    >
-      <div class="size-full opacity-60" :class="typeGradient"></div>
-      <span class="absolute font-heading text-white/20 text-4xl select-none">
-        {{ displayInitial }}
-      </span>
-    </div>
-
-    <!-- Content -->
-    <div class="absolute bottom-0 left-0 w-full p-3 z-10 flex flex-col justify-end">
-      <h3
-        class="text-dungeon-paper font-heading font-bold text-sm tracking-wide mb-1 text-center drop-shadow-md"
-      >
-        {{ displayName }}
-      </h3>
       <CardRulesPanel
+        class="card-face-rules"
         :title="displayName"
         :description="displayDescription"
         :traits="maskLevel === 'none' ? card.traits : null"
-        :negative-effect="maskLevel === 'none' ? card.negativeEffect ?? null : null"
-        :mana-drain="maskLevel === 'none' ? card.manaDrain ?? null : null"
+        :negative-effect="maskLevel === 'none' ? (card.negativeEffect ?? null) : null"
+        :mana-drain="maskLevel === 'none' ? (card.manaDrain ?? null) : null"
         :swarm-attack="maskLevel === 'none' ? card.swarmAttack === true : false"
         :excape="maskLevel === 'none' ? card.excape === true : false"
-        :self-damage="maskLevel === 'none' ? card.selfDamage ?? null : null"
+        :self-damage="maskLevel === 'none' ? (card.selfDamage ?? null) : null"
         :gluttony-enchanted="hasGluttonyEnchant"
-        surface-class="border border-white/10 bg-[#0d0d10]/85 text-gray-300 font-ui leading-tight"
-        desc-class="text-center"
+        surface-class="card-face-rules-surface"
       />
-      <div class="mt-1 text-center text-white/50 font-bold text-[10px] font-ui tracking-wider">
-        {{ displayTypeText }}
-      </div>
+      <div class="card-face-type">{{ displayTypeText }}</div>
     </div>
   </div>
 </template>
@@ -78,6 +56,7 @@
 import { CircleHelp, Footprints, RefreshCcw, Skull, Sparkles, Sword, Zap } from 'lucide-vue-next';
 import { type CardData, CardType } from '../types';
 import CardRulesPanel from './CardRulesPanel.vue';
+import CardFrameSkin, { type CardFrameType } from './CardFrameSkin.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -103,28 +82,21 @@ defineEmits<{
   click: [];
 }>();
 
-const typeColorClass = computed(() => {
-  if (props.maskLevel === 'full') {
-    return 'border-gray-600 bg-gray-900/40';
-  }
-  if (props.maskLevel === 'void') {
-    return 'border-violet-950/90 bg-violet-950/45 shadow-violet-950/70';
-  }
+const frameType = computed<CardFrameType>(() => {
   switch (props.card.type) {
-    case CardType.PHYSICAL:
-      return 'border-red-900 bg-red-950/30';
     case CardType.MAGIC:
-      return 'border-purple-900 bg-purple-950/30';
+      return 'magic';
     case CardType.FUNCTION:
-      return 'border-yellow-800 bg-yellow-950/30';
-    case CardType.DODGE:
-      return 'border-emerald-900 bg-emerald-950/30';
+      return 'function';
     case CardType.ACTIVE:
-      return 'border-zinc-200/80 bg-zinc-100/15';
+      return 'active';
+    case CardType.DODGE:
+      return 'dodge';
     case CardType.CURSE:
-      return 'border-black bg-black/70';
+      return 'curse';
+    case CardType.PHYSICAL:
     default:
-      return 'border-gray-700 bg-gray-800';
+      return 'physical';
   }
 });
 
@@ -150,113 +122,153 @@ const typeIcon = computed(() => {
   }
 });
 
-const typeIconColor = computed(() => {
-  if (props.maskLevel === 'full') {
-    return 'text-gray-400';
-  }
-  if (props.maskLevel === 'void') {
-    return 'text-violet-200';
-  }
-  switch (props.card.type) {
-    case CardType.PHYSICAL:
-      return 'text-red-400';
-    case CardType.MAGIC:
-      return 'text-purple-400';
-    case CardType.FUNCTION:
-      return 'text-yellow-400';
-    case CardType.DODGE:
-      return 'text-emerald-400';
-    case CardType.ACTIVE:
-      return 'text-zinc-200';
-    case CardType.CURSE:
-      return 'text-zinc-300';
-    default:
-      return 'text-gray-400';
-  }
-});
-
-const typeGradient = computed(() => {
-  if (props.maskLevel === 'full') {
-    return 'bg-gradient-to-tr from-gray-700 to-black';
-  }
-  if (props.maskLevel === 'void') {
-    return 'bg-gradient-to-tr from-violet-950/90 via-purple-950/80 to-black';
-  }
-  switch (props.card.type) {
-    case CardType.PHYSICAL:
-      return 'bg-gradient-to-tr from-red-900 to-black';
-    case CardType.MAGIC:
-      return 'bg-gradient-to-tr from-purple-900 to-black';
-    case CardType.FUNCTION:
-      return 'bg-gradient-to-tr from-yellow-900 to-black';
-    case CardType.DODGE:
-      return 'bg-gradient-to-tr from-emerald-900 to-black';
-    case CardType.ACTIVE:
-      return 'bg-gradient-to-tr from-zinc-300/70 to-zinc-900';
-    case CardType.CURSE:
-      return 'bg-gradient-to-tr from-zinc-900 to-black';
-    default:
-      return 'bg-gradient-to-tr from-gray-800 to-black';
-  }
-});
-
 const displayName = computed(() => (props.maskLevel === 'none' ? props.card.name : '???'));
 const displayDescription = computed(() => (props.maskLevel === 'none' ? props.card.description : '???'));
-const displayTypeText = computed(() => (props.maskLevel === 'full' || props.maskLevel === 'void' ? '?' : props.card.type));
-const displayInitial = computed(() => (displayName.value[0] ?? '?'));
-const showManaBadge = computed(() => (
-  props.maskLevel === 'none'
-  && (props.card.type === CardType.MAGIC || props.card.type === CardType.ACTIVE)
-  && props.card.manaCost > 0
-));
+const displayTypeText = computed(() =>
+  props.maskLevel === 'full' || props.maskLevel === 'void' ? '?' : props.card.type,
+);
+const showManaBadge = computed(
+  () =>
+    props.maskLevel === 'none' &&
+    (props.card.type === CardType.MAGIC || props.card.type === CardType.ACTIVE) &&
+    props.card.manaCost > 0,
+);
 const isRareCard = computed(() => props.maskLevel === 'none' && props.card.rarity === '稀有');
 const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.card.gluttonyEnchanted === true);
 </script>
 
 <style scoped>
-.rare-card-glow {
+.dungeon-card {
+  isolation: isolate;
+  --card-accent: 240, 117, 99;
+}
+
+.card-tone--magic { --card-accent: 102, 183, 255; }
+.card-tone--function { --card-accent: 243, 182, 76; }
+.card-tone--dodge { --card-accent: 121, 204, 128; }
+.card-tone--curse { --card-accent: 168, 110, 218; }
+.card-tone--active { --card-accent: 218, 226, 244; }
+
+.card-face {
+  position: absolute;
+  z-index: 2;
+  inset: 22% 21% 24%;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 5px;
+  background: linear-gradient(165deg, rgba(28, 26, 34, 0.93), rgba(9, 9, 15, 0.97));
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.7), 0 0 10px rgba(var(--card-accent), 0.15);
+  color: #f7f0e6;
+}
+
+.card-face--back {
+  align-items: center;
+  justify-content: center;
+}
+
+.card-face-heading {
   position: relative;
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-bottom: 1px solid rgba(var(--card-accent), 0.36);
+}
+
+.card-face-cost {
+  position: absolute;
+  top: -5px;
+  left: -7px;
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 1px solid rgba(var(--card-accent), 0.7);
+  border-radius: 50%;
+  background: #171520;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.card-face-name {
+  display: -webkit-box;
+  overflow: hidden;
+  max-height: 28px;
+  margin: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px #000;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.card-face-emblem {
+  display: grid;
+  height: 37px;
+  flex: 0 0 37px;
+  place-items: center;
+  background: radial-gradient(ellipse, rgba(var(--card-accent), 0.24), transparent 72%);
+}
+
+.card-face-icon {
+  width: 23px;
+  height: 23px;
+  color: rgb(var(--card-accent));
+  filter: drop-shadow(0 2px 3px #000);
+}
+
+.card-face-rules {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.card-face-rules :deep(.card-face-rules-surface) {
+  height: 100%;
+  max-height: none;
+  padding: 2px 3px;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.27);
+  color: #e7e0d7;
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.card-face-rules :deep(.card-face-rules-surface > div) {
+  height: 100%;
+  max-height: none;
+  scrollbar-width: thin;
+}
+
+.card-face-type {
+  flex: 0 0 14px;
+  border-top: 1px solid rgba(var(--card-accent), 0.3);
+  color: rgb(var(--card-accent));
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
 }
 
 .rare-card-glow::after {
   content: '';
   position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  border: 1px solid rgba(250, 204, 21, 0.48);
-  box-shadow:
-    0 0 8px rgba(250, 204, 21, 0.4),
-    0 0 16px rgba(245, 158, 11, 0.24);
+  inset: 12% 13%;
+  z-index: 5;
+  border-radius: 10px;
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.3);
   pointer-events: none;
 }
 
 .gluttony-card-glow {
-  box-shadow:
-    0 0 12px rgba(168, 85, 247, 0.5),
-    0 0 26px rgba(126, 34, 206, 0.34),
-    inset 0 0 20px rgba(147, 51, 234, 0.18);
+  filter: drop-shadow(0 0 9px rgba(168, 85, 247, 0.55));
 }
 
-.gluttony-card-glow::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  border: 1px solid rgba(216, 180, 254, 0.45);
-  box-shadow:
-    0 0 8px rgba(216, 180, 254, 0.38),
-    0 0 18px rgba(147, 51, 234, 0.32);
-  pointer-events: none;
-  animation: gluttony-pulse 1.8s ease-in-out infinite;
-}
-
-@keyframes gluttony-pulse {
-  0%,
-  100% {
-    opacity: 0.48;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
 </style>

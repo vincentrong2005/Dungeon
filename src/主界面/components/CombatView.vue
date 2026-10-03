@@ -29,33 +29,41 @@
     <!-- Top Left: Settings -->
     <div class="combat-top-left-panel absolute z-50 pointer-events-auto flex flex-col gap-2 combat-button-cluster">
       <button
-        class="w-12 h-12 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
+        type="button"
+        class="combat-skin-button relative size-16 shrink-0 border-0 bg-transparent p-0 transition-[transform,filter] duration-200"
+        :class="{ 'combat-skin-button--active': settingsOpen }"
+        aria-label="设置"
+        title="设置"
         @click="settingsOpen = !settingsOpen"
       >
-        <Settings2 class="size-6" />
-        <span class="sr-only">设置</span>
+        <MainButtonSkin skin="settings" />
       </button>
       <button
-        class="w-12 h-12 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
+        type="button"
+        class="combat-skin-button relative size-16 shrink-0 border-0 bg-transparent p-0 transition-[transform,filter] duration-200"
+        aria-label="卡组"
+        title="卡组"
         @click="emit('openDeck')"
       >
-        <Scroll class="size-6" />
-        <span class="sr-only">卡组</span>
+        <MainButtonSkin skin="deck" />
       </button>
       <button
-        class="w-12 h-12 bg-[#252030]/90 border border-white/10 rounded-xl text-dungeon-gold flex items-center justify-center hover:bg-[#352a40] hover:border-white/20 active:scale-95 transition-all shadow-lg"
+        type="button"
+        class="combat-skin-button relative size-16 shrink-0 border-0 bg-transparent p-0 transition-[transform,filter] duration-200"
+        aria-label="背包"
+        title="背包"
         @click="emit('openRelics')"
       >
-        <Box class="size-6" />
-        <span class="sr-only">物品</span>
+        <MainButtonSkin skin="inventory" />
       </button>
       <button
-        class="w-12 h-12 bg-[#252030]/90 border border-amber-300/25 rounded-xl text-amber-200 flex items-center justify-center hover:bg-[#3a2d36] hover:border-amber-300/50 active:scale-95 transition-all shadow-lg shadow-amber-950/20"
-        title="词条与状态说明"
+        type="button"
+        class="combat-skin-button relative size-16 shrink-0 border-0 bg-transparent p-0 transition-[transform,filter] duration-200"
+        aria-label="信息：词条与状态"
+        title="信息：词条与状态"
         @click="emit('openGlossary')"
       >
-        <Info class="size-6" />
-        <span class="sr-only">词条与状态</span>
+        <MainButtonSkin skin="help" />
       </button>
       <div
         v-if="settingsOpen"
@@ -821,7 +829,7 @@
             跳过回合
           </button>
 
-          <div class="flex gap-1.5">
+          <div class="flex gap-4">
             <button
               v-for="slot in playerActiveSkillSlots"
               :key="`active-skill-slot-${slot.idx}`"
@@ -1028,7 +1036,6 @@ import {
     Ban,
     Battery,
     Bone,
-    Box,
     Brain,
     Bug,
     Droplet,
@@ -1037,14 +1044,12 @@ import {
     Flame,
     GitCommit,
     Heart,
-    Info,
     Layers,
     Leaf,
     Link2,
     Copy,
     SquareDashed,
     Scroll,
-    Settings2,
     Shield,
     ShieldCheck,
     Skull,
@@ -1104,6 +1109,7 @@ import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type Car
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
+import MainButtonSkin from './MainButtonSkin.vue';
 
 const props = withDefaults(defineProps<{
   initialPlayerStats: EntityStats;
@@ -13417,6 +13423,24 @@ watch(
 .combat-top-left-panel {
   top: 1rem;
   left: 1.6rem;
+}
+
+.combat-skin-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.18) drop-shadow(0 0 8px rgba(245, 170, 45, 0.5));
+}
+
+.combat-skin-button--active {
+  filter: brightness(1.15) drop-shadow(0 0 8px rgba(245, 170, 45, 0.45));
+}
+
+.combat-skin-button:active {
+  transform: scale(0.95);
+}
+
+.combat-skin-button:focus-visible {
+  outline: 2px solid #ffcf70;
+  outline-offset: 2px;
 }
 
 .combat-turn-anchor {
