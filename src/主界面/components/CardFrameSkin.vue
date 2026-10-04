@@ -1,5 +1,6 @@
+<!-- eslint-disable better-tailwindcss/no-unknown-classes -->
 <template>
-  <span class="card-frame-skin" :style="frameStyle" aria-hidden="true"></span>
+  <span class="card-frame-skin" :class="{ 'card-frame-skin--rare': rare }" :style="frameStyle" aria-hidden="true"></span>
 </template>
 
 <script setup lang="ts">
@@ -7,7 +8,7 @@ import type { CSSProperties } from 'vue';
 
 export type CardFrameType = 'physical' | 'magic' | 'function' | 'dodge' | 'curse' | 'active';
 
-const props = defineProps<{ type: CardFrameType }>();
+const props = defineProps<{ type: CardFrameType; rare?: boolean }>();
 
 const atlasUrl =
   'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E6%88%98%E6%96%97%E7%95%8C%E9%9D%A2/%E5%8D%A1%E7%89%8C%E8%BE%B9%E6%A1%86.png?v=20261003-six-frames';
@@ -43,5 +44,9 @@ const frameStyle = computed<CSSProperties>(() => {
   background-repeat: no-repeat;
   pointer-events: none;
   user-select: none;
+}
+
+.card-frame-skin--rare {
+  filter: drop-shadow(0 0 3px rgba(255, 214, 100, 0.72)) drop-shadow(0 0 8px rgba(255, 169, 34, 0.32));
 }
 </style>

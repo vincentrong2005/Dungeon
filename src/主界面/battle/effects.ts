@@ -505,7 +505,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: true,
     maxStacks: 0,
-    description: '我即是你',
+    description: '从第2回合起，基础骰点取玩家上一回合结算时的最终点数，之后优先打出与玩家上一回合卡牌同类型的牌。',
   },
   [EffectType.DANCE_HALL]: {
     type: EffectType.DANCE_HALL,

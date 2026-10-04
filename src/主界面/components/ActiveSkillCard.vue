@@ -1,20 +1,19 @@
+<!-- eslint-disable better-tailwindcss/no-unknown-classes -->
 <template>
   <div
     class="active-skill-card relative shadow-xl"
-    :class="[
-      isCompact ? 'active-skill-card--compact w-30 h-44' : 'w-[180px] h-[250px]',
-      skill?.rarity === '稀有' ? 'active-skill-card--rare' : '',
-    ]"
+    :class="isCompact ? 'active-skill-card--compact w-30 h-44' : 'w-[180px] h-[250px]'"
   >
-    <CardFrameSkin class="active-skill-frame" type="active" />
+    <CardFrameSkin class="active-skill-frame" type="active" :rare="skill?.rarity === '稀有'" />
+    <span v-if="skill" class="active-gem-cost">
+      <span class="active-gem-cost__value">{{ resolvedManaCost }}</span>
+    </span>
 
     <div class="active-face">
-      <div v-if="skill" class="active-face-heading">
-        <span class="active-face-cost">{{ resolvedManaCost }}</span>
-        <span v-if="showActiveBadge" class="active-face-badge">主动</span>
-      </div>
       <template v-if="skill">
-        <h3 class="active-face-name" :title="skill.name">{{ skill.name }}</h3>
+        <div class="active-face-heading">
+          <h3 class="active-face-name" :title="skill.name">{{ skill.name }}</h3>
+        </div>
         <div class="active-face-emblem"><Zap class="active-face-icon" /></div>
         <CardRulesPanel
           class="active-face-rules"
@@ -50,7 +49,6 @@ const props = withDefaults(
     footerRightText?: string;
     footerRightTone?: FooterTone;
     emptyLabel?: string;
-    showActiveBadge?: boolean;
   }>(),
   {
     manaCost: null,
@@ -58,7 +56,6 @@ const props = withDefaults(
     footerRightText: '',
     footerRightTone: 'muted',
     emptyLabel: '空主动槽位',
-    showActiveBadge: true,
   },
 );
 
@@ -92,7 +89,7 @@ const footerToneClass = computed(() => {
 .active-face {
   position: absolute;
   z-index: 2;
-  inset: 17% 21% 16%;
+  inset: 17% 21% 19%;
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -104,41 +101,48 @@ const footerToneClass = computed(() => {
 
 .active-face-heading {
   display: flex;
-  min-height: 35px;
+  min-height: 42px;
   align-items: center;
-  justify-content: space-between;
-  padding-top: 12px;
+  justify-content: center;
+  padding: 10px 2px 2px;
   border-bottom: 1px solid rgba(199, 216, 244, 0.35);
-  font-size: 10px;
-  font-weight: 700;
 }
 
-.active-face-cost {
+.active-gem-cost {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  z-index: 5;
   display: grid;
-  width: 18px;
-  height: 18px;
+  width: 30px;
+  height: 24px;
   place-items: center;
-  border: 1px solid rgba(208, 223, 250, 0.6);
-  border-radius: 50%;
-  background: #202a40;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-.active-face-badge {
-  color: #cbdcf7;
-  font-size: 9px;
+.active-gem-cost__value {
+  color: #fff;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22.5px;
+  font-weight: 900;
+  line-height: 1;
+  -webkit-text-stroke: 1px #000;
+  text-shadow: 0 1px 1px #000, 0 0 3px #000, 0 0 5px rgba(158, 194, 255, 0.72);
 }
 
 .active-face-name {
   display: -webkit-box;
   overflow: hidden;
   max-height: 31px;
-  margin: 4px 2px 0;
+  margin: 0 2px;
   text-align: center;
   overflow-wrap: anywhere;
   font-size: 11px;
   font-weight: 800;
   line-height: 1.2;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
 }
 
@@ -199,16 +203,12 @@ const footerToneClass = computed(() => {
   color: #aab5c9;
 }
 
-.active-skill-card--compact .active-face-heading { min-height: 26px; padding-top: 9px; }
-.active-skill-card--compact .active-face-name { font-size: 9px; max-height: 23px; margin-top: 2px; }
+.active-skill-card--compact .active-face-heading { min-height: 32px; padding: 7px 1px 2px; }
+.active-skill-card--compact .active-face-name { font-size: 9px; max-height: 23px; }
 .active-skill-card--compact .active-face-emblem { height: 17px; flex-basis: 17px; }
 .active-skill-card--compact .active-face-icon { width: 14px; height: 14px; }
-.active-skill-card--compact .active-face-cost { width: 15px; height: 15px; font-size: 9px; }
-.active-skill-card--compact .active-face-badge { font-size: 8px; }
+.active-skill-card--compact .active-gem-cost__value { font-size: 18px; }
 .active-skill-card--compact .active-face-footer { min-height: 13px; font-size: 8px; }
 .active-skill-card--compact .active-face-rules :deep(.active-face-rules-surface) { font-size: 8px; padding: 1px; }
 
-.active-skill-card--rare {
-  filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.36));
-}
 </style>

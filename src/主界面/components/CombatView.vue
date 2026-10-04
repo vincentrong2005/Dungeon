@@ -156,7 +156,7 @@
         >
           <div
             class="relative flex"
-            :class="visibleEnemyIntentCards.length > 1 ? 'gap-10' : 'gap-4'"
+            :class="visibleEnemyIntentCards.length > 1 ? 'gap-14' : 'gap-4'"
           >
             <div
               v-for="entry in visibleEnemyIntentCards"
@@ -168,7 +168,7 @@
               敌方意图
             </div>
             <div
-              class="scale-[1.3] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]"
+              class="scale-[1.4] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]"
               :class="[
                 entry.slot === 1 ? 'rotate-[-3deg]' : 'rotate-[3deg]',
                 isCardShaking(entry.card) ? 'invalid-card-shake' : '',
@@ -772,7 +772,7 @@
         class="pointer-events-none min-h-[200px] w-full flex items-end justify-center pb-6 px-4 space-x-4 relative"
       >
         <!-- Center: Hand Cards -->
-        <div class="combat-hand-anchor relative flex space-x-4 items-end mb-2 z-40 pointer-events-auto">
+        <div class="combat-hand-anchor relative flex space-x-5 items-end mb-2 z-40 pointer-events-auto">
           <div
             v-if="isTwinBattle"
             class="absolute left-1/2 -top-16 -translate-x-1/2 flex gap-2"
@@ -13471,7 +13471,7 @@ watch(
 }
 
 .combat-hand-anchor {
-  transform: translateX(-2.5rem) scale(1.37);
+  transform: translateX(-2.5rem) scale(1.46);
   transform-origin: bottom;
 }
 
@@ -13526,7 +13526,7 @@ watch(
   --enemy-shell-width: 26rem;
   --enemy-shell-height: 42rem;
   --enemy-intent-left-ratio: -1.2307692308;
-  --enemy-intent-top-ratio: -0.2857142857;
+  --enemy-intent-top-ratio: -0.3214285714;
   --enemy-dice-left-ratio: -0.5336538462;
   --enemy-dice-top-ratio: 0.1636904762;
   --enemy-status-margin-right-ratio: 0.3461538462;

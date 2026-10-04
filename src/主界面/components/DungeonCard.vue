@@ -18,7 +18,6 @@
     class="dungeon-card relative w-40 h-60 cursor-pointer shadow-2xl transition-all duration-300"
     :class="[
       `card-tone--${frameType}`,
-      isRareCard ? 'rare-card-glow' : '',
       hasGluttonyEnchant ? 'gluttony-card-glow' : '',
       selected ? 'ring-4 ring-dungeon-gold -translate-y-6 scale-105 z-20' : 'hover:-translate-y-2 hover:z-10',
       disabled ? 'opacity-80 cursor-default!' : '',
@@ -26,7 +25,7 @@
     ]"
     @click="!disabled && $emit('click')"
   >
-    <CardFrameSkin :type="frameType" />
+    <CardFrameSkin :type="frameType" :rare="isRareCard" />
     <span v-if="showManaBadge && frameType === 'magic'" class="card-gem-cost">
       <span class="card-gem-cost__value">{{ card.manaCost }}</span>
     </span>
@@ -208,16 +207,6 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
   pointer-events: none;
 }
 
-.card-gem-cost::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(112, 217, 255, 0.65), rgba(37, 119, 224, 0.16) 52%, transparent 75%);
-  animation: card-gem-glow 3.2s ease-in-out infinite;
-}
-
 .card-gem-cost__value {
   color: #fff;
   font-family: Georgia, 'Times New Roman', serif;
@@ -226,15 +215,6 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
   line-height: 1;
   -webkit-text-stroke: 1px #000;
   text-shadow: 0 1px 1px #000, 0 0 3px #000, 0 0 5px rgba(75, 185, 255, 0.72);
-}
-
-@keyframes card-gem-glow {
-  0%, 100% { opacity: 0.18; transform: scale(0.85); }
-  50% { opacity: 0.62; transform: scale(1.12); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .card-gem-cost::before { animation: none; opacity: 0.3; }
 }
 
 .card-face-name {
@@ -292,16 +272,6 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face-rules :deep(.card-face-rules-surface > div) {
   height: 100%;
   max-height: none;
-}
-
-.rare-card-glow::after {
-  content: '';
-  position: absolute;
-  inset: 12% 13%;
-  z-index: 5;
-  border-radius: 10px;
-  box-shadow: 0 0 18px rgba(250, 204, 21, 0.3);
-  pointer-events: none;
 }
 
 .gluttony-card-glow {
