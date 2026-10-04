@@ -11,6 +11,7 @@ export interface RelicApplyEffectOptions {
   source?: string;
   lockDecayThisTurn?: boolean;
   durationTurns?: number;
+  temporary?: boolean;
 }
 
 interface RelicSharedHookContext {
@@ -162,7 +163,9 @@ export interface ResolvedRelicEntry {
 }
 
 const getStacks = (entity: EntityStats, effectType: EffectType) =>
-  entity.effects.find(eff => eff.type === effectType)?.stacks ?? 0;
+  entity.effects
+    .filter(eff => eff.type === effectType)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
 
 const RELIC_LIST: readonly RelicData[] = [
   {

@@ -505,7 +505,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: true,
     maxStacks: 0,
-    description: '我即是你',
+    description: '从第2回合起，基础骰点取玩家上一回合结算时的最终点数，之后优先打出与玩家上一回合卡牌同类型的牌。',
   },
   [EffectType.DANCE_HALL]: {
     type: EffectType.DANCE_HALL,
@@ -1062,8 +1062,12 @@ const DECAY_GRACE_EFFECT_TYPES = new Set<EffectType>([
 /**
  * 查找实体身上指定类型的效果
  */
-export function findEffect(entity: EntityStats, type: EffectType): EffectInstance | undefined {
-  return entity.effects.find(e => e.type === type);
+export function findEffect(entity: EntityStats, type: EffectType, temporary?: boolean): EffectInstance | undefined {
+  const matches = entity.effects.filter(e => e.type === type);
+  if (typeof temporary === 'boolean') {
+    return matches.find(effect => !!effect.temporary === temporary);
+  }
+  return matches.find(effect => !effect.temporary) ?? matches[0];
 }
 
 /**
@@ -1077,8 +1081,9 @@ export function hasEffect(entity: EntityStats, type: EffectType): boolean {
  * 获取效果层数（无效果返回 0）
  */
 export function getEffectStacks(entity: EntityStats, type: EffectType): number {
-  const effect = findEffect(entity, type);
-  return effect ? effect.stacks : 0;
+  return entity.effects
+    .filter(effect => effect.type === type)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
 }
 
 const ANESTHESIA_STUN_FLAG = 1 << 0;
@@ -1136,7 +1141,13 @@ export function applyEffect(
   entity: EntityStats,
   type: EffectType,
   stacks: number = 1,
-  options?: { restrictedTypes?: CardType[]; source?: string; lockDecayThisTurn?: boolean; durationTurns?: number },
+  options?: {
+    restrictedTypes?: CardType[];
+    source?: string;
+    lockDecayThisTurn?: boolean;
+    durationTurns?: number;
+    temporary?: boolean;
+  },
 ): boolean {
   const normalizedStacks = Math.max(0, Math.floor(stacks));
   if (normalizedStacks <= 0) return false;
@@ -1150,7 +1161,8 @@ export function applyEffect(
   }
 
   const def = EFFECT_REGISTRY[type];
-  const existing = findEffect(entity, type);
+  const temporary = options?.temporary === true;
+  const existing = findEffect(entity, type, temporary);
   let nextStacks = normalizedStacks;
 
   if (type === EffectType.COLD) {
@@ -1215,6 +1227,7 @@ export function applyEffect(
     lockDecayThisTurn: DECAY_GRACE_EFFECT_TYPES.has(type) ? !!options?.lockDecayThisTurn : undefined,
     restrictedTypes: type === EffectType.BIND ? undefined : options?.restrictedTypes,
     source: options?.source,
+    temporary: temporary || undefined,
     durationTurnsRemaining:
       typeof options?.durationTurns === 'number' ? Math.max(0, Math.floor(options.durationTurns)) : undefined,
   };
@@ -1232,21 +1245,29 @@ export function applyEffect(
 /**
  * 移除实体身上的指定效果
  */
-export function removeEffect(entity: EntityStats, type: EffectType): void {
-  const effect = findEffect(entity, type);
-  if (!effect) return;
-  if (type === EffectType.TEMP_MAX_HP && effect.stacks > 0) {
-    entity.maxHp = Math.max(0, entity.maxHp - effect.stacks);
+export function removeEffect(entity: EntityStats, type: EffectType, temporary?: boolean): void {
+  const removed = entity.effects.filter(e => e.type === type && (
+    typeof temporary !== 'boolean' || !!e.temporary === temporary
+  ));
+  if (removed.length === 0) return;
+  if (type === EffectType.TEMP_MAX_HP) {
+    const removedStacks = removed.reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
+    entity.maxHp = Math.max(0, entity.maxHp - removedStacks);
     entity.hp = Math.min(entity.hp, entity.maxHp);
   }
-  entity.effects = entity.effects.filter(e => e.type !== type);
+  entity.effects = entity.effects.filter(e => !removed.includes(e));
 }
 
 /**
  * 减少效果层数（降至 0 时自动移除）
  */
-export function reduceEffectStacks(entity: EntityStats, type: EffectType, amount: number = 1): void {
-  const effect = findEffect(entity, type);
+export function reduceEffectStacks(
+  entity: EntityStats,
+  type: EffectType,
+  amount: number = 1,
+  temporary?: boolean,
+): void {
+  const effect = findEffect(entity, type, temporary);
   if (!effect) return;
   if (type === EffectType.TEMP_MAX_HP) {
     const removed = Math.min(effect.stacks, Math.max(0, Math.floor(amount)));
@@ -1255,7 +1276,7 @@ export function reduceEffectStacks(entity: EntityStats, type: EffectType, amount
     entity.maxHp = Math.max(0, entity.maxHp - removed);
     entity.hp = Math.min(entity.hp, entity.maxHp);
     if (effect.stacks <= 0) {
-      entity.effects = entity.effects.filter(e => e.type !== type);
+      entity.effects = entity.effects.filter(e => e !== effect);
     }
     return;
   }
@@ -1694,19 +1715,29 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     }
   }
 
-  const expiredEffects: EffectType[] = [];
+  const expiredEffects: EffectInstance[] = [];
   for (const effect of entity.effects) {
     if (typeof effect.durationTurnsRemaining !== 'number') continue;
     if (!Number.isFinite(effect.durationTurnsRemaining) || effect.durationTurnsRemaining <= 0) continue;
     effect.durationTurnsRemaining = Math.max(0, effect.durationTurnsRemaining - 1);
     if (effect.durationTurnsRemaining <= 0) {
-      expiredEffects.push(effect.type);
+      expiredEffects.push(effect);
     }
   }
-  for (const effectType of expiredEffects) {
-    removeEffect(entity, effectType);
-    const effectName = EFFECT_REGISTRY_RAW[effectType]?.name ?? effectType;
+  for (const effect of expiredEffects) {
+    removeEffect(entity, effect.type, effect.temporary === true);
+    const effectName = effect.temporary
+      ? `临时${EFFECT_REGISTRY_RAW[effect.type]?.name ?? effect.type}`
+      : (EFFECT_REGISTRY_RAW[effect.type]?.name ?? effect.type);
     logs.push(`[${effectName}] 持续时间结束。`);
+  }
+
+  // 标记为临时的效果只存活到当前回合结束；普通效果不受影响。
+  const temporaryEffects = entity.effects.filter(effect => effect.temporary && effect.stacks > 0);
+  for (const effect of temporaryEffects) {
+    removeEffect(entity, effect.type, true);
+    const effectName = `临时${EFFECT_REGISTRY_RAW[effect.type]?.name ?? effect.type}`;
+    logs.push(`[${effectName}] 回合结束，临时效果消失。`);
   }
 
   const temporaryDisplayEffectTypes: EffectType[] = [EffectType.MEMORY_FOG, EffectType.COGNITIVE_INTERFERENCE];

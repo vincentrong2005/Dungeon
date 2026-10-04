@@ -156,7 +156,7 @@
         >
           <div
             class="relative flex"
-            :class="visibleEnemyIntentCards.length > 1 ? 'gap-10' : 'gap-4'"
+            :class="visibleEnemyIntentCards.length > 1 ? 'gap-14' : 'gap-4'"
           >
             <div
               v-for="entry in visibleEnemyIntentCards"
@@ -168,7 +168,7 @@
               敌方意图
             </div>
             <div
-              class="scale-[1.3] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]"
+              class="scale-[1.4] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]"
               :class="[
                 entry.slot === 1 ? 'rotate-[-3deg]' : 'rotate-[3deg]',
                 isCardShaking(entry.card) ? 'invalid-card-shake' : '',
@@ -316,11 +316,11 @@
                 >
                   <button
                     v-for="eff in getLeviathanSummonVisibleEffects(summon)"
-                    :key="`${summon.id}-${eff.type}`"
+                    :key="`${summon.id}-${eff.type}-${eff.temporary ? 'temporary' : 'normal'}`"
                     type="button"
                     class="effect-icon-btn leviathan-summon-effect"
                     :class="effectIconBoxClass(eff.polarity)"
-                    :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
+                    :aria-label="`${getEffectInstanceName(eff)}: ${getEffectDescription(eff.type)}`"
                     @click.stop
                     @mouseenter="showEffectTooltip($event, eff)"
                     @mouseleave="hideEffectTooltip"
@@ -468,11 +468,11 @@
           >
             <button
               v-for="eff in enemyVisibleEffects"
-              :key="`enemy-${eff.type}`"
+              :key="`enemy-${eff.type}-${eff.temporary ? 'temporary' : 'normal'}`"
               type="button"
               class="effect-icon-btn"
               :class="[effectIconBoxClass(eff.polarity), isBlockedEffectAnimating('enemy', eff.type) ? 'effect-blocked-shake' : '']"
-              :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
+              :aria-label="`${getEffectInstanceName(eff)}: ${getEffectDescription(eff.type)}`"
               @mouseenter="showEffectTooltip($event, eff)"
               @mouseleave="hideEffectTooltip"
               @focus="showEffectTooltip($event, eff)"
@@ -492,7 +492,7 @@
                 v-else
                 class="size-3.5"
               />
-              <span v-if="eff.stacks > 1" :key="`enemy-${eff.type}-stacks-${eff.stacks}`" class="effect-stack-badge">{{ eff.stacks }}</span>
+              <span v-if="eff.stacks > 1" :key="`enemy-${eff.type}-${eff.temporary ? 'temporary' : 'normal'}-stacks-${eff.stacks}`" class="effect-stack-badge">{{ eff.stacks }}</span>
             </button>
           </TransitionGroup>
         </div>
@@ -666,11 +666,11 @@
           >
             <button
               v-for="eff in playerVisibleEffects"
-              :key="`player-${eff.type}`"
+              :key="`player-${eff.type}-${eff.temporary ? 'temporary' : 'normal'}`"
               type="button"
               class="effect-icon-btn"
               :class="[effectIconBoxClass(eff.polarity), isBlockedEffectAnimating('player', eff.type) ? 'effect-blocked-shake' : '']"
-              :aria-label="`${getEffectName(eff.type)}: ${getEffectDescription(eff.type)}`"
+              :aria-label="`${getEffectInstanceName(eff)}: ${getEffectDescription(eff.type)}`"
               @mouseenter="showEffectTooltip($event, eff, 'right')"
               @mouseleave="hideEffectTooltip"
               @focus="showEffectTooltip($event, eff, 'right')"
@@ -690,7 +690,7 @@
                 v-else
                 class="size-3.5"
               />
-              <span v-if="eff.stacks > 1" :key="`player-${eff.type}-stacks-${eff.stacks}`" class="effect-stack-badge">{{ eff.stacks }}</span>
+              <span v-if="eff.stacks > 1" :key="`player-${eff.type}-${eff.temporary ? 'temporary' : 'normal'}-stacks-${eff.stacks}`" class="effect-stack-badge">{{ eff.stacks }}</span>
             </button>
           </TransitionGroup>
         </div>
@@ -772,7 +772,7 @@
         class="pointer-events-none min-h-[200px] w-full flex items-end justify-center pb-6 px-4 space-x-4 relative"
       >
         <!-- Center: Hand Cards -->
-        <div class="combat-hand-anchor relative flex space-x-4 items-end mb-2 z-40 pointer-events-auto">
+        <div class="combat-hand-anchor relative flex space-x-5 items-end mb-2 z-40 pointer-events-auto">
           <div
             v-if="isTwinBattle"
             class="absolute left-1/2 -top-16 -translate-x-1/2 flex gap-2"
@@ -1397,6 +1397,9 @@ const infiniteHpDisplay = {
 const getEffectName = (type: EffectType): string => {
   return EFFECT_REGISTRY[type]?.name ?? String(type);
 };
+const getEffectInstanceName = (effect: Pick<EffectInstance, 'type' | 'temporary'>): string => (
+  effect.temporary ? `临时${getEffectName(effect.type)}` : getEffectName(effect.type)
+);
 const getEffectDescription = (type: EffectType): string => {
   return EFFECT_REGISTRY[type]?.description ?? '';
 };
@@ -1494,28 +1497,22 @@ const effectIconBoxClass = (polarity: EffectPolarity): string => {
 
 // --- Armor computed ---
 const playerArmor = computed(() => {
-  const eff = playerStats.value.effects.find(e => e.type === ET.ARMOR);
-  return eff?.stacks ?? 0;
+  return getEffectStacks(playerStats.value, ET.ARMOR);
 });
 const enemyArmor = computed(() => {
-  const eff = enemyStats.value.effects.find(e => e.type === ET.ARMOR);
-  return eff?.stacks ?? 0;
+  return getEffectStacks(enemyStats.value, ET.ARMOR);
 });
 const playerPoisonAmount = computed(() => {
-  const eff = playerStats.value.effects.find(e => e.type === ET.POISON_AMOUNT);
-  return eff?.stacks ?? 0;
+  return getEffectStacks(playerStats.value, ET.POISON_AMOUNT);
 });
 const enemyPoisonAmount = computed(() => {
-  const eff = enemyStats.value.effects.find(e => e.type === ET.POISON_AMOUNT);
-  return eff?.stacks ?? 0;
+  return getEffectStacks(enemyStats.value, ET.POISON_AMOUNT);
 });
 const playerTempMaxHp = computed(() => {
-  const eff = playerStats.value.effects.find(e => e.type === ET.TEMP_MAX_HP);
-  return eff?.stacks ?? 0;
+  return getEffectStacks(playerStats.value, ET.TEMP_MAX_HP);
 });
 const enemyTempMaxHp = computed(() => {
-  const eff = enemyStats.value.effects.find(e => e.type === ET.TEMP_MAX_HP);
-  return eff?.stacks ?? 0;
+  return getEffectStacks(enemyStats.value, ET.TEMP_MAX_HP);
 });
 const playerPoisonAmountPercent = computed(() => {
   if (playerStats.value.maxHp <= 0) return 0;
@@ -2057,6 +2054,13 @@ const combatRootStyle = computed(() => ({
 }));
 const floatingNumbers = ref<FloatingNumberEntry[]>([]);
 const pendingCardNegativeEffects = ref<string[]>([]);
+interface PendingNextTurnCardEffects {
+  source: BattleSide;
+  card: CardData;
+  finalPoint: number;
+  selfEntity: EntityStats;
+}
+const pendingNextTurnCardEffects = ref<PendingNextTurnCardEffects[]>([]);
 const STATUS_PHEROMONE = '[信息素]';
 const STATUS_LUST_MARK = '[淫纹]';
 const STATUS_LUST_KNOWLEDGE = '[淫乱知识]';
@@ -2590,6 +2594,10 @@ const addDirectDamageTakenThisTurn = (side: BattleSide, amount: number) => {
 
 const hasTakenDirectDamageThisTurn = (side: BattleSide): boolean => (
   Math.max(0, Math.floor(directDamageTakenThisTurn.value[side] ?? 0)) > 0
+);
+
+const hasTakenDamageThisTurn = (side: BattleSide): boolean => (
+  Math.max(0, Math.floor(damageHitTakenThisTurn.value[side] ?? 0)) > 0
 );
 
 const clampDreamControl = (value: number): number => (
@@ -3422,6 +3430,7 @@ const applyStatusEffectWithRelics = (
     source: options?.source,
     lockDecayThisTurn: options?.lockDecayThisTurn,
     durationTurns: options?.durationTurns,
+    temporary: options?.temporary,
   });
   if (applied && effectType === ET.ARMOR) {
     const armorGained = Math.max(0, getEffectStacks(target, ET.ARMOR) - armorBeforeApply);
@@ -3498,6 +3507,7 @@ const createPlayerLifecycleContext = (
       restrictedTypes: options?.restrictedTypes,
       lockDecayThisTurn: options?.lockDecayThisTurn,
       durationTurns: options?.durationTurns,
+      temporary: options?.temporary,
     })
   ),
   addArmor: addArmorForSide,
@@ -4581,6 +4591,16 @@ const cardEffectMatchesTrigger = (effectTrigger: CardEffectTrigger[] | undefined
   return effectTrigger.includes(trigger);
 };
 
+const queueNextTurnStartCardEffects = (
+  source: BattleSide,
+  card: CardData,
+  finalPoint: number,
+  selfEntity: EntityStats,
+) => {
+  if (!card.cardEffects.some(ce => cardEffectMatchesTrigger(ce.triggers, 'on_next_turn_start'))) return;
+  pendingNextTurnCardEffects.value.push({ source, card, finalPoint, selfEntity });
+};
+
 const applyCardEffectsByTrigger = (
   source: BattleSide,
   card: CardData,
@@ -4597,6 +4617,8 @@ const applyCardEffectsByTrigger = (
     on_dodge_success: '闪避成功',
     on_opponent_skip: '对方跳过回合',
     on_no_direct_damage_taken_this_turn: '本回合未受到直接伤害',
+    on_no_damage_taken_this_turn: '本回合未受到伤害',
+    on_next_turn_start: '下回合开始',
     on_turn_end_in_hand: '回合结束时保留在手牌中',
   };
   let hasEffect = false;
@@ -4702,6 +4724,7 @@ const applyCardEffectsByTrigger = (
         restrictedTypes: ce.restrictedTypes,
         source: card.id,
         durationTurns: ce.durationTurns,
+        temporary: ce.temporary,
         lockDecayThisTurn: ce.effectType === ET.BIND
           || ce.effectType === ET.SILENCE
           || ce.effectType === ET.STUN
@@ -4731,7 +4754,7 @@ const applyCardEffectsByTrigger = (
         const actualMaxHpGain = Math.max(0, targetEntity.maxHp - beforeMaxHp);
         log(`<span class="text-rose-300">${label}【${card.name}】使目标临时生命上限 +${actualMaxHpGain}</span>`);
       } else {
-        log(`<span class="text-yellow-400">${label}【${card.name}】获得了 ${stacks} 层${EFFECT_REGISTRY[ce.effectType!]?.name ?? ce.effectType}</span>`);
+        log(`<span class="text-yellow-400">${label}【${card.name}】获得了 ${stacks} 层${getEffectInstanceName({ type: ce.effectType!, temporary: ce.temporary })}</span>`);
       }
       hasEffect = true;
     } else if (ce.kind === 'restore_mana') {
@@ -4791,6 +4814,34 @@ const applyCardEffectsByTrigger = (
   }
 
   return hasEffect;
+};
+
+const applyPendingNextTurnCardEffects = () => {
+  const pendingEffects = pendingNextTurnCardEffects.value;
+  pendingNextTurnCardEffects.value = [];
+  for (const pending of pendingEffects) {
+    const shouldUseEnemyOverride = pending.source === 'enemy';
+    const previousEnemyTargetOverride = leviathanEnemyTargetOverride.value;
+    const previousEnemySourceOverride = leviathanEnemySourceOverride.value;
+    const previousEnemySelfOverride = leviathanEnemySelfOverride.value;
+    if (shouldUseEnemyOverride) {
+      leviathanEnemyTargetOverride.value = pending.selfEntity;
+      leviathanEnemySourceOverride.value = pending.selfEntity;
+      leviathanEnemySelfOverride.value = pending.selfEntity;
+    }
+    try {
+      applyCardEffectsByTrigger(
+        pending.source,
+        pending.card,
+        pending.finalPoint,
+        'on_next_turn_start',
+      );
+    } finally {
+      leviathanEnemyTargetOverride.value = previousEnemyTargetOverride;
+      leviathanEnemySourceOverride.value = previousEnemySourceOverride;
+      leviathanEnemySelfOverride.value = previousEnemySelfOverride;
+    }
+  }
 };
 
 const triggerShadowAssaultDamage = (
@@ -5051,17 +5102,21 @@ const transferDebuffsBetweenSides = (from: BattleSide, to: BattleSide): number =
       restrictedTypes: effect.restrictedTypes ? [...effect.restrictedTypes] : undefined,
       runtimeCounter: effect.runtimeCounter,
       durationTurnsRemaining: effect.durationTurnsRemaining,
+      temporary: effect.temporary,
     }));
 
   for (const effect of debuffs) {
-    removeEffect(sourceStats, effect.type);
+    removeEffect(sourceStats, effect.type, effect.temporary === true);
     applyEffect(targetStats, effect.type, effect.stacks, {
       source: effect.source,
       lockDecayThisTurn: effect.lockDecayThisTurn,
       restrictedTypes: effect.restrictedTypes,
       durationTurns: effect.durationTurnsRemaining,
+      temporary: effect.temporary,
     });
-    const transferredEffect = targetStats.effects.find((entry) => entry.type === effect.type);
+    const transferredEffect = targetStats.effects.find((entry) => (
+      entry.type === effect.type && !!entry.temporary === !!effect.temporary
+    ));
     if (transferredEffect) {
       transferredEffect.runtimeCounter = effect.runtimeCounter;
       transferredEffect.durationTurnsRemaining = effect.durationTurnsRemaining;
@@ -6555,7 +6610,7 @@ const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance,
   effectTooltip.value = {
     x,
     y: top,
-    name: getEffectName(effect.type),
+    name: getEffectInstanceName(effect),
     description: getEffectDescription(effect.type),
     stacks: effect.stacks,
     align,
@@ -8503,6 +8558,7 @@ watch(
       applyTwinDreamControlThresholds();
       activateLeviathanMirrorSeaOathIfPending();
       activateLeviathanTidalLockIfPending();
+      applyPendingNextTurnCardEffects();
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
         for (const [side, label, stats] of [['player', '我方', playerStats], ['enemy', '敌方', enemyStats]] as const) {
@@ -9637,6 +9693,7 @@ const resolveCombat = async (
 
     // Calculate final point for this card
     const finalPoint = getCardFinalPoint(source, card, baseDice);
+    queueNextTurnStartCardEffects(source, card, finalPoint, attacker);
     const applyCardExtraAttributes = () => {
       const selfDamage = resolveCardSelfDamage(card);
       if (selfDamage) {
@@ -9920,6 +9977,9 @@ const resolveCombat = async (
     }
     if (!hasTakenDirectDamageThisTurn(source)) {
       applyCardEffects('on_no_direct_damage_taken_this_turn');
+    }
+    if (!hasTakenDamageThisTurn(source)) {
+      applyCardEffects('on_no_damage_taken_this_turn');
     }
     triggerLowTempEngraverOnFunctionPlay();
 
@@ -13471,7 +13531,7 @@ watch(
 }
 
 .combat-hand-anchor {
-  transform: translateX(-2.5rem) scale(1.37);
+  transform: translateX(-2.5rem) scale(1.46);
   transform-origin: bottom;
 }
 
@@ -13526,7 +13586,7 @@ watch(
   --enemy-shell-width: 26rem;
   --enemy-shell-height: 42rem;
   --enemy-intent-left-ratio: -1.2307692308;
-  --enemy-intent-top-ratio: -0.2857142857;
+  --enemy-intent-top-ratio: -0.3214285714;
   --enemy-dice-left-ratio: -0.5336538462;
   --enemy-dice-top-ratio: 0.1636904762;
   --enemy-status-margin-right-ratio: 0.3461538462;

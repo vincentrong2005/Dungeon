@@ -3798,6 +3798,12 @@ const OTHELLO_CARD = {
   STAR_HIDDEN: 'enemy_othello_star_hidden',
 } as const;
 
+const CRYSTAL_HEDGEHOG_CARD = {
+  SPIKED_CHARGE: 'enemy_crystal_hedgehog_spiked_charge',
+  CRYSTAL_PIERCE: 'enemy_crystal_hedgehog_crystal_pierce',
+  SPHERICAL_ROLLBACK: 'enemy_crystal_hedgehog_spherical_rollback',
+} as const;
+
 const getOthelloFinalPoint = (
   ctx: EnemyAIContext,
   source: 'player' | 'enemy',
@@ -4423,6 +4429,38 @@ const 祈祷烛灵: EnemyDefinition = {
   },
 };
 
+const 晶体刺猬: EnemyDefinition = {
+  name: '晶体刺猬',
+  stats: {
+    hp: 80,
+    maxHp: 80,
+    mp: 0,
+    minDice: 4,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.THORNS, stacks: 3, polarity: 'buff' },
+      { type: EffectType.MIRROR_SWARM, stacks: 2, polarity: 'buff' },
+      { type: EffectType.LIGHTNING_ATTACH, stacks: 2, polarity: 'buff' },
+      { type: EffectType.STURDY, stacks: 5, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    CRYSTAL_HEDGEHOG_CARD.SPIKED_CHARGE,
+    CRYSTAL_HEDGEHOG_CARD.CRYSTAL_PIERCE,
+    CRYSTAL_HEDGEHOG_CARD.SPHERICAL_ROLLBACK,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const cycle = Math.max(0, Math.floor(Number(ctx.flags.crystalHedgehogCycle ?? 0))) % 3;
+    const cardIds = [
+      CRYSTAL_HEDGEHOG_CARD.SPIKED_CHARGE,
+      CRYSTAL_HEDGEHOG_CARD.CRYSTAL_PIERCE,
+      CRYSTAL_HEDGEHOG_CARD.SPHERICAL_ROLLBACK,
+    ] as const;
+    ctx.flags.crystalHedgehogCycle = (cycle + 1) % cardIds.length;
+    return pickCardById(ctx, cardIds[cycle]);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
@@ -4506,6 +4544,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [墨团怪.name, 墨团怪],
   [触手羽毛笔.name, 触手羽毛笔],
   [书魔.name, 书魔],
+  [晶体刺猬.name, 晶体刺猬],
 ]);
 
 const ENEMY_NAME_ORDER: readonly string[] = [沐芯兰名称, 宝箱怪名称, ...STATIC_ENEMY_REGISTRY.keys()];

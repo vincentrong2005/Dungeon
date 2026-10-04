@@ -1,3 +1,4 @@
+<!-- eslint-disable better-tailwindcss/no-unknown-classes, better-tailwindcss/no-concatenated-classes -->
 <template>
   <!-- Face Down Card -->
   <div
@@ -17,18 +18,20 @@
     class="dungeon-card relative w-40 h-60 cursor-pointer shadow-2xl transition-all duration-300"
     :class="[
       `card-tone--${frameType}`,
-      isRareCard ? 'rare-card-glow' : '',
       hasGluttonyEnchant ? 'gluttony-card-glow' : '',
       selected ? 'ring-4 ring-dungeon-gold -translate-y-6 scale-105 z-20' : 'hover:-translate-y-2 hover:z-10',
-      disabled ? 'opacity-80 !cursor-default' : '',
+      disabled ? 'opacity-80 cursor-default!' : '',
       className,
     ]"
     @click="!disabled && $emit('click')"
   >
-    <CardFrameSkin :type="frameType" />
+    <CardFrameSkin :type="frameType" :rare="isRareCard" />
+    <span v-if="showManaBadge && frameType === 'magic'" class="card-gem-cost">
+      <span class="card-gem-cost__value">{{ card.manaCost }}</span>
+    </span>
     <div class="card-face">
       <div class="card-face-heading">
-        <span v-if="showManaBadge" class="card-face-cost">{{ card.manaCost }}</span>
+        <span v-if="showManaBadge && frameType !== 'magic'" class="card-face-cost">{{ card.manaCost }}</span>
         <h3 class="card-face-name" :title="displayName">{{ displayName }}</h3>
       </div>
       <div class="card-face-emblem">
@@ -36,6 +39,7 @@
       </div>
       <CardRulesPanel
         class="card-face-rules"
+        :class="{ 'card-face-rules--enemy': isEnemy }"
         :title="displayName"
         :description="displayDescription"
         :traits="maskLevel === 'none' ? card.traits : null"
@@ -47,7 +51,6 @@
         :gluttony-enchanted="hasGluttonyEnchant"
         surface-class="card-face-rules-surface"
       />
-      <div class="card-face-type">{{ displayTypeText }}</div>
     </div>
   </div>
 </template>
@@ -124,9 +127,6 @@ const typeIcon = computed(() => {
 
 const displayName = computed(() => (props.maskLevel === 'none' ? props.card.name : '???'));
 const displayDescription = computed(() => (props.maskLevel === 'none' ? props.card.description : '???'));
-const displayTypeText = computed(() =>
-  props.maskLevel === 'full' || props.maskLevel === 'void' ? '?' : props.card.type,
-);
 const showManaBadge = computed(
   () =>
     props.maskLevel === 'none' &&
@@ -152,7 +152,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face {
   position: absolute;
   z-index: 2;
-  inset: 22% 21% 24%;
+  inset: 20% 21% 19%;
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -171,7 +171,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face-heading {
   position: relative;
   display: flex;
-  min-height: 31px;
+  min-height: 37px;
   align-items: center;
   justify-content: center;
   padding: 2px 4px;
@@ -194,6 +194,29 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
   font-weight: 800;
 }
 
+.card-gem-cost {
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  width: 30px;
+  height: 24px;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.card-gem-cost__value {
+  color: #fff;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22.5px;
+  font-weight: 900;
+  line-height: 1;
+  -webkit-text-stroke: 1px #000;
+  text-shadow: 0 1px 1px #000, 0 0 3px #000, 0 0 5px rgba(75, 185, 255, 0.72);
+}
+
 .card-face-name {
   display: -webkit-box;
   overflow: hidden;
@@ -206,6 +229,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
   line-height: 1.2;
   text-shadow: 0 1px 2px #000;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
 }
 
@@ -230,6 +254,10 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
   overflow: hidden;
 }
 
+.card-face-rules--enemy {
+  pointer-events: auto;
+}
+
 .card-face-rules :deep(.card-face-rules-surface) {
   height: 100%;
   max-height: none;
@@ -244,27 +272,6 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face-rules :deep(.card-face-rules-surface > div) {
   height: 100%;
   max-height: none;
-  scrollbar-width: thin;
-}
-
-.card-face-type {
-  flex: 0 0 14px;
-  border-top: 1px solid rgba(var(--card-accent), 0.3);
-  color: rgb(var(--card-accent));
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
-}
-
-.rare-card-glow::after {
-  content: '';
-  position: absolute;
-  inset: 12% 13%;
-  z-index: 5;
-  border-radius: 10px;
-  box-shadow: 0 0 18px rgba(250, 204, 21, 0.3);
-  pointer-events: none;
 }
 
 .gluttony-card-glow {

@@ -80,6 +80,8 @@ export type CardEffectTrigger =
   | 'on_dodge_success'
   | 'on_opponent_skip'
   | 'on_no_direct_damage_taken_this_turn'
+  | 'on_no_damage_taken_this_turn'
+  | 'on_next_turn_start'
   | 'on_turn_end_in_hand';
 
 /** 卡牌打出时附带的效果 */
@@ -114,6 +116,8 @@ export interface CardEffect {
   scale?: number;
   /** 持续回合数：仅对 apply_buff 生效，到回合结束时递减，归零后移除 */
   durationTurns?: number;
+  /** 临时效果：回合结束时自动移除，并与同类型的普通效果分开叠加 */
+  temporary?: boolean;
   /** damage 专用：是否视为真实伤害 */
   isTrueDamage?: boolean;
   /** damage 专用：是否计入直接伤害 */
@@ -436,6 +440,8 @@ export interface EffectInstance {
   mercyCardType?: CardType;
   /** 剩余持续回合数（可选，回合结束时递减） */
   durationTurnsRemaining?: number;
+  /** 临时效果：回合结束时自动移除，并与同类型的普通效果分开显示 */
+  temporary?: boolean;
 }
 
 // ── 游戏阶段枚举 ──────────────────────────────────────────────

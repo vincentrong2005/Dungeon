@@ -9761,6 +9761,75 @@ const 奥赛罗_陨: CardData = {
   description: '自伤10%最大生命值。',
 };
 
+/** 刺壳蓄能：获得点数护甲、1层增伤、0.5倍点数蓄力，以及下回合开始时生效的临时荆棘。 */
+const 晶体刺猬_刺壳蓄能: CardData = {
+  id: 'enemy_crystal_hedgehog_spiked_charge',
+  name: '刺壳蓄能',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 0.5 },
+    {
+      triggers: ['on_next_turn_start'],
+      kind: 'apply_buff',
+      effectType: EffectType.THORNS,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 7,
+      temporary: true,
+    },
+  ],
+  description: '点数*3.0。获得等同最终点数的护甲、1层增伤、0.5倍最终点数蓄力，下回合开始时获得7层临时荆棘。',
+};
+
+/** 水晶穿刺：三段物理伤害，成功生效后施加圣痕。 */
+const 晶体刺猬_水晶穿刺: CardData = {
+  id: 'enemy_crystal_hedgehog_crystal_pierce',
+  name: '水晶穿刺',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.3, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STIGMATA, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '点数*1.0，造成0.3倍最终点数伤害，3连击；施加2层圣痕。',
+};
+
+/** 球形回滚：闪避，并在本回合未受到伤害时回复自身最大生命值的20%。 */
+const 晶体刺猬_球形回滚: CardData = {
+  id: 'enemy_crystal_hedgehog_spherical_rollback',
+  name: '球形回滚',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -3 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_damage_taken_this_turn'],
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'max_hp_percent',
+      scale: 0.2,
+    },
+  ],
+  description: '点数-3，闪避；若本回合未受到伤害，回复自身20%最大生命值。',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -10264,6 +10333,9 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [奥赛罗_寒星.name, 奥赛罗_寒星],
   [奥赛罗_星隐.name, 奥赛罗_星隐],
   [奥赛罗_陨.name, 奥赛罗_陨],
+  [晶体刺猬_刺壳蓄能.name, 晶体刺猬_刺壳蓄能],
+  [晶体刺猬_水晶穿刺.name, 晶体刺猬_水晶穿刺],
+  [晶体刺猬_球形回滚.name, 晶体刺猬_球形回滚],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

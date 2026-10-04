@@ -40,11 +40,15 @@ export function calculateFinalPoint(ctx: PointCalculationContext): number {
   // Step 5-6: 全局加算修正
   point += relicModifiers.globalAddition;
 
-  const solitude = ctx.entityEffects.find(e => e.type === EffectType.SOLITUDE)?.stacks ?? 0;
+  const solitude = ctx.entityEffects
+    .filter(effect => effect.type === EffectType.SOLITUDE)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (card.id !== 'pass' && solitude > 0) point += solitude;
 
-  const mercy = (ctx.opponentEffects ?? []).find(e => e.type === EffectType.MERCY && e.mercyCardType === card.type);
-  if (card.id !== 'pass' && mercy && mercy.stacks > 0) point *= 0.5;
+  const mercy = (ctx.opponentEffects ?? [])
+    .filter(effect => effect.type === EffectType.MERCY && effect.mercyCardType === card.type)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
+  if (card.id !== 'pass' && mercy > 0) point *= 0.5;
 
   return Math.max(0, Math.floor(point));
 }
@@ -141,18 +145,26 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   const isTrueDamage = ctx.isTrueDamage ?? false;
 
   // 寒冷减伤
-  const cold = ctx.attackerEffects.find(e => e.type === EffectType.COLD)?.stacks ?? 0;
+  const cold = ctx.attackerEffects
+    .filter(effect => effect.type === EffectType.COLD)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (cold > 0) { damage -= cold; logs.push(`[寒冷] -${cold}`); }
 
   // 增伤加算（仅直接攻击伤害链路）
-  const damageBoost = ctx.attackerEffects.find(e => e.type === EffectType.DAMAGE_BOOST)?.stacks ?? 0;
+  const damageBoost = ctx.attackerEffects
+    .filter(effect => effect.type === EffectType.DAMAGE_BOOST)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (damageBoost > 0) { damage += damageBoost; logs.push(`[增伤] +${damageBoost}`); }
 
-  const attackerCoDance = ctx.attackerEffects.find(e => e.type === EffectType.CO_DANCE)?.stacks ?? 0;
+  const attackerCoDance = ctx.attackerEffects
+    .filter(effect => effect.type === EffectType.CO_DANCE)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (attackerCoDance > 0) { damage += attackerCoDance; logs.push(`[共舞] 造成伤害 +${attackerCoDance}`); }
 
   // 虚弱减算（仅直接攻击伤害链路）
-  const weaken = ctx.attackerEffects.find(e => e.type === EffectType.WEAKEN)?.stacks ?? 0;
+  const weaken = ctx.attackerEffects
+    .filter(effect => effect.type === EffectType.WEAKEN)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (weaken > 0) { damage -= weaken; logs.push(`[虚弱] -${weaken}`); }
 
   // 非实体：仅影响当前卡牌造成的直接物理/魔法伤害
@@ -184,14 +196,18 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
     logs.push('[虹膜：猩红] 受到伤害 x1.25');
   }
 
-  const fantasyEmbrace = ctx.defenderEffects.find(e => e.type === EffectType.FANTASY_EMBRACE)?.stacks ?? 0;
+  const fantasyEmbrace = ctx.defenderEffects
+    .filter(effect => effect.type === EffectType.FANTASY_EMBRACE)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (fantasyEmbrace > 0) {
     const reductionRate = Math.min(1, fantasyEmbrace * 0.12);
     damage *= Math.max(0, 1 - reductionRate);
     logs.push(`[虚妄之拥] 受到伤害 x${Math.max(0, 1 - reductionRate).toFixed(2)}`);
   }
 
-  const defenderCoDance = ctx.defenderEffects.find(e => e.type === EffectType.CO_DANCE)?.stacks ?? 0;
+  const defenderCoDance = ctx.defenderEffects
+    .filter(effect => effect.type === EffectType.CO_DANCE)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (defenderCoDance > 0) { damage += defenderCoDance; logs.push(`[共舞] 受到伤害 +${defenderCoDance}`); }
 
   if (isTrueDamage) {
@@ -200,11 +216,15 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   }
 
   // 敏感仅影响非真实伤害
-  const vuln = ctx.defenderEffects.find(e => e.type === EffectType.VULNERABLE)?.stacks ?? 0;
+  const vuln = ctx.defenderEffects
+    .filter(effect => effect.type === EffectType.VULNERABLE)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (vuln > 0) { damage += vuln; logs.push(`[敏感] +${vuln}`); }
 
   // 坚固固定减伤
-  const sturdy = ctx.defenderEffects.find(e => e.type === EffectType.STURDY)?.stacks ?? 0;
+  const sturdy = ctx.defenderEffects
+    .filter(effect => effect.type === EffectType.STURDY)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (sturdy > 0) { damage -= sturdy; logs.push(`[坚固] -${sturdy}`); }
 
   // 结界的“抵挡并消耗”在 applyDamageToEntity 里处理，这里只记录提示
@@ -213,7 +233,9 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   }
 
   // 护甲的实际消耗由 applyDamageToEntity 处理，这里只做预览提示
-  const armor = ctx.defenderEffects.find(e => e.type === EffectType.ARMOR)?.stacks ?? 0;
+  const armor = ctx.defenderEffects
+    .filter(effect => effect.type === EffectType.ARMOR)
+    .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
   if (armor > 0) { logs.push(`[护甲] 对方有 ${armor} 层护甲`); }
 
   return { damage: Math.max(0, Math.floor(damage)), isTrueDamage: false, logs };

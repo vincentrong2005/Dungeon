@@ -8240,6 +8240,12 @@ const exitCurrentCombatOverlay = () => {
   activeCombatContext.value = 'normal';
 };
 
+const canEnterCombat = () => {
+  if (displayHp.value > 0) return true;
+  toastr.warning('血量为 0，无法进入战斗。');
+  return false;
+};
+
 const launchCombat = async (
   enemyName: string,
   context: CombatContext,
@@ -8248,6 +8254,7 @@ const launchCombat = async (
     testStartAt999?: boolean;
   },
 ): Promise<boolean> => {
+  if (!canEnterCombat()) return false;
   const ready = await preparePlayerForCombatStart(options?.roomTypeOverride);
   if (!ready) return false;
 
@@ -8769,7 +8776,8 @@ const handleChestCenterClick = async () => {
   queueChestMimicCombatTransition();
 };
 
-const startCombatFromSpecialOption = async () => {
+const startCombatFromSpecialOption = async (): Promise<boolean> => {
+  if (!canEnterCombat()) return false;
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
   const area = ((gameStore.statData._当前区域 as string) || '').trim();
 
@@ -8778,12 +8786,12 @@ const startCombatFromSpecialOption = async () => {
     enemyName = roomType === '领主房' ? (pickLordMonsterByArea(area) ?? '') : (pickBattleMonsterByArea(area) ?? '');
     if (!enemyName) {
       toastr.warning('当前未找到可战斗的对手。');
-      return;
+      return false;
     }
     const ok = await gameStore.updateStatDataFields({ _对手名称: enemyName });
-    if (!ok) return;
+    if (!ok) return false;
   }
-  await launchCombat(enemyName, 'normal', { roomTypeOverride: roomType });
+  return await launchCombat(enemyName, 'normal', { roomTypeOverride: roomType });
 };
 
 const handleSpecialOption = async () => {
@@ -8791,23 +8799,26 @@ const handleSpecialOption = async () => {
     openShopView();
     return;
   }
-  markCurrentSpecialConsumed();
   if (isTreasureRoomContext.value) {
+    markCurrentSpecialConsumed();
     openChestView();
     return;
   }
   if (isHotSpringRoomContext.value) {
+    markCurrentSpecialConsumed();
     await useHotSpringCleanse();
     return;
   }
   if (isIdolRoomContext.value) {
+    markCurrentSpecialConsumed();
     openIdolView();
     return;
   }
   if (isCombatRoomContext.value) {
-    await startCombatFromSpecialOption();
+    if (await startCombatFromSpecialOption()) markCurrentSpecialConsumed();
     return;
   }
+  markCurrentSpecialConsumed();
   toastr.info('功能开发中...');
 };
 

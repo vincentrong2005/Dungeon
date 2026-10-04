@@ -34,6 +34,12 @@
 
         <div class="battle-tutorial-hero">
           <div class="battle-tutorial-board">
+            <div class="tutorial-tool-stack" aria-hidden="true">
+              <span class="tutorial-tool-icon"><MainButtonSkin skin="settings" /></span>
+              <span class="tutorial-tool-icon"><MainButtonSkin skin="deck" /></span>
+              <span class="tutorial-tool-icon"><MainButtonSkin skin="inventory" /></span>
+              <span class="tutorial-tool-icon"><MainButtonSkin skin="help" /></span>
+            </div>
             <div class="tutorial-top-turn">
               <span>回合</span>
               <strong>1</strong>
@@ -129,8 +135,8 @@
             </div>
           </div>
           <div class="battle-tutorial-hero-copy">
-            <div class="battle-tutorial-hero-title">战斗界面先读三块。</div>
-            <p>上方看回合与敌方意图；中央看双方骰子；左下看自己的状态栏与主动技能；底部看手牌；右下看敌方状态栏。</p>
+            <div class="battle-tutorial-hero-title">从战场布局认清每个区域。</div>
+            <p>左上角是设置、卡组、背包与信息；上方看回合与敌方意图。左侧是我方肖像、骰子与状态栏，右侧是敌方；底部左侧放主动技能，中央放手牌。</p>
             <p>每回合的核心问题是：敌人接下来要做什么？我这张牌的最终点数是多少？结算后我能不能活到下回合？</p>
           </div>
         </div>
@@ -471,6 +477,7 @@ import type { CardTraits, EffectPolarity, EffectType } from '../types';
 import type { CardFrameType } from './CardFrameSkin.vue';
 import CardFrameSkin from './CardFrameSkin.vue';
 import DungeonModal from './DungeonModal.vue';
+import MainButtonSkin from './MainButtonSkin.vue';
 
 const props = defineProps<{ isOpen: boolean }>();
 defineEmits<{ close: [] }>();
@@ -1027,7 +1034,7 @@ watch(
 }
 
 .battle-tutorial-board {
-  min-height: 18.5rem;
+  min-height: 32rem;
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.5rem;
@@ -1038,6 +1045,23 @@ watch(
     radial-gradient(circle at 77% 45%, rgba(88, 28, 135, 0.34), transparent 30%);
   display: block;
   overflow: hidden;
+}
+
+.tutorial-tool-stack {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.55rem;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.tutorial-tool-icon {
+  position: relative;
+  display: block;
+  width: 2.4rem;
+  height: 2.4rem;
 }
 
 .tutorial-top-turn {
@@ -1077,7 +1101,7 @@ watch(
 
 .tutorial-character--player {
   left: 4.5rem;
-  top: 4.8rem;
+  top: 2.3rem;
   width: 9rem;
   height: 9.6rem;
   border-radius: 45% 45% 26% 26%;
@@ -1088,7 +1112,7 @@ watch(
 
 .tutorial-character--enemy {
   right: 4.2rem;
-  top: 3.5rem;
+  top: 2.5rem;
   width: 10.5rem;
   height: 11.8rem;
   border-radius: 48% 48% 34% 34%;
@@ -1110,8 +1134,8 @@ watch(
 
 .tutorial-intent-card--center {
   position: absolute;
-  left: 50%;
-  top: 3.7rem;
+  left: 52%;
+  top: 3.6rem;
   z-index: 4;
   transform: translateX(-50%);
   width: 7.4rem;
@@ -1119,22 +1143,22 @@ watch(
 
 .tutorial-dice-player {
   position: absolute;
-  left: 25%;
-  top: 43%;
+  left: 32%;
+  top: 12rem;
   z-index: 4;
 }
 
 .tutorial-dice-enemy {
   position: absolute;
-  right: 30%;
-  top: 48%;
+  right: 31%;
+  top: 14.5rem;
   z-index: 4;
 }
 
 .battle-tutorial-board > .tutorial-status-panel--player {
   position: absolute;
   left: 1rem;
-  bottom: 5.15rem;
+  bottom: 10.2rem;
   z-index: 5;
   width: 12.6rem;
 }
@@ -1150,7 +1174,7 @@ watch(
 .tutorial-active-row {
   position: absolute;
   left: 1rem;
-  bottom: 1rem;
+  bottom: 0.8rem;
   z-index: 6;
   display: flex;
   gap: 0.45rem;
@@ -1977,7 +2001,7 @@ watch(
   }
 
   .battle-tutorial-board {
-    min-height: 47rem;
+    min-height: 51rem;
     aspect-ratio: auto;
   }
 
@@ -1999,44 +2023,50 @@ watch(
   }
 
   .tutorial-intent-card--center {
-    left: 50%;
+    left: auto;
+    right: 1rem;
     top: 3.6rem;
+    transform: none;
   }
 
   .tutorial-dice-player {
-    left: 24%;
-    top: 13rem;
+    left: 30%;
+    top: 27.5rem;
   }
 
   .tutorial-dice-enemy {
-    right: 24%;
-    top: 13rem;
+    left: 24%;
+    right: auto;
+    top: 10.5rem;
   }
 
   .battle-tutorial-board > .tutorial-status-panel--player {
     left: 1rem;
-    top: 17rem;
+    top: 32rem;
     bottom: auto;
     width: calc(100% - 2rem);
   }
 
   .tutorial-active-row {
     left: 1rem;
-    top: 28.7rem;
-    bottom: auto;
+    top: auto;
+    bottom: 0.8rem;
   }
 
   .battle-tutorial-board > .battle-tutorial-hand {
-    left: 50%;
-    top: 36.1rem;
-    bottom: auto;
-    transform: translateX(-50%);
+    left: auto;
+    right: 0.65rem;
+    top: auto;
+    bottom: 1.4rem;
+    transform: scale(0.82);
+    transform-origin: bottom right;
   }
 
   .battle-tutorial-board > .tutorial-status-panel--enemy {
     left: 1rem;
     right: auto;
-    bottom: 1rem;
+    top: 16rem;
+    bottom: auto;
     width: calc(100% - 2rem);
   }
 
