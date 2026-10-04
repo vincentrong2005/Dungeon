@@ -92,7 +92,7 @@ const footerToneClass = computed(() => {
 .active-face {
   position: absolute;
   z-index: 2;
-  inset: 22% 21% 24%;
+  inset: 17% 21% 16%;
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -104,9 +104,10 @@ const footerToneClass = computed(() => {
 
 .active-face-heading {
   display: flex;
-  min-height: 22px;
+  min-height: 35px;
   align-items: center;
   justify-content: space-between;
+  padding-top: 12px;
   border-bottom: 1px solid rgba(199, 216, 244, 0.35);
   font-size: 10px;
   font-weight: 700;
@@ -198,7 +199,7 @@ const footerToneClass = computed(() => {
   color: #aab5c9;
 }
 
-.active-skill-card--compact .active-face-heading { min-height: 17px; }
+.active-skill-card--compact .active-face-heading { min-height: 26px; padding-top: 9px; }
 .active-skill-card--compact .active-face-name { font-size: 9px; max-height: 23px; margin-top: 2px; }
 .active-skill-card--compact .active-face-emblem { height: 17px; flex-basis: 17px; }
 .active-skill-card--compact .active-face-icon { width: 14px; height: 14px; }

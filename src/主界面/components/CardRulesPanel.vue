@@ -16,9 +16,9 @@
     >
       <div
         class="card-rules-scroll overflow-y-auto whitespace-pre-wrap"
-        :class="[compact ? 'max-h-[32px]' : 'max-h-[60px]', centered ? 'text-center' : '', descClass]"
+        :class="[compact ? 'max-h-[32px]' : 'max-h-[60px]', centered ? 'card-rules-scroll--centered text-center' : '', descClass]"
       >
-        <div :class="centered ? 'flex min-h-full flex-col justify-center' : ''">{{ description }}</div>
+        <div>{{ description }}</div>
       </div>
     </div>
 
@@ -289,6 +289,15 @@ onBeforeUnmount(() => {
   overscroll-behavior: contain;
   scrollbar-width: none;
   touch-action: pan-y;
+}
+
+.card-rules-scroll--centered {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-rules-scroll--centered > div {
+  margin-block: auto;
 }
 
 .card-rules-scroll::-webkit-scrollbar {

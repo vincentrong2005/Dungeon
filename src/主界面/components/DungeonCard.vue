@@ -40,6 +40,7 @@
       </div>
       <CardRulesPanel
         class="card-face-rules"
+        :class="{ 'card-face-rules--enemy': isEnemy }"
         :title="displayName"
         :description="displayDescription"
         :traits="maskLevel === 'none' ? card.traits : null"
@@ -51,7 +52,6 @@
         :gluttony-enchanted="hasGluttonyEnchant"
         surface-class="card-face-rules-surface"
       />
-      <div class="card-face-type">{{ displayTypeText }}</div>
     </div>
   </div>
 </template>
@@ -128,9 +128,6 @@ const typeIcon = computed(() => {
 
 const displayName = computed(() => (props.maskLevel === 'none' ? props.card.name : '???'));
 const displayDescription = computed(() => (props.maskLevel === 'none' ? props.card.description : '???'));
-const displayTypeText = computed(() =>
-  props.maskLevel === 'full' || props.maskLevel === 'void' ? '?' : props.card.type,
-);
 const showManaBadge = computed(
   () =>
     props.maskLevel === 'none' &&
@@ -156,7 +153,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face {
   position: absolute;
   z-index: 2;
-  inset: 22% 21% 24%;
+  inset: 20% 21% 19%;
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -175,7 +172,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face-heading {
   position: relative;
   display: flex;
-  min-height: 31px;
+  min-height: 37px;
   align-items: center;
   justify-content: center;
   padding: 2px 4px;
@@ -277,6 +274,10 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
   overflow: hidden;
 }
 
+.card-face-rules--enemy {
+  pointer-events: auto;
+}
+
 .card-face-rules :deep(.card-face-rules-surface) {
   height: 100%;
   max-height: none;
@@ -291,16 +292,6 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face-rules :deep(.card-face-rules-surface > div) {
   height: 100%;
   max-height: none;
-}
-
-.card-face-type {
-  flex: 0 0 14px;
-  border-top: 1px solid rgba(var(--card-accent), 0.3);
-  color: rgb(var(--card-accent));
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 14px;
-  text-align: center;
 }
 
 .rare-card-glow::after {
