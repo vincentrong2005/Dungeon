@@ -944,7 +944,7 @@
               ref="mapViewportRef"
               class="map-viewport"
               @wheel.prevent="handleMapWheel"
-              @pointerdown.capture="handleMapPointerDown"
+              @pointerdown="handleMapPointerDown"
               @pointermove="handleMapPointerMove"
               @pointerup="handleMapPointerUp"
               @pointercancel="handleMapPointerUp"
