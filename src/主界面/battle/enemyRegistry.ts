@@ -366,6 +366,14 @@ const DORM_GHOST_CARD = {
   PHANTOM: 'enemy_whisper_ghost_phantom',
 } as const;
 
+const PENITENT_GHOST_CARD = {
+  INTO_MIRROR: 'enemy_penitent_ghost_into_mirror',
+  SPIRIT_EMBRACE: 'enemy_penitent_ghost_spirit_embrace',
+  MIRROR_LURE: 'enemy_penitent_ghost_mirror_lure',
+  EXPERIENCE_INFUSION: 'enemy_penitent_ghost_experience_infusion',
+  INTERNAL_FOREIGN_BODY: 'enemy_penitent_ghost_internal_foreign_body',
+} as const;
+
 const CHAIR_MIMIC_CARD = {
   SILENT_DISGUISE: 'enemy_chair_mimic_silent_disguise',
   ARMREST_BIND: 'enemy_chair_mimic_armrest_bind',
@@ -2936,6 +2944,48 @@ const 低语幽灵: EnemyDefinition = {
   },
 };
 
+const 苦修幽灵: EnemyDefinition = {
+  name: '苦修幽灵',
+  stats: {
+    hp: 150,
+    maxHp: 150,
+    mp: 2,
+    minDice: 6,
+    maxDice: 14,
+    effects: [
+      { type: EffectType.DAMAGE_LIMIT, stacks: { maxHpRatio: 0.1 }, polarity: 'buff' },
+      { type: EffectType.STURDY, stacks: 2, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+      { type: EffectType.NON_LIVING, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    PENITENT_GHOST_CARD.INTO_MIRROR,
+    PENITENT_GHOST_CARD.SPIRIT_EMBRACE,
+    PENITENT_GHOST_CARD.MIRROR_LURE,
+    PENITENT_GHOST_CARD.EXPERIENCE_INFUSION,
+    PENITENT_GHOST_CARD.INTERNAL_FOREIGN_BODY,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const pleasureStacks = ctx.enemyStats.effects.find(effect => effect.type === EffectType.PLEASURE)?.stacks ?? 0;
+    if (pleasureStacks >= 3 && ctx.enemyStats.mp >= 6) {
+      ctx.flags.penitentGhostLastWeightedCardId = PENITENT_GHOST_CARD.EXPERIENCE_INFUSION;
+      return pickCardById(ctx, PENITENT_GHOST_CARD.EXPERIENCE_INFUSION);
+    }
+
+    const options: { value: string; weight: number }[] = [
+      { value: PENITENT_GHOST_CARD.SPIRIT_EMBRACE, weight: 30 },
+      { value: PENITENT_GHOST_CARD.INTO_MIRROR, weight: 30 },
+    ];
+    if (ctx.enemyStats.mp >= 4) {
+      options.push({ value: PENITENT_GHOST_CARD.MIRROR_LURE, weight: 40 });
+    }
+    const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'penitentGhostLastWeightedCardId', options);
+    return pickCardById(ctx, chosen);
+  },
+};
+
 const 墨水史莱姆: EnemyDefinition = {
   name: '墨水史莱姆',
   stats: {
@@ -3279,7 +3329,7 @@ const 克拉肯: EnemyDefinition = {
   selectCard(ctx: EnemyAIContext) {
     const targetHpLow = ctx.playerStats.hp <= ctx.playerStats.maxHp * 0.3;
     const targetHasMemoryFog = ctx.playerStats.effects.some(e => e.type === EffectType.MEMORY_FOG && e.stacks > 0);
-    let pool: Array<{ value: string; weight: number }> = [];
+    let pool: Array<{ value: string; weight: number }>;
 
     if (ctx.enemyStats.mp >= 8) {
       pool = [
@@ -3336,7 +3386,7 @@ const 布偶: EnemyDefinition = {
     }
 
     const playerCorrosion = ctx.playerStats.effects.find(e => e.type === EffectType.CORROSION)?.stacks ?? 0;
-    let pool: Array<{ value: string; weight: number }> = [];
+    let pool: Array<{ value: string; weight: number }>;
 
     if (ctx.enemyStats.mp >= 8) {
       pool = [
@@ -4540,6 +4590,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [浮游书页.name, 浮游书页],
   [墨痕鼠.name, 墨痕鼠],
   [低语幽灵.name, 低语幽灵],
+  [苦修幽灵.name, 苦修幽灵],
   [墨水史莱姆.name, 墨水史莱姆],
   [墨团怪.name, 墨团怪],
   [触手羽毛笔.name, 触手羽毛笔],

@@ -284,14 +284,18 @@
                   v-for="popup in floatingNumbersFor('enemy', summon.id)"
                   :key="popup.id"
                   class="combat-float-number absolute text-lg font-extrabold tracking-wide"
-                  :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '']"
+                  :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '']"
                   :style="{
                     left: `calc(50% + ${popup.leftOffset}px)`,
                     top: `${popup.topOffset}px`,
                     animationDuration: `${popup.duration}ms`,
                   }"
                 >
-                  {{ popup.text }}
+                  <template v-if="popup.damageBeforeLimitText">
+                    <span class="combat-float-number--limited-original">{{ popup.damageBeforeLimitText }}</span>
+                    <span class="combat-float-number--limited-actual">{{ popup.text }}</span>
+                  </template>
+                  <template v-else>{{ popup.text }}</template>
                 </div>
               </div>
               <div class="leviathan-summon-status">
@@ -359,14 +363,18 @@
               v-for="popup in floatingNumbersFor('enemy', 'body')"
               :key="popup.id"
               class="combat-float-number absolute text-xl font-extrabold tracking-wide"
-              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '']"
+              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '']"
               :style="{
                 left: `calc(50% + ${popup.leftOffset}px)`,
                 top: `${popup.topOffset}px`,
                 animationDuration: `${popup.duration}ms`,
               }"
             >
-              {{ popup.text }}
+              <template v-if="popup.damageBeforeLimitText">
+                <span class="combat-float-number--limited-original">{{ popup.damageBeforeLimitText }}</span>
+                <span class="combat-float-number--limited-actual">{{ popup.text }}</span>
+              </template>
+              <template v-else>{{ popup.text }}</template>
             </div>
           </div>
           <!-- Armor Shield -->
@@ -554,14 +562,18 @@
               v-for="popup in floatingNumbersFor('player')"
               :key="popup.id"
               class="combat-float-number absolute text-xl font-extrabold tracking-wide"
-              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '']"
+              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '']"
               :style="{
                 left: `calc(50% + ${popup.leftOffset}px)`,
                 top: `${popup.topOffset}px`,
                 animationDuration: `${popup.duration}ms`,
               }"
             >
-              {{ popup.text }}
+              <template v-if="popup.damageBeforeLimitText">
+                <span class="combat-float-number--limited-original">{{ popup.damageBeforeLimitText }}</span>
+                <span class="combat-float-number--limited-actual">{{ popup.text }}</span>
+              </template>
+              <template v-else>{{ popup.text }}</template>
             </div>
           </div>
           <!-- Armor Shield -->
@@ -1073,6 +1085,7 @@ import {
 import { getAllCards, getCardByName } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, findEffect, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
+import { resolveInitialEntityStats } from '../battle/initialStats';
 import {
     resolveRelicMap,
     type RelicActiveSkillHookContext,
@@ -1105,7 +1118,7 @@ import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
-import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EnemyDefinition, type EntityStats } from '../types';
+import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EnemyDefinition, type EntityStats, type InitialEntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
@@ -1345,15 +1358,13 @@ const cloneEntityStats = (stats: EntityStats): EntityStats => ({
   })),
 });
 
-const normalizeTestStartStats = (stats: EntityStats): EntityStats => {
-  const cloned = cloneEntityStats(stats);
-  if (!props.testStartAt999) return cloned;
-  return { ...cloned, hp: 999, maxHp: 999, mp: 999 };
-};
+const normalizeTestStartStats = (stats: InitialEntityStats): EntityStats => resolveInitialEntityStats(
+  props.testStartAt999 ? { ...stats, hp: 999, maxHp: 999, mp: 999 } : stats,
+);
 
 const buildEnemyInitialStats = (): EntityStats => {
-  const baseStats = enemyDef
-    ? cloneEntityStats(enemyDef.stats)
+  const baseStats: InitialEntityStats = enemyDef
+    ? { ...enemyDef.stats }
     : { hp: 1, maxHp: 1, mp: 0, minDice: 1, maxDice: 1, effects: [] as EffectInstance[] };
   if (isMirrorCloneBattle) {
     baseStats.mp = Math.max(0, Math.floor(props.initialPlayerStats.mp));
@@ -1655,10 +1666,8 @@ const removeDefeatedLeviathanSummons = () => {
 const buildLeviathanSummonRuntime = (name: LeviathanSummonRuntime['name']): LeviathanSummonRuntime | null => {
   const def = getEnemyByName(name, currentFloorNumber);
   if (!def) return null;
-  const stats = cloneEntityStats(def.stats);
   const summonMaxHp = Math.max(1, Math.ceil(def.stats.maxHp / 3));
-  stats.maxHp = summonMaxHp;
-  stats.hp = summonMaxHp;
+  const stats = resolveInitialEntityStats({ ...def.stats, maxHp: summonMaxHp, hp: summonMaxHp });
   return {
     id: `leviathan-summon-${name}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name,
@@ -2009,6 +2018,7 @@ interface FloatingNumberEntry {
   targetId?: LeviathanTargetId;
   kind?: FloatingNumberKind;
   text: string;
+  damageBeforeLimitText?: string;
   colorClass: string;
   leftOffset: number;
   topOffset: number;
@@ -2813,7 +2823,7 @@ const applyDamageToSideWithRelics = (
     card?: CardData;
     dreamControlKind?: 'direct' | 'status';
   },
-) => {
+): ReturnType<typeof applyDamageToEntity> => {
   const damageOptions = options ?? {};
   const incoming = Math.max(0, Math.floor(damage));
   const twinLowControlTrueDamage =
@@ -2848,7 +2858,7 @@ const applyDamageToSideWithRelics = (
     if (sourceSide && reflectedDamage > 0) {
       const reflectedSide = oppositeSide(side);
       const reflectedTarget = getEntityBySide(reflectedSide);
-      const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(
+      const { actualDamage: actualReflectedDamage, logs: reflectedLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
         reflectedSide,
         reflectedTarget,
         reflectedDamage,
@@ -2857,7 +2867,7 @@ const applyDamageToSideWithRelics = (
         { sourceSide: side, isDirectDamage: true, card: damageOptions.card },
       );
       if (actualReflectedDamage > 0) {
-        pushFloatingNumber(reflectedSide, actualReflectedDamage, effectiveTrueDamage ? 'true' : 'magic', '-');
+        pushFloatingNumber(reflectedSide, actualReflectedDamage, effectiveTrueDamage ? 'true' : 'magic', '-', { damageBeforeLimit });
       }
       log(`<span class="text-cyan-300">${targetLabel}[棱镜魔法] 反弹了 ${actualReflectedDamage} 点伤害给${sourceLabel}</span>`);
       for (const reflectedLog of reflectedLogs) {
@@ -2869,7 +2879,7 @@ const applyDamageToSideWithRelics = (
         log(`<span class="text-violet-300 text-[9px]">${reviveLog}</span>`);
       }
     }
-    return { actualDamage: 0, logs: [] };
+    return { actualDamage: 0, logs: [], limitOverflow: 0 };
   }
   if (damageOptions.isDirectDamage) {
     const directDamageResult = triggerPlayerRelicBeforeDirectDamageHooks(
@@ -2901,6 +2911,7 @@ const applyDamageToSideWithRelics = (
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!damageOptions.card?.swarmAttack,
   });
+  processPleasureDamageFeedback(side, target, result.limitOverflow, result.actualDamage, reason);
   addDamageHitTakenThisCombat(side, result.actualDamage);
   if (damageOptions.isDirectDamage) {
     addDirectDamageTakenThisTurn(side, result.actualDamage);
@@ -2950,7 +2961,7 @@ const applyDamageToSideWithRelics = (
         reflectedDamage = applyPlayerSkinMarkDamageReduction(reflectedDamage, '共损返还');
       }
       if (reflectedDamage > 0) {
-        const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(
+        const { actualDamage: actualReflectedDamage, logs: reflectedLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
           reflectedSide,
           reflectedTarget,
           reflectedDamage,
@@ -2959,7 +2970,7 @@ const applyDamageToSideWithRelics = (
           { skipCoDamage: true },
         );
         if (actualReflectedDamage > 0) {
-          pushFloatingNumber(reflectedSide, actualReflectedDamage, 'physical', '-');
+          pushFloatingNumber(reflectedSide, actualReflectedDamage, 'physical', '-', { damageBeforeLimit });
         }
         const sourceLabel = side === 'player' ? '我方' : '敌方';
         const targetLabel = reflectedSide === 'player' ? '我方' : '敌方';
@@ -3016,6 +3027,7 @@ const applyDirectHpLossWithRelics = (
   const before = target.hp;
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
+  processPleasureDamageFeedback(side, target, 0, actualDamage, reason);
   addDamageHitTakenThisCombat(side, actualDamage);
   if (damageOptions.isDirectDamage) {
     addDirectDamageTakenThisTurn(side, actualDamage);
@@ -3485,6 +3497,49 @@ const applyStatusEffectWithRelics = (
   return applied;
 };
 
+const processPleasureDamageFeedback = (
+  targetSide: BattleSide,
+  target: EntityStats,
+  limitOverflow: number,
+  actualDamage: number,
+  reason: string,
+) => {
+  if (getEffectStacks(target, ET.PLEASURE) <= 0) return;
+
+  const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+  if (actualDamage > 0) {
+    applyStatusEffectWithRelics(targetSide, ET.FATIGUE, 1, { source: 'effect:pleasure' });
+    log(`<span class="text-amber-300">${targetLabel}[欢愉] ${reason}受到非零伤害，获得 1 层疲劳。</span>`);
+  }
+
+  const overflow = Math.max(0, Math.floor(limitOverflow));
+  if (overflow <= 0) return;
+
+  const previous = Math.max(0, Math.floor(target.pleasureOverflowDamage ?? 0));
+  const next = previous + overflow;
+  target.pleasureOverflowDamage = next;
+  const fatigueGain = Math.floor(next / 10) - Math.floor(previous / 10);
+  const stigmataGain = Math.floor(next / 25) - Math.floor(previous / 25);
+  const orgasmGain = Math.floor(next / 60) - Math.floor(previous / 60);
+  const opponentSide = oppositeSide(targetSide);
+  const gains: string[] = [];
+  if (fatigueGain > 0) {
+    applyStatusEffectWithRelics(opponentSide, ET.FATIGUE, fatigueGain, { source: 'effect:pleasure' });
+    gains.push(`${fatigueGain} 层疲劳`);
+  }
+  if (stigmataGain > 0) {
+    applyStatusEffectWithRelics(opponentSide, ET.STIGMATA, stigmataGain, { source: 'effect:pleasure' });
+    gains.push(`${stigmataGain} 层圣痕`);
+  }
+  if (orgasmGain > 0) {
+    applyStatusEffectWithRelics(opponentSide, ET.ORGASM, orgasmGain, { source: 'effect:pleasure' });
+    gains.push(`${orgasmGain} 层性兴奋`);
+  }
+  if (gains.length > 0) {
+    log(`<span class="text-fuchsia-300">${targetLabel}[欢愉] 限伤溢出转化，为对手施加 ${gains.join('、')}。</span>`);
+  }
+};
+
 const createPlayerLifecycleContext = (
   relic: RelicData,
   count: number,
@@ -3771,6 +3826,7 @@ interface FloatingNumberOptions {
   allowZero?: boolean;
   targetEntity?: EntityStats | null;
   targetId?: LeviathanTargetId;
+  damageBeforeLimit?: number;
 }
 
 const floatingNumbersFor = (side: BattleSide, targetId?: LeviathanTargetId) => floatingNumbers.value.filter((entry) => {
@@ -4222,7 +4278,7 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
   if (shockStacks <= 0) return;
 
   const shockDamageResult = calculateShockDamage(target, shockStacks);
-  const { actualDamage, logs: applyDamageLogs } = applyDamageToSideWithRelics(
+  const { actualDamage, logs: applyDamageLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
     side,
     target,
     shockDamageResult.damage,
@@ -4231,7 +4287,7 @@ const applyShockOnManaLoss = (side: BattleSide, lostMp: number, reason: string) 
   );
   const shockDamageLogs = [...shockDamageResult.logs, ...applyDamageLogs];
   if (actualDamage > 0) {
-    pushFloatingNumber(side, actualDamage, 'magic', '-');
+    pushFloatingNumber(side, actualDamage, 'magic', '-', { damageBeforeLimit });
   }
 
   const nextStacks = Math.max(0, Math.floor(shockStacks / 2));
@@ -4264,7 +4320,7 @@ const triggerShockProc = (targetSide: BattleSide, reason: string): number => {
   }
 
   const shockDamageResult = calculateShockDamage(target, shockStacks);
-  const { actualDamage, logs: applyDamageLogs } = applyDamageToSideWithRelics(
+  const { actualDamage, logs: applyDamageLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
     targetSide,
     target,
     shockDamageResult.damage,
@@ -4273,7 +4329,7 @@ const triggerShockProc = (targetSide: BattleSide, reason: string): number => {
   );
   const shockDamageLogs = [...shockDamageResult.logs, ...applyDamageLogs];
   if (actualDamage > 0) {
-    pushFloatingNumber(targetSide, actualDamage, 'magic', '-');
+    pushFloatingNumber(targetSide, actualDamage, 'magic', '-', { damageBeforeLimit });
   }
 
   const nextStacks = Math.max(0, Math.floor(shockStacks / 2));
@@ -4342,13 +4398,13 @@ const hasModaoWeaveBackupInPlayerHand = () => (
 
 const lockCardManaCost = (side: BattleSide, card: CardData): number => {
   const cost = getEffectiveManaCost(side, card);
-  lockedManaCostByCard.set(card, cost);
+  lockedManaCostByCard.set(toRaw(card), cost);
   return cost;
 };
 
 const unlockCardManaCost = (card: CardData | null | undefined) => {
   if (!card || card.id === PASS_CARD.id) return;
-  lockedManaCostByCard.delete(card);
+  lockedManaCostByCard.delete(toRaw(card));
 };
 
 const getSecondMagicCardInPlayerHand = (): CardData | null => {
@@ -4463,7 +4519,7 @@ const applyBloodpoolRedHeadbandPointBonus = (
 const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   const base = Math.max(0, Math.floor(card.manaCost ?? 0));
   if (card.type !== CardType.MAGIC) return base;
-  const locked = lockedManaCostByCard.get(card);
+  const locked = lockedManaCostByCard.get(toRaw(card));
   if (typeof locked === 'number') return Math.max(0, Math.floor(locked));
   if (isMagicCostFreeThisTurn(side)) return 0;
 
@@ -4676,7 +4732,7 @@ const applyCardEffectsByTrigger = (
       });
       const armorBeforeHit = getEffectStacks(targetEntity, ET.ARMOR);
       const barrierBeforeHit = getEffectStacks(targetEntity, ET.BARRIER);
-      const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+      const { actualDamage, logs: applyLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
         targetSide,
         targetEntity,
         damageResult.damage,
@@ -4698,6 +4754,7 @@ const applyCardEffectsByTrigger = (
         pushFloatingNumber(targetSide, actualDamage, damageKind, '-', {
           allowZero: armorBlocked,
           targetEntity,
+          damageBeforeLimit,
         });
       }
       const targetLabel = targetSide === 'player' ? '我方' : '敌方';
@@ -4877,7 +4934,7 @@ const triggerShadowAssaultDamage = (
     : damage;
   const armorBeforeHit = getEffectStacks(defender, ET.ARMOR);
   const barrierBeforeHit = getEffectStacks(defender, ET.BARRIER);
-  const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+  const { actualDamage, logs: applyLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
     defenderSide,
     defender,
     adjustedDamage,
@@ -4897,6 +4954,7 @@ const triggerShadowAssaultDamage = (
   if (actualDamage > 0 || armorBlocked) {
     pushFloatingNumber(defenderSide, actualDamage, isTrueDamage ? 'true' : 'physical', '-', {
       allowZero: armorBlocked,
+      damageBeforeLimit,
     });
   }
   for (const dl of dmgLogs) {
@@ -5671,6 +5729,9 @@ const getCardFinalPoint = (
     const bleedBonus = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
     finalPoint += bleedBonus;
   }
+  if (card.id === 'enemy_penitent_ghost_mirror_lure') {
+    finalPoint += Math.max(0, getEffectStacks(defender, ET.STIGMATA)) * 3;
+  }
   if (card.id === 'enemy_holy_water_sprite_struggle') {
     finalPoint += Math.floor(getHolyWaterSpriteStruggleSelfDamageAmount(attacker) / 10);
   }
@@ -6015,6 +6076,14 @@ const buildCardPreviewLines = (
     if (bonus > 0) {
       finalPoint += bonus;
       lines.push(`利齿（玩家流血${playerBleed}）+${bonus} => ${finalPoint}`);
+    }
+  }
+  if (card.id === 'enemy_penitent_ghost_mirror_lure') {
+    const stigmataStacks = Math.max(0, getEffectStacks(defender, ET.STIGMATA));
+    const bonus = stigmataStacks * 3;
+    if (bonus > 0) {
+      finalPoint += bonus;
+      lines.push(`镜中诱惑（目标圣痕${stigmataStacks}）+${bonus} => ${finalPoint}`);
     }
   }
   if (card.id === 'enemy_holy_water_sprite_struggle') {
@@ -6414,12 +6483,12 @@ const triggerPlayerAfterRerollRelics = (before: number, after: number) => {
   const glassCount = getActiveRelicCount('basic_colored_glass_ball');
   if (glassCount > 0 && enemyStats.value.hp > 0) {
     const damage = 2 * glassCount;
-    const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, damage, false, '异色玻璃球', {
+    const { actualDamage, damageBeforeLimit } = applyDamageToSideWithRelics('enemy', enemyStats.value, damage, false, '异色玻璃球', {
       sourceSide: 'player',
       isDirectDamage: true,
     });
     if (actualDamage > 0) {
-      pushFloatingNumber('enemy', actualDamage, 'physical', '-', { targetEntity: enemyStats.value });
+      pushFloatingNumber('enemy', actualDamage, 'physical', '-', { targetEntity: enemyStats.value, damageBeforeLimit });
     }
     logRelicMessage(`[异色玻璃球] 重掷后造成 ${actualDamage} 点伤害。`);
   }
@@ -6452,7 +6521,7 @@ const triggerMicroFloatingCannonDamage = (source: BattleSide, defenderSide: Batt
   });
   const armorBefore = getEffectStacks(enemyStats.value, ET.ARMOR);
   const barrierBefore = getEffectStacks(enemyStats.value, ET.BARRIER);
-  const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+  const { actualDamage, logs: applyLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
     'enemy',
     enemyStats.value,
     damage,
@@ -6471,6 +6540,7 @@ const triggerMicroFloatingCannonDamage = (source: BattleSide, defenderSide: Batt
     pushFloatingNumber('enemy', actualDamage, isTrueDamage ? 'true' : 'magic', '-', {
       allowZero: armorBlocked,
       targetEntity: enemyStats.value,
+      damageBeforeLimit,
     });
   }
   logRelicMessage(`[微型悬浮炮] 额外造成 ${actualDamage} 点伤害。`);
@@ -6670,6 +6740,7 @@ const pushFloatingNumber = (
 ) => {
   const amount = Math.max(0, Math.floor(value));
   if (amount <= 0 && !options?.allowZero) return;
+  const damageBeforeLimit = Math.max(0, Math.floor(options?.damageBeforeLimit ?? 0));
 
   const id = ++floatingNumberId;
   const duration = kind === 'heal' ? scaleDuration(1800) : scaleDuration(1350);
@@ -6682,6 +6753,9 @@ const pushFloatingNumber = (
     targetId,
     kind,
     text: `${sign}${amount}`,
+    damageBeforeLimitText: sign === '-' && (kind === 'physical' || kind === 'magic') && damageBeforeLimit > amount
+      ? `-${damageBeforeLimit}`
+      : undefined,
     colorClass: floatingColors[kind],
     leftOffset: Math.floor((Math.random() - 0.5) * 120),
     topOffset: 24 + Math.floor(Math.random() * 20),
@@ -6985,7 +7059,7 @@ const processLeviathanSummonTurnStart = (summon: LeviathanSummonRuntime) => {
     if (result.hpChange > 0) {
       healForSide('enemy', result.hpChange);
     } else if (result.hpChange < 0) {
-      const { actualDamage, logs: damageLogs } = applyDamageToSideWithRelics(
+      const { actualDamage, logs: damageLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
         'enemy',
         summon.stats,
         -result.hpChange,
@@ -6994,7 +7068,7 @@ const processLeviathanSummonTurnStart = (summon: LeviathanSummonRuntime) => {
         { sourceSide: 'player', dreamControlKind: 'status' },
       );
       if (actualDamage > 0) {
-        pushFloatingNumber('enemy', actualDamage, 'magic', '-', { targetEntity: summon.stats });
+        pushFloatingNumber('enemy', actualDamage, 'magic', '-', { targetEntity: summon.stats, damageBeforeLimit });
       }
       logs.push(...damageLogs);
     }
@@ -8668,7 +8742,7 @@ watch(
                     turnStartLogs.push(burnApplyLog);
                   }
                 } else {
-                  const { actualDamage, logs: burnApplyLogs } = applyDamageToSideWithRelics(
+                  const { actualDamage, logs: burnApplyLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
                     side,
                     stats.value,
                     burnResult.damage,
@@ -8682,7 +8756,7 @@ watch(
                   burnDamageTaken = actualDamage;
                   turnStartImmediateDamageTaken += actualDamage;
                   if (actualDamage > 0) {
-                    pushFloatingNumber(side, actualDamage, 'magic', '-');
+                    pushFloatingNumber(side, actualDamage, 'magic', '-', { damageBeforeLimit });
                     turnStartLogs.push(`[燃烧] 损失 ${actualDamage} 点生命。`);
                   } else {
                     turnStartLogs.push('[燃烧] 伤害被完全抵挡。');
@@ -9088,6 +9162,7 @@ const resolveCombat = async (
   const previousEnemySourceOverride = leviathanEnemySourceOverride.value;
   const previousEnemySelfOverride = leviathanEnemySelfOverride.value;
   const previousActingSummon = leviathanActingSummon.value;
+  let playerCardWithLockedManaCost: CardData | null = null;
   try {
   nonLivingConversionGuard.clear();
   const isEnemyComboPrelude = options.enemyComboPrelude === true;
@@ -9112,6 +9187,7 @@ const resolveCombat = async (
     }
   }
   let resolvedPlayerCard = pCard;
+  const playerManaCostOnPlay = getEffectiveManaCost('player', pCard);
   let resolvedEnemyCard = leviathanSelectedSummonForClash
     ? (leviathanSelectedSummonForClash.intentCard ?? PASS_CARD)
     : eCard;
@@ -9155,6 +9231,12 @@ const resolveCombat = async (
     resolvedPlayerCard = cloneCardForBattle(resolvedPlayerCard);
     resolvedPlayerCard.ignoreDodge = true;
     logRelicMessage('[追踪印记] 法术最终点数不低于10，本次无视闪避。');
+  }
+
+  // Runtime card copies must keep the cost locked before the card left the hand.
+  if (resolvedPlayerCard.type === CardType.MAGIC && resolvedPlayerCard.id !== PASS_CARD.id) {
+    playerCardWithLockedManaCost = resolvedPlayerCard;
+    lockedManaCostByCard.set(toRaw(resolvedPlayerCard), playerManaCostOnPlay);
   }
 
   if (resolvedPlayerCard.traits.combo) {
@@ -10488,7 +10570,7 @@ const resolveCombat = async (
         const vulnerableStacks = getEffectStacks(defender, ET.VULNERABLE);
         const temperatureDiffStacks = getEffectStacks(defender, ET.TEMPERATURE_DIFF);
         const burnDamage = burnStacks + Math.max(0, vulnerableStacks) + Math.max(0, temperatureDiffStacks);
-        const { actualDamage, logs: burnLogs } = applyDamageToSideWithRelics(
+        const { actualDamage, logs: burnLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
           defenderSide,
           defender,
           burnDamage,
@@ -10497,7 +10579,7 @@ const resolveCombat = async (
           { sourceSide: source, isDirectDamage: true },
         );
         if (actualDamage > 0) {
-          pushFloatingNumber(defenderSide, actualDamage, 'magic', '-');
+          pushFloatingNumber(defenderSide, actualDamage, 'magic', '-', { damageBeforeLimit });
         }
         log(`<span class="text-orange-300">${label}【${card.name}】触发燃烧：造成 ${actualDamage} 点伤害。</span>`);
         for (const burnLog of burnLogs) {
@@ -11043,6 +11125,9 @@ const resolveCombat = async (
         }
       }
       finalizeAndTrack();
+    } else if (card.id === 'enemy_penitent_ghost_mirror_lure') {
+      applyCardEffects();
+      finalizeAndTrack();
     } else if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) {
       const targetHasBindBeforeOnUse = getEffectStacks(defender, ET.BIND) > 0;
       const targetHasSilenceBeforeOnUse = getEffectStacks(defender, ET.SILENCE) > 0;
@@ -11417,7 +11502,7 @@ const resolveCombat = async (
           : damage;
         const armorBeforeHit = getEffectStacks(defender, ET.ARMOR);
         const barrierBeforeHit = getEffectStacks(defender, ET.BARRIER);
-        const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+        const { actualDamage, logs: applyLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
           defenderSide,
           defender,
           adjustedDamage,
@@ -11441,6 +11526,7 @@ const resolveCombat = async (
             : (card.type === CardType.MAGIC ? 'magic' : 'physical');
           pushFloatingNumber(defenderSide, actualDamage, damageKind, '-', {
             allowZero: armorBlocked,
+            damageBeforeLimit,
           });
         }
         if (card.id === 'modao_magic_sword' && actualDamage > 0) {
@@ -11473,7 +11559,7 @@ const resolveCombat = async (
             if (reflectedDamage > 0) {
               const attackerArmorBeforeReflect = getEffectStacks(attacker, ET.ARMOR);
               const attackerBarrierBeforeReflect = getEffectStacks(attacker, ET.BARRIER);
-              const { actualDamage: actualReflectedDamage, logs: reflectedLogs } = applyDamageToSideWithRelics(
+              const { actualDamage: actualReflectedDamage, logs: reflectedLogs, damageBeforeLimit: reflectedDamageBeforeLimit } = applyDamageToSideWithRelics(
                 source,
                 attacker,
                 reflectedDamage,
@@ -11489,6 +11575,7 @@ const resolveCombat = async (
               if (actualReflectedDamage > 0 || reflectedArmorBlocked) {
                 pushFloatingNumber(source, actualReflectedDamage, 'physical', '-', {
                   allowZero: reflectedArmorBlocked,
+                  damageBeforeLimit: reflectedDamageBeforeLimit,
                 });
               }
               log(`<span class="text-lime-300">${defenderLabel}[荆棘] 反弹了 ${actualReflectedDamage} 点伤害给${label}</span>`);
@@ -11544,7 +11631,7 @@ const resolveCombat = async (
             });
             const splashArmorBefore = getEffectStacks(splashTarget, ET.ARMOR);
             const splashBarrierBefore = getEffectStacks(splashTarget, ET.BARRIER);
-            const { actualDamage: splashActualDamage, logs: splashApplyLogs } = applyDamageToSideWithRelics(
+            const { actualDamage: splashActualDamage, logs: splashApplyLogs, damageBeforeLimit: splashDamageBeforeLimit } = applyDamageToSideWithRelics(
               'enemy',
               splashTarget,
               splashDamageResult.damage,
@@ -11563,6 +11650,7 @@ const resolveCombat = async (
               pushFloatingNumber('enemy', splashActualDamage, splashDamageResult.isTrueDamage ? 'true' : (card.type === CardType.MAGIC ? 'magic' : 'physical'), '-', {
                 allowZero: splashArmorBlocked,
                 targetEntity: splashTarget,
+                damageBeforeLimit: splashDamageBeforeLimit,
               });
             }
             if (splashActualDamage > 0) {
@@ -12094,6 +12182,22 @@ const resolveCombat = async (
           log(`<span class="text-violet-300">${label}【${card.name}】触发：目标已有性兴奋，额外施加 1 层眩晕</span>`);
         }
       }
+      if (card.id === 'enemy_penitent_ghost_experience_infusion') {
+        const pleasureStacks = Math.max(0, getEffectStacks(attacker, ET.PLEASURE));
+        if (pleasureStacks > 0) {
+          removeEffect(attacker, ET.PLEASURE);
+          const convertedStacks = Math.floor(pleasureStacks / 2);
+          if (convertedStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.ORGASM, convertedStacks, { source: card.id });
+            applyStatusEffectWithRelics(defenderSide, ET.STIGMATA, convertedStacks, { source: card.id });
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】移除了自身 ${pleasureStacks} 层欢愉，并为${defenderLabel}施加 ${convertedStacks} 层性兴奋与 ${convertedStacks} 层圣痕。</span>`);
+          } else {
+            log(`<span class="text-gray-400">${label}【${card.name}】移除了自身 ${pleasureStacks} 层欢愉，不足 2 层，未施加性兴奋与圣痕。</span>`);
+          }
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】自身没有欢愉可转化。</span>`);
+        }
+      }
       finalizeAndTrack();
     } else if (source === 'enemy' && card.id === 'enemy_leviathan_reincarnation_vortex') {
       if (getDamageHitTakenThisTurn('enemy') <= 0) {
@@ -12117,6 +12221,12 @@ const resolveCombat = async (
       applyCardEffects();
       finalizeAndTrack();
     } else {
+      if (card.type === CardType.DODGE && (
+        !shouldClash
+        || card.id === 'enemy_penitent_ghost_into_mirror'
+      )) {
+        applyCardEffects();
+      }
       finalizeAndTrack();
     }
   };
@@ -12480,12 +12590,12 @@ const resolveCombat = async (
   const enemyArmorBeforeEnd = getEffectStacks(enemyStats.value, ET.ARMOR);
   const parryShieldCount = getActiveRelicCount('basic_parry_shield');
   if (parryShieldCount > 0 && playerArmorBeforeEnd >= 6) {
-    const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, 4 * parryShieldCount, false, '招架盾', {
+    const { actualDamage, damageBeforeLimit } = applyDamageToSideWithRelics('enemy', enemyStats.value, 4 * parryShieldCount, false, '招架盾', {
       sourceSide: 'player',
       isDirectDamage: true,
     });
     if (actualDamage > 0) {
-      pushFloatingNumber('enemy', actualDamage, 'physical', '-', { targetEntity: enemyStats.value });
+      pushFloatingNumber('enemy', actualDamage, 'physical', '-', { targetEntity: enemyStats.value, damageBeforeLimit });
     }
     logRelicMessage(`[招架盾] 回合结束护甲 ${playerArmorBeforeEnd}，造成 ${actualDamage} 点伤害。`);
   }
@@ -12647,7 +12757,7 @@ const resolveCombat = async (
         defenderEffects: enemyStats.value.effects,
         relicModifiers: NO_RELIC_MOD,
       });
-      const { actualDamage, logs: dollApplyLogs } = applyDamageToSideWithRelics(
+      const { actualDamage, logs: dollApplyLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
         'enemy',
         enemyStats.value,
         dollDamage,
@@ -12656,7 +12766,7 @@ const resolveCombat = async (
         { sourceSide: 'player', isDirectDamage: true, card: MAGIC_DOLL_DAMAGE_CARD },
       );
       if (actualDamage > 0) {
-        pushFloatingNumber('enemy', actualDamage, 'magic', '-', { targetEntity: enemyStats.value });
+        pushFloatingNumber('enemy', actualDamage, 'magic', '-', { targetEntity: enemyStats.value, damageBeforeLimit });
       }
       logRelicMessage(`[魔法玩偶] 消耗1点魔力，对敌方造成 ${actualDamage} 点伤害。`);
       for (const dl of dollDamageLogs) {
@@ -12696,6 +12806,7 @@ const resolveCombat = async (
     log(`<span class="text-red-400">???????${error instanceof Error ? error.message : String(error)}</span>`);
   } finally {
     unlockCardManaCost(pCard);
+    unlockCardManaCost(playerCardWithLockedManaCost);
     unlockCardManaCost(eCard);
     leviathanEnemyTargetOverride.value = previousEnemyTargetOverride;
     leviathanEnemySourceOverride.value = previousEnemySourceOverride;
@@ -12850,6 +12961,24 @@ watch(
   animation-timing-function: ease-out;
   animation-fill-mode: forwards;
   line-height: 1;
+}
+
+.combat-float-number--limited {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35em;
+  white-space: nowrap;
+  filter: none;
+}
+
+.combat-float-number--limited-original {
+  color: #9ca3af;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.combat-float-number--limited-actual {
+  filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.85));
 }
 
 .combat-float-number--heal {

@@ -9830,6 +9830,114 @@ const 晶体刺猬_球形回滚: CardData = {
   description: '点数-3，闪避；若本回合未受到伤害，回复自身20%最大生命值。',
 };
 
+/** 苦修幽灵：闪避，成功结算时获得1层欢愉 */
+const 苦修幽灵_遁入镜中: CardData = {
+  id: 'enemy_penitent_ghost_into_mirror',
+  name: '遁入镜中',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0.4, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_use'],
+      kind: 'apply_buff',
+      effectType: EffectType.PLEASURE,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '点数*0.4，闪避；自身获得1层欢愉。',
+};
+
+/** 苦修幽灵：施加束缚并插入体内异物 */
+const 苦修幽灵_灵体拥抱: CardData = {
+  id: 'enemy_penitent_ghost_spirit_embrace',
+  name: '灵体拥抱',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: {
+    combo: false,
+    reroll: 'none',
+    draw: false,
+    insertCardsToEnemyDeck: ['体内异物'],
+  },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1层束缚，插入1张[体内异物]。',
+};
+
+/** 苦修幽灵：按目标圣痕增加点数，造成侵蚀 */
+const 苦修幽灵_镜中诱惑: CardData = {
+  id: 'enemy_penitent_ghost_mirror_lure',
+  name: '镜中诱惑',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '施加0.5倍最终点数侵蚀；目标每有1层圣痕，点数+3。',
+};
+
+/** 苦修幽灵：高倍率魔法攻击，每2层欢愉转化1层性兴奋与圣痕 */
+const 苦修幽灵_经验灌输: CardData = {
+  id: 'enemy_penitent_ghost_experience_infusion',
+  name: '经验灌输',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  ignoreDodge: true,
+  description: '点数*3，移除自身所有欢愉，每移除2层为对方施加1层性兴奋与圣痕；无视闪避.',
+};
+
+/** 苦修幽灵：不可打出，回合结束留在手牌时施加侵蚀 */
+const 苦修幽灵_体内异物: CardData = {
+  id: 'enemy_penitent_ghost_internal_foreign_body',
+  name: '体内异物',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false, unplayable: true },
+  cardEffects: [
+    {
+      triggers: ['on_turn_end_in_hand'],
+      kind: 'apply_buff',
+      effectType: EffectType.CORROSION,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 3,
+    },
+  ],
+  description: '不可打出；回合结束仍在手牌时，自身获得3层侵蚀。',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -10336,6 +10444,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [晶体刺猬_刺壳蓄能.name, 晶体刺猬_刺壳蓄能],
   [晶体刺猬_水晶穿刺.name, 晶体刺猬_水晶穿刺],
   [晶体刺猬_球形回滚.name, 晶体刺猬_球形回滚],
+  [苦修幽灵_遁入镜中.name, 苦修幽灵_遁入镜中],
+  [苦修幽灵_灵体拥抱.name, 苦修幽灵_灵体拥抱],
+  [苦修幽灵_镜中诱惑.name, 苦修幽灵_镜中诱惑],
+  [苦修幽灵_经验灌输.name, 苦修幽灵_经验灌输],
+  [苦修幽灵_体内异物.name, 苦修幽灵_体内异物],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

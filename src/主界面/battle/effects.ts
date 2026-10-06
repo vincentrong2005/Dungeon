@@ -215,6 +215,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '单次受到的非真实伤害最多为当前层数',
   },
+  [EffectType.PLEASURE]: {
+    type: EffectType.PLEASURE,
+    name: '欢愉',
+    polarity: 'buff',
+    timings: ['onBeforeDamage', 'onAfterDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '限伤溢出伤害累计每60/25/10点为对手施加1层性兴奋/圣痕/疲劳；自身每受到1次非零的独立伤害判定，获得1层疲劳；上述效果不随欢愉层数增加',
+  },
   [EffectType.SELF_REPAIR]: {
     type: EffectType.SELF_REPAIR,
     name: '自修复',
@@ -350,7 +359,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: false,
     maxStacks: 1,
-    description: '受到物理伤害减少50%，受到魔法伤害增加50%',
+    description: '受到物理伤害减少30%，受到魔法伤害增加30%',
   },
   [EffectType.ILLUSORY_BODY]: {
     type: EffectType.ILLUSORY_BODY,
@@ -359,7 +368,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: false,
     maxStacks: 1,
-    description: '受到物理伤害减少50%',
+    description: '受到物理伤害减少30%',
   },
   [EffectType.TEMP_MAX_HP]: {
     type: EffectType.TEMP_MAX_HP,
@@ -919,6 +928,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.IGNORE_DODGE,
   EffectType.WEAKEN,
   EffectType.DAMAGE_LIMIT,
+  EffectType.PLEASURE,
   EffectType.CHARGE,
   EffectType.FATIGUE,
   EffectType.ANESTHESIA_DEPTH,
@@ -1256,6 +1266,9 @@ export function removeEffect(entity: EntityStats, type: EffectType, temporary?: 
     entity.hp = Math.min(entity.hp, entity.maxHp);
   }
   entity.effects = entity.effects.filter(e => !removed.includes(e));
+  if (type === EffectType.PLEASURE && !entity.effects.some(effect => effect.type === EffectType.PLEASURE && effect.stacks > 0)) {
+    entity.pleasureOverflowDamage = 0;
+  }
 }
 
 /**

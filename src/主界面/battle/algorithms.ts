@@ -173,16 +173,16 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   const defenderHasIllusoryBody = ctx.defenderEffects.some((e) => e.type === EffectType.ILLUSORY_BODY && e.stacks > 0);
   if (defenderHasNonEntity) {
     if (ctx.card.type === CardType.PHYSICAL) {
-      damage *= 0.5;
-      logs.push('[非实体] 物理伤害 x0.5');
+      damage *= 0.7;
+      logs.push('[非实体] 物理伤害 x0.7');
     } else if (ctx.card.type === CardType.MAGIC) {
-      damage *= 1.5;
-      logs.push('[非实体] 魔法伤害 x1.5');
+      damage *= 1.3;
+      logs.push('[非实体] 魔法伤害 x1.3');
     }
   }
   if (defenderHasIllusoryBody && ctx.card.type === CardType.PHYSICAL) {
-    damage *= 0.5;
-    logs.push('[虚幻之躯] 物理伤害 x0.5');
+    damage *= 0.7;
+    logs.push('[虚幻之躯] 物理伤害 x0.7');
   }
 
   const defenderHasIrisAmber = ctx.defenderEffects.some((e) => e.type === EffectType.IRIS_AMBER && e.stacks > 0);
@@ -349,8 +349,10 @@ export function applyDamageToEntity(
   damage: number,
   isTrueDamage: boolean,
   options?: { disableRevive?: boolean; swarmAttack?: boolean },
-): { actualDamage: number; logs: string[] } {
+): { actualDamage: number; logs: string[]; limitOverflow: number; damageBeforeLimit?: number } {
   const logs: string[] = [];
+  let limitOverflow = 0;
+  let damageBeforeLimit: number | undefined;
   if (!options?.swarmAttack && getEffectStacks(target, EffectType.CLUSTER_CREATURE) > 0 && damage > 0) {
     const beforeClusterReduction = Math.max(0, Math.floor(damage));
     damage = Math.floor(beforeClusterReduction * 0.5);
@@ -359,7 +361,7 @@ export function applyDamageToEntity(
   const mirrorRegeneration = findEffect(target, EffectType.MIRROR_REGENERATION);
   if (mirrorRegeneration && mirrorRegeneration.stacks > 0 && Math.floor(mirrorRegeneration.runtimeCounter ?? 0) > 0) {
     const convertedDamage = Math.max(0, Math.floor(damage));
-    if (convertedDamage <= 0) return { actualDamage: 0, logs };
+    if (convertedDamage <= 0) return { actualDamage: 0, logs, limitOverflow: 0 };
     const maxHpBefore = target.maxHp;
     applyEffect(target, EffectType.MAX_HP_REDUCTION, convertedDamage, { source: 'effect:mirror_regeneration' });
     const actualMaxHpLoss = Math.max(0, maxHpBefore - target.maxHp);
@@ -370,18 +372,20 @@ export function applyDamageToEntity(
     } else {
       target.hp = Math.max(1, Math.min(target.hp, target.maxHp));
     }
-    return { actualDamage: 0, logs };
+    return { actualDamage: 0, logs, limitOverflow: 0 };
   }
   if (!isTrueDamage) {
     const damageLimit = getEffectStacks(target, EffectType.DAMAGE_LIMIT);
     if (damageLimit > 0 && damage > damageLimit) {
+      damageBeforeLimit = damage;
+      limitOverflow = Math.max(0, Math.floor(damage - damageLimit));
       logs.push(`[限伤] ${damage} -> ${damageLimit}`);
       damage = damageLimit;
     }
     if (hasEffect(target, EffectType.BARRIER) && damage > 0) {
       reduceEffectStacks(target, EffectType.BARRIER);
       logs.push(`[结界] 层数-1。`);
-      return { actualDamage: 0, logs };
+      return { actualDamage: 0, logs, limitOverflow, damageBeforeLimit };
     }
     const ae = findEffect(target, EffectType.ARMOR);
     if (ae && ae.stacks > 0 && damage > 0) {
@@ -402,7 +406,7 @@ export function applyDamageToEntity(
     disableRevive: options?.disableRevive,
   });
   logs.push(...reviveResult.logs);
-  return { actualDamage: actual, logs };
+  return { actualDamage: actual, logs, limitOverflow, damageBeforeLimit };
 }
 
 // ═══════════════════════════════════════════════════════════════

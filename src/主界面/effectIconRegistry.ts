@@ -20,6 +20,7 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.WEAKEN]: 'fa-solid fa-aries',
   [ET.REGEN]: 'fa-brands fa-medrt',
   [ET.DAMAGE_LIMIT]: 'fa-solid fa-cube',
+  [ET.PLEASURE]: 'fa-solid fa-ring',
   [ET.SELF_REPAIR]: 'fa-solid fa-gear',
   [ET.WHITE_TURBID]: 'fa-solid fa-droplet',
   [ET.IGNITE_AURA]: 'fa-solid fa-fire-flame-simple',

@@ -291,9 +291,11 @@ export enum EffectType {
   TEMPERATURE_DIFF = '温差',
   /** 非生物 — 免疫流血与中毒，改为每次受到1点真实伤害 */
   NON_LIVING = '非生物',
-  /** 非实体 — 受到物理伤害减半，受到魔法伤害增加50%（仅直接伤害） */
+  /** 非实体 — 受到物理伤害减少30%，受到魔法伤害增加30%（仅直接伤害） */
   NON_ENTITY = '非实体',
-  /** 虚幻之躯 — 受到物理伤害减半（仅直接伤害） */
+  /** 欢愉 — 限伤溢出转化为对手的负面状态；每次受到非零伤害获得疲劳 */
+  PLEASURE = '欢愉',
+  /** 虚幻之躯 — 受到物理伤害减少30%（仅直接伤害） */
   ILLUSORY_BODY = '虚幻之躯',
   /** 临时生命上限 — 本场战斗内提高最大生命值 */
   TEMP_MAX_HP = '临时生命上限',
@@ -482,9 +484,22 @@ export interface EntityStats {
   maxDice: number;
   /** 本场战斗中“群集”可恢复生命值的累计削减量 */
   swarmHealReduction?: number;
+  /** 欢愉隐藏的限伤溢出累计值，不在战斗界面显示 */
+  pleasureOverflowDamage?: number;
   /** 当前身上的效果列表 */
   effects: EffectInstance[];
 }
+
+/** 初始效果层数：固定数值，或最大生命值比例（向上取整）。 */
+export type InitialEffectStacks = number | { maxHpRatio: number };
+
+export type InitialEffectInstance = Omit<EffectInstance, 'stacks'> & {
+  stacks: InitialEffectStacks;
+};
+
+export type InitialEntityStats = Omit<EntityStats, 'effects'> & {
+  effects: InitialEffectInstance[];
+};
 
 // ── 拼点结果 ──────────────────────────────────────────────────
 export type ClashOutcome = 'player_win' | 'enemy_win' | 'draw' | 'dodge_success' | 'no_clash';
@@ -601,7 +616,7 @@ export interface EnemyDefinition {
   /** 敌人名称（注册表键） */
   name: string;
   /** 基础属性 */
-  stats: EntityStats;
+  stats: InitialEntityStats;
   /** 敌人的牌组 */
   deck: CardData[];
   /** 战败负面状态：若玩家败于该敌人，则在战斗结束后写入对应 $负面状态 */

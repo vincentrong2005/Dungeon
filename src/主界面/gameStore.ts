@@ -298,7 +298,7 @@ export const useGameStore = defineStore('game', () => {
     forbidMatchingXmlInsideThink: forbidMatchingXmlInsideThink.value,
   });
 
-  const getGeneratedText = (result: string | GenerateToolCallResult): string => {
+  const getGeneratedText = (result: string | GenerateDetailedResult): string => {
     if (typeof result === 'string') return result;
     return typeof result.content === 'string' ? result.content : '';
   };
