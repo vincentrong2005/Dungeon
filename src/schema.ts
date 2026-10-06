@@ -90,7 +90,35 @@ export const Schema = z.object({
     累计经过事件: z.coerce.number().prefault(0),
     累计经过陷阱: z.coerce.number().prefault(0),
   }).prefault({}),
-  $路径: z.array(z.string()).prefault([]),
+  // 当前层实际走过的地图节点。字符串是旧存档兼容格式，新数据使用坐标对象。
+  $路径: z
+    .array(
+      z.union([
+        z.string(),
+        z
+          .object({
+            x: z.coerce.number().int().min(1).max(6).prefault(1),
+            房间类型: z.string().prefault(''),
+          })
+          .prefault({}),
+      ]),
+    )
+    .prefault([]),
+  // 四条路线，每条路线的数组下标隐含 y=1..9。
+  $地图: z
+    .array(
+      z
+        .array(
+          z
+            .object({
+              x: z.coerce.number().int().min(1).max(6).prefault(1),
+              房间类型: z.string().prefault('战斗房'),
+            })
+            .prefault({}),
+        )
+        .prefault([]),
+    )
+    .prefault([]),
 
   // 角色好感度 - 动态角色名
   角色: z

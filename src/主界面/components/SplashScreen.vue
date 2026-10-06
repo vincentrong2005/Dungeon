@@ -41,7 +41,9 @@
     ></div>
 
     <button
+      type="button"
       class="absolute right-4 top-4 z-50 flex h-8 w-8 items-center justify-center rounded border border-dungeon-brown/50 bg-dungeon-dark/60 text-dungeon-gold-dim transition-all duration-300 hover:border-dungeon-gold/50 hover:bg-dungeon-brown hover:text-dungeon-gold"
+      aria-label="切换全屏"
       @click="$emit('toggleFullscreen')"
     >
       <Maximize class="size-4" />
@@ -413,14 +415,24 @@ onBeforeUnmount(() => {
 }
 
 .splash-screen {
-  height: 100vh;
-  height: 100dvh;
+  height: auto;
   min-height: 100vh;
   min-height: 100dvh;
   padding-top: max(1rem, env(safe-area-inset-top));
   padding-right: max(1rem, env(safe-area-inset-right));
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
   padding-left: max(1rem, env(safe-area-inset-left));
+}
+
+@media (max-width: 639px) {
+  .splash-screen {
+    justify-content: flex-start;
+  }
+
+  .splash-content {
+    padding-top: clamp(4.5rem, 12vh, 7rem);
+    padding-bottom: 2rem;
+  }
 }
 
 @media (max-height: 720px) and (min-width: 600px) {

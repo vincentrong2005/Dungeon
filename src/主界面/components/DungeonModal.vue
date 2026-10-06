@@ -33,7 +33,11 @@
         </div>
 
         <!-- Body -->
-        <div class="relative flex-1 overflow-y-auto custom-scrollbar bg-[linear-gradient(160deg,rgba(20,13,9,0.92),rgba(30,19,12,0.9))] p-8 text-dungeon-paper/80">
+        <div
+          :id="bodyId"
+          class="relative flex-1 overflow-y-auto custom-scrollbar bg-[linear-gradient(160deg,rgba(20,13,9,0.92),rgba(30,19,12,0.9))] p-8 text-dungeon-paper/80"
+          @scroll="$emit('bodyScroll', $event)"
+        >
           <slot>
             <div class="text-center py-12">
               <div class="mb-4 text-4xl opacity-20 animate-pulse">❖</div>
@@ -59,9 +63,11 @@ defineProps<{
   title: string;
   isOpen: boolean;
   panelClass?: string;
+  bodyId?: string;
 }>();
 
 defineEmits<{
   close: [];
+  bodyScroll: [event: Event];
 }>();
 </script>

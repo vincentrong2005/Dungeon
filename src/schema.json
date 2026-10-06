@@ -334,7 +334,51 @@
       "default": [],
       "type": "array",
       "items": {
-        "type": "string"
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "default": {},
+            "type": "object",
+            "properties": {
+              "x": {
+                "default": 1,
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "房间类型": {
+                "default": "",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "$地图": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "default": [],
+        "type": "array",
+        "items": {
+          "default": {},
+          "type": "object",
+          "properties": {
+            "x": {
+              "default": 1,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            },
+            "房间类型": {
+              "default": "战斗房",
+              "type": "string"
+            }
+          }
+        }
       }
     },
     "角色": {

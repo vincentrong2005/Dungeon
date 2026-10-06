@@ -1,5 +1,6 @@
 // Schema import removed - using raw MVU data directly
 import { FINAL_AREA_NAME, getFloorNumberForArea } from './floor';
+import { MAP_ROUTE_COUNT, generateDungeonMap, normalizeDungeonMap, replaceFutureRoomsWithBattle } from './map';
 import {
   FIXED_OPENING_BACKGROUND_SETTING,
   buildOpeningBackstoryDraftPrompt,
@@ -240,20 +241,22 @@ export const useGameStore = defineStore('game', () => {
 
   // ── MVU 变量（解析后的 stat_data）──
   const statData = ref<Record<string, any>>({});
+  let currentFloorMapInitialization: Promise<boolean> | null = null;
 
   // ── 读档面板 ──
   const saveEntries = ref<SaveEntry[]>([]);
   const isSaveLoadOpen = ref(false);
 
-  // ── 传送门待应用变量（点击传送门时记录，在新楼层生成后应用）──
-  interface PendingPortalChanges {
+  // ── 地图房间待应用变量（点击地图节点时记录，在 user 楼层写入）──
+  interface PendingRoomChanges {
     area?: string;
     roomType: string;
     resetRoomCounter?: boolean;
     incrementKeys?: string[];
     enemyName?: string;
     resetPath?: boolean;
-    appendPathLabel?: string;
+    pathEntry?: { x: number; 房间类型: string };
+    map?: unknown;
   }
   interface PendingCombatMvuChanges {
     hp?: number;
@@ -282,7 +285,7 @@ export const useGameStore = defineStore('game', () => {
     events: FastActionEvent[];
     mvuData: any | null;
   }
-  const pendingPortalChanges = ref<PendingPortalChanges | null>(null);
+  const pendingRoomChanges = ref<PendingRoomChanges | null>(null);
   const pendingCombatMvuChanges = ref<PendingCombatMvuChanges | null>(null);
   const pendingStatDataChanges = ref<PendingStatDataChanges | null>(null);
   const fastActionEvents = ref<FastActionEvent[]>([]);
@@ -348,8 +351,8 @@ export const useGameStore = defineStore('game', () => {
     setManualButtonCompletion(target, false);
   }
 
-  function setPendingPortalChanges(changes: PendingPortalChanges) {
-    pendingPortalChanges.value = changes;
+  function setPendingRoomChanges(changes: PendingRoomChanges) {
+    pendingRoomChanges.value = _.cloneDeep(changes);
   }
 
   function setPendingCombatMvuChanges(changes: PendingCombatMvuChanges | null) {
@@ -1016,6 +1019,37 @@ export const useGameStore = defineStore('game', () => {
     return mvuData;
   }
 
+  /**
+   * 确保当前普通楼层拥有完整地图。地图只在缺失或结构无效时生成一次，
+   * 并立即写回最新消息楼层，避免首层地图依赖 GameView watcher 的时序。
+   */
+  async function ensureCurrentFloorMap(): Promise<boolean> {
+    if (currentFloorMapInitialization) return currentFloorMapInitialization;
+
+    const initialization = (async () => {
+      const area = String(statData.value._当前区域 ?? '').trim();
+      if (!area || area === '魔女的小窝' || area === FINAL_AREA_NAME) return false;
+      if (normalizeDungeonMap(statData.value.$地图).length === MAP_ROUTE_COUNT) return false;
+
+      const generatedMap = generateDungeonMap();
+      const statuses = Array.isArray(statData.value.$负面状态) ? statData.value.$负面状态 : [];
+      const currentY = Array.isArray(statData.value.$路径) ? statData.value.$路径.length : 0;
+      const map = statuses.includes('[被标记]')
+        ? replaceFutureRoomsWithBattle(generatedMap, currentY)
+        : generatedMap;
+      return await updateStatDataFields({
+        $地图: map,
+      });
+    })();
+    currentFloorMapInitialization = initialization;
+
+    try {
+      return await initialization;
+    } finally {
+      currentFloorMapInitialization = null;
+    }
+  }
+
   function isInFinalArea(): boolean {
     return String(statData.value?._当前区域 ?? '').trim() === FINAL_AREA_NAME;
   }
@@ -1195,9 +1229,9 @@ export const useGameStore = defineStore('game', () => {
   }
 
   /**
-   * 将传送门变量变更应用到 MVU 数据（写入 user 楼层）
+   * 将地图房间变量变更应用到 MVU 数据（写入 user 楼层）
    */
-  function applyPendingPortalChangesToMvu(baseMvuData: any, changes: PendingPortalChanges | null) {
+  function applyPendingRoomChangesToMvu(baseMvuData: any, changes: PendingRoomChanges | null) {
     const result = _.cloneDeep(baseMvuData ?? {});
     if (!changes) return result;
 
@@ -1209,6 +1243,7 @@ export const useGameStore = defineStore('game', () => {
     if (changes.area !== undefined) sd._当前区域 = changes.area;
     sd._当前房间类型 = changes.roomType;
     if (changes.enemyName !== undefined) sd._对手名称 = changes.enemyName;
+    if (changes.map !== undefined) sd.$地图 = _.cloneDeep(changes.map);
 
     if (!sd.$统计 || typeof sd.$统计 !== 'object') {
       sd.$统计 = {};
@@ -1225,19 +1260,27 @@ export const useGameStore = defineStore('game', () => {
     }
 
     const currentPath = Array.isArray(sd.$路径)
-      ? sd.$路径.filter((item): item is string => typeof item === 'string')
+      ? sd.$路径.filter(
+          (item: unknown): item is string | { x: number; 房间类型: string } =>
+            typeof item === 'string' ||
+            (Boolean(item) && typeof item === 'object' && Number.isFinite(Number((item as any).x)) && typeof (item as any).房间类型 === 'string'),
+        )
       : Array.isArray(stat.$路径)
-        ? stat.$路径.filter((item): item is string => typeof item === 'string')
+        ? stat.$路径.filter(
+            (item: unknown): item is string | { x: number; 房间类型: string } =>
+              typeof item === 'string' ||
+              (Boolean(item) && typeof item === 'object' && Number.isFinite(Number((item as any).x)) && typeof (item as any).房间类型 === 'string'),
+          )
         : [];
     const nextPath = [...currentPath];
     if (changes.resetPath) {
       nextPath.length = 0;
     }
-    if (typeof changes.appendPathLabel === 'string') {
-      const normalizedLabel = changes.appendPathLabel.trim();
-      if (normalizedLabel) {
-        nextPath.push(normalizedLabel);
-      }
+    if (changes.pathEntry && Number.isInteger(changes.pathEntry.x) && changes.pathEntry.房间类型.trim()) {
+      nextPath.push({
+        x: changes.pathEntry.x,
+        房间类型: changes.pathEntry.房间类型.trim(),
+      });
     }
     sd.$路径 = nextPath;
     if (Object.prototype.hasOwnProperty.call(stat, '$路径')) {
@@ -1245,6 +1288,69 @@ export const useGameStore = defineStore('game', () => {
     }
 
     return syncFloorNumberByArea(result);
+  }
+
+  /**
+   * 地图选择是本地系统状态，不能被随后生成的 AI 回复中的旧导航字段覆盖。
+   * 这些字段已经写入 user 楼层，解析 assistant 回复后再从 user 楼层恢复，
+   * 同时保留 AI 对其他变量的正常更新。
+   */
+  function preserveNavigationStateFromUserMvuData(parsedMvuData: any, userMvuData: any) {
+    const source = _.get(userMvuData, 'stat_data');
+    if (!source || typeof source !== 'object') return parsedMvuData;
+
+    const result = parsedMvuData && typeof parsedMvuData === 'object' ? parsedMvuData : {};
+    if (!result.stat_data || typeof result.stat_data !== 'object') {
+      result.stat_data = {};
+    }
+    const target = result.stat_data as Record<string, any>;
+
+    const navigationKeys = ['_当前区域', '_当前房间类型', '_楼层数', '_对手名称', '$当前事件', '$地图', '$路径'];
+    for (const key of navigationKeys) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        target[key] = _.cloneDeep(source[key]);
+      }
+    }
+
+    const sourceStats = source.$统计;
+    if (sourceStats && typeof sourceStats === 'object') {
+      if (!target.$统计 || typeof target.$统计 !== 'object') {
+        target.$统计 = {};
+      }
+      const targetStats = target.$统计 as Record<string, any>;
+      const navigationStatKeys = [
+        '当前层已过房间',
+        '累计已过房间',
+        '累计经过战斗',
+        '累计经过温泉',
+        '累计经过宝箱',
+        '累计经过商店',
+        '累计经过神像',
+        '累计经过事件',
+        '累计经过陷阱',
+      ];
+      for (const key of navigationStatKeys) {
+        if (Object.prototype.hasOwnProperty.call(sourceStats, key)) {
+          targetStats[key] = _.cloneDeep(sourceStats[key]);
+        }
+      }
+    }
+
+    return syncFloorNumberByArea(result);
+  }
+
+  function applyMarkedStatusMapEffect(mvuData: any, wasMarked = false) {
+    const sd = mvuData?.stat_data;
+    if (!sd || typeof sd !== 'object') return;
+    const statuses = Array.isArray(sd.$负面状态)
+      ? sd.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
+      : [];
+    if (wasMarked || !statuses.includes('[被标记]')) return;
+
+    const currentMap = normalizeDungeonMap(sd.$地图);
+    if (currentMap.length !== MAP_ROUTE_COUNT) return;
+    const currentY = Array.isArray(sd.$路径) ? sd.$路径.length : 0;
+    sd.$地图 = replaceFutureRoomsWithBattle(currentMap, currentY);
   }
 
   function applyPendingCombatChangesToMvu(baseMvuData: any, changes: PendingCombatMvuChanges | null) {
@@ -1272,6 +1378,7 @@ export const useGameStore = defineStore('game', () => {
     if (Array.isArray(changes.negativeStatusesAdd) && changes.negativeStatusesAdd.length > 0) {
       const raw = sd.$负面状态;
       const base = Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+      const hadMarkedStatus = base.includes('[被标记]');
       for (const status of changes.negativeStatusesAdd) {
         if (typeof status !== 'string') continue;
         const normalized = status.trim();
@@ -1281,6 +1388,7 @@ export const useGameStore = defineStore('game', () => {
         }
       }
       sd.$负面状态 = base;
+      applyMarkedStatusMapEffect(result, hadMarkedStatus);
     }
 
     if (Array.isArray(changes.negativeStatusesRemove) && changes.negativeStatusesRemove.length > 0) {
@@ -1507,16 +1615,16 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function applyQueuedPendingChangesToMvu(baseMvuData: any) {
-    const currentPendingPortalChanges = pendingPortalChanges.value;
+    const currentPendingRoomChanges = pendingRoomChanges.value;
     const currentPendingCombatChanges = pendingCombatMvuChanges.value;
     const currentPendingStatDataChanges = pendingStatDataChanges.value;
 
-    const afterPortal = applyPendingPortalChangesToMvu(baseMvuData, currentPendingPortalChanges);
-    const afterCombat = applyPendingCombatChangesToMvu(afterPortal, currentPendingCombatChanges);
+    const afterRoom = applyPendingRoomChangesToMvu(baseMvuData, currentPendingRoomChanges);
+    const afterCombat = applyPendingCombatChangesToMvu(afterRoom, currentPendingCombatChanges);
     const afterStatData = applyPendingStatDataChangesToMvu(afterCombat, currentPendingStatDataChanges);
     syncFloorNumberByArea(afterStatData);
 
-    pendingPortalChanges.value = null;
+    pendingRoomChanges.value = null;
     pendingCombatMvuChanges.value = null;
     pendingStatDataChanges.value = null;
 
@@ -1591,7 +1699,18 @@ export const useGameStore = defineStore('game', () => {
   function formatFastModeStateSnapshot(mvuData: any): string {
     const sd = _.get(mvuData, 'stat_data') ?? {};
     const stats = sd.$统计 && typeof sd.$统计 === 'object' ? sd.$统计 : {};
-    const path = Array.isArray(sd.$路径) ? sd.$路径.filter((item: unknown): item is string => typeof item === 'string') : [];
+    const path = Array.isArray(sd.$路径)
+      ? sd.$路径
+          .map((item: unknown) => {
+            if (typeof item === 'string') return item;
+            if (!item || typeof item !== 'object') return '';
+            const raw = item as Record<string, unknown>;
+            const x = Number(raw.x);
+            const roomType = typeof raw.房间类型 === 'string' ? raw.房间类型 : '';
+            return Number.isInteger(x) && roomType ? `x=${x} ${roomType}` : '';
+          })
+          .filter((item: string) => item.length > 0)
+      : [];
     const statuses = Array.isArray(sd.$负面状态)
       ? sd.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
       : [];
@@ -1838,7 +1957,7 @@ export const useGameStore = defineStore('game', () => {
       const overwriteUserMessageId = await normalizeTailUserMessage();
       const baseMessageId = overwriteUserMessageId !== null ? findLatestAssistantMessageId() : getLastMessageId();
       const oldMvuData = baseMessageId >= 0 ? Mvu.getMvuData({ type: 'message', message_id: baseMessageId }) : {};
-      const currentPendingPortalChanges = pendingPortalChanges.value;
+      const currentPendingRoomChanges = pendingRoomChanges.value;
       const currentPendingCombatChanges = pendingCombatMvuChanges.value;
       const currentPendingStatDataChanges = pendingStatDataChanges.value;
       const currentPendingFinalAreaEditNotices = isInFinalArea() ? [...pendingFinalAreaEditNotices.value] : [];
@@ -1849,12 +1968,12 @@ export const useGameStore = defineStore('game', () => {
         currentPendingFinalAreaEditNotice,
       ]);
 
-      // 2. 先将传送门变量写入 user 楼层对应的 MVU 数据
+      // 2. 先将地图房间变量写入 user 楼层对应的 MVU 数据
       const userMvuData = options?.userMvuDataOverride
         ? _.cloneDeep(options.userMvuDataOverride)
         : applyPendingStatDataChangesToMvu(
             applyPendingCombatChangesToMvu(
-              applyPendingPortalChangesToMvu(oldMvuData, currentPendingPortalChanges),
+              applyPendingRoomChangesToMvu(oldMvuData, currentPendingRoomChanges),
               currentPendingCombatChanges,
             ),
             currentPendingStatDataChanges,
@@ -1873,9 +1992,11 @@ export const useGameStore = defineStore('game', () => {
         await createChatMessages([{ role: 'user', message: finalUserInput, data: userMvuData }], { refresh: 'none' });
       }
       messageListRevision.value += 1;
+      // 地图选择已经在 user 楼层落盘，立即同步本地显示，避免生成期间仍读取旧房型。
+      refreshLocalStatData(userMvuData);
 
       // user 层已写入成功后，清空待应用变更，避免后续重复叠加
-      pendingPortalChanges.value = null;
+      pendingRoomChanges.value = null;
       pendingCombatMvuChanges.value = null;
       pendingStatDataChanges.value = null;
       if (currentPendingFinalAreaEditNotices.length > 0) {
@@ -1917,6 +2038,11 @@ export const useGameStore = defineStore('game', () => {
       } else if (!newMvuData.stat_data && userMvuData?.stat_data) {
         newMvuData.stat_data = _.cloneDeep(userMvuData.stat_data);
       }
+      preserveNavigationStateFromUserMvuData(newMvuData, userMvuData);
+      const previousStatuses = Array.isArray(userMvuData?.stat_data?.$负面状态)
+        ? userMvuData.stat_data.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
+        : [];
+      applyMarkedStatusMapEffect(newMvuData, previousStatuses.includes('[被标记]'));
       syncFloorNumberByArea(newMvuData);
 
       // 8. 清理无用的 MVU 内部字段
@@ -2146,6 +2272,10 @@ export const useGameStore = defineStore('game', () => {
 
       // 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
       const newMvuData = await Mvu.parseMessage(resultText, _.cloneDeep(oldMvuData));
+      const previousStatuses = Array.isArray(oldMvuData?.stat_data?.$负面状态)
+        ? oldMvuData.stat_data.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
+        : [];
+      applyMarkedStatusMapEffect(newMvuData, previousStatuses.includes('[被标记]'));
       syncFloorNumberByArea(newMvuData);
 
       // 创建新的 assistant 楼层，携带 MVU 数据
@@ -2221,6 +2351,10 @@ export const useGameStore = defineStore('game', () => {
         // parseMessage 完全失败时，保留原始数据
         newMvuData = currentMvuData;
       }
+      const previousStatuses = Array.isArray(currentMvuData?.stat_data?.$负面状态)
+        ? currentMvuData.stat_data.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
+        : [];
+      applyMarkedStatusMapEffect(newMvuData, previousStatuses.includes('[被标记]'));
       syncFloorNumberByArea(newMvuData);
 
       // 保存编辑后的完整文本到楼层
@@ -2346,6 +2480,7 @@ export const useGameStore = defineStore('game', () => {
 
     // Actions
     initialize,
+    ensureCurrentFloorMap,
     isFreshChatSession,
     getWorldbookEntryContentByName,
     generateOpeningBackstoryDraft,
@@ -2364,7 +2499,7 @@ export const useGameStore = defineStore('game', () => {
     clearFastModeBuffer,
     showManualButtonCompletion,
     hideManualButtonCompletion,
-    setPendingPortalChanges,
+    setPendingRoomChanges,
     setPendingCombatMvuChanges,
     setPendingStatDataChanges,
     mergePendingStatDataChanges,

@@ -327,38 +327,13 @@
                     <span class="special-action-btn__label">{{ specialOptionConfig.label }}</span>
                   </button>
 
-                  <!-- [Leave] Portal System -->
-                  <div v-if="gameStore.hasLeave && portalChoices.length > 0" class="portal-section">
-                    <div class="action-divider-label">传送门</div>
-                    <div class="portal-grid">
-                      <button
-                        v-for="(portal, i) in portalChoices"
-                        :key="'portal-' + i"
-                        class="portal-btn group"
-                        :style="{
-                          backgroundColor: portal.bgColor,
-                          borderColor: portal.borderColor,
-                          boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
-                        }"
-                        @click="handlePortalClick(portal)"
-                      >
-                        <!-- Portal glow ring -->
-                        <div class="portal-btn__glow" :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"></div>
-                        <!-- Portal icon -->
-                        <span class="portal-btn__icon">{{ portal.icon }}</span>
-                        <!-- Portal label -->
-                        <span
-                          class="portal-btn__label"
-                          :style="{ color: portal.textColor }"
-                          >{{ portal.label }}</span
-                        >
-                        <!-- Animated ring -->
-                        <div
-                          class="portal-btn__ring"
-                          :style="{ borderColor: portal.borderColor }"
-                        ></div>
-                      </button>
-                    </div>
+                  <!-- [Leave] 地图选择 -->
+                  <div v-if="gameStore.hasLeave && mapSelectionAvailable" class="map-selection-section">
+                    <div class="action-divider-label">地图</div>
+                    <button type="button" class="map-selection-btn" @click="openMapForSelection">
+                      <span class="map-selection-btn__icon">⌖</span>
+                      <span>{{ mapSelectionLabel }}</span>
+                    </button>
                   </div>
 
                   <!-- [Rebirth] Reset Button -->
@@ -892,6 +867,8 @@
           title="地牢地图"
           :is-open="activeModal === 'map'"
           panel-class="max-w-5xl"
+          body-id="dungeon-map-modal-body"
+          @body-scroll="handleMapModalBodyScroll"
           @close="activeModal = null"
         >
           <div class="map-modal">
@@ -899,9 +876,10 @@
               <div class="map-hero__copy">
                 <div class="map-hero__eyebrow">Cartography Archive</div>
                 <div class="map-hero__title">地牢地图</div>
-                <div class="map-hero__desc">记录本层推进顺序。拖拽平移、滚轮缩放，最新抵达的房间会以高亮标记。</div>
+                <div class="map-hero__desc">从底部起点向上探索，领主房位于地图顶端。节点符号代表房间类型。</div>
               </div>
-              <div class="map-hero__chips">
+              <div class="map-hero__aside">
+                <div class="map-hero__chips">
                 <div class="map-hero__chip">
                   <span class="map-hero__chip-label">当前楼层</span>
                   <span class="map-hero__chip-value">{{ mapCurrentFloorLabel }}</span>
@@ -921,6 +899,14 @@
                 <div class="map-hero__chip">
                   <span class="map-hero__chip-label">缩放比例</span>
                   <span class="map-hero__chip-value">{{ mapZoomPercent }}</span>
+                </div>
+                </div>
+                <div class="map-legend" aria-label="地图图例">
+                <div class="map-legend__title">图例</div>
+                <div v-for="entry in mapLegendEntries" :key="entry.roomType" class="map-legend__item">
+                  <span class="map-legend__icon" :style="entry.iconStyle" aria-hidden="true"></span>
+                  <span class="map-legend__label">— {{ entry.label }}</span>
+                </div>
                 </div>
               </div>
             </section>
@@ -942,7 +928,7 @@
                   >统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房</span
                 >
                 <span class="map-summary-divider">|</span>
-                <span>操作提示：拖拽查看细节</span>
+                <span>操作提示：拖拽查看细节，点击可达节点前进</span>
               </div>
               <div class="map-controls">
                 <button type="button" class="map-control-btn" @click="handleMapZoomOut">-</button>
@@ -952,47 +938,64 @@
                 </button>
               </div>
             </div>
-            <div v-if="currentFloorPath.length === 0" class="map-empty">本层暂无路径记录</div>
+            <div v-if="mapNodes.length === 0" class="map-empty">当前楼层地图尚未生成</div>
             <div
               v-else
               ref="mapViewportRef"
               class="map-viewport"
               @wheel.prevent="handleMapWheel"
-              @pointerdown="handleMapPointerDown"
+              @pointerdown.capture="handleMapPointerDown"
               @pointermove="handleMapPointerMove"
               @pointerup="handleMapPointerUp"
               @pointercancel="handleMapPointerUp"
+              @lostpointercapture="handleMapPointerUp"
             >
               <div class="map-canvas" :style="mapCanvasStyle">
-                <svg
-                  class="map-links"
-                  :width="mapContentWidth"
-                  :height="mapContentHeight"
-                  :viewBox="`0 0 ${mapContentWidth} ${mapContentHeight}`"
-                >
-                  <line
-                    v-for="line in mapPathLines"
-                    :key="line.key"
-                    :x1="line.x1"
-                    :y1="line.y1"
-                    :x2="line.x2"
-                    :y2="line.y2"
-                    stroke="rgba(0,0,0,0.9)"
-                    stroke-width="4"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                <div
-                  v-for="node in mapPathNodes"
-                  :key="`path-node-${node.index}`"
-                  class="map-room-cell"
-                  :class="{ 'map-room-cell--latest': node.isLatest }"
-                  :style="node.style"
-                >
-                  <span v-if="node.isLatest" class="map-room-pulse"></span>
-                  <span class="map-room-icon">{{ node.icon }}</span>
-                  <span class="map-room-label">{{ node.label }}</span>
-                  <span class="map-room-step">{{ node.index + 1 }}</span>
+                <div class="map-layout" :style="mapLayoutStyle">
+                  <svg
+                    class="map-links"
+                    :width="mapContentWidth"
+                    :height="mapContentHeight"
+                    :viewBox="`0 0 ${mapContentWidth} ${mapContentHeight}`"
+                  >
+                    <line
+                      v-for="line in mapLines"
+                      :key="line.key"
+                      :x1="line.x1"
+                      :y1="line.y1"
+                      :x2="line.x2"
+                      :y2="line.y2"
+                      :class="{ 'map-link--visited': line.isVisited }"
+                      :stroke="line.isVisited ? 'rgba(250, 204, 76, 0.98)' : 'rgba(28,24,18,0.68)'"
+                      :stroke-width="line.isVisited ? 3.2 : 2.2"
+                      :stroke-dasharray="line.isVisited ? '5 6' : '1 7'"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <button
+                    v-for="node in mapNodes"
+                    :key="node.key"
+                    type="button"
+                    class="map-room-cell"
+                    :class="{
+                      'map-room-cell--latest': node.isLatest,
+                      'map-room-cell--visited': node.isVisited,
+                      'map-room-cell--available': node.isAvailable,
+                      'map-room-cell--boss': node.isBoss,
+                      'map-room-cell--start': node.kind === 'start',
+                      'map-room-cell--floor': node.kind === 'floor',
+                    }"
+                    :disabled="!node.isAvailable || gameStore.isGenerating"
+                    :title="node.kind === 'room' ? node.roomType : node.label"
+                    :aria-label="node.kind === 'room' ? node.roomType : node.label"
+                    :style="node.style"
+                    @pointerdown.stop
+                    @click.stop="handleMapNodeClick(node)"
+                  >
+                    <span v-if="node.isLatest || node.isAvailable" class="map-room-pulse"></span>
+                    <span class="map-room-icon" :style="node.iconStyle" aria-hidden="true"></span>
+                    <span class="map-room-label">{{ node.label }}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1942,34 +1945,34 @@
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
-                    <span>传送门/重生附带输入</span>
+                    <span>地图/重生附带输入</span>
                     <button
                       type="button"
                       class="settings-help-trigger"
-                      @mouseenter="openSettingsHelp('portalRebirthInputAppend')"
-                      @mouseleave="closeSettingsHelp('portalRebirthInputAppend')"
-                      @focus="openSettingsHelp('portalRebirthInputAppend')"
-                      @blur="closeSettingsHelp('portalRebirthInputAppend')"
-                      @touchstart.passive="startSettingsHelpTouch('portalRebirthInputAppend')"
-                      @touchend="endSettingsHelpTouch('portalRebirthInputAppend')"
-                      @touchcancel="endSettingsHelpTouch('portalRebirthInputAppend')"
-                      @click.stop.prevent="toggleSettingsHelp('portalRebirthInputAppend')"
+                      @mouseenter="openSettingsHelp('mapRebirthInputAppend')"
+                      @mouseleave="closeSettingsHelp('mapRebirthInputAppend')"
+                      @focus="openSettingsHelp('mapRebirthInputAppend')"
+                      @blur="closeSettingsHelp('mapRebirthInputAppend')"
+                      @touchstart.passive="startSettingsHelpTouch('mapRebirthInputAppend')"
+                      @touchend="endSettingsHelpTouch('mapRebirthInputAppend')"
+                      @touchcancel="endSettingsHelpTouch('mapRebirthInputAppend')"
+                      @click.stop.prevent="toggleSettingsHelp('mapRebirthInputAppend')"
                     >
                       ?
                     </button>
                     <Transition name="settings-help-fade">
-                      <div v-if="activeSettingsHelp === 'portalRebirthInputAppend'" class="settings-help-popover">
-                        {{ settingsHelpText.portalRebirthInputAppend }}
+                      <div v-if="activeSettingsHelp === 'mapRebirthInputAppend'" class="settings-help-popover">
+                        {{ settingsHelpText.mapRebirthInputAppend }}
                       </div>
                     </Transition>
                   </div>
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
-                    :class="{ 'is-on': isPortalRebirthInputAppendEnabled }"
-                    :aria-checked="isPortalRebirthInputAppendEnabled"
+                    :class="{ 'is-on': isMapRebirthInputAppendEnabled }"
+                    :aria-checked="isMapRebirthInputAppendEnabled"
                     role="switch"
-                    @click="isPortalRebirthInputAppendEnabled = !isPortalRebirthInputAppendEnabled"
+                    @click="isMapRebirthInputAppendEnabled = !isMapRebirthInputAppendEnabled"
                   >
                     <span class="settings-switch-track">
                       <span class="settings-switch-label settings-switch-label--off">关</span>
@@ -1998,7 +2001,10 @@
                     </button>
                     <Transition name="settings-help-fade">
                       <div v-if="activeSettingsHelp === 'fastMode'" class="settings-help-popover">
-                        {{ settingsHelpText.fastMode }}
+                        <div>{{ settingsHelpText.fastMode }}</div>
+                        <div class="settings-help-popover-warning">
+                          打开该模式后，对于跨房间或房间特殊操作等操作将不受限制，因此操作不当可能会导致 bug，请谨慎开启。
+                        </div>
                       </div>
                     </Transition>
                   </div>
@@ -2871,37 +2877,15 @@
                 </button>
               </div>
 
-              <div class="pointer-events-auto chest-portals-anchor w-full">
-                <div class="flex justify-center gap-4 flex-wrap">
-                  <button
-                    v-for="(portal, i) in chestPortalChoices"
-                    :key="`chest-portal-${i}`"
-                    class="portal-btn group relative flex flex-col items-center justify-center rounded-lg border-2 backdrop-blur-sm transition-all duration-500 hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                    :style="{
-                      backgroundColor: portal.bgColor,
-                      borderColor: portal.borderColor,
-                      boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
-                    }"
-                    :disabled="chestCollecting"
-                    @click="handleChestPortalClick(portal)"
-                  >
-                    <div
-                      class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
-                      :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
-                    ></div>
-                    <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
-                    <span
-                      class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
-                      :style="{ color: portal.textColor }"
-                      >{{ portal.label }}</span
-                    >
-                    <div
-                      class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70 animate-[spin_8s_linear_infinite] transition-opacity"
-                      :style="{ borderColor: portal.borderColor }"
-                    ></div>
-                  </button>
-                </div>
-              </div>
+              <button
+                v-if="chestRoomCompletionReady"
+                type="button"
+                class="map-overlay-finish-btn pointer-events-auto"
+                :disabled="chestCollecting || gameStore.isGenerating"
+                @click="finishChestRoom"
+              >
+                打开地图，选择下一目的地
+              </button>
             </div>
 
             <button
@@ -2984,32 +2968,13 @@
             </div>
 
             <button
-              v-for="(portal, i) in idolPortalChoices"
-              :key="`idol-portal-${i}`"
-              class="portal-btn idol-portal-btn group absolute z-[98] flex flex-col items-center justify-center rounded-lg border-2 backdrop-blur-sm transition-all duration-500 hover:scale-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-              :style="{
-                left: `${50 + (i - (idolPortalChoices.length - 1) / 2) * 13}%`,
-                backgroundColor: portal.bgColor,
-                borderColor: portal.borderColor,
-                boxShadow: `0 0 15px ${portal.glowColor}, 0 0 30px ${portal.glowColor}40`,
-              }"
+              v-if="!idolDiceRolling && idolAssignedTarget"
+              type="button"
+              class="map-overlay-finish-btn"
               :disabled="gameStore.isGenerating"
-              @click="handleIdolPortalClick(portal)"
+              @click="finishIdolRoom"
             >
-              <div
-                class="absolute inset-0 rounded-lg opacity-50 group-hover:opacity-100 transition-opacity duration-500"
-                :style="{ boxShadow: `inset 0 0 20px ${portal.glowColor}60` }"
-              ></div>
-              <span class="portal-btn__icon mb-1 relative z-10 drop-shadow-lg">{{ portal.icon }}</span>
-              <span
-                class="portal-btn__label font-ui tracking-wide relative z-10 text-center"
-                :style="{ color: portal.textColor }"
-                >{{ portal.label }}</span
-              >
-              <div
-                class="absolute inset-1 rounded-md border border-dashed opacity-30 group-hover:opacity-70 animate-[spin_8s_linear_infinite] transition-opacity"
-                :style="{ borderColor: portal.borderColor }"
-              ></div>
+              打开地图，选择下一目的地
             </button>
           </div>
         </Transition>
@@ -3423,6 +3388,15 @@ import { FINAL_AREA_NAME, FINAL_FLOOR_NAME, FLOOR_MAP, getFloorForArea, getNextF
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
+import {
+  MAP_HEIGHT,
+  MAP_ROUTE_COUNT,
+  generateDungeonMap,
+  normalizeDungeonMap,
+  replaceFutureRoomsWithBattle,
+  type DungeonMap,
+  type MapRoomNode,
+} from '../map';
 import type { OpeningInfoSubmission } from '../openingProfile';
 import { extractMainTextOnly } from '../responseParser';
 import { CardType, EffectType, type ActiveSkillData, type CardData, type EffectInstance, type EntityStats } from '../types';
@@ -3684,13 +3658,12 @@ const chestRewardCollectedFlags = ref<boolean[]>([]);
 const chestCollecting = ref(false);
 const chestRewardVisible = ref(false);
 const chestOpenedBgReady = ref(false);
-const chestPortalChoices = ref<PortalChoice[]>([]);
 const chestRewardCountFixed = ref<number | null>(null);
 const chestCloseCount = ref(0);
 const chestForceMimicNextOpen = ref(false);
 const pendingChestRewardIndex = ref<number | null>(null);
+const chestRoomCompletionReady = computed(() => chestStage.value === 'opened');
 const pendingShopProductKey = ref<string | null>(null);
-const idolPortalChoices = ref<PortalChoice[]>([]);
 const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
 const idolDiceValue = ref(1);
 const idolDiceRolling = ref(false);
@@ -3819,7 +3792,6 @@ interface PersistedChestState {
   collecting: boolean;
   rewardVisible: boolean;
   openedBgReady: boolean;
-  portalChoices: PortalChoice[];
   rewardCountFixed: number | null;
   closeCount: number;
   forceMimicNextOpen: boolean;
@@ -3839,7 +3811,6 @@ interface PersistedIdolState {
   assignedTarget: IdolBlessingTarget | null;
   snapPreviewTarget: IdolBlessingTarget | null;
   dicePosition: { x: number; y: number };
-  portalChoices: PortalChoice[];
 }
 
 interface PersistedVictoryState {
@@ -3865,7 +3836,9 @@ interface PersistedOverlaySnapshot {
   mimicRelicDrop?: PersistedMimicRelicDropState;
 }
 
-const OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v1';
+// The portal-based overlay snapshot is intentionally invalid after the map flow migration.
+const OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v2';
+const LEGACY_OVERLAY_STATE_KEY = 'dungeon.ui.overlay_state.v1';
 const PLAYER_CUSTOM_PORTRAIT_KEY = 'dungeon.player.custom_portrait.v1';
 const isRestoringOverlayState = ref(false);
 
@@ -5787,6 +5760,11 @@ watch(
 );
 
 watch(activeModal, modal => {
+  if (modal !== 'map') {
+    mapActivePointers.clear();
+    mapDragPointerId.value = null;
+    mapPinchStartDistance = 0;
+  }
   if (modal === 'magicBooks' || modal === 'magicHat') {
     gameStore.loadStatData();
   }
@@ -5794,7 +5772,11 @@ watch(activeModal, modal => {
     void refreshBigSummaryChronicleEntries();
   }
   if (modal === 'map') {
-    nextTick(() => centerMapOnLatestNode(true));
+    nextTick(() => {
+      observeMapViewport();
+      restoreMapViewportOrCenter();
+      restoreMapModalScroll();
+    });
   }
   if (modal !== 'bonds') {
     closeBondPortraitPreview();
@@ -5837,7 +5819,7 @@ type SettingsHelpKey =
   | 'streamingEnabled'
   | 'forbidMatchingXmlInsideThink'
   | 'buttonCompletion'
-  | 'portalRebirthInputAppend'
+  | 'mapRebirthInputAppend'
   | 'fastMode'
   | 'autoSummaryEnabled'
   | 'summaryVisibleWindow'
@@ -5849,7 +5831,7 @@ type SettingsHelpKey =
 
 const TEXT_SETTINGS_KEY = 'dungeon.text_settings.v1';
 const AUTO_SCROLL_TOP_ON_REPLY_KEY = 'dungeon.auto_scroll_top_on_reply.v1';
-const PORTAL_REBIRTH_INPUT_APPEND_KEY = 'dungeon.portal_rebirth_input_append.v1';
+const MAP_REBIRTH_INPUT_APPEND_KEY = 'dungeon.map_rebirth_input_append.v1';
 const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
   fontSize: 26,
   lineHeight: 2.0,
@@ -5935,17 +5917,17 @@ const persistAutoScrollTopOnReplyEnabled = (enabled: boolean) => {
   }
 };
 
-const readPortalRebirthInputAppendEnabled = (): boolean => {
+const readMapRebirthInputAppendEnabled = (): boolean => {
   try {
-    return localStorage.getItem(PORTAL_REBIRTH_INPUT_APPEND_KEY) === 'true';
+    return localStorage.getItem(MAP_REBIRTH_INPUT_APPEND_KEY) === 'true';
   } catch {
     return false;
   }
 };
 
-const persistPortalRebirthInputAppendEnabled = (enabled: boolean) => {
+const persistMapRebirthInputAppendEnabled = (enabled: boolean) => {
   try {
-    localStorage.setItem(PORTAL_REBIRTH_INPUT_APPEND_KEY, String(enabled));
+    localStorage.setItem(MAP_REBIRTH_INPUT_APPEND_KEY, String(enabled));
   } catch {
     // Ignore persistence errors in restricted environments
   }
@@ -5953,7 +5935,7 @@ const persistPortalRebirthInputAppendEnabled = (enabled: boolean) => {
 
 const textSettings = reactive<TextSettingsState>(readTextSettings());
 const isAutoScrollTopOnReplyEnabled = ref(readAutoScrollTopOnReplyEnabled());
-const isPortalRebirthInputAppendEnabled = ref(readPortalRebirthInputAppendEnabled());
+const isMapRebirthInputAppendEnabled = ref(readMapRebirthInputAppendEnabled());
 
 const setSingleLayerDisplay = (enabled: boolean) => {
   textSettings.singleLayerDisplay = enabled;
@@ -5999,8 +5981,8 @@ watch(isAutoScrollTopOnReplyEnabled, enabled => {
   persistAutoScrollTopOnReplyEnabled(enabled);
 });
 
-watch(isPortalRebirthInputAppendEnabled, enabled => {
-  persistPortalRebirthInputAppendEnabled(enabled);
+watch(isMapRebirthInputAppendEnabled, enabled => {
+  persistMapRebirthInputAppendEnabled(enabled);
 });
 
 watch(
@@ -6174,10 +6156,10 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
   forbidMatchingXmlInsideThink:
     '开启后，系统解析 <status>、<options>、<sum> 等 XML 标签时，会忽略思维链内容里的同名标签，避免把AI思考过程中的示例标签误当成正式结果。',
   buttonCompletion: '开启后，输入框会根据当前可选项提供按钮式补全，方便快速选择剧情选项或行动；关闭后只保留手动输入。',
-  portalRebirthInputAppend:
-    '开启后，点击传送门或回溯重生时，若输入框已有内容，会把这段内容一并发送并清空输入框；关闭后保持原本只发送按钮行动。',
+  mapRebirthInputAppend:
+    '开启后，点击地图节点或回溯重生时，若输入框已有内容，会把这段内容一并发送并清空输入框；关闭后保持原本只发送按钮行动。',
   fastMode:
-    '开启后，部分行动会进入剧情精简模式：系统先快速记录已结算事件和变量变化，再把简化后的经过交给AI承认并续写，可减少长剧情消耗与等待时间。',
+    '开启后，部分行动会进入剧情精简模式：除了陷阱房、商店房与领主房外剧情不会再请求LLM回复，而是记录并一起注入user楼层。',
   autoSummaryEnabled:
     '关闭后不会再把每层楼的 <sum> 自动写入总结条目，并且会清空该条目内容，从而停止这部分提示词注入；重新打开后会按历史楼层重新生成。',
   summaryVisibleWindow:
@@ -6526,69 +6508,141 @@ function getImageBlockForLine(line: StoryLineBlock): InlineImageBlock | null {
 
 type MapRoomVisual = {
   icon: string;
+  spritePosition: string;
   fill: string;
   border: string;
   text: string;
 };
-type MapPathNodeView = {
+type MapNodeKind = 'room' | 'boss' | 'floor' | 'start';
+type MapNodeView = {
   key: string;
-  index: number;
-  x: number;
+  kind: MapNodeKind;
   y: number;
+  x: number;
   centerX: number;
   centerY: number;
   icon: string;
   label: string;
+  roomType: string;
+  areaName?: string;
   isLatest: boolean;
+  isVisited: boolean;
+  isAvailable: boolean;
+  isBoss: boolean;
+  iconStyle: Record<string, string>;
   style: Record<string, string>;
 };
-type MapPathLineView = {
+type MapLineView = {
   key: string;
   x1: number;
   y1: number;
   x2: number;
   y2: number;
+  isVisited: boolean;
 };
 
 const MAP_PATH_COLUMNS = 6;
 const MAP_CELL_SIZE = 62;
 const MAP_CELL_GAP = 32;
-const MAP_MIN_SCALE = 0.6;
+const MAP_MIN_SCALE = 0.44;
 const MAP_MAX_SCALE = 2.6;
 const MAP_SCALE_STEP = 0.14;
+const MAP_DEFAULT_SCALE = 0.72;
+const MAP_VIEWPORT_STORAGE_KEY = 'dungeon.map.viewport.v1';
+const MAP_SCROLL_STORAGE_KEY = 'dungeon.map.scroll.v1';
+const MAP_ICON_SPRITE_URL =
+  'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E5%9C%B0%E5%9B%BE%E5%9B%BE%E6%A0%87.png';
 const MAP_ROOM_VISUAL_BY_LABEL: Record<string, MapRoomVisual> = {
-  战斗: { icon: '⚔️', fill: 'rgba(153,27,27,0.78)', border: '#ef4444', text: '#fecaca' },
-  领主: { icon: '👑', fill: 'rgba(127,29,29,0.84)', border: '#f87171', text: '#ffe4e6' },
-  宝箱: { icon: '💎', fill: 'rgba(133,77,14,0.78)', border: '#f59e0b', text: '#fef3c7' },
-  商店: { icon: '🏪', fill: 'rgba(20,83,45,0.78)', border: '#34d399', text: '#dcfce7' },
-  温泉: { icon: '♨️', fill: 'rgba(12,74,110,0.78)', border: '#38bdf8', text: '#e0f2fe' },
-  神像: { icon: '🗿', fill: 'rgba(88,28,135,0.78)', border: '#c084fc', text: '#f3e8ff' },
-  事件: { icon: '❓', fill: 'rgba(63,63,70,0.78)', border: '#a1a1aa', text: '#f4f4f5' },
-  陷阱: { icon: '⚠️', fill: 'rgba(124,45,18,0.78)', border: '#fb923c', text: '#ffedd5' },
+  战斗: { icon: '', spritePosition: '0% 0%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+  领主: { icon: '', spritePosition: '100% 100%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+  宝箱: { icon: '', spritePosition: '33.333% 0%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+  商店: { icon: '', spritePosition: '0% 100%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+  温泉: { icon: '', spritePosition: '100% 0%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+  神像: { icon: '', spritePosition: '66.667% 0%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+  事件: { icon: '', spritePosition: '33.333% 100%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+  陷阱: { icon: '', spritePosition: '66.667% 100%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
+};
+const MAP_LEGEND_DEFINITIONS = [
+  { roomType: '战斗房', label: '战斗' },
+  { roomType: '宝箱房', label: '宝箱' },
+  { roomType: '商店房', label: '商店' },
+  { roomType: '温泉房', label: '温泉' },
+  { roomType: '神像房', label: '神像' },
+  { roomType: '事件房', label: '事件' },
+  { roomType: '陷阱房', label: '陷阱' },
+  { roomType: '领主房', label: '领主' },
+] as const;
+
+type MapPathEntry = {
+  x: number;
+  房间类型: string;
 };
 
-const currentFloorPath = computed<string[]>(() => {
+const normalizePathEntry = (value: unknown): MapPathEntry | null => {
+  if (value && typeof value === 'object') {
+    const raw = value as Record<string, unknown>;
+    const x = Number(raw.x);
+    const roomType = typeof raw.房间类型 === 'string' ? raw.房间类型.trim() : '';
+    if (Number.isInteger(x) && x >= 1 && x <= 6 && roomType) return { x, 房间类型: roomType };
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const label = value.trim();
+    return { x: 0, 房间类型: label.endsWith('房') ? label : `${label}房` };
+  }
+  return null;
+};
+
+const currentFloorPath = computed<MapPathEntry[]>(() => {
   const rawPath = Array.isArray(gameStore.statData.$路径)
     ? gameStore.statData.$路径
     : ((gameStore.statData.$统计 as any)?.$路径 ?? null);
   if (!Array.isArray(rawPath)) return [];
-  return rawPath
-    .filter((item): item is string => typeof item === 'string')
-    .map(item => item.trim())
-    .filter(item => item.length > 0);
+  return rawPath.map(normalizePathEntry).filter((item): item is MapPathEntry => Boolean(item));
 });
+const currentDungeonMap = computed<DungeonMap>(() => normalizeDungeonMap(gameStore.statData.$地图));
 const currentLayerRoomCount = computed<number>(() => {
   const rawCount = Number((gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0);
   if (!Number.isFinite(rawCount)) return 0;
   return Math.max(0, Math.floor(rawCount));
 });
 const mapViewportRef = ref<HTMLElement | null>(null);
-const mapScale = ref(1);
+const mapViewportWidth = ref(0);
+const mapViewportHeight = ref(0);
+let mapViewportResizeObserver: ResizeObserver | null = null;
+const mapScale = ref(MAP_DEFAULT_SCALE);
 const mapOffsetX = ref(0);
 const mapOffsetY = ref(0);
+let mapViewportPersistTimer: ReturnType<typeof setTimeout> | null = null;
+let mapScrollPersistTimer: ReturnType<typeof setTimeout> | null = null;
+let mapModalBodyElement: HTMLElement | null = null;
 const mapDragPointerId = ref<number | null>(null);
 const mapDragStartClient = ref({ x: 0, y: 0 });
 const mapDragStartOffset = ref({ x: 0, y: 0 });
+const mapActivePointers = new Map<number, { x: number; y: number }>();
+let mapPinchStartDistance = 0;
+let mapPinchStartScale = MAP_DEFAULT_SCALE;
+let mapPinchStartCenter = { x: 0, y: 0 };
+let mapPinchStartWorld = { x: 0, y: 0 };
+const updateMapViewportSize = (recenter = true) => {
+  const viewport = mapViewportRef.value;
+  if (!viewport) return;
+  const nextWidth = viewport.clientWidth;
+  const nextHeight = viewport.clientHeight;
+  const changed = nextWidth !== mapViewportWidth.value || nextHeight !== mapViewportHeight.value;
+  mapViewportWidth.value = nextWidth;
+  mapViewportHeight.value = nextHeight;
+  if (recenter && changed && activeModal.value === 'map') {
+    nextTick(() => centerMapOnLatestNode(true));
+  }
+};
+const observeMapViewport = () => {
+  updateMapViewportSize(false);
+  mapViewportResizeObserver?.disconnect();
+  mapViewportResizeObserver = null;
+  if (typeof ResizeObserver === 'undefined' || !mapViewportRef.value) return;
+  mapViewportResizeObserver = new ResizeObserver(() => updateMapViewportSize(true));
+  mapViewportResizeObserver.observe(mapViewportRef.value);
+};
 const mapZoomPercent = computed(() => `${Math.round(mapScale.value * 100)}%`);
 const mapCurrentFloorLabel = computed(() => {
   const floor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
@@ -6598,86 +6652,421 @@ const mapCurrentAreaLabel = computed(() => {
   const area = ((gameStore.statData._当前区域 as string) || '').trim();
   return area || '未记录';
 });
-const mapCurrentRoomLabel = computed(() => currentFloorPath.value[currentFloorPath.value.length - 1] ?? '未记录');
+const mapCurrentRoomLabel = computed(
+  () => currentFloorPath.value[currentFloorPath.value.length - 1]?.房间类型 ?? ((gameStore.statData._当前房间类型 as string) || '未记录'),
+);
 
-const mapPathNodes = computed<MapPathNodeView[]>(() => {
-  const step = MAP_CELL_SIZE + MAP_CELL_GAP;
-  return currentFloorPath.value.map((label, index) => {
-    const row = Math.floor(index / MAP_PATH_COLUMNS);
-    const positionInRow = index % MAP_PATH_COLUMNS;
-    const col = row % 2 === 0 ? positionInRow : MAP_PATH_COLUMNS - 1 - positionInRow;
-    const x = col * step;
-    const y = row * step;
-    const visual = MAP_ROOM_VISUAL_BY_LABEL[label] ?? {
+const mapCurrentY = computed(() => Math.min(MAP_HEIGHT, currentFloorPath.value.length));
+const mapNextY = computed(() => mapCurrentY.value + 1);
+const mapIsFloorTransition = computed(
+  () => ((gameStore.statData._当前区域 as string) || '').trim() === '魔女的小窝' || ((gameStore.statData._当前房间类型 as string) || '').trim() === '领主房',
+);
+const nextMapAreas = computed<string[]>(() => {
+  const currentArea = ((gameStore.statData._当前区域 as string) || '').trim();
+  if (currentArea === '魔女的小窝') return (FLOOR_MAP['第一层'] ?? []).filter(area => area !== '魔女的小窝');
+  const currentFloor = getFloorForArea(currentArea);
+  const nextFloor = currentFloor ? getNextFloor(currentFloor) : null;
+  if (!nextFloor) return [];
+  if (nextFloor === FINAL_FLOOR_NAME) return [FINAL_AREA_NAME];
+  return (FLOOR_MAP[nextFloor] ?? []).filter(area => area !== currentArea);
+});
+const mapRoomVisual = (roomType: string): MapRoomVisual => {
+  const label = roomType.endsWith('房') ? roomType.slice(0, -1) : roomType;
+  return (
+    MAP_ROOM_VISUAL_BY_LABEL[label] ?? {
       icon: '◻',
+      spritePosition: '0% 0%',
       fill: 'rgba(39,39,42,0.78)',
       border: '#a1a1aa',
       text: '#f4f4f5',
-    };
+    }
+  );
+};
+const mapLegendEntries = computed(() =>
+  MAP_LEGEND_DEFINITIONS.map(entry => {
+    const visual = mapRoomVisual(entry.roomType);
     return {
-      key: `node-${index}-${label}`,
-      index,
-      x,
-      y,
-      centerX: x + MAP_CELL_SIZE / 2,
-      centerY: y + MAP_CELL_SIZE / 2,
-      icon: visual.icon,
-      label,
-      isLatest: index === currentFloorPath.value.length - 1,
-      style: {
-        left: `${x}px`,
-        top: `${y}px`,
-        background: visual.fill,
-        borderColor: visual.border,
-        color: visual.text,
+      ...entry,
+      iconStyle: {
+        backgroundImage: `url("${MAP_ICON_SPRITE_URL}")`,
+        backgroundPosition: visual.spritePosition,
       },
     };
-  });
-});
-const mapContentWidth = computed<number>(() => (MAP_PATH_COLUMNS - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE);
-const mapContentHeight = computed<number>(() => {
-  const total = mapPathNodes.value.length;
-  const rowCount = total > 0 ? Math.floor((total - 1) / MAP_PATH_COLUMNS) + 1 : 1;
-  return (rowCount - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE;
-});
-const mapPathLines = computed<MapPathLineView[]>(() => {
-  const nodes = mapPathNodes.value;
-  if (nodes.length <= 1) return [];
-  const lines: MapPathLineView[] = [];
-  for (let i = 1; i < nodes.length; i += 1) {
-    const prev = nodes[i - 1]!;
-    const curr = nodes[i]!;
-    lines.push({
-      key: `line-${i - 1}-${i}`,
-      x1: prev.centerX,
-      y1: prev.centerY,
-      x2: curr.centerX,
-      y2: curr.centerY,
+  }),
+);
+const mapRoomCenter = (x: number, y: number) => {
+  const step = MAP_CELL_SIZE + MAP_CELL_GAP;
+  const row = mapIsFloorTransition.value ? 1 - y : MAP_HEIGHT + 1 - y;
+  return {
+    x: (x - 1) * step + MAP_CELL_SIZE / 2,
+    y: row * step + MAP_CELL_SIZE / 2,
+  };
+};
+
+const mapNextRoomEntries = computed<MapRoomNode[]>(() => {
+  if (mapIsFloorTransition.value || mapNextY.value > MAP_HEIGHT || currentDungeonMap.value.length !== MAP_ROUTE_COUNT) return [];
+  const last = currentFloorPath.value[currentFloorPath.value.length - 1];
+  const seen = new Set<string>();
+  return currentDungeonMap.value
+    .filter(route => !last || last.x < 1 || route[mapCurrentY.value - 1]?.x === last.x)
+    .map(route => route[mapNextY.value - 1])
+    .filter((node): node is MapRoomNode => Boolean(node))
+    .filter(node => {
+      const key = `${node.x}:${node.房间类型}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
+});
+
+const mapNextRoomNodes = computed<MapNodeView[]>(() =>
+  mapNextRoomEntries.value.map(node => buildMapNodeView(node, mapNextY.value, 'room')),
+);
+
+const buildMapNodeView = (node: MapRoomNode, y: number, kind: MapNodeKind, areaName?: string): MapNodeView => {
+  const step = MAP_CELL_SIZE + MAP_CELL_GAP;
+  const visual = mapRoomVisual(kind === 'start' ? '宝箱房' : kind === 'boss' ? '领主房' : node.房间类型);
+  const center = mapRoomCenter(node.x, y);
+  const visitedEntry = currentFloorPath.value[y - 1];
+  const isVisited = Boolean(visitedEntry && visitedEntry.x === node.x && visitedEntry.房间类型 === node.房间类型);
+  const isLatest =
+    (kind === 'start' && currentFloorPath.value.length === 0) ||
+    (kind === 'boss' && ((gameStore.statData._当前房间类型 as string) || '').trim() === '领主房') ||
+    (kind === 'room' && y === mapCurrentY.value && isVisited);
+  const isAvailable =
+    gameStore.hasLeave &&
+    !gameStore.isGenerating &&
+    ((kind === 'room' && y === mapNextY.value && !mapIsFloorTransition.value && mapNextRoomEntries.value.some(candidate => candidate.x === node.x)) ||
+      (kind === 'boss' && mapCurrentY.value >= MAP_HEIGHT && !mapIsFloorTransition.value) ||
+      (kind === 'floor' && mapIsFloorTransition.value && Boolean(areaName)));
+  return {
+    key: `${kind}-${y}-${node.x}-${areaName ?? node.房间类型}`,
+    kind,
+    y,
+    x: node.x,
+    centerX: center.x,
+    centerY: center.y,
+    icon: visual.icon,
+    label: kind === 'floor' ? areaName ?? '下一层' : kind === 'start' ? '起点宝箱' : kind === 'boss' ? '领主' : '',
+    roomType: node.房间类型,
+    areaName,
+    isLatest,
+    isVisited,
+    isAvailable,
+    isBoss: kind === 'boss',
+    iconStyle: {
+      backgroundImage: `url("${MAP_ICON_SPRITE_URL}")`,
+      backgroundPosition: visual.spritePosition,
+    },
+    style: {
+      width: kind === 'floor' ? '90px' : `${kind === 'start' || kind === 'boss' ? 70 : MAP_CELL_SIZE}px`,
+      left: `${center.x - (kind === 'floor' ? 45 : (kind === 'start' || kind === 'boss' ? 35 : MAP_CELL_SIZE / 2))}px`,
+      top: `${center.y - (kind === 'start' || kind === 'boss' ? 35 : MAP_CELL_SIZE / 2)}px`,
+      background: visual.fill,
+      borderColor: visual.border,
+      color: visual.text,
+    },
+  };
+};
+
+const mapNodes = computed<MapNodeView[]>(() => {
+  if (mapIsFloorTransition.value) {
+    return [
+      buildMapNodeView({ x: 3, 房间类型: '宝箱房' }, 0, 'start'),
+      ...nextMapAreas.value.map((area, index) =>
+        buildMapNodeView(
+          { x: nextMapAreas.value.length === 1 ? 3 : index + 1, 房间类型: '宝箱房' },
+          1,
+          'floor',
+          area,
+        ),
+      ),
+    ];
+  }
+  if (currentDungeonMap.value.length !== MAP_ROUTE_COUNT) {
+    return [];
+  }
+  const nodes: MapNodeView[] = [buildMapNodeView({ x: 3, 房间类型: '宝箱房' }, 0, 'start')];
+  const seen = new Set<string>();
+  for (let y = 1; y <= MAP_HEIGHT; y += 1) {
+    for (const route of currentDungeonMap.value) {
+      const node = route[y - 1];
+      if (!node) continue;
+      const key = `${y}:${node.x}:${node.房间类型}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      nodes.push(buildMapNodeView(node, y, 'room'));
+    }
+  }
+  nodes.push(buildMapNodeView({ x: 3, 房间类型: '领主房' }, MAP_HEIGHT + 1, 'boss'));
+  return nodes;
+});
+
+const mapSelectionAvailable = computed(
+  () =>
+    gameStore.hasLeave &&
+    ((mapIsFloorTransition.value && nextMapAreas.value.length > 0) ||
+      mapNextRoomNodes.value.length > 0 ||
+      (mapCurrentY.value >= MAP_HEIGHT && currentDungeonMap.value.length === MAP_ROUTE_COUNT)),
+);
+const mapSelectionLabel = computed(() => {
+  if (mapIsFloorTransition.value) {
+    const area = ((gameStore.statData._当前区域 as string) || '').trim();
+    return area === '魔女的小窝' ? '打开地图，选择进入区域' : '打开地图，进入下一层';
+  }
+  if (mapCurrentY.value >= MAP_HEIGHT) return '打开地图，挑战领主房';
+  return `打开地图，选择下一房间`;
+});
+const openMapForSelection = () => {
+  activeModal.value = 'map';
+  nextTick(() => {
+    restoreMapViewportOrCenter();
+    restoreMapModalScroll();
+  });
+};
+
+const openMapAfterSpecialRoom = async () => {
+  await nextTick();
+  if (mapSelectionAvailable.value) {
+    openMapForSelection();
+  }
+};
+
+const ensureDungeonMapForCurrentFloor = () => {
+  if (!gameStore.isInitialized) return;
+  void gameStore.ensureCurrentFloorMap();
+};
+
+const mapContentWidth = computed<number>(() => (MAP_PATH_COLUMNS - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE);
+const mapContentHeight = computed<number>(() => (mapIsFloorTransition.value ? 3 : MAP_HEIGHT + 2) * (MAP_CELL_SIZE + MAP_CELL_GAP));
+const mapSceneWidth = computed<number>(() => {
+  const viewportWidth = mapViewportWidth.value / MAP_MIN_SCALE;
+  const viewportHeight = (mapViewportHeight.value * (16 / 9)) / MAP_MIN_SCALE;
+  return Math.max(mapContentWidth.value, mapContentHeight.value * (16 / 9), viewportWidth, viewportHeight);
+});
+const mapSceneHeight = computed<number>(() => Math.max(mapContentHeight.value, mapSceneWidth.value * (9 / 16)));
+const mapLayoutStyle = computed<Record<string, string>>(() => ({
+  width: `${mapContentWidth.value}px`,
+  height: `${mapContentHeight.value}px`,
+  left: `${(mapSceneWidth.value - mapContentWidth.value) / 2}px`,
+  top: `${(mapSceneHeight.value - mapContentHeight.value) / 2}px`,
+}));
+const mapLines = computed<MapLineView[]>(() => {
+  const lines: MapLineView[] = [];
+  const seen = new Set<string>();
+  if (mapIsFloorTransition.value) {
+    const startCenter = mapRoomCenter(3, 0);
+    nextMapAreas.value.forEach((area, index) => {
+      const x = nextMapAreas.value.length === 1 ? 3 : index + 1;
+      const targetCenter = mapRoomCenter(x, 1);
+      lines.push({
+        key: `start:floor:${area}`,
+        x1: startCenter.x,
+        y1: startCenter.y,
+        x2: targetCenter.x,
+        y2: targetCenter.y,
+        isVisited: false,
+      });
+    });
+    return lines;
+  }
+  if (currentDungeonMap.value.length !== MAP_ROUTE_COUNT) return lines;
+
+  const startCenter = mapRoomCenter(3, 0);
+  const firstXs = new Set(currentDungeonMap.value.map(route => route[0]?.x).filter((x): x is number => Number.isInteger(x)));
+  for (const x of firstXs) {
+    const targetCenter = mapRoomCenter(x, 1);
+    lines.push({
+      key: `start:${x}`,
+      x1: startCenter.x,
+      y1: startCenter.y,
+      x2: targetCenter.x,
+      y2: targetCenter.y,
+      isVisited: currentFloorPath.value.length >= 1 && currentFloorPath.value[0]?.x === x,
+    });
+  }
+  for (const route of currentDungeonMap.value) {
+    for (let index = 1; index < route.length; index += 1) {
+      const from = route[index - 1]!;
+      const to = route[index]!;
+      const fromCenter = mapRoomCenter(from.x, index);
+      const toCenter = mapRoomCenter(to.x, index + 1);
+      const key = `${index}:${from.x}>${to.x}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      lines.push({
+        key,
+        x1: fromCenter.x,
+        y1: fromCenter.y,
+        x2: toCenter.x,
+        y2: toCenter.y,
+        isVisited:
+          currentFloorPath.value.length > index &&
+          currentFloorPath.value[index - 1]?.x === from.x &&
+          currentFloorPath.value[index]?.x === to.x,
+      });
+    }
+  }
+  if (currentDungeonMap.value.length === MAP_ROUTE_COUNT && !mapIsFloorTransition.value) {
+    const bossCenter = mapRoomCenter(3, MAP_HEIGHT + 1);
+    const lastXs = new Set(currentDungeonMap.value.map(route => route[MAP_HEIGHT - 1]?.x).filter((x): x is number => Number.isInteger(x)));
+    for (const x of lastXs) {
+      const fromCenter = mapRoomCenter(x, MAP_HEIGHT);
+      lines.push({
+        key: `boss:${x}`,
+        x1: fromCenter.x,
+        y1: fromCenter.y,
+        x2: bossCenter.x,
+        y2: bossCenter.y,
+        isVisited:
+          currentFloorPath.value.length >= MAP_HEIGHT &&
+          ((gameStore.statData._当前房间类型 as string) || '').trim() === '领主房' &&
+          currentFloorPath.value[MAP_HEIGHT - 1]?.x === x,
+      });
+    }
   }
   return lines;
 });
 const mapCanvasStyle = computed<Record<string, string>>(() => ({
-  width: `${mapContentWidth.value}px`,
-  height: `${mapContentHeight.value}px`,
-  transform: `translate(${mapOffsetX.value}px, ${mapOffsetY.value}px) scale(${mapScale.value})`,
+  width: `${mapSceneWidth.value}px`,
+  height: `${mapSceneHeight.value}px`,
+  transform: (() => {
+    const { x, y } = clampMapOffset(mapOffsetX.value, mapOffsetY.value, mapScale.value);
+    return `translate(${x}px, ${y}px) scale(${mapScale.value})`;
+  })(),
   transformOrigin: '0 0',
 }));
 
 const clampMapScale = (value: number) => Math.max(MAP_MIN_SCALE, Math.min(MAP_MAX_SCALE, value));
+const clampMapAxis = (offset: number, viewportSize: number, sceneSize: number, scale: number): number => {
+  if (viewportSize <= 0 || sceneSize <= 0) return offset;
+  const minOffset = viewportSize - sceneSize * scale;
+  if (minOffset >= 0) return minOffset / 2;
+  return Math.min(0, Math.max(minOffset, offset));
+};
+const clampMapOffset = (offsetX: number, offsetY: number, scale: number = mapScale.value) => ({
+  x: clampMapAxis(offsetX, mapViewportWidth.value, mapSceneWidth.value, scale),
+  y: clampMapAxis(offsetY, mapViewportHeight.value, mapSceneHeight.value, scale),
+});
+const applyMapOffset = (offsetX: number, offsetY: number, schedulePersist = false) => {
+  const clamped = clampMapOffset(offsetX, offsetY);
+  mapOffsetX.value = clamped.x;
+  mapOffsetY.value = clamped.y;
+  if (schedulePersist) schedulePersistMapViewportState();
+};
+const persistMapViewportState = () => {
+  try {
+    localStorage.setItem(
+      MAP_VIEWPORT_STORAGE_KEY,
+      JSON.stringify({
+        scale: mapScale.value,
+        offsetX: mapOffsetX.value,
+        offsetY: mapOffsetY.value,
+        contentWidth: mapSceneWidth.value,
+        contentHeight: mapSceneHeight.value,
+      }),
+    );
+  } catch {
+    // Ignore persistence errors in restricted environments.
+  }
+};
+const schedulePersistMapViewportState = () => {
+  if (mapViewportPersistTimer !== null) clearTimeout(mapViewportPersistTimer);
+  mapViewportPersistTimer = setTimeout(() => {
+    persistMapViewportState();
+    mapViewportPersistTimer = null;
+  }, 120);
+};
+const persistMapModalScroll = () => {
+  if (!mapModalBodyElement) return;
+  try {
+    localStorage.setItem(MAP_SCROLL_STORAGE_KEY, JSON.stringify({ scrollTop: mapModalBodyElement.scrollTop }));
+  } catch {
+    // Ignore persistence errors in restricted environments.
+  }
+};
+const schedulePersistMapModalScroll = () => {
+  if (mapScrollPersistTimer !== null) clearTimeout(mapScrollPersistTimer);
+  mapScrollPersistTimer = setTimeout(() => {
+    persistMapModalScroll();
+    mapScrollPersistTimer = null;
+  }, 120);
+};
+const handleMapModalBodyScroll = (event: Event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  mapModalBodyElement = target;
+  schedulePersistMapModalScroll();
+};
+const restoreMapModalScroll = () => {
+  const body = document.getElementById('dungeon-map-modal-body');
+  if (!(body instanceof HTMLElement)) return;
+  mapModalBodyElement = body;
+  try {
+    const raw = localStorage.getItem(MAP_SCROLL_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { scrollTop?: unknown };
+    const scrollTop = Number(parsed.scrollTop);
+    if (Number.isFinite(scrollTop)) body.scrollTop = Math.max(0, scrollTop);
+  } catch {
+    // Ignore malformed or unavailable persistence data.
+  }
+};
+const restoreMapViewportState = (): boolean => {
+  try {
+    const raw = localStorage.getItem(MAP_VIEWPORT_STORAGE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as {
+      scale?: unknown;
+      offsetX?: unknown;
+      offsetY?: unknown;
+      contentWidth?: unknown;
+      contentHeight?: unknown;
+    };
+    const scale = Number(parsed.scale);
+    const offsetX = Number(parsed.offsetX);
+    const offsetY = Number(parsed.offsetY);
+    const contentWidth = Number(parsed.contentWidth);
+    const contentHeight = Number(parsed.contentHeight);
+    if (![scale, offsetX, offsetY, contentWidth, contentHeight].every(Number.isFinite)) return false;
+    if (Math.abs(contentWidth - mapSceneWidth.value) > 0.5 || Math.abs(contentHeight - mapSceneHeight.value) > 0.5) {
+      return false;
+    }
+    mapScale.value = clampMapScale(scale);
+    const clamped = clampMapOffset(offsetX, offsetY, mapScale.value);
+    mapOffsetX.value = clamped.x;
+    mapOffsetY.value = clamped.y;
+    return true;
+  } catch {
+    return false;
+  }
+};
+const restoreMapViewportOrCenter = () => {
+  if (!restoreMapViewportState()) centerMapOnLatestNode(true);
+};
 const centerMapOnLatestNode = (resetScale: boolean = false) => {
   const viewport = mapViewportRef.value;
   if (!viewport) return;
   if (resetScale) {
-    mapScale.value = 1;
+    mapScale.value = clampMapScale(Math.min(
+      (viewport.clientWidth - 28) / mapSceneWidth.value,
+      (viewport.clientHeight - 28) / mapSceneHeight.value,
+      1,
+    ));
   }
-  const latest = mapPathNodes.value[mapPathNodes.value.length - 1];
-  const focusX = latest ? latest.centerX : mapContentWidth.value / 2;
-  const focusY = latest ? latest.centerY : mapContentHeight.value / 2;
-  mapOffsetX.value = viewport.clientWidth / 2 - focusX * mapScale.value;
-  mapOffsetY.value = viewport.clientHeight / 2 - focusY * mapScale.value;
+  const latest = mapNodes.value.find(node => node.isLatest);
+  const shouldFocusLatest = !resetScale && (currentFloorPath.value.length > 0 || mapIsFloorTransition.value);
+  const layoutOffsetX = (mapSceneWidth.value - mapContentWidth.value) / 2;
+  const layoutOffsetY = (mapSceneHeight.value - mapContentHeight.value) / 2;
+  const focusX = shouldFocusLatest && latest ? layoutOffsetX + latest.centerX : mapSceneWidth.value / 2;
+  const focusY = shouldFocusLatest && latest ? layoutOffsetY + latest.centerY : mapSceneHeight.value / 2;
+  applyMapOffset(
+    viewport.clientWidth / 2 - focusX * mapScale.value,
+    viewport.clientHeight / 2 - focusY * mapScale.value,
+    true,
+  );
 };
-const zoomMap = (delta: number) => {
+const zoomMap = (delta: number, focalX?: number, focalY?: number) => {
   const viewport = mapViewportRef.value;
   const nextScale = clampMapScale(mapScale.value + delta);
   if (nextScale === mapScale.value) return;
@@ -6685,43 +7074,110 @@ const zoomMap = (delta: number) => {
     mapScale.value = nextScale;
     return;
   }
-  const centerX = viewport.clientWidth / 2;
-  const centerY = viewport.clientHeight / 2;
+  const centerX = Math.max(0, Math.min(viewport.clientWidth, focalX ?? viewport.clientWidth / 2));
+  const centerY = Math.max(0, Math.min(viewport.clientHeight, focalY ?? viewport.clientHeight / 2));
   const worldX = (centerX - mapOffsetX.value) / mapScale.value;
   const worldY = (centerY - mapOffsetY.value) / mapScale.value;
   mapScale.value = nextScale;
-  mapOffsetX.value = centerX - worldX * nextScale;
-  mapOffsetY.value = centerY - worldY * nextScale;
+  applyMapOffset(centerX - worldX * nextScale, centerY - worldY * nextScale, true);
 };
 const handleMapZoomIn = () => zoomMap(MAP_SCALE_STEP);
 const handleMapZoomOut = () => zoomMap(-MAP_SCALE_STEP);
 const handleMapResetView = () => centerMapOnLatestNode(true);
+const getMapLocalPoint = (clientX: number, clientY: number) => {
+  const viewport = mapViewportRef.value;
+  if (!viewport) return { x: clientX, y: clientY };
+  const rect = viewport.getBoundingClientRect();
+  return {
+    x: clientX - rect.left - viewport.clientLeft,
+    y: clientY - rect.top - viewport.clientTop,
+  };
+};
 const handleMapWheel = (event: WheelEvent) => {
-  zoomMap(event.deltaY < 0 ? MAP_SCALE_STEP : -MAP_SCALE_STEP);
+  if (!mapViewportRef.value) return;
+  const point = getMapLocalPoint(event.clientX, event.clientY);
+  zoomMap(event.deltaY < 0 ? MAP_SCALE_STEP : -MAP_SCALE_STEP, point.x, point.y);
+};
+const getMapPointerPair = () => {
+  const pointers = Array.from(mapActivePointers.values());
+  if (pointers.length < 2) return null;
+  return [pointers[0]!, pointers[1]!] as const;
+};
+const beginMapPinch = () => {
+  const pair = getMapPointerPair();
+  const viewport = mapViewportRef.value;
+  if (!pair || !viewport) return;
+  const [first, second] = pair;
+  mapPinchStartDistance = Math.max(Math.hypot(second.x - first.x, second.y - first.y), 1);
+  mapPinchStartScale = mapScale.value;
+  mapPinchStartCenter = {
+    x: (first.x + second.x) / 2,
+    y: (first.y + second.y) / 2,
+  };
+  const startPoint = getMapLocalPoint(mapPinchStartCenter.x, mapPinchStartCenter.y);
+  mapPinchStartWorld = {
+    x: (startPoint.x - mapOffsetX.value) / mapScale.value,
+    y: (startPoint.y - mapOffsetY.value) / mapScale.value,
+  };
 };
 const handleMapPointerDown = (event: PointerEvent) => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   const target = event.currentTarget as HTMLElement | null;
   if (!target) return;
+  mapActivePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  try {
+    target.setPointerCapture(event.pointerId);
+  } catch {
+    // Pointer capture can fail if the browser has already cancelled the pointer.
+  }
+  if (mapActivePointers.size >= 2) {
+    mapDragPointerId.value = null;
+    beginMapPinch();
+    return;
+  }
   mapDragPointerId.value = event.pointerId;
   mapDragStartClient.value = { x: event.clientX, y: event.clientY };
   mapDragStartOffset.value = { x: mapOffsetX.value, y: mapOffsetY.value };
-  target.setPointerCapture(event.pointerId);
 };
 const handleMapPointerMove = (event: PointerEvent) => {
+  if (!mapActivePointers.has(event.pointerId)) return;
+  mapActivePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  const pair = getMapPointerPair();
+  if (pair && mapPinchStartDistance > 0) {
+    const viewport = mapViewportRef.value;
+    if (!viewport) return;
+    const [first, second] = pair;
+    const currentDistance = Math.max(Math.hypot(second.x - first.x, second.y - first.y), 1);
+    const currentPoint = getMapLocalPoint((first.x + second.x) / 2, (first.y + second.y) / 2);
+    mapScale.value = clampMapScale(mapPinchStartScale * (currentDistance / mapPinchStartDistance));
+    applyMapOffset(
+      currentPoint.x - mapPinchStartWorld.x * mapScale.value,
+      currentPoint.y - mapPinchStartWorld.y * mapScale.value,
+    );
+    return;
+  }
   if (mapDragPointerId.value !== event.pointerId) return;
   const dx = event.clientX - mapDragStartClient.value.x;
   const dy = event.clientY - mapDragStartClient.value.y;
-  mapOffsetX.value = mapDragStartOffset.value.x + dx;
-  mapOffsetY.value = mapDragStartOffset.value.y + dy;
+  applyMapOffset(mapDragStartOffset.value.x + dx, mapDragStartOffset.value.y + dy);
 };
 const handleMapPointerUp = (event: PointerEvent) => {
-  if (mapDragPointerId.value !== event.pointerId) return;
-  const target = event.currentTarget as HTMLElement | null;
-  if (target) {
-    target.releasePointerCapture(event.pointerId);
+  const hadPointer = mapActivePointers.delete(event.pointerId);
+  if (!hadPointer && mapDragPointerId.value !== event.pointerId) return;
+  const wasPinching = mapPinchStartDistance > 0;
+  if (mapActivePointers.size >= 2) {
+    beginMapPinch();
+  } else if (mapActivePointers.size === 1 && wasPinching) {
+    const [remainingId, remaining] = Array.from(mapActivePointers.entries())[0]!;
+    mapPinchStartDistance = 0;
+    mapDragPointerId.value = remainingId;
+    mapDragStartClient.value = { x: remaining.x, y: remaining.y };
+    mapDragStartOffset.value = { x: mapOffsetX.value, y: mapOffsetY.value };
+  } else {
+    mapPinchStartDistance = 0;
+    mapDragPointerId.value = null;
   }
-  mapDragPointerId.value = null;
+  schedulePersistMapViewportState();
 };
 watch(
   () => currentFloorPath.value.length,
@@ -7123,7 +7579,7 @@ const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
   '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
   '[淫纹]': '每场战斗开始时，你获得3层中毒。',
   '[淫乱知识]': '每场战斗开始时向你的牌库随机插入1张【档案污页】。',
-  '[被标记]': '战斗房出现概率大幅增加，且每场战斗开始时你获得2层敏感。',
+  '[被标记]': '当前楼层后续最多3个非战斗节点会替换为战斗房；每场战斗开始时获得2层敏感。',
   '[被寄生]': '每场战斗开始时，你获得1层性兴奋。',
   '[鳞粉]': '每场战斗开始时，你获得1层鳞粉。',
   '[沉沦]': '每场战斗第3回合开始时，你获得1层眩晕。',
@@ -7206,16 +7662,16 @@ const handleSendInput = () => {
   inputText.value = '';
 };
 
-const consumePortalRebirthInputAppend = (): string => {
-  if (!isPortalRebirthInputAppendEnabled.value) return '';
+const consumeMapRebirthInputAppend = (): string => {
+  if (!isMapRebirthInputAppendEnabled.value) return '';
   const text = inputText.value.trim();
   if (!text) return '';
   inputText.value = '';
   return text;
 };
 
-const appendInputToPortalRebirthAction = (actionText: string): string => {
-  const extraText = consumePortalRebirthInputAppend();
+const appendInputToMapRebirthAction = (actionText: string): string => {
+  const extraText = consumeMapRebirthInputAppend();
   return extraText ? `${actionText}\n${extraText}` : actionText;
 };
 
@@ -7301,6 +7757,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
       累计经过陷阱: 0,
     },
     $路径: [],
+    $地图: [],
   };
 };
 
@@ -7333,7 +7790,7 @@ const triggerRebirthAction = (options: { consumeInput?: boolean } = {}) => {
   gameStore.setPendingCombatMvuChanges(null);
   gameStore.setPendingStatDataChanges(buildRebirthResetFields());
   const actionText = '<user>在死亡边缘触发了回溯，回到了魔女的小窝。当前状态已重置为初始值，请基于回溯后的状态继续剧情。';
-  gameStore.sendAction(shouldConsumeInput ? appendInputToPortalRebirthAction(actionText) : actionText);
+  gameStore.sendAction(shouldConsumeInput ? appendInputToMapRebirthAction(actionText) : actionText);
 };
 
 const handleRebirthClick = () => {
@@ -7368,10 +7825,10 @@ const handleOptionCompletionItemClick = async (target: ButtonCompletionMenuKey) 
 
   if (target === 'leave') {
     await nextTick();
-    if (portalChoices.value.length === 0) {
+    if (!mapSelectionAvailable.value) {
       gameStore.hideManualButtonCompletion('leave');
       closeOptionCompletionMenu();
-      toastr.warning('当前状态没有可显示的传送门选项。');
+      toastr.warning('当前状态没有可选择的地图节点。');
       return;
     }
   }
@@ -7387,7 +7844,7 @@ const handleOptionCompletionItemClick = async (target: ButtonCompletionMenuKey) 
     target === 'special'
       ? '已补全当前房间特殊选项按钮。'
       : target === 'leave'
-        ? '已补全传送门按钮。'
+        ? '已补全地图选择按钮。'
         : '已补全重生按钮。';
   toastr.success(successText);
 };
@@ -7458,9 +7915,7 @@ const consumedSpecialRoomFingerprint = ref('');
 const currentSpecialRoomFingerprint = computed(() => {
   const sd = gameStore.statData as Record<string, any>;
   const stats = sd.$统计 && typeof sd.$统计 === 'object' ? (sd.$统计 as Record<string, any>) : {};
-  const path = Array.isArray(sd.$路径)
-    ? sd.$路径.filter((item): item is string => typeof item === 'string').join('>')
-    : '';
+  const path = currentFloorPath.value.map(item => `${item.x}:${item.房间类型}`).join('>');
   return [
     String(sd._当前区域 ?? '').trim(),
     String(sd._当前房间类型 ?? '').trim(),
@@ -7518,7 +7973,7 @@ const optionCompletionMenuItems = computed<
   },
   {
     key: 'leave',
-    label: '传送门选项',
+    label: '地图选择',
     marker: '[Leave]',
     disabled: false,
   },
@@ -7608,7 +8063,10 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
 };
 
 const isFastModeSyncRoomType = (roomType: string): boolean =>
-  roomType === '商店房' || roomType === '领主房' || roomType === '陷阱房' || roomType === FINAL_AREA_NAME;
+  roomType === '商店房' ||
+  roomType === '领主房' ||
+  roomType === '陷阱房' ||
+  roomType === FINAL_AREA_NAME;
 
 const submitGameAction = async (text: string, targetRoomType: string, type = 'action') => {
   if (!gameStore.fastModeEnabled) {
@@ -8313,6 +8771,16 @@ const useHotSpringCleanse = async () => {
 };
 
 onUnmounted(() => {
+  persistMapViewportState();
+  if (mapViewportPersistTimer !== null) {
+    clearTimeout(mapViewportPersistTimer);
+    mapViewportPersistTimer = null;
+  }
+  persistMapModalScroll();
+  if (mapScrollPersistTimer !== null) {
+    clearTimeout(mapScrollPersistTimer);
+    mapScrollPersistTimer = null;
+  }
   clearShopRobTimer();
   clearShopProductConfirmTimer();
   clearChestMimicTimer();
@@ -8348,7 +8816,6 @@ const openChestView = () => {
   chestCollecting.value = false;
   chestRewardVisible.value = false;
   chestOpenedBgReady.value = false;
-  chestPortalChoices.value = [];
   chestRewardCountFixed.value = null;
   chestCloseCount.value = 0;
   chestForceMimicNextOpen.value = false;
@@ -8461,7 +8928,6 @@ const openIdolView = () => {
   idolDragPointerId.value = null;
   idolDiceValue.value = idolDiceMin.value;
   idolDiceRolling.value = true;
-  idolPortalChoices.value = generateRoomLeavePortals();
   showIdolView.value = true;
   idolRollTimer = setTimeout(() => {
     idolDiceValue.value = rollIdolDiceValue();
@@ -8477,7 +8943,6 @@ const closeIdolView = () => {
   clearIdolRollTimer();
   idolDragPointerId.value = null;
   showIdolView.value = false;
-  idolPortalChoices.value = [];
 };
 
 const handleIdolDicePointerDown = (event: PointerEvent) => {
@@ -8683,7 +9148,6 @@ const closeOpenedChestForRefresh = () => {
   chestOpenedBgReady.value = false;
   chestRewardRelics.value = [];
   chestRewardCollectedFlags.value = [];
-  chestPortalChoices.value = [];
 };
 
 const getChestMimicChance = (refreshCount: number) => {
@@ -8759,7 +9223,6 @@ const handleChestCenterClick = async () => {
     chestRewardRelics.value = rewards;
     chestRewardCollectedFlags.value = rewards.map(() => false);
     chestCollecting.value = false;
-    chestPortalChoices.value = generateRoomLeavePortals();
     if (chestOpenedBgReady.value) {
       chestRewardVisible.value = true;
     }
@@ -8771,7 +9234,6 @@ const handleChestCenterClick = async () => {
   chestStage.value = 'mimic';
   chestCollecting.value = false;
   chestRewardVisible.value = false;
-  chestPortalChoices.value = [];
   await gameStore.updateStatDataFields({ _对手名称: '宝箱怪' });
   queueChestMimicCombatTransition();
 };
@@ -8835,7 +9297,6 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
         collecting: chestCollecting.value,
         rewardVisible: chestRewardVisible.value,
         openedBgReady: chestOpenedBgReady.value,
-        portalChoices: chestPortalChoices.value.map(portal => ({ ...portal })),
         rewardCountFixed: chestRewardCountFixed.value,
         closeCount: chestCloseCount.value,
         forceMimicNextOpen: chestForceMimicNextOpen.value,
@@ -8871,7 +9332,6 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
         assignedTarget: idolAssignedTarget.value,
         snapPreviewTarget: idolSnapPreviewTarget.value,
         dicePosition: { ...idolDicePosition.value },
-        portalChoices: idolPortalChoices.value.map(portal => ({ ...portal })),
       },
     };
   }
@@ -8915,40 +9375,8 @@ const persistOverlaySnapshot = () => {
   }
 };
 
-const resolvePersistedPortalChoices = (choices: unknown): PortalChoice[] => {
-  if (!Array.isArray(choices)) return [];
-  const resolved: PortalChoice[] = [];
-  for (const entry of choices) {
-    if (!entry || typeof entry !== 'object') continue;
-    const portal = entry as Partial<PortalChoice>;
-    if (
-      typeof portal.label !== 'string' ||
-      typeof portal.roomType !== 'string' ||
-      typeof portal.icon !== 'string' ||
-      typeof portal.bgColor !== 'string' ||
-      typeof portal.borderColor !== 'string' ||
-      typeof portal.textColor !== 'string' ||
-      typeof portal.glowColor !== 'string'
-    ) {
-      continue;
-    }
-    resolved.push({
-      label: portal.label,
-      roomType: portal.roomType,
-      areaName: typeof portal.areaName === 'string' ? portal.areaName : undefined,
-      floorName: typeof portal.floorName === 'string' ? portal.floorName : undefined,
-      isFloorTransition: Boolean(portal.isFloorTransition),
-      icon: portal.icon,
-      bgColor: portal.bgColor,
-      borderColor: portal.borderColor,
-      textColor: portal.textColor,
-      glowColor: portal.glowColor,
-    });
-  }
-  return resolved;
-};
-
 const restoreOverlaySnapshot = () => {
+  localStorage.removeItem(LEGACY_OVERLAY_STATE_KEY);
   const raw = localStorage.getItem(OVERLAY_STATE_KEY);
   if (!raw) return;
 
@@ -8978,7 +9406,6 @@ const restoreOverlaySnapshot = () => {
       chestCollecting.value = false;
       chestRewardVisible.value = Boolean(parsed.chest.rewardVisible);
       chestOpenedBgReady.value = Boolean(parsed.chest.openedBgReady);
-      chestPortalChoices.value = resolvePersistedPortalChoices(parsed.chest.portalChoices);
       chestRewardCountFixed.value =
         parsed.chest.rewardCountFixed === null
           ? null
@@ -9037,10 +9464,6 @@ const restoreOverlaySnapshot = () => {
         x: Number.isFinite(parsed.idol.dicePosition?.x) ? parsed.idol.dicePosition.x : 0,
         y: Number.isFinite(parsed.idol.dicePosition?.y) ? parsed.idol.dicePosition.y : 0,
       };
-      idolPortalChoices.value = resolvePersistedPortalChoices(parsed.idol.portalChoices);
-      if (idolPortalChoices.value.length === 0) {
-        idolPortalChoices.value = generateRoomLeavePortals();
-      }
       idolDragPointerId.value = null;
       return;
     }
@@ -9116,7 +9539,6 @@ watch(
     chestCollecting,
     chestRewardVisible,
     chestOpenedBgReady,
-    chestPortalChoices,
     chestRewardCountFixed,
     chestCloseCount,
     chestForceMimicNextOpen,
@@ -9130,7 +9552,6 @@ watch(
     idolAssignedTarget,
     idolSnapPreviewTarget,
     idolDicePosition,
-    idolPortalChoices,
     victoryRewardStage,
     victoryRewardOptions,
     selectedVictoryRewardCard,
@@ -9180,6 +9601,13 @@ onMounted(() => {
 });
 
 watch(
+  () =>
+    `${String(gameStore.statData._当前区域 ?? '')}|${String(gameStore.statData._楼层数 ?? '')}|${String(gameStore.isInitialized)}`,
+  () => ensureDungeonMapForCurrentFloor(),
+  { immediate: true },
+);
+
+watch(
   () => gameStore.fastActionEvents.length,
   (count, previousCount) => {
     if (!gameStore.fastModeEnabled || count <= previousCount) return;
@@ -9221,7 +9649,7 @@ watch(isCompactPortraitLayout, isCompact => {
 });
 
 // ══════════════════════════════════════════════════════════════
-//  [Leave] Portal System — Floor/Area Logic
+//  [Leave] Map selection and room transitions
 // ══════════════════════════════════════════════════════════════
 
 interface FloorMonsterConfig {
@@ -9336,17 +9764,6 @@ function pickLordMonsterByArea(area: string): string | null {
   return lordName;
 }
 
-// ── Portal visuals ──
-const PORTAL_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'];
-const PORTAL_ROOM_WEIGHTS: Record<string, number> = {
-  战斗房: 35,
-  宝箱房: 20,
-  商店房: 12,
-  温泉房: 12,
-  神像房: 16,
-  事件房: 0,
-  陷阱房: 5,
-};
 const TRAP_POOL_BY_AREA: Record<string, string[]> = {
   粘液之沼: ['粘液深坑', '史莱姆的温床'],
   发情迷雾森林: ['迷雾漩涡', '活体树洞', '树精的共生茧'],
@@ -9355,7 +9772,7 @@ const TRAP_POOL_BY_AREA: Record<string, string[]> = {
   触手菌窟: ['孢子爆炸', '活体陷阱'],
 
   禁忌图书馆: ['幻境之书', '禁言束缚'],
-  // 呻吟阅览室：无陷阱（传送门中会移除陷阱房）
+  // 呻吟阅览室：无陷阱
   催情墨染湖: ['强制纹身', '墨汁洗礼', '沉溺之爱'],
   性癖记录馆: ['公开处刑'],
   淫乱教职工宿舍: ['催眠广播', '强制派对'],
@@ -9380,17 +9797,6 @@ const TRAP_POOL_BY_AREA: Record<string, string[]> = {
 };
 
 const ALL_TRAPS = Object.values(TRAP_POOL_BY_AREA).flat();
-const NO_CONSECUTIVE_PORTAL_ROOM_TYPES = new Set(['宝箱房', '神像房']);
-const PATH_LABEL_TO_ROOM_TYPE: Record<string, string> = {
-  战斗: '战斗房',
-  宝箱: '宝箱房',
-  商店: '商店房',
-  温泉: '温泉房',
-  神像: '神像房',
-  事件: '事件房',
-  陷阱: '陷阱房',
-  领主: '领主房',
-};
 
 const pickTrapByArea = (area: string): string | null => {
   const pool = TRAP_POOL_BY_AREA[area] ?? [];
@@ -9398,279 +9804,6 @@ const pickTrapByArea = (area: string): string | null => {
   if (ALL_TRAPS.length > 0) return pickOne(ALL_TRAPS);
   return null;
 };
-
-const getCurrentFloorPathLabels = (): string[] => {
-  const path = gameStore.statData.$路径;
-  if (!Array.isArray(path)) return [];
-  return path.map(item => (typeof item === 'string' ? item.trim() : '')).filter(item => item.length > 0);
-};
-
-const getLastPathRoomType = (pathLabels: string[]): string => {
-  const lastLabel = pathLabels[pathLabels.length - 1] ?? '';
-  return PATH_LABEL_TO_ROOM_TYPE[lastLabel] ?? '';
-};
-
-const getAvailablePortalRoomTypes = (currentArea: string, currentRoomType: string) => {
-  const pathLabels = getCurrentFloorPathLabels();
-  const effectiveCurrentRoomType = currentRoomType.trim() || getLastPathRoomType(pathLabels);
-  const hasShopThisFloor = pathLabels.includes('商店') || effectiveCurrentRoomType === '商店房';
-
-  let availableRoomTypes = [...PORTAL_ROOM_TYPES];
-
-  if (parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人) || hasShopThisFloor) {
-    availableRoomTypes = availableRoomTypes.filter(type => type !== '商店房');
-  }
-  if (currentArea === '呻吟阅览室') {
-    availableRoomTypes = availableRoomTypes.filter(type => type !== '陷阱房');
-  }
-  if (NO_CONSECUTIVE_PORTAL_ROOM_TYPES.has(effectiveCurrentRoomType)) {
-    availableRoomTypes = availableRoomTypes.filter(type => type !== effectiveCurrentRoomType);
-  }
-
-  return availableRoomTypes;
-};
-
-interface PortalVisual {
-  icon: string;
-  bgColor: string;
-  borderColor: string;
-  textColor: string;
-  glowColor: string;
-}
-
-const PORTAL_ROOM_VISUALS: Record<string, PortalVisual> = {
-  战斗房: {
-    icon: '⚔️',
-    bgColor: 'rgba(127,29,29,0.5)',
-    borderColor: '#991b1b',
-    textColor: '#fca5a5',
-    glowColor: '#dc2626',
-  },
-  宝箱房: {
-    icon: '💎',
-    bgColor: 'rgba(113,63,18,0.5)',
-    borderColor: '#a16207',
-    textColor: '#fde68a',
-    glowColor: '#eab308',
-  },
-  商店房: {
-    icon: '🏪',
-    bgColor: 'rgba(20,83,45,0.5)',
-    borderColor: '#166534',
-    textColor: '#bbf7d0',
-    glowColor: '#22c55e',
-  },
-  温泉房: {
-    icon: '♨️',
-    bgColor: 'rgba(22,78,99,0.5)',
-    borderColor: '#155e75',
-    textColor: '#a5f3fc',
-    glowColor: '#06b6d4',
-  },
-  神像房: {
-    icon: '🗿',
-    bgColor: 'rgba(88,28,135,0.5)',
-    borderColor: '#7e22ce',
-    textColor: '#e9d5ff',
-    glowColor: '#a855f7',
-  },
-  事件房: {
-    icon: '❓',
-    bgColor: 'rgba(63,63,70,0.5)',
-    borderColor: '#52525b',
-    textColor: '#d4d4d8',
-    glowColor: '#71717a',
-  },
-  陷阱房: {
-    icon: '⚠️',
-    bgColor: 'rgba(124,45,18,0.5)',
-    borderColor: '#9a3412',
-    textColor: '#fed7aa',
-    glowColor: '#ea580c',
-  },
-  领主房: {
-    icon: '👑',
-    bgColor: 'rgba(127,29,29,0.6)',
-    borderColor: '#dc2626',
-    textColor: '#fca5a5',
-    glowColor: '#ef4444',
-  },
-};
-const AREA_PORTAL_VISUAL: PortalVisual = {
-  icon: '🌀',
-  bgColor: 'rgba(79,70,229,0.5)',
-  borderColor: '#6366f1',
-  textColor: '#c7d2fe',
-  glowColor: '#818cf8',
-};
-const FINAL_AREA_PORTAL_VISUAL: PortalVisual = {
-  icon: '🚪',
-  bgColor: 'rgba(88,28,135,0.55)',
-  borderColor: '#d946ef',
-  textColor: '#f5d0fe',
-  glowColor: '#f0abfc',
-};
-
-interface PortalChoice {
-  label: string;
-  roomType: string;
-  areaName?: string;
-  floorName?: string;
-  isFloorTransition: boolean;
-  icon: string;
-  bgColor: string;
-  borderColor: string;
-  textColor: string;
-  glowColor: string;
-}
-
-let cachedPortals: PortalChoice[] = [];
-let cachedPortalFingerprint = '';
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function rollPortalCount(): number {
-  const roll = Math.random();
-  // 传送门数量概率：1/2/3 = 45% / 40% / 15%
-  return roll < 0.45 ? 1 : roll < 0.85 ? 2 : 3;
-}
-
-const NEGATIVE_STATUS_MARKED = '[被标记]';
-const MARKED_BATTLE_ROOM_WEIGHT = 95;
-
-function pickWeightedRoomTypes(roomTypes: string[], count: number): string[] {
-  const picked: string[] = [];
-  if (roomTypes.length === 0 || count <= 0) return picked;
-  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态).includes(
-    NEGATIVE_STATUS_MARKED,
-  );
-
-  // 允许可重复抽取：每次都从同一候选池按权重抽取，不移除已抽中的房间类型
-  const weightedPool = roomTypes.map(type => ({
-    type,
-    weight:
-      type === '战斗房' && hasMarkedNegativeStatus
-        ? MARKED_BATTLE_ROOM_WEIGHT
-        : Math.max(0, PORTAL_ROOM_WEIGHTS[type] ?? 0),
-  }));
-  const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
-
-  while (picked.length < count) {
-    let selected: string;
-    if (totalWeight <= 0) {
-      selected = pickOne(roomTypes) ?? roomTypes[0]!;
-    } else {
-      let roll = Math.random() * totalWeight;
-      selected = weightedPool[weightedPool.length - 1]!.type;
-      for (const item of weightedPool) {
-        roll -= item.weight;
-        if (roll <= 0) {
-          selected = item.type;
-          break;
-        }
-      }
-    }
-
-    picked.push(selected);
-  }
-
-  return picked;
-}
-
-function generatePortals(): PortalChoice[] {
-  const currentArea = (gameStore.statData._当前区域 as string) || '';
-  const currentRoomType = (gameStore.statData._当前房间类型 as string) || '';
-  const stats = (gameStore.statData.$统计 as any) || {};
-  const roomsPassed: number = stats.当前层已过房间 ?? 0;
-
-  const isStartArea = currentArea === '魔女的小窝';
-  const isBossRoom = currentRoomType === '领主房';
-
-  // ── Special: 魔女的小窝 or 领主房 → next floor area portals ──
-  if (isStartArea || isBossRoom) {
-    let targetFloor: string | null = null;
-    if (isStartArea) {
-      targetFloor = '第一层';
-    } else {
-      const currentFloor = getFloorForArea(currentArea);
-      if (currentFloor) targetFloor = getNextFloor(currentFloor);
-    }
-    if (targetFloor && FLOOR_MAP[targetFloor]) {
-      if (targetFloor === FINAL_FLOOR_NAME) {
-        return [{
-          label: FINAL_AREA_NAME,
-          roomType: '',
-          areaName: FINAL_AREA_NAME,
-          floorName: FINAL_FLOOR_NAME,
-          isFloorTransition: true,
-          ...FINAL_AREA_PORTAL_VISUAL,
-        }];
-      }
-      const candidates = FLOOR_MAP[targetFloor].filter(a => a !== currentArea);
-      const picked = shuffle(candidates).slice(0, 3);
-      return picked.map(areaName => ({
-        label: areaName,
-        roomType: '',
-        areaName,
-        floorName: targetFloor!,
-        isFloorTransition: true,
-        ...AREA_PORTAL_VISUAL,
-      }));
-    }
-  }
-
-  // ── Boss room probability: rooms >= 7 → (rooms - 6) * 30% ──
-  if (roomsPassed >= 7) {
-    const bossChance = (roomsPassed - 6) * 0.3;
-    if (Math.random() < bossChance) {
-      const vis = PORTAL_ROOM_VISUALS['领主房'];
-      return [{ label: '领主房', roomType: '领主房', isFloorTransition: false, ...vis }];
-    }
-  }
-
-  // ── Normal: 1-3 weighted room portals (30%/50%/20%, with replacement) ──
-  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea, currentRoomType);
-  if (availableRoomTypes.length === 0) return [];
-  const count = rollPortalCount();
-  const picked = pickWeightedRoomTypes(availableRoomTypes, count);
-  return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
-}
-
-// 使用状态指纹实现响应式更新：当区域/房间类型/hasLeave 变化时重新生成传送门
-const portalChoices = computed<PortalChoice[]>(() => {
-  if (!gameStore.hasLeave) {
-    cachedPortals = [];
-    cachedPortalFingerprint = '';
-    return [];
-  }
-  // 构建状态指纹：区域 + 房间类型 + 统计，任何变化都重新生成
-  const area = (gameStore.statData._当前区域 as string) || '';
-  if (area === FINAL_AREA_NAME) {
-    cachedPortals = [];
-    cachedPortalFingerprint = '';
-    return [];
-  }
-  const roomType = (gameStore.statData._当前房间类型 as string) || '';
-  const rooms = (gameStore.statData.$统计 as any)?.当前层已过房间 ?? 0;
-  const merchantDefeated = parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人);
-  const hasMarkedNegativeStatus = normalizeNegativeStatusList(gameStore.statData.$负面状态).includes(
-    NEGATIVE_STATUS_MARKED,
-  );
-  const pathFingerprint = getCurrentFloorPathLabels().join('>');
-  const fingerprint = `${area}|${roomType}|${rooms}|${merchantDefeated ? 1 : 0}|${hasMarkedNegativeStatus ? 1 : 0}|${pathFingerprint}`;
-  if (fingerprint !== cachedPortalFingerprint) {
-    cachedPortalFingerprint = fingerprint;
-    cachedPortals = generatePortals();
-  }
-  return cachedPortals;
-});
 
 // ── Room type → $统计 field mapping ──
 const ROOM_STAT_KEY: Record<string, string> = {
@@ -9682,16 +9815,6 @@ const ROOM_STAT_KEY: Record<string, string> = {
   事件房: '累计经过事件',
   陷阱房: '累计经过陷阱',
 };
-const getPathLabelByRoomType = (roomType: string): string =>
-  roomType.endsWith('房') ? roomType.slice(0, -1) : roomType;
-
-interface QueuedPortalAction {
-  actionText: string;
-  enterText: string;
-  targetRoomType: string;
-  pendingStatDataFields?: Record<string, any>;
-}
-
 const normalizePendingStatDataFields = (fields: Record<string, any>): Record<string, any> | undefined =>
   Object.keys(fields).length > 0 ? fields : undefined;
 
@@ -9716,229 +9839,158 @@ const buildWorldMetaGrowthPendingFields = (): Record<string, any> | undefined =>
   };
 };
 
-const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
+interface QueuedMapAction {
+  actionText: string;
+  targetRoomType: string;
+  pendingStatDataFields?: Record<string, any>;
+}
+
+const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
+  const currentArea = ((gameStore.statData._当前区域 as string) || '').trim();
+  const currentRoomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
   const worldGrowthPendingFields = buildWorldMetaGrowthPendingFields();
-  if (portal.isFloorTransition) {
-    const currentRoomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
-    const currentArea = ((gameStore.statData._当前区域 as string) || '').trim();
-    let pendingStatDataFields: Record<string, any> | undefined =
-      currentRoomType === '领主房'
-        ? {
-            // 仅写入“下一层 user 楼层”的待应用变量，不直接修改当前领主房楼层。
-            _血量: nextFloorRecoveryHpAfterLord.value,
-          }
-        : undefined;
-    if (currentArea === '魔女的小窝') {
-      pendingStatDataFields = {
-        ...(pendingStatDataFields ?? {}),
-        ...buildInventoryUpdateFields({
-          _圣遗物: buildStartingRelicInventoryForMetaGrowths(inventoryRelicMap.value),
-        }),
-      };
+
+  if (node.kind === 'floor') {
+    const nextArea = node.areaName ?? null;
+    if (!nextArea) {
+      toastr.warning('当前楼层没有可进入的下一区域。');
+      return null;
     }
-    if (portal.areaName === FINAL_AREA_NAME) {
-      gameStore.setPendingPortalChanges({
+    const pendingStatDataFields: Record<string, any> = {
+      ...(currentRoomType === '领主房' ? { _血量: nextFloorRecoveryHpAfterLord.value } : {}),
+      ...(currentArea === '魔女的小窝'
+        ? buildInventoryUpdateFields({
+            _圣遗物: buildStartingRelicInventoryForMetaGrowths(inventoryRelicMap.value),
+          })
+        : {}),
+      ...(worldGrowthPendingFields ?? {}),
+    };
+    if (nextArea === FINAL_AREA_NAME) {
+      gameStore.setPendingRoomChanges({
         area: FINAL_AREA_NAME,
         roomType: '事件房',
         resetRoomCounter: true,
         resetPath: true,
+        map: [],
         incrementKeys: ['当前层已过房间', '累计已过房间', '累计经过事件'],
-        appendPathLabel: FINAL_AREA_NAME,
         enemyName: '',
       });
-      console.info(`[Portal] Final area transition queued → area: ${FINAL_AREA_NAME}, room: 事件房`);
-      const enterText = `推开了第五层领主房后出现的陌生门，进入了${FINAL_AREA_NAME}`;
       return {
-        enterText,
         targetRoomType: FINAL_AREA_NAME,
-        actionText: `<user>选择了继续前进，${enterText}。这里是欲望之神的私人空间，地牢的一切法则在门后完全失效；当前在场人物只有欲望之神。请根据世界书【终极区域】与【欲望之神】继续剧情。`,
-        pendingStatDataFields: normalizePendingStatDataFields({
-          ...(pendingStatDataFields ?? {}),
-          ...(worldGrowthPendingFields ?? {}),
+        actionText:
+          '<user>选择了继续前进，推开第五层领主房后出现的陌生门，进入了终极区域。这里是欲望之神的私人空间，地牢的一切法则在门后完全失效；当前在场人物只有欲望之神。请根据世界书【终极区域】与【欲望之神】继续剧情。',
+        pendingStatDataFields: {
+          ...pendingStatDataFields,
           在场人物: ['欲望之神'],
           $当前事件: FINAL_AREA_NAME,
-        }),
+        },
       };
     }
-    // 记录待应用变量：进入新区域，首个房间为宝箱房，重置房间计数
-    gameStore.setPendingPortalChanges({
-      area: portal.areaName!,
+
+    const generatedMap = generateDungeonMap();
+    const statuses = Array.isArray(gameStore.statData.$负面状态) ? gameStore.statData.$负面状态 : [];
+    const nextMap = statuses.includes('[被标记]') ? replaceFutureRoomsWithBattle(generatedMap, 0) : generatedMap;
+    gameStore.setPendingRoomChanges({
+      area: nextArea,
       roomType: '宝箱房',
       resetRoomCounter: true,
       resetPath: true,
-      // 新区域首个房间同样计入统计：宝箱房 +1、累计总房间 +1、当层房间 +1
+      map: nextMap,
       incrementKeys: ['当前层已过房间', '累计已过房间', '累计经过宝箱'],
-      appendPathLabel: '宝箱',
       enemyName: '',
     });
-    console.info(`[Portal] Floor transition queued → area: ${portal.areaName}, first room: 宝箱房`);
-    const enterText = `进入了${portal.areaName}的宝箱房`;
     return {
-      enterText,
       targetRoomType: '宝箱房',
-      actionText: `<user>选择了继续前进，${enterText}`,
-      pendingStatDataFields: normalizePendingStatDataFields({
-        ...(pendingStatDataFields ?? {}),
-        ...(worldGrowthPendingFields ?? {}),
-      }),
+      actionText: `<user>选择了继续前进，进入了${nextArea}的起点宝箱房。`,
+      pendingStatDataFields: normalizePendingStatDataFields(pendingStatDataFields) ?? undefined,
     };
   }
 
-  // 记录待应用变量：进入新房间，更新统计
+  const roomType = node.kind === 'boss' ? '领主房' : node.roomType;
   const incrementKeys = ['当前层已过房间', '累计已过房间'];
-  const statKey = ROOM_STAT_KEY[portal.roomType];
+  const statKey = ROOM_STAT_KEY[roomType];
   if (statKey) incrementKeys.push(statKey);
-  const currentArea = (gameStore.statData._当前区域 as string) || '';
-  const encounterMonster =
-    portal.roomType === '领主房'
-      ? pickLordMonsterByArea(currentArea)
-      : portal.roomType === '战斗房'
-        ? pickBattleMonsterByArea(currentArea)
-        : null;
-  const trapName = portal.roomType === '陷阱房' ? pickTrapByArea(currentArea) : null;
-  const trapHpAfterDamage =
-    portal.roomType === '陷阱房' ? Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5) : undefined;
+  const encounterMonster = roomType === '领主房' ? pickLordMonsterByArea(currentArea) : roomType === '战斗房' ? pickBattleMonsterByArea(currentArea) : null;
+  const trapName = roomType === '陷阱房' ? pickTrapByArea(currentArea) : null;
   let pendingStatDataFields: Record<string, any> | undefined;
-  if (portal.roomType === '陷阱房') {
+  if (roomType === '陷阱房') {
     pendingStatDataFields = {
       $当前事件: trapName ?? '',
-      _血量: trapHpAfterDamage,
+      _血量: Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5),
     };
-  } else if (portal.roomType === '温泉房') {
-    const maxHp = Math.max(1, displayMaxHp.value);
-    pendingStatDataFields = {
-      _血量: maxHp,
-    };
+  } else if (roomType === '温泉房') {
+    pendingStatDataFields = { _血量: Math.max(1, displayMaxHp.value) };
   }
   if (worldGrowthPendingFields) {
-    pendingStatDataFields = {
-      ...(pendingStatDataFields ?? {}),
-      ...worldGrowthPendingFields,
-    };
+    pendingStatDataFields = { ...(pendingStatDataFields ?? {}), ...worldGrowthPendingFields };
   }
 
-  gameStore.setPendingPortalChanges({
-    roomType: portal.roomType,
+  gameStore.setPendingRoomChanges({
+    roomType,
     incrementKeys,
-    appendPathLabel: getPathLabelByRoomType(portal.roomType),
+    pathEntry: node.kind === 'room' ? { x: node.x, 房间类型: roomType } : undefined,
     enemyName: encounterMonster ?? '',
   });
-  console.info(`[Portal] Room transition queued → type: ${portal.roomType}`);
-
   const enterText =
-    (portal.roomType === '战斗房' || portal.roomType === '领主房') && encounterMonster
-      ? `进入了${portal.roomType}并遭遇了${
-          portal.roomType === '领主房' && encounterMonster === '梦魔双子' ? '沉睡的梦魔双子' : encounterMonster
-        }`
-      : portal.roomType === '陷阱房' && trapName
-        ? `进入了${portal.roomType}的房间，当前陷阱房为${trapName}`
-        : `进入了${portal.roomType}的房间`;
-
+    (roomType === '战斗房' || roomType === '领主房') && encounterMonster
+      ? `进入了${roomType}并遭遇了${roomType === '领主房' && encounterMonster === '梦魔双子' ? '沉睡的梦魔双子' : encounterMonster}`
+      : roomType === '陷阱房' && trapName
+        ? `进入了${roomType}的房间，当前陷阱房为${trapName}`
+        : `进入了${roomType}的房间`;
   return {
-    enterText,
-    targetRoomType: portal.roomType,
-    actionText: `<user>选择了继续前进，${enterText}`,
+    targetRoomType: roomType,
+    actionText: `<user>选择了继续前进，${enterText}。`,
     pendingStatDataFields,
   };
 };
 
-function generateRoomLeavePortals(): PortalChoice[] {
-  const generated = generatePortals();
-  if (generated.length > 0) return generated;
-
-  const currentArea = (gameStore.statData._当前区域 as string) || '';
-  const currentRoomType = (gameStore.statData._当前房间类型 as string) || '';
-  const availableRoomTypes = getAvailablePortalRoomTypes(currentArea, currentRoomType);
-  if (availableRoomTypes.length === 0) return [];
-  const count = rollPortalCount();
-  const picked = pickWeightedRoomTypes(availableRoomTypes, count);
-  return picked.map(rt => ({ label: rt, roomType: rt, isFloorTransition: false, ...PORTAL_ROOM_VISUALS[rt] }));
-}
-
-const handlePortalClick = async (portal: PortalChoice) => {
-  if (gameStore.isGenerating) return;
+const handleMapNodeClick = async (node: MapNodeView) => {
+  if (gameStore.isGenerating || !node.isAvailable) return;
   if (activeForcedCurseReplacement.value) {
     toastr.warning('必须先完成诅咒替换。');
     return;
   }
   resetShopSession();
-  const { actionText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
-  gameStore.setPendingStatDataChanges(pendingStatDataFields ?? null);
-  await submitGameAction(appendInputToPortalRebirthAction(actionText), targetRoomType, 'portal');
+  const action = buildQueuedMapAction(node);
+  if (!action) return;
+  activeModal.value = null;
+  gameStore.setPendingStatDataChanges(action.pendingStatDataFields ?? null);
+  await submitGameAction(appendInputToMapRebirthAction(action.actionText), action.targetRoomType, 'map');
 };
 
-const handleChestPortalClick = async (portal: PortalChoice) => {
+const finishChestRoom = async () => {
   if (gameStore.isGenerating || chestCollecting.value || chestStage.value !== 'opened') return;
-  if (activeForcedCurseReplacement.value) {
-    toastr.warning('必须先完成诅咒替换。');
-    return;
+  const collectedRelics = chestRewardRelics.value.filter((_, index) => chestRewardCollectedFlags.value[index]);
+  let nextRelics: Record<string, number> = inventoryRelicMap.value;
+  for (const relic of collectedRelics) {
+    nextRelics = buildNextRelicInventory(relic, nextRelics);
   }
-  resetShopSession();
-  const { actionText, enterText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
-  const collectedRelics = chestRewardRelics.value.filter((_, idx) => chestRewardCollectedFlags.value[idx]);
-  const mergedPendingStatDataFields: Record<string, any> = {
-    ...(pendingStatDataFields ?? {}),
-  };
   if (collectedRelics.length > 0) {
-    // 宝箱奖励遵循与传送门一致的“延迟写入”策略：仅在点击传送门时排队到下一层 user 楼层
-    let nextRelics: Record<string, number> = inventoryRelicMap.value;
-    for (const relic of collectedRelics) {
-      nextRelics = buildNextRelicInventory(relic, nextRelics);
-    }
-    Object.assign(mergedPendingStatDataFields, buildInventoryUpdateFields({ _圣遗物: nextRelics }));
+    gameStore.setPendingStatDataChanges(buildInventoryUpdateFields({ _圣遗物: nextRelics }));
   }
-  gameStore.setPendingStatDataChanges(
-    Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null,
-  );
-
   const relicNameText = collectedRelics.map(relic => relic.name).join('、');
   closeChestView();
-  if (relicNameText) {
-    await submitGameAction(
-      appendInputToPortalRebirthAction(
-        `<user>打开了箱子并从中获取了圣遗物${relicNameText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
-      ),
-      targetRoomType,
-      'chest',
-    );
-    return;
-  }
-  await submitGameAction(appendInputToPortalRebirthAction(actionText), targetRoomType, 'portal');
+  const rewardText = relicNameText ? `并从中获取了圣遗物${relicNameText}` : '，没有带走任何圣遗物';
+  await submitGameAction(
+    appendInputToMapRebirthAction(`<user>打开了箱子${rewardText}，完成了当前房间的探索。`),
+    '宝箱房',
+    'chest',
+  );
+  await openMapAfterSpecialRoom();
 };
 
-const handleIdolPortalClick = async (portal: PortalChoice) => {
-  if (gameStore.isGenerating || !showIdolView.value) return;
-  resetShopSession();
-  const { enterText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
+const finishIdolRoom = async () => {
+  if (gameStore.isGenerating || !showIdolView.value || !idolAssignedTarget.value) return;
   const reward = idolRewardSummary.value;
-  const mergedPendingStatDataFields: Record<string, any> = {
-    ...(pendingStatDataFields ?? {}),
-  };
-  if (reward) {
-    Object.assign(mergedPendingStatDataFields, buildIdolPendingFields() ?? {});
-  }
-  gameStore.setPendingStatDataChanges(
-    Object.keys(mergedPendingStatDataFields).length > 0 ? mergedPendingStatDataFields : null,
-  );
-
+  if (reward) gameStore.setPendingStatDataChanges(buildIdolPendingFields());
   closeIdolView();
-  if (!reward) {
-    await submitGameAction(
-      appendInputToPortalRebirthAction(
-        `<user>没有膜拜任何一座神像，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
-      ),
-      targetRoomType,
-      'idol',
-    );
-    return;
-  }
+  const rewardText = reward ? `选择膜拜了${reward.statueName}并获得了${reward.rewardText}` : '没有膜拜任何一座神像';
   await submitGameAction(
-    appendInputToPortalRebirthAction(
-      `<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
-    ),
-    targetRoomType,
+    appendInputToMapRebirthAction(`<user>${rewardText}，完成了当前房间的探索，等待在地图上选择下一个房间。`),
+    '神像房',
     'idol',
   );
+  await openMapAfterSpecialRoom();
 };
 
 const openSaveLoad = () => {
@@ -10179,6 +10231,8 @@ const handleCombatEnd = async (
 onBeforeUnmount(() => {
   viewportResizeObserver?.disconnect();
   viewportResizeObserver = null;
+  mapViewportResizeObserver?.disconnect();
+  mapViewportResizeObserver = null;
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', handleViewportResize);
     window.removeEventListener('orientationchange', handleViewportResize);
@@ -10468,7 +10522,53 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.portal-section,
+.map-selection-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.map-selection-btn {
+  display: inline-flex;
+  min-height: 3.1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  border: 1px solid rgba(56, 189, 248, 0.48);
+  border-radius: 0.55rem;
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.32), rgba(12, 74, 110, 0.22)), rgba(8, 18, 26, 0.82);
+  color: rgba(224, 242, 254, 0.96);
+  font-family: var(--font-ui, inherit);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.72rem 1rem;
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.map-selection-btn:hover,
+.map-selection-btn:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(125, 211, 252, 0.9);
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.48), rgba(12, 74, 110, 0.34)), rgba(8, 18, 26, 0.9);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.18);
+}
+
+.map-selection-btn__icon {
+  display: inline-flex;
+  width: 1.4rem;
+  height: 1.4rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(125, 211, 252, 0.4);
+  border-radius: 50%;
+  color: rgba(186, 230, 253, 0.96);
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .rebirth-section {
   margin-top: 1rem;
 }
@@ -10507,115 +10607,6 @@ onBeforeUnmount(() => {
 
 .action-divider-label--danger::after {
   background: linear-gradient(90deg, rgba(248, 113, 113, 0.36), transparent);
-}
-
-.portal-grid {
-  display: flex;
-  justify-content: center;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-}
-
-.portal-btn {
-  position: relative;
-  isolation: isolate;
-  width: 6.7rem;
-  height: 6.7rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-width: 1px;
-  border-style: solid;
-  border-radius: 0.55rem;
-  padding: 0.65rem;
-  backdrop-filter: blur(10px);
-  transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
-    filter 0.22s ease;
-}
-
-.portal-btn::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  z-index: -1;
-  border-radius: 0.45rem;
-  background:
-    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.18), transparent 38%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.18));
-  opacity: 0.78;
-}
-
-.portal-btn:hover:not(:disabled),
-.portal-btn:focus-visible {
-  transform: translateY(-3px) scale(1.035);
-  filter: brightness(1.08) saturate(1.08);
-}
-
-.portal-btn:active:not(:disabled) {
-  transform: translateY(-1px) scale(0.98);
-}
-
-.portal-btn:disabled {
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-  opacity: 0.44;
-}
-
-.portal-btn__glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  opacity: 0.52;
-  transition: opacity 0.22s ease;
-}
-
-.portal-btn:hover .portal-btn__glow,
-.portal-btn:focus-visible .portal-btn__glow {
-  opacity: 0.95;
-}
-
-.portal-btn__icon {
-  position: relative;
-  z-index: 1;
-  margin-bottom: 0.45rem;
-  font-size: 1.65rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.42));
-}
-
-.portal-btn__label {
-  position: relative;
-  z-index: 1;
-  max-width: 5.5rem;
-  font-family: var(--font-ui, inherit);
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1.22;
-  text-align: center;
-  letter-spacing: 0.04em;
-  overflow-wrap: anywhere;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-}
-
-.portal-btn__ring {
-  position: absolute;
-  inset: 0.45rem;
-  border-width: 1px;
-  border-style: dashed;
-  border-radius: 0.38rem;
-  opacity: 0.28;
-  animation: spin 8s linear infinite;
-  transition: opacity 0.22s ease;
-}
-
-.portal-btn:hover .portal-btn__ring,
-.portal-btn:focus-visible .portal-btn__ring {
-  opacity: 0.7;
 }
 
 .rebirth-action-btn {
@@ -12556,72 +12547,118 @@ onBeforeUnmount(() => {
 .map-modal {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.6rem;
 }
 
 .map-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(16rem, 1fr);
-  gap: 1rem;
-  padding: 1.05rem 1.15rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(212, 175, 55, 0.2);
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 28%),
-    radial-gradient(circle at 12% 16%, rgba(251, 191, 36, 0.14), transparent 32%),
-    linear-gradient(145deg, rgba(29, 18, 11, 0.96), rgba(12, 9, 7, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 236, 201, 0.05),
-    0 16px 30px rgba(0, 0, 0, 0.24);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.2rem;
+  padding: 0.25rem 0.2rem 0.55rem;
+  border-bottom: 1px solid rgba(220, 203, 163, 0.18);
 }
 
 .map-hero__eyebrow {
-  color: rgba(251, 191, 36, 0.78);
+  color: rgba(226, 205, 160, 0.66);
   font-family: 'Cinzel', serif;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
 .map-hero__title {
   margin-top: 0.35rem;
-  color: rgba(255, 229, 184, 0.98);
+  color: rgba(247, 232, 198, 0.98);
   font-family: 'Cinzel', serif;
-  font-size: clamp(1.45rem, 2vw, 1.95rem);
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
 }
 
 .map-hero__desc {
   margin-top: 0.52rem;
-  color: rgba(237, 226, 205, 0.74);
-  font-size: 0.86rem;
-  line-height: 1.62;
+  color: rgba(237, 226, 205, 0.62);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.map-hero__aside {
+  display: flex;
+  min-width: min(100%, 24rem);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
 }
 
 .map-hero__chips {
-  display: grid;
-  gap: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
 
 .map-hero__chip {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.78rem 0.88rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(212, 175, 55, 0.16);
-  background: rgba(6, 5, 4, 0.42);
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 4.2rem;
+  padding: 0.38rem 0.5rem;
+  border-left: 1px solid rgba(220, 203, 163, 0.16);
 }
 
 .map-hero__chip-label {
-  color: rgba(214, 211, 209, 0.68);
-  font-size: 0.74rem;
+  color: rgba(214, 211, 209, 0.54);
+  font-size: 0.62rem;
 }
 
 .map-hero__chip-value {
-  color: rgba(255, 224, 163, 0.97);
+  color: rgba(245, 229, 190, 0.95);
   font-family: 'Cinzel', serif;
-  font-size: 0.96rem;
+  font-size: 0.78rem;
+}
+
+.map-legend {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 0.26rem 0.42rem;
+  border: 1px solid rgba(28, 24, 18, 0.22);
+  border-radius: 0.28rem;
+  padding: 0.36rem 0.45rem;
+  background: #e9e4cf;
+  color: #1c1812;
+}
+
+.map-legend__title {
+  grid-column: 1 / -1;
+  color: rgba(28, 24, 18, 0.64);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.map-legend__item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.12rem;
+  white-space: nowrap;
+}
+
+.map-legend__icon {
+  display: block;
+  width: 1.55rem;
+  height: 1.55rem;
+  flex: 0 0 1.55rem;
+  background-repeat: no-repeat;
+  background-size: 400% 200%;
+}
+
+.map-legend__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.65rem;
+  font-weight: 600;
 }
 
 .map-toolbar {
@@ -12633,9 +12670,9 @@ onBeforeUnmount(() => {
 }
 
 .map-summary {
-  color: rgba(245, 222, 179, 0.72);
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  color: rgba(245, 222, 179, 0.64);
+  font-size: 11px;
+  letter-spacing: 0.02em;
   line-height: 1.55;
 }
 
@@ -12656,12 +12693,12 @@ onBeforeUnmount(() => {
 }
 
 .map-control-btn {
-  height: 2.15rem;
-  min-width: 2.15rem;
-  border-radius: 0.7rem;
-  border: 1px solid rgba(217, 119, 6, 0.42);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(120, 53, 15, 0.18)), rgba(24, 13, 8, 0.82);
-  color: rgba(253, 230, 138, 0.92);
+  height: 1.9rem;
+  min-width: 1.9rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(220, 203, 163, 0.28);
+  background: rgba(40, 32, 23, 0.72);
+  color: rgba(247, 232, 198, 0.86);
   font-size: 12px;
   padding: 0 0.7rem;
   transition:
@@ -12673,9 +12710,9 @@ onBeforeUnmount(() => {
 
 .map-control-btn:hover {
   transform: translateY(-1px);
-  border-color: rgba(251, 191, 36, 0.72);
+  border-color: rgba(247, 232, 198, 0.7);
   color: rgba(254, 243, 199, 0.98);
-  background: rgba(58, 32, 18, 0.82);
+  background: rgba(70, 56, 40, 0.88);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
 }
 
@@ -12685,9 +12722,8 @@ onBeforeUnmount(() => {
 
 .map-empty {
   height: 17rem;
-  border-radius: 0.9rem;
-  border: 1px dashed rgba(217, 119, 6, 0.4);
-  background: radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%), rgba(18, 10, 7, 0.76);
+  border: 1px dashed rgba(220, 203, 163, 0.35);
+  background: rgba(18, 14, 10, 0.76);
   color: rgba(245, 222, 179, 0.55);
   display: flex;
   align-items: center;
@@ -12697,18 +12733,19 @@ onBeforeUnmount(() => {
 
 .map-viewport {
   position: relative;
-  height: 18rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(217, 119, 6, 0.35);
-  background:
-    radial-gradient(circle at 18% 16%, rgba(120, 53, 15, 0.24), transparent 54%),
-    radial-gradient(circle at 86% 84%, rgba(30, 41, 59, 0.34), transparent 58%), rgba(16, 10, 8, 0.86);
+  height: min(68vh, 42rem);
+  min-height: 24rem;
+  border-radius: 0.45rem;
+  border: 8px solid #4a4030;
+  background: #e9e4cf;
   overflow: hidden;
   touch-action: none;
+  user-select: none;
   cursor: grab;
   box-shadow:
-    inset 0 1px 0 rgba(255, 236, 201, 0.05),
-    0 14px 26px rgba(0, 0, 0, 0.26);
+    inset 0 0 0 1px rgba(250, 244, 220, 0.45),
+    inset 0 0 28px rgba(62, 55, 42, 0.4),
+    0 14px 26px rgba(0, 0, 0, 0.28);
 }
 
 .map-viewport:active {
@@ -12716,21 +12753,20 @@ onBeforeUnmount(() => {
 }
 
 .map-viewport::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 2.8rem 2.8rem;
-  opacity: 0.4;
-  pointer-events: none;
+  display: none;
 }
 
 .map-canvas {
   position: absolute;
   left: 0;
   top: 0;
+  background: #e9e4cf
+    url("https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E5%9C%B0%E5%9B%BE%E8%83%8C%E6%99%AF.png")
+    center / 100% 100% no-repeat;
+}
+
+.map-layout {
+  position: absolute;
 }
 
 .map-links {
@@ -12744,69 +12780,148 @@ onBeforeUnmount(() => {
   position: absolute;
   width: 62px;
   height: 62px;
-  border-radius: 0.9rem;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  border: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.18rem;
+  gap: 0.08rem;
   overflow: hidden;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 6px 16px rgba(0, 0, 0, 0.35);
-}
-
-.map-room-cell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.06), transparent 46%);
-  pointer-events: none;
+  padding: 0;
+  appearance: none;
+  box-shadow: none;
+  font-family: Georgia, 'Times New Roman', serif;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    filter 0.18s ease;
 }
 
 .map-room-cell--latest {
+  box-shadow: none;
+}
+
+.map-room-cell:disabled {
+  pointer-events: none;
+  cursor: default;
+  filter: saturate(0.42);
+  opacity: 0.65;
+}
+
+.map-room-cell--visited {
+  opacity: 0.38;
+}
+
+.map-room-cell--latest {
+  opacity: 1;
+  z-index: 2;
+  filter: none;
+}
+
+.map-room-cell--latest:disabled {
+  opacity: 1;
+  filter: none;
+}
+
+.map-room-cell--available {
+  cursor: pointer;
+  filter: saturate(1.15);
+  opacity: 1;
+  outline: 2px solid rgba(82, 67, 44, 0.24);
+  outline-offset: 2px;
+}
+
+.map-room-cell--start,
+.map-room-cell--boss {
+  width: 70px;
+  height: 70px;
+  font-size: 1.35rem;
+}
+
+.map-room-cell--boss {
+  box-shadow: none;
+}
+
+.map-room-cell--floor {
+  height: 86px;
+  border-radius: 0.35rem;
+  background: transparent !important;
+  border-color: transparent;
+  color: #3d3427 !important;
+  gap: 0.18rem;
+  padding: 0.35rem 0.3rem;
+}
+
+.map-room-cell--available:hover,
+.map-room-cell--available:focus-visible {
+  transform: translateY(-2px) scale(1.08);
+  background: radial-gradient(circle, rgba(28, 24, 18, 0.16), rgba(28, 24, 18, 0.02) 68%, transparent 70%) !important;
+  outline-color: rgba(82, 67, 44, 0.8);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-    0 0 0 1px rgba(251, 191, 36, 0.12),
-    0 12px 24px rgba(0, 0, 0, 0.34);
+    0 0 0 4px rgba(245, 229, 190, 0.5),
+    0 2px 10px rgba(57, 49, 37, 0.38);
+}
+
+.map-room-cell--available:hover .map-room-icon,
+.map-room-cell--available:focus-visible .map-room-icon {
+  transform: scale(1.12);
+  filter: brightness(0.62) drop-shadow(0 2px 2px rgba(28, 24, 18, 0.4));
+}
+
+.map-room-cell--latest .map-room-icon {
+  animation: map-current-room-pulse 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px rgba(255, 238, 190, 0.32)) drop-shadow(0 2px 3px rgba(28, 24, 18, 0.28));
+}
+
+.map-room-cell--latest .map-room-pulse {
+  display: none;
 }
 
 .map-room-pulse {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 1px solid rgba(255, 224, 163, 0.74);
-  box-shadow:
-    0 0 16px rgba(251, 191, 36, 0.38),
-    inset 0 0 12px rgba(255, 224, 163, 0.14);
+  border: 1px dashed rgba(85, 68, 43, 0.62);
+  pointer-events: none;
 }
 
 .map-room-icon {
   position: relative;
-  font-size: 1.3rem;
-  line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  display: block;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  background-repeat: no-repeat;
+  background-size: 400% 200%;
+  transition:
+    transform 0.22s ease,
+    filter 0.22s ease;
+}
+
+@keyframes map-current-room-pulse {
+  0%,
+  100% {
+    transform: scale(0.96);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
 }
 
 .map-room-label {
   position: relative;
-  max-width: 86%;
-  font-size: 0.58rem;
-  line-height: 1.2;
+  max-width: 92%;
+  font-size: 0.6rem;
+  line-height: 1.1;
   text-align: center;
   opacity: 0.86;
+  overflow-wrap: anywhere;
 }
 
-.map-room-step {
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+.map-room-cell:not(.map-room-cell--floor) .map-room-label {
+  display: none;
 }
 
 .bond-list {
@@ -13011,11 +13126,54 @@ onBeforeUnmount(() => {
   gap: 1.2rem;
 }
 
-.chest-portals-anchor {
+.map-overlay-finish-btn {
   position: absolute;
   left: 50%;
-  bottom: 1.75rem;
+  bottom: clamp(2.5rem, 10vh, 6rem);
+  z-index: 98;
+  min-width: 14rem;
   transform: translateX(-50%);
+  border: 1px solid rgba(251, 191, 36, 0.72);
+  border-radius: 0.55rem;
+  background:
+    linear-gradient(180deg, rgba(67, 38, 16, 0.94), rgba(25, 15, 9, 0.96)),
+    rgba(15, 10, 6, 0.94);
+  color: rgba(255, 239, 187, 0.98);
+  padding: 0.7rem 1.25rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: auto;
+  box-shadow:
+    0 0 0 1px rgba(255, 243, 199, 0.1),
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 20px rgba(251, 191, 36, 0.14);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.map-overlay-finish-btn:hover:not(:disabled),
+.map-overlay-finish-btn:focus-visible {
+  transform: translateX(-50%) translateY(-2px) scale(1.03);
+  border-color: rgba(255, 243, 199, 0.98);
+  background:
+    linear-gradient(180deg, rgba(103, 58, 20, 0.98), rgba(39, 22, 11, 0.98)),
+    rgba(15, 10, 6, 0.96);
+  box-shadow:
+    0 0 0 3px rgba(251, 191, 36, 0.15),
+    0 10px 26px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(251, 191, 36, 0.25);
+}
+
+.map-overlay-finish-btn:disabled {
+  cursor: wait;
+  opacity: 0.56;
 }
 
 .chest-reward-icon {
@@ -13525,20 +13683,6 @@ onBeforeUnmount(() => {
   }
 }
 
-.idol-portal-btn {
-  position: absolute;
-  bottom: 2rem;
-  transform: translateX(-50%);
-}
-
-.idol-portal-btn:hover:not(:disabled) {
-  transform: translateX(-50%) scale(1.1);
-}
-
-.idol-portal-btn:active:not(:disabled) {
-  transform: translateX(-50%) scale(0.95);
-}
-
 .variable-update-panel {
   border-radius: 0.95rem;
   border: 1px solid rgba(92, 62, 38, 0.78);
@@ -14019,6 +14163,12 @@ onBeforeUnmount(() => {
   letter-spacing: 0.01em;
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(8px);
+}
+
+.settings-help-popover-warning {
+  margin-top: 0.45rem;
+  color: rgba(248, 113, 113, 0.96);
+  font-weight: 700;
 }
 
 .settings-help-fade-enter-active,
@@ -15027,7 +15177,8 @@ onBeforeUnmount(() => {
 
   .map-viewport,
   .map-empty {
-    height: 15rem;
+    height: min(64vh, 34rem);
+    min-height: 22rem;
   }
 
   .magic-hat-hero__content,
@@ -15096,10 +15247,6 @@ onBeforeUnmount(() => {
     top: 57.5%;
   }
 
-  .chest-portals-anchor {
-    bottom: 1.1rem;
-  }
-
   .idol-slots-row {
     width: min(920px, calc(100% - 24px));
     bottom: 28%;
@@ -15114,8 +15261,5 @@ onBeforeUnmount(() => {
     font-size: 1rem;
   }
 
-  .idol-portal-btn {
-    bottom: 0.8rem;
-  }
 }
 </style>
