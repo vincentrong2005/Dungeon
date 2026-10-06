@@ -6,13 +6,13 @@
     :style="viewportStyle"
   >
     <div class="ui-stage" :style="stageStyle">
-      <div class="ui-stage-content w-full h-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative">
+      <div class="ui-stage-content size-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative">
         <!-- Dynamic Background -->
         <div class="absolute inset-0 z-0">
           <img
             v-if="bgImageUrl"
             :src="bgImageUrl"
-            class="absolute inset-0 w-full h-full object-cover"
+            class="absolute inset-0 size-full object-cover"
             alt=""
             @error="onBgError"
           />
@@ -115,9 +115,9 @@
         </div>
 
         <!-- Main Content Area -->
-        <div class="ui-main-content h-full min-h-0 w-full flex flex-col items-center">
+        <div class="ui-main-content size-full min-h-0 flex flex-col items-center">
           <div
-            class="ui-story-layout w-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300 h-full"
+            class="ui-story-layout size-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300"
             :style="{ maxWidth: textSettings.containerWidth + 'px' }"
           >
             <!-- Story Text Area -->
@@ -126,8 +126,8 @@
               class="ui-story-panel flex-1 bg-dungeon-dark/80 border border-dungeon-brown rounded-t-lg shadow-2xl backdrop-blur-sm p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar relative"
             >
               <!-- Decorative Corners -->
-              <div class="absolute top-2 left-2 w-4 h-4 border-t border-l border-dungeon-gold/30"></div>
-              <div class="absolute top-2 right-2 w-4 h-4 border-t border-r border-dungeon-gold/30"></div>
+              <div class="absolute top-2 left-2 size-4 border-t border-l border-dungeon-gold/30"></div>
+              <div class="absolute top-2 right-2 size-4 border-t border-r border-dungeon-gold/30"></div>
               <div class="story-floor-indicator pointer-events-none select-none">
                 消息楼层 第 {{ currentTavernFloorNumber }} 层
               </div>
@@ -135,13 +135,13 @@
               <!-- Loading Indicator -->
               <div v-if="gameStore.isGenerating" class="flex items-center gap-3 mb-4">
                 <div class="flex gap-1">
-                  <span class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce" style="animation-delay: 0s"></span>
+                  <span class="size-2 bg-dungeon-gold rounded-full animate-bounce" style="animation-delay: 0s"></span>
                   <span
-                    class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce"
+                    class="size-2 bg-dungeon-gold rounded-full animate-bounce"
                     style="animation-delay: 0.2s"
                   ></span>
                   <span
-                    class="w-2 h-2 bg-dungeon-gold rounded-full animate-bounce"
+                    class="size-2 bg-dungeon-gold rounded-full animate-bounce"
                     style="animation-delay: 0.4s"
                   ></span>
                 </div>
@@ -152,7 +152,7 @@
               <div v-if="gameStore.isEditing" class="flex flex-col h-full">
                 <textarea
                   v-model="gameStore.editingText"
-                  class="flex-1 w-full bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper rounded p-4 resize-none focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui custom-scrollbar"
+                  class="flex-1 w-full bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper rounded-sm p-4 resize-none focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui custom-scrollbar"
                   :style="{
                     fontSize: textSettings.fontSize + 'px',
                     lineHeight: textSettings.lineHeight,
@@ -162,13 +162,13 @@
                 <!-- Edit Actions -->
                 <div class="flex justify-end gap-3 mt-4">
                   <button
-                    class="px-5 py-2 text-sm font-ui text-gray-400 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
+                    class="px-5 py-2 text-sm font-ui text-gray-400 border border-gray-700 rounded-sm hover:bg-gray-800 transition-colors"
                     @click="gameStore.cancelEdit()"
                   >
                     取消
                   </button>
                   <button
-                    class="px-5 py-2 text-sm font-ui text-dungeon-gold border border-dungeon-gold/40 rounded hover:bg-dungeon-gold/10 transition-colors shadow-[0_0_8px_rgba(212,175,55,0.15)]"
+                    class="px-5 py-2 text-sm font-ui text-dungeon-gold border border-dungeon-gold/40 rounded-sm hover:bg-dungeon-gold/10 transition-colors shadow-[0_0_8px_rgba(212,175,55,0.15)]"
                     @click="gameStore.saveEdit()"
                   >
                     确认更改
@@ -291,14 +291,14 @@
                   class="mt-8 flex flex-col space-y-3 ui-action-buttons"
                 >
                   <div
-                    class="h-[1px] w-full bg-gradient-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
+                    class="h-px w-full bg-linear-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
                   ></div>
 
                   <!-- A-D Normal Options -->
                   <button
                     v-for="(option, i) in gameStore.options"
                     :key="'opt-' + i"
-                    class="w-full text-left px-5 py-3 bg-dungeon-dark/60 hover:bg-dungeon-brown/40 text-dungeon-paper/80 hover:text-dungeon-paper rounded border border-dungeon-brown/50 hover:border-dungeon-gold/40 font-ui text-sm tracking-wide transition-all duration-300 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)] hover:translate-x-1"
+                    class="w-full text-left px-5 py-3 bg-dungeon-dark/60 hover:bg-dungeon-brown/40 text-dungeon-paper/80 hover:text-dungeon-paper rounded-sm border border-dungeon-brown/50 hover:border-dungeon-gold/40 font-ui text-sm tracking-wide transition-all duration-300 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)] hover:translate-x-1"
                     :style="optionButtonTextStyle"
                     @click="handleOptionClick(option)"
                   >
@@ -363,7 +363,7 @@
                 <!-- Error Display -->
                 <div
                   v-if="gameStore.error"
-                  class="mt-6 p-4 bg-red-950/30 border border-red-900/50 rounded text-red-300 font-ui text-sm"
+                  class="mt-6 p-4 bg-red-950/30 border border-red-900/50 rounded-sm text-red-300 font-ui text-sm"
                 >
                   {{ gameStore.error }}
                 </div>
@@ -372,7 +372,7 @@
           </div>
         </div>
         <!-- Input Area (Stage-Anchored) -->
-        <div class="ui-input-anchor absolute left-0 right-0 bottom-0 z-[60] pb-2">
+        <div class="ui-input-anchor absolute inset-x-0 bottom-0 z-60 pb-2">
           <div
             class="ui-input-inner w-full mx-auto px-4 md:px-12 md:pl-24"
             :style="{ maxWidth: textSettings.containerWidth + 'px' }"
@@ -384,13 +384,13 @@
                   :disabled="gameStore.isGenerating"
                   :placeholder="inputPlaceholder"
                   rows="2"
-                  class="ui-input-field flex-1 h-[4.5rem] resize-none overflow-y-auto bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-[1.5rem] leading-normal px-5 py-3 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="ui-input-field flex-1 h-18 resize-none overflow-y-auto bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-2xl/normal px-5 py-3 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   @keydown.enter.exact.prevent="handleSendInput"
                 ></textarea>
                 <div v-if="isButtonCompletionEnabled" ref="buttonCompletionMenuRef" class="ui-option-completion-wrap">
                   <button
                     type="button"
-                    class="ui-option-completion-trigger h-[4.5rem] px-4 flex items-center justify-center gap-2 shrink-0"
+                    class="ui-option-completion-trigger h-18 px-4 flex items-center justify-center gap-2 shrink-0"
                     :disabled="gameStore.isGenerating"
                     :aria-expanded="optionCompletionMenuOpen"
                     aria-haspopup="menu"
@@ -420,7 +420,7 @@
                   </Transition>
                 </div>
                 <button
-                  class="ui-send-button h-[4.5rem] min-w-[4.5rem] px-3 flex items-center justify-center shrink-0"
+                  class="ui-send-button h-18 min-w-18 px-3 flex items-center justify-center shrink-0"
                   :disabled="gameStore.isGenerating"
                   @click="handleSendInput"
                 >
@@ -432,7 +432,7 @@
         </div>
 
         <!-- Player Status HUD (Bottom Left) -->
-        <div class="absolute bottom-8 left-8 z-[70] flex flex-col gap-2 select-none ui-status-hud">
+        <div class="absolute bottom-8 left-8 z-70 flex flex-col gap-2 select-none ui-status-hud">
           <div class="status-hud-actions">
             <button
               class="status-hud-control-btn"
@@ -781,13 +781,13 @@
                   <template v-else-if="playerDetailInventoryTab === 'relics'">
                     <div
                       v-if="relicEntries.length > 0"
-                      class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-6 gap-y-6 mt-4"
+                      class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-6 mt-4"
                     >
                       <button
                         v-for="relic in relicEntries"
                         :key="relic.name"
                         type="button"
-                        class="relative flex flex-col items-center p-1.5 rounded border border-dungeon-brown/30 bg-[#1a0f08]/35 hover:border-dungeon-gold/40 transition-colors focus:outline-none focus:border-dungeon-gold/60"
+                        class="relative flex flex-col items-center p-1.5 rounded-sm border border-dungeon-brown/30 bg-[#1a0f08]/35 hover:border-dungeon-gold/40 transition-colors focus:outline-none focus:border-dungeon-gold/60"
                         @mouseenter="showRelicTooltip($event, relic)"
                         @mouseleave="hideRelicTooltip"
                         @focus="showRelicTooltip($event, relic)"
@@ -799,7 +799,7 @@
                         <div class="relative">
                           <Box class="size-9 text-dungeon-gold/75" />
                           <span
-                            class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded px-0.5 leading-tight"
+                            class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded-sm px-0.5 leading-tight"
                             >x{{ relic.count }}</span
                           >
                         </div>
@@ -1053,7 +1053,7 @@
           <Transition name="combat-fade">
             <div
               v-if="bondPortraitPreview"
-              class="fixed inset-0 z-[230] flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm"
+              class="fixed inset-0 z-230 flex items-center justify-center bg-black/85 p-6 backdrop-blur-sm"
               @click="closeBondPortraitPreview"
             >
               <div class="bond-preview-panel" @click.stop>
@@ -1582,7 +1582,7 @@
         <Teleport to="body">
           <div
             v-if="relicTooltip"
-            class="fixed z-[220] pointer-events-none relic-tooltip"
+            class="fixed z-220 pointer-events-none relic-tooltip"
             :style="{ left: `${relicTooltip.x}px`, top: `${relicTooltip.y}px` }"
           >
             <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
@@ -1683,7 +1683,7 @@
                   <label class="text-dungeon-paper/70 text-sm font-ui">字体样式</label>
                   <select
                     v-model="textSettings.fontFamily"
-                    class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui sm:min-w-[14rem]"
+                    class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded-sm focus:outline-none focus:border-dungeon-gold font-ui sm:min-w-56"
                   >
                     <option value="'Cinzel', serif">Cinzel (默认)</option>
                     <option value="'Inter', sans-serif">Inter</option>
@@ -1797,7 +1797,7 @@
                   <select
                     v-model="selectedBgmTrackId"
                     :disabled="bgmTracks.length === 0"
-                    class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-[14rem]"
+                    class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded-sm focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-56"
                   >
                     <option v-if="bgmTracks.length === 0" value="">暂无可用曲目</option>
                     <option v-for="track in bgmTracks" :key="track.id" :value="track.id">
@@ -2100,7 +2100,7 @@
                       max="60"
                       inputmode="numeric"
                       :disabled="!isAutoSummaryEnabled"
-                      class="w-20 bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-45 disabled:cursor-not-allowed"
+                      class="w-20 bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded-sm focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-45 disabled:cursor-not-allowed"
                     />
                     <span class="text-dungeon-paper font-ui text-sm">层</span>
                   </div>
@@ -2394,7 +2394,7 @@
                 <span class="text-xs font-ui text-dungeon-paper/70">{{ selectedTestDeck.length }}/9</span>
               </div>
 
-              <div class="rounded border border-dungeon-brown/60 bg-dungeon-dark/50 p-3">
+              <div class="rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/50 p-3">
                 <div class="mb-2 flex items-center justify-between">
                   <span class="text-[11px] text-dungeon-paper/70">已选卡牌（点击移除）</span>
                   <span class="text-[11px] text-dungeon-gold/80">{{ selectedTestDeck.length }}/9</span>
@@ -2403,17 +2403,17 @@
                   <button
                     v-for="entry in selectedTestDeckCards"
                     :key="`selected-card-${entry.idx}`"
-                    class="w-full text-left flex items-stretch gap-2 rounded border border-dungeon-gold/20 bg-[#1a0f08]/70 px-2 py-2 hover:border-dungeon-gold/50 transition-colors"
+                    class="w-full text-left flex items-stretch gap-2 rounded-sm border border-dungeon-gold/20 bg-[#1a0f08]/70 p-2 hover:border-dungeon-gold/50 transition-colors"
                     @click="removeCardFromTestDeck(entry.idx)"
                   >
-                    <span class="w-1.5 rounded" :class="getCardCategoryStripClass(entry.card.category)"></span>
+                    <span class="w-1.5 rounded-sm" :class="getCardCategoryStripClass(entry.card.category)"></span>
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-1.5">
                         <span class="text-xs font-heading text-dungeon-gold truncate">{{ entry.card.name }}</span>
-                        <span class="text-[10px] px-1 rounded border" :class="getCardTypeBadgeClass(entry.card.type)">{{
+                        <span class="text-[10px] px-1 rounded-sm border" :class="getCardTypeBadgeClass(entry.card.type)">{{
                           entry.card.type
                         }}</span>
-                        <span class="text-[10px] px-1 rounded border border-white/15 text-dungeon-paper/60">{{
+                        <span class="text-[10px] px-1 rounded-sm border border-white/15 text-dungeon-paper/60">{{
                           entry.card.category
                         }}</span>
                       </div>
@@ -2425,7 +2425,7 @@
                   </button>
                   <div
                     v-if="selectedTestDeckCards.length === 0"
-                    class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                    class="rounded-sm border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
                   >
                     尚未选择卡牌
                   </div>
@@ -2434,7 +2434,7 @@
                   <div
                     v-for="idx in 9"
                     :key="`deck-slot-${idx}`"
-                    class="h-2 rounded border"
+                    class="h-2 rounded-sm border"
                     :class="
                       idx <= selectedTestDeck.length
                         ? 'bg-dungeon-gold/70 border-dungeon-gold/60'
@@ -2445,14 +2445,14 @@
               </div>
 
               <div
-                class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3 custom-scrollbar"
+                class="max-h-[42vh] overflow-y-auto rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-3 custom-scrollbar"
               >
                 <div class="space-y-3">
                   <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
                     <button
                       v-for="category in cardCategoryTabsForTest"
                       :key="`card-tab-${category}`"
-                      class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
+                      class="h-7 px-3 rounded-sm border text-xs shrink-0 transition-colors"
                       :class="
                         selectedCardCategoryTab === category
                           ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
@@ -2466,7 +2466,7 @@
                   <div
                     v-for="group in filteredCardCategoryGroupsForTest"
                     :key="`card-category-${group.category}`"
-                    class="rounded border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
+                    class="rounded-sm border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
                   >
                     <div class="mb-2 flex items-center justify-between">
                       <h4 class="font-heading text-[11px] tracking-wider uppercase text-dungeon-gold/90">
@@ -2478,7 +2478,7 @@
                       <button
                         v-for="card in group.cards"
                         :key="`all-card-${group.category}-${card.id}`"
-                        class="hover:scale-105 transition-transform flex flex-col items-center rounded border border-dungeon-brown/40 bg-[#1a0f08]/50 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                        class="hover:scale-105 transition-transform flex flex-col items-center rounded-sm border border-dungeon-brown/40 bg-[#1a0f08]/50 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
                         :disabled="selectedTestDeck.length >= 9"
                         @click="addCardToTestDeck(card.name)"
                       >
@@ -2489,14 +2489,14 @@
                   </div>
                   <div
                     v-if="filteredCardCategoryGroupsForTest.length === 0"
-                    class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                    class="rounded-sm border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
                   >
                     当前分类暂无可选卡牌
                   </div>
                 </div>
               </div>
 
-              <div class="mt-4 rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
+              <div class="mt-4 rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
                 <div class="mb-2 flex items-center justify-between">
                   <h4 class="font-heading text-dungeon-gold text-xs tracking-wider uppercase">测试主动技</h4>
                   <span class="text-[11px] text-dungeon-paper/60">作者测试可选择全部主动技</span>
@@ -2505,7 +2505,7 @@
                   <div
                     v-for="entry in testActiveSkillEntries"
                     :key="`test-active-slot-${entry.idx}`"
-                    class="rounded border border-dungeon-brown/50 bg-[#1a0f08]/70 p-3"
+                    class="rounded-sm border border-dungeon-brown/50 bg-[#1a0f08]/70 p-3"
                   >
                     <div class="flex items-center justify-between gap-2">
                       <div>
@@ -2513,7 +2513,7 @@
                         <div class="text-[11px] text-dungeon-paper/75">{{ entry.skill?.name ?? '未选择主动技' }}</div>
                       </div>
                       <button
-                        class="px-2 py-1 rounded border border-dungeon-brown/60 text-[11px] text-dungeon-paper/70 hover:border-dungeon-gold/45"
+                        class="px-2 py-1 rounded-sm border border-dungeon-brown/60 text-[11px] text-dungeon-paper/70 hover:border-dungeon-gold/45"
                         @click="clearTestActiveSkill(entry.idx)"
                       >
                         清空
@@ -2526,7 +2526,7 @@
                       <button
                         v-for="skill in activeSkillsForBattle"
                         :key="`test-active-pick-${entry.idx}-${skill.id}`"
-                        class="w-full text-left rounded border px-2 py-1.5 text-[11px] transition-colors"
+                        class="w-full text-left rounded-sm border px-2 py-1.5 text-[11px] transition-colors"
                         :class="
                           entry.name === skill.name
                             ? 'border-dungeon-gold/70 bg-dungeon-gold/10 text-dungeon-gold'
@@ -2546,13 +2546,13 @@
 
               <div class="flex justify-end gap-3">
                 <button
-                  class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
+                  class="px-4 py-2 rounded-sm border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
                   @click="activeModal = null"
                 >
                   取消
                 </button>
                 <button
-                  class="px-4 py-2 rounded border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown disabled:opacity-40 disabled:cursor-not-allowed"
+                  class="px-4 py-2 rounded-sm border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown disabled:opacity-40 disabled:cursor-not-allowed"
                   :disabled="selectedTestDeck.length !== 9"
                   @click="confirmCombatTestDeck"
                 >
@@ -2570,14 +2570,14 @@
               </div>
 
               <div
-                class="max-h-[42vh] overflow-y-auto rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar"
+                class="max-h-[42vh] overflow-y-auto rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar"
               >
                 <div class="space-y-2">
                   <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
                     <button
                       v-for="floorLabel in combatTestEnemyFloorTabs"
                       :key="`combat-test-floor-${floorLabel}`"
-                      class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
+                      class="h-7 px-3 rounded-sm border text-xs shrink-0 transition-colors"
                       :class="
                         selectedEnemyFloorForTest === floorLabel
                           ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
@@ -2592,7 +2592,7 @@
                     <button
                       v-for="enemy in filteredEnemyEntriesForTest"
                       :key="`enemy-${enemy.name}`"
-                      class="text-left px-3 py-2 rounded border text-xs transition-colors"
+                      class="text-left px-3 py-2 rounded-sm border text-xs transition-colors"
                       :class="
                         selectedTestEnemy === enemy.name
                           ? 'border-dungeon-gold bg-dungeon-brown/60 text-dungeon-gold'
@@ -2608,14 +2608,14 @@
                   </div>
                   <div
                     v-if="filteredEnemyEntriesForTest.length === 0"
-                    class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                    class="rounded-sm border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
                   >
                     当前楼层分类暂无可选魔物
                   </div>
                 </div>
               </div>
 
-              <div class="rounded border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
+              <div class="rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-3">
                 <div class="mb-2 flex items-center justify-between">
                   <h4 class="font-heading text-dungeon-gold text-xs tracking-wider uppercase">圣遗物自选</h4>
                   <span class="text-[11px] text-dungeon-paper/60">将同步写入 MVU `携带的物品._圣遗物`</span>
@@ -2626,7 +2626,7 @@
                       <button
                         v-for="category in relicCategoryTabsForTest"
                         :key="`relic-tab-${category}`"
-                        class="h-7 px-3 rounded border text-xs shrink-0 transition-colors"
+                        class="h-7 px-3 rounded-sm border text-xs shrink-0 transition-colors"
                         :class="
                           selectedRelicCategoryTab === category
                             ? 'bg-dungeon-gold/20 border-dungeon-gold/70 text-dungeon-gold'
@@ -2640,7 +2640,7 @@
                     <div
                       v-for="group in filteredRelicCategoryGroupsForTest"
                       :key="`relic-category-${group.category}`"
-                      class="rounded border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
+                      class="rounded-sm border border-dungeon-brown/40 bg-[#110a06]/40 p-2"
                     >
                       <div class="mb-2 flex items-center justify-between">
                         <h5 class="font-heading text-[11px] tracking-wider uppercase text-dungeon-gold/90">
@@ -2652,7 +2652,7 @@
                         <div
                           v-for="relic in group.relics"
                           :key="`test-relic-${group.category}-${relic.id}`"
-                          class="rounded border border-dungeon-brown/50 bg-[#1a0f08]/70 p-2"
+                          class="rounded-sm border border-dungeon-brown/50 bg-[#1a0f08]/70 p-2"
                         >
                           <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0">
@@ -2661,7 +2661,7 @@
                             </div>
                             <div class="flex items-center gap-1 shrink-0">
                               <button
-                                class="h-6 w-6 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold"
+                                class="size-6 rounded-sm border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold"
                                 @click="decreaseSelectedRelic(relic.name)"
                               >
                                 -
@@ -2670,7 +2670,7 @@
                                 getSelectedTestRelicCount(relic.name)
                               }}</span>
                               <button
-                                class="h-6 w-6 rounded border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown"
+                                class="size-6 rounded-sm border border-dungeon-gold/40 text-dungeon-gold hover:bg-dungeon-brown"
                                 @click="increaseSelectedRelic(relic.name)"
                               >
                                 +
@@ -2683,7 +2683,7 @@
                     </div>
                     <div
                       v-if="filteredRelicCategoryGroupsForTest.length === 0"
-                      class="rounded border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
+                      class="rounded-sm border border-dungeon-brown/40 bg-black/20 py-6 text-center text-xs text-dungeon-paper/40"
                     >
                       当前分类暂无可选圣遗物
                     </div>
@@ -2692,7 +2692,7 @@
               </div>
 
               <label
-                class="flex items-center gap-2 px-3 py-2 rounded border border-dungeon-brown/60 bg-dungeon-dark/40 text-sm text-dungeon-paper/80"
+                class="flex items-center gap-2 px-3 py-2 rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 text-sm text-dungeon-paper/80"
               >
                 <input v-model="combatTestStartAt999" type="checkbox" class="accent-amber-500" />
                 <span>本场测试启用 999 开局（敌我双方 HP/MP=999）</span>
@@ -2700,13 +2700,13 @@
 
               <div class="flex justify-between gap-3">
                 <button
-                  class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
+                  class="px-4 py-2 rounded-sm border border-dungeon-brown text-dungeon-paper/70 hover:border-dungeon-gold/50"
                   @click="combatTestStep = 'deck'"
                 >
                   返回改卡组
                 </button>
                 <button
-                  class="px-4 py-2 rounded border border-amber-600/40 text-amber-400 hover:bg-amber-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                  class="px-4 py-2 rounded-sm border border-amber-600/40 text-amber-400 hover:bg-amber-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
                   :disabled="!selectedTestEnemy"
                   @click="confirmCombatTestEnemyAndStart"
                 >
@@ -2745,19 +2745,19 @@
 
         <!-- Shop Overlay -->
         <Transition name="combat-fade">
-          <div v-if="showShopView" class="absolute inset-0 z-[94] bg-black">
-            <img :src="shopBackgroundUrl" class="absolute inset-0 h-full w-full object-cover" alt="商店背景" />
+          <div v-if="showShopView" class="absolute inset-0 z-94 bg-black">
+            <img :src="shopBackgroundUrl" class="absolute inset-0 size-full object-cover" alt="商店背景" />
             <div class="absolute inset-0 bg-black/22"></div>
 
             <img
               v-if="!isMerchantDefeated"
               :src="shopMerchantPortraitUrl"
-              class="pointer-events-none absolute left-0 bottom-0 z-[99] h-[92vh] max-h-[1216px] w-auto object-contain"
+              class="pointer-events-none absolute left-0 bottom-0 z-99 h-[92vh] max-h-[1216px] w-auto object-contain"
               alt="沐芯兰"
             />
 
-            <div class="shop-layout absolute inset-y-0 right-0 z-[96] flex items-center px-4 md:px-7">
-              <div class="shop-panel ml-auto w-full max-w-[48rem] h-[84vh] max-h-[860px]">
+            <div class="shop-layout absolute inset-y-0 right-0 z-96 flex items-center px-4 md:px-7">
+              <div class="shop-panel ml-auto w-full max-w-3xl h-[84vh] max-h-[860px]">
                 <div class="shop-panel-head">
                   <div class="font-heading text-xl text-amber-100">沐芯兰的商店</div>
                 </div>
@@ -2796,7 +2796,7 @@
 
                   <div
                     v-if="shopProducts.length === 0"
-                    class="rounded border border-amber-200/15 bg-black/25 py-10 text-center text-sm text-amber-100/65"
+                    class="rounded-sm border border-amber-200/15 bg-black/25 py-10 text-center text-sm text-amber-100/65"
                   >
                     暂无可售商品
                   </div>
@@ -2828,7 +2828,7 @@
         <Transition name="combat-fade">
           <div
             v-if="showChestView"
-            class="absolute inset-0 z-[95] bg-black"
+            class="absolute inset-0 z-95 bg-black"
             @contextmenu.prevent="handleChestContextMenu"
             @touchstart.passive="handleChestTouchStart"
             @touchend="handleChestTouchEnd"
@@ -2836,7 +2836,7 @@
           >
             <img
               :src="chestBackgroundUrl"
-              class="absolute inset-0 h-full w-full object-cover"
+              class="absolute inset-0 size-full object-cover"
               alt="宝箱界面背景"
               @load="handleChestBgLoaded"
             />
@@ -2892,7 +2892,7 @@
               v-if="chestStage === 'closed'"
               type="button"
               aria-label="开启宝箱"
-              class="absolute left-1/2 top-1/2 h-[42vh] max-h-[360px] min-h-[220px] w-[36vw] max-w-[540px] min-w-[260px] -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-2xl border-0 bg-transparent p-0 opacity-0"
+              class="absolute left-1/2 top-1/2 h-[42vh] max-h-[360px] min-h-[220px] w-[36vw] max-w-[540px] min-w-[260px] -translate-1/2 cursor-pointer rounded-2xl border-0 bg-transparent p-0 opacity-0"
               :disabled="chestRolling"
               @click="handleChestCenterClick"
             ></button>
@@ -2903,14 +2903,14 @@
         <Transition name="combat-fade">
           <div
             v-if="showIdolView"
-            class="absolute inset-0 z-[96] bg-black overflow-hidden"
+            class="absolute inset-0 z-96 bg-black overflow-hidden"
             @pointermove="handleIdolDicePointerMove"
             @pointerup="handleIdolDicePointerUp"
             @pointercancel="handleIdolDicePointerUp"
           >
-            <img :src="idolBackgroundUrl" class="absolute inset-0 h-full w-full object-cover" alt="神像界面背景" />
+            <img :src="idolBackgroundUrl" class="absolute inset-0 size-full object-cover" alt="神像界面背景" />
 
-            <div class="idol-layout absolute inset-0 z-[97]">
+            <div class="idol-layout absolute inset-0 z-97">
               <div class="idol-slots-row">
                 <div class="idol-slot-wrap">
                   <div class="idol-slot-hint">增加1.5倍点数的生命上限</div>
@@ -2981,7 +2981,7 @@
 
         <!-- Chest Mimic Relic Drop Overlay -->
         <Transition name="combat-fade">
-          <div v-if="showMimicRelicDropView" class="absolute inset-0 z-[102] bg-black/90">
+          <div v-if="showMimicRelicDropView" class="absolute inset-0 z-102 bg-black/90">
             <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
               <div
                 class="mimic-drop-panel w-full max-w-xl rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]"
@@ -3019,7 +3019,7 @@
                 <div class="mt-5 flex justify-end gap-3">
                   <button
                     type="button"
-                    class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50 disabled:opacity-50"
+                    class="px-4 py-2 rounded-sm border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50 disabled:opacity-50"
                     :disabled="mimicRelicDropApplying"
                     @click="skipMimicRelicDrop"
                   >
@@ -3027,7 +3027,7 @@
                   </button>
                   <button
                     type="button"
-                    class="px-4 py-2 rounded border border-dungeon-gold/55 bg-dungeon-gold/10 text-dungeon-gold hover:bg-dungeon-gold/15 disabled:opacity-50"
+                    class="px-4 py-2 rounded-sm border border-dungeon-gold/55 bg-dungeon-gold/10 text-dungeon-gold hover:bg-dungeon-gold/15 disabled:opacity-50"
                     :disabled="mimicRelicDropApplying || !mimicRelicDropRelic"
                     @click="acceptMimicRelicDrop"
                   >
@@ -3041,7 +3041,7 @@
 
         <!-- Victory Card Reward Overlay -->
         <Transition name="combat-fade">
-          <div v-if="showVictoryRewardView" class="absolute inset-0 z-[102] bg-black/90">
+          <div v-if="showVictoryRewardView" class="absolute inset-0 z-102 bg-black/90">
             <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
               <div
                 class="w-full max-w-6xl origin-center scale-[1.3] rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]"
@@ -3062,7 +3062,7 @@
                   <div class="flex items-center gap-2">
                     <button
                       v-if="victoryRewardStage !== 'pick'"
-                      class="inline-flex items-center gap-1.5 px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50 disabled:opacity-50"
+                      class="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50 disabled:opacity-50"
                       :disabled="rewardApplying"
                       @click="returnToVictoryRewardPick"
                     >
@@ -3071,14 +3071,14 @@
                     </button>
                     <button
                       v-if="canRefreshVictoryReward"
-                      class="px-4 py-2 rounded border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 disabled:opacity-50"
+                      class="px-4 py-2 rounded-sm border border-sky-500/50 text-sky-200 hover:bg-sky-500/10 disabled:opacity-50"
                       :disabled="rewardApplying"
                       @click="refreshVictoryRewardOptions"
                     >
                       刷新奖励
                     </button>
                     <button
-                      class="px-4 py-2 rounded border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50"
+                      class="px-4 py-2 rounded-sm border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50"
                       :disabled="rewardApplying"
                       @click="exitVictoryRewardFlow"
                     >
@@ -3114,7 +3114,7 @@
                 </template>
 
                 <template v-else-if="victoryRewardStage === 'replaceDeck' || victoryRewardStage === 'replaceActive'">
-                  <div class="mb-4 rounded border border-dungeon-gold/25 bg-black/20 p-3">
+                  <div class="mb-4 rounded-sm border border-dungeon-gold/25 bg-black/20 p-3">
                     <div class="text-xs text-dungeon-paper/70 mb-2">
                       已选择奖励{{
                         selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)
@@ -3139,12 +3139,12 @@
 
                   <div
                     v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length === 0"
-                    class="rounded border border-dungeon-brown/50 bg-black/20 p-4 text-center"
+                    class="rounded-sm border border-dungeon-brown/50 bg-black/20 p-4 text-center"
                   >
                     <div class="text-sm text-dungeon-paper/70">当前卡组为空，将奖励卡加入卡组。</div>
                     <button
                       type="button"
-                      class="mt-3 px-4 py-2 rounded border border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10 disabled:opacity-50"
+                      class="mt-3 px-4 py-2 rounded-sm border border-dungeon-gold/45 text-dungeon-gold hover:bg-dungeon-gold/10 disabled:opacity-50"
                       :disabled="rewardApplying"
                       @click="replaceDeckCardWithReward(0)"
                     >
@@ -3160,7 +3160,7 @@
                       v-for="entry in rewardDeckReplaceEntries"
                       :key="`reward-replace-${entry.idx}`"
                       type="button"
-                      class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                      class="rounded-sm border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
                       :class="[
                         rewardDeckShakeIdx === entry.idx ? 'reward-invalid-shake' : '',
                         getRewardDeckFusionName(entry)
@@ -3180,7 +3180,7 @@
                         <DungeonCard v-if="entry.card" :card="entry.card" disabled />
                         <div
                           v-else
-                          class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
+                          class="w-[180px] h-[250px] rounded-sm border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
                         >
                           {{ entry.name || '空槽位' }}
                         </div>
@@ -3193,7 +3193,7 @@
                       v-for="entry in rewardActiveReplaceEntries"
                       :key="`reward-active-replace-${entry.idx}`"
                       type="button"
-                      class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                      class="rounded-sm border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-dungeon-gold/60 disabled:opacity-50 disabled:cursor-not-allowed"
                       :disabled="rewardApplying"
                       @click="replaceActiveSkillWithReward(entry.idx)"
                     >
@@ -3216,7 +3216,7 @@
         </Transition>
 
         <Transition name="combat-fade">
-          <div v-if="activeForcedCurseReplacement" class="absolute inset-0 z-[104] bg-black/90">
+          <div v-if="activeForcedCurseReplacement" class="absolute inset-0 z-104 bg-black/90">
             <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
               <div
                 class="w-full max-w-6xl origin-center scale-[1.2] rounded-xl border border-fuchsia-400/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_32px_rgba(217,70,239,0.2)]"
@@ -3231,13 +3231,13 @@
                     </div>
                   </div>
                   <div
-                    class="rounded border border-fuchsia-300/30 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100"
+                    class="rounded-sm border border-fuchsia-300/30 bg-fuchsia-500/10 px-3 py-1 text-xs text-fuchsia-100"
                   >
                     不可跳过
                   </div>
                 </div>
 
-                <div class="mb-4 rounded border border-fuchsia-300/25 bg-black/20 p-3">
+                <div class="mb-4 rounded-sm border border-fuchsia-300/25 bg-black/20 p-3">
                   <div class="text-xs text-dungeon-paper/70 mb-2">即将加入的诅咒牌：</div>
                   <div class="flex justify-center">
                     <DungeonCard v-if="activeForcedCurseCard" :card="activeForcedCurseCard" disabled />
@@ -3246,12 +3246,12 @@
 
                 <div
                   v-if="forcedCurseDeckReplaceEntries.length === 0"
-                  class="rounded border border-dungeon-brown/50 bg-black/20 p-4 text-center"
+                  class="rounded-sm border border-dungeon-brown/50 bg-black/20 p-4 text-center"
                 >
                   <div class="text-sm text-dungeon-paper/70">当前卡组为空，将诅咒牌加入卡组。</div>
                   <button
                     type="button"
-                    class="mt-3 px-4 py-2 rounded border border-fuchsia-300/45 text-fuchsia-100 hover:bg-fuchsia-500/10 disabled:opacity-50"
+                    class="mt-3 px-4 py-2 rounded-sm border border-fuchsia-300/45 text-fuchsia-100 hover:bg-fuchsia-500/10 disabled:opacity-50"
                     :disabled="forcedCurseReplacing"
                     @click="replaceDeckCardWithForcedCurse(0)"
                   >
@@ -3267,7 +3267,7 @@
                     v-for="entry in forcedCurseDeckReplaceEntries"
                     :key="`forced-curse-replace-${entry.idx}`"
                     type="button"
-                    class="rounded border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-fuchsia-300/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="rounded-sm border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-fuchsia-300/60 disabled:opacity-50 disabled:cursor-not-allowed"
                     :disabled="forcedCurseReplacing"
                     @click="replaceDeckCardWithForcedCurse(entry.idx)"
                   >
@@ -3279,7 +3279,7 @@
                       <DungeonCard v-if="entry.card" :card="entry.card" disabled />
                       <div
                         v-else
-                        class="w-[180px] h-[250px] rounded border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
+                        class="w-[180px] h-[250px] rounded-sm border border-dungeon-brown/45 flex items-center justify-center text-xs text-dungeon-paper/55"
                       >
                         {{ entry.name || '空槽位' }}
                       </div>
@@ -3293,9 +3293,9 @@
 
         <!-- Combat Overlay -->
         <Transition name="combat-fade">
-          <div v-if="showCombat" class="absolute inset-0 z-[100] bg-black">
+          <div v-if="showCombat" class="absolute inset-0 z-100 bg-black">
             <CombatView
-              class="w-full h-full"
+              class="size-full"
               :enemy-name="combatEnemyName"
               :player-deck="resolvedDeck"
               :player-active-skills="resolvedActiveSkills"
@@ -3320,7 +3320,7 @@
             <!-- Exit combat button -->
             <button
               v-if="canExitCurrentCombat"
-              class="absolute top-4 right-4 z-[110] px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
+              class="absolute top-4 right-4 z-110 px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
               @click="exitCurrentCombatOverlay"
             >
               ✕ 退出战斗
@@ -3365,6 +3365,7 @@ import {
   Users,
 } from 'lucide-vue-next';
 import type { PropType } from 'vue';
+import { defineEmits, defineProps, withDefaults, } from 'vue';
 import { hasAuthorTestAccess, unlockAuthorTestAccess, verifyAuthorTestPassword } from '../authorTestAccess';
 import { getAllActiveSkills, resolveActiveSkillNames } from '../battle/activeSkillRegistry';
 import { getAllCards, getCardByName, resolveCardNames } from '../battle/cardRegistry';
@@ -3378,8 +3379,8 @@ import {
   DIFFICULTY_OPTIONS,
   getDifficultyPreviewLines,
   hasCustomDifficultyInfluence,
-  normalizeDifficulty,
   normalizeCustomDifficultyInfluences,
+  normalizeDifficulty,
   shouldRestoreFullHpOnBattleStart,
   type CustomDifficultyInfluence,
   type DifficultyOption,
@@ -9986,7 +9987,7 @@ const finishIdolRoom = async () => {
   closeIdolView();
   const rewardText = reward ? `选择膜拜了${reward.statueName}并获得了${reward.rewardText}` : '没有膜拜任何一座神像';
   await submitGameAction(
-    appendInputToMapRebirthAction(`<user>${rewardText}，完成了当前房间的探索，等待在地图上选择下一个房间。`),
+    appendInputToMapRebirthAction(`<user>${rewardText}，完成了当前房间的探索。`),
     '神像房',
     'idol',
   );
