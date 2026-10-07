@@ -3,7 +3,7 @@
     ref="combatRootEl"
     data-card-tooltip-boundary
     class="combat-root w-full h-full bg-[#1a1a22] text-dungeon-paper font-ui relative overflow-hidden select-none"
-    :class="[screenShake ? 'animate-shake' : '', impactShake ? 'animate-impact-shake' : '']"
+    :class="[screenShake ? 'animate-shake' : '', impactShake ? 'animate-impact-shake' : '', { 'combat-root--scene-effects': sceneEffects.length > 0 }]"
     :style="combatRootStyle"
   >
     <!-- Background -->
@@ -143,6 +143,42 @@
     </div>
 
     <!-- Battlefield Layer -->
+    <div v-if="sceneEffects.length" class="combat-scene-effects" aria-label="场景效果">
+      <button
+        v-for="effect in sceneEffects" :key="`${effect.type}-${sceneEffectPulse[effect.type] ?? 0}`" type="button"
+        class="combat-scene-effect" :class="{
+          'combat-scene-effect--oath': effect.type !== ET.SELF_CHOSEN_PAIN && effect.type !== ET.CORRIDOR_MEMORY,
+          'combat-scene-effect--resonant': (effect.type === ET.CORRIDOR_MEMORY && effect.stacks >= 25)
+            || (effect.type === ET.SELF_CHOSEN_PAIN && ((painScene?.nextDamageBonus.player ?? 0) + (painScene?.nextDamageBonus.enemy ?? 0)) > 0),
+          'combat-scene-effect--triggered': (sceneEffectPulse[effect.type] ?? 0) > 0,
+        }"
+        :aria-label="`${getEffectName(effect.type)}：${getSceneEffectDescription(effect)}`"
+        @mouseenter="showEffectTooltip($event, effect)" @mouseleave="hideEffectTooltip"
+        @focus="showEffectTooltip($event, effect)" @blur="hideEffectTooltip"
+        @touchstart.passive="handleEffectTouchStart($event, effect)"
+        @touchend="handleEffectTouchEnd" @touchcancel="handleEffectTouchEnd">
+        <i :class="getEffectFontAwesomeClass(effect.type)" aria-hidden="true"></i>
+        <span v-if="effect.type === ET.CORRIDOR_MEMORY" class="combat-scene-effect__count">{{ effect.stacks }}%</span>
+        <span v-else-if="effect.type === ET.SELF_CHOSEN_PAIN" class="combat-scene-effect__count">{{ painScene?.nextDamageBonus.player }}/{{ painScene?.nextDamageBonus.enemy }}</span>
+      </button>
+    </div>
+    <div v-if="isPainBattle && !painPortraitsReady" class="pain-loading-overlay" role="status">
+      <i v-if="!painPortraitLoadError" class="fa-solid fa-spinner pain-loading-spinner" aria-hidden="true"></i>
+      <button v-else type="button" class="pain-retry-button" aria-label="重新加载立绘" title="重新加载立绘" @click="loadPainPortraits">
+        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+      </button>
+    </div>
+    <img v-if="isPainBattle && painPortraitsReady" :src="painPhasePortraits[2]" class="hidden" alt="" />
+    <div v-if="pendingPainOaths.length" class="pain-oath-overlay" role="dialog" aria-modal="true" aria-label="请你选择">
+      <div class="pain-oath-dialog" @keydown.tab.prevent="cyclePainOathFocus($event)">
+        <div class="pain-oath-dialog__title">请你选择</div>
+        <div class="pain-oath-options">
+          <button v-for="type in pendingPainOaths" :key="type" type="button" class="pain-oath-option" @click="confirmPainOath(type)">
+            <DungeonCard :card="getPainOathCard(type)" disabled />
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="absolute inset-0 z-10 pointer-events-none">
       <!-- Enemy Position: Right Side -->
       <div
@@ -168,7 +204,7 @@
               敌方意图
             </div>
             <div
-              class="scale-[1.4] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]"
+              class="scale-[1.4] origin-top-left"
               :class="[
                 entry.slot === 1 ? 'rotate-[-3deg]' : 'rotate-[3deg]',
                 isCardShaking(entry.card) ? 'invalid-card-shake' : '',
@@ -222,7 +258,10 @@
               v-else
               :src="enemyPortraitUrl"
               class="enemy-portrait-img w-full h-full object-contain object-bottom"
-              :class="{ 'enemy-portrait-img--intangible-active': isHolyWaterJellyfishIntangibleActive }"
+              :class="{
+                'enemy-portrait-img--intangible-active': isHolyWaterJellyfishIntangibleActive,
+                'enemy-portrait-img--pain-phase-transition': painPortraitTransitioning,
+              }"
               alt="enemy portrait"
               @error="onEnemyPortraitError"
             />
@@ -995,7 +1034,10 @@
       <div
         v-if="effectTooltip"
         class="effect-tooltip fixed z-[240] pointer-events-none"
-        :class="effectTooltip.align === 'right' ? 'effect-tooltip--right text-right' : 'effect-tooltip--center'"
+        :class="[
+          effectTooltip.align === 'right' ? 'effect-tooltip--right text-right' : 'effect-tooltip--center',
+          { 'effect-tooltip--below': effectTooltip.below },
+        ]"
         :style="{ left: `${effectTooltip.x}px`, top: `${effectTooltip.y}px` }"
       >
         <div class="effect-tooltip-name">{{ effectTooltip.name }}</div>
@@ -1081,8 +1123,11 @@ import {
     calculateFinalPoint,
     consumeColdAfterDealingDamage,
     triggerSwarmReviveIfNeeded as triggerSwarmReviveIfNeededInAlgorithm,
+    addPainMemory, availablePainOaths, changePainThorns, choosePainOath, createPainScene,
+    getPainOath, painHealingAmount, painIncomingDamage, painOutgoingDamage, painPointBonus,
+    painThornsOnPlayerCard, recordPainHpLoss, updatePainPhase,
 } from '../battle/algorithms';
-import { getAllCards, getCardByName } from '../battle/cardRegistry';
+import { PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, getAllCards, getCardByName, type PainOath } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, findEffect, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import { resolveInitialEntityStats } from '../battle/initialStats';
@@ -1118,6 +1163,7 @@ import { getFloorNumberForArea } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
+import { invalidatePortrait, preloadRandomPortrait } from '../portraitPreload';
 import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EnemyDefinition, type EntityStats, type InitialEntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
@@ -1178,6 +1224,14 @@ const enemyDisplayName = enemyDef?.name ?? props.enemyName;
 const isTwinBattle = Boolean(enemyDef?.selectTwinCards);
 const isMirrorCloneBattle = enemyDisplayName === '镜像分身';
 const isLeviathanBattle = enemyDisplayName === '利维坦';
+const isPainBattle = enemyDisplayName === '佩恩';
+const painPortraitsReady = ref(!isPainBattle);
+const painPortraitLoadError = ref(false);
+const painPhasePortraits = reactive<Record<number, string>>({});
+let painPortraitLoading = false;
+const painPortraitTransitioning = ref(false);
+let painPortraitTransitionSourceTimer: ReturnType<typeof setTimeout> | null = null;
+let painPortraitTransitionEndTimer: ReturnType<typeof setTimeout> | null = null;
 const usesPlayerPreviousPointDice = isMirrorCloneBattle || enemyDisplayName === '米拉';
 
 // --- Portrait URLs ---
@@ -1285,6 +1339,13 @@ const onPlayerPortraitError = () => {
 };
 
 const onEnemyPortraitError = () => {
+  if (isPainBattle) {
+    invalidatePortrait(enemyPortraitUrl.value);
+    delete painPhasePortraits[painScene?.phase ?? 1];
+    painPortraitsReady.value = false;
+    painPortraitLoadError.value = true;
+    return;
+  }
   void tryFallbackPortrait(`${HF_MONSTER_DIR}/${enemyDisplayName}`, enemyPortraitUrl, enemyPortraitError, enemyPortraitFallbackTried);
 };
 
@@ -1299,6 +1360,10 @@ const initPortraitUrls = async () => {
   }
 
   const enemyFolderPath = `${HF_MONSTER_DIR}/${enemyDisplayName}`;
+  if (isPainBattle) {
+    if (!painPortraitsReady.value) await loadPainPortraits();
+    return;
+  }
   const enemyFallback = `${HF_MONSTER_DIR}/${enemyDisplayName}.png`;
   const shouldPreferFolder = BOSS_FOLDER_NAMES.has(enemyDisplayName);
   let enemyUrl = toResolveUrl(enemyFallback);
@@ -1393,6 +1458,63 @@ const playerStats = ref<EntityStats>(
 const enemyStats = ref<EntityStats>(
   buildEnemyInitialStats(),
 );
+const painScene = isPainBattle ? reactive(createPainScene(playerStats.value, enemyStats.value)) : null;
+const sceneEffects = computed(() => painScene?.effects ?? []);
+const sceneEffectPulse = reactive<Record<string, number>>({});
+const pulseSceneEffect = (type: EffectType) => {
+  sceneEffectPulse[type] = (sceneEffectPulse[type] ?? 0) + 1;
+};
+const pendingPainOaths = ref<PainOath[]>([]);
+let painPointBonusByCard = new WeakMap<CardData, number>();
+let resolvePainOathChoice: (() => void) | null = null;
+
+async function loadPainPortraits() {
+  if (painPortraitLoading || portraitLoaderDisposed) return;
+  painPortraitLoading = true;
+  painPortraitLoadError.value = false;
+  try {
+    const folder = `${HF_MONSTER_DIR}/佩恩`;
+    const [first, second] = await Promise.all([
+      painPhasePortraits[1] || preloadRandomPortrait(getLocalFolderImagePaths(folder, 1), toResolveUrl),
+      painPhasePortraits[2] || preloadRandomPortrait(getLocalFolderImagePaths(folder, 2), toResolveUrl),
+    ]);
+    if (portraitLoaderDisposed) return;
+    painPhasePortraits[1] = first;
+    painPhasePortraits[2] = second;
+    enemyPortraitUrl.value = painPhasePortraits[painScene?.phase ?? 1]!;
+    enemyPortraitError.value = false;
+    painPortraitsReady.value = true;
+  } catch {
+    if (!portraitLoaderDisposed) painPortraitLoadError.value = true;
+  } finally {
+    painPortraitLoading = false;
+  }
+}
+
+const transitionPainPortraitTo = (portrait: string) => {
+  if (painPortraitTransitionSourceTimer !== null) clearTimeout(painPortraitTransitionSourceTimer);
+  if (painPortraitTransitionEndTimer !== null) clearTimeout(painPortraitTransitionEndTimer);
+  painPortraitTransitioning.value = true;
+  painPortraitTransitionSourceTimer = setTimeout(() => {
+    painPortraitTransitionSourceTimer = null;
+    enemyPortraitUrl.value = portrait;
+  }, 250);
+  painPortraitTransitionEndTimer = setTimeout(() => {
+    painPortraitTransitionEndTimer = null;
+    painPortraitTransitioning.value = false;
+  }, 780);
+};
+
+const getSceneEffectDescription = (effect: EffectInstance) => {
+  let description = EFFECT_REGISTRY[effect.type]?.description ?? '';
+  if (effect.type === ET.SELF_CHOSEN_PAIN && painScene) {
+    description += ` 当前下次伤害加成：玩家+${painScene.nextDamageBonus.player}，佩恩+${painScene.nextDamageBonus.enemy}。`;
+  }
+  if (effect.type === ET.CORRIDOR_MEMORY && painScene) {
+    description += ` 当前累计损血${painScene.totalHpLost}/${painScene.initialCombinedMaxHp}（${effect.stacks}%）。`;
+  }
+  return description;
+};
 const infiniteHpDisplay = {
   player: {
     hp: isInfiniteHpValue(playerStats.value.hp),
@@ -1502,6 +1624,7 @@ const effectIconBoxClass = (polarity: EffectPolarity): string => {
     case 'trait':   return 'bg-slate-800/70 border-slate-400/45 text-slate-200';
     case 'mixed':   return 'bg-indigo-900/70 border-indigo-400/55 text-indigo-200';
     case 'special': return 'bg-amber-900/70 border-amber-400/55 text-amber-200';
+    case 'scene':   return 'bg-emerald-950/80 border-emerald-300/60 text-emerald-100';
     default:        return 'bg-slate-800/70 border-slate-400/45 text-slate-200';
   }
 };
@@ -1534,10 +1657,10 @@ const enemyPoisonAmountPercent = computed(() => {
   return Math.max(0, Math.min((enemyPoisonAmount.value / enemyStats.value.maxHp) * 100, 100));
 });
 const playerVisibleEffects = computed(() => playerStats.value.effects
-  .filter(e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
+  .filter(e => e.polarity !== 'scene' && e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
   .sort((a, b) => getEffectDisplayOrder(a.type) - getEffectDisplayOrder(b.type)));
 const enemyVisibleEffects = computed(() => enemyStats.value.effects
-  .filter(e => e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
+  .filter(e => e.polarity !== 'scene' && e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
   .sort((a, b) => getEffectDisplayOrder(a.type) - getEffectDisplayOrder(b.type)));
 const isEnemyPortraitHiddenTransitionReady = ref(false);
 const shouldBridgeHolyWaterJellyfishPortraitHidden = ref(false);
@@ -1804,6 +1927,119 @@ const combatState = ref<CombatState>({
   logs: [`战斗开始！遭遇了 <span class="text-red-500 font-bold">${enemyDisplayName}</span>`],
 });
 
+const syncPainPhase = () => {
+  if (!painScene || !updatePainPhase(painScene, enemyStats.value)) return;
+  const portrait = painPhasePortraits[2];
+  if (portrait) transitionPainPortraitTo(portrait);
+  log('<span class="text-rose-300">佩恩[转阶段] 水晶圣女苏醒；下回合启用刺晶与新的行动。</span>');
+};
+watch(() => enemyStats.value.hp, syncPainPhase, { flush: 'sync' });
+
+const recordBattlePainLoss = (side: BattleSide, amount: number, trueDamage: boolean, selfHarm = false) => {
+  if (!painScene) return;
+  const previousMemory = painScene.effects.find(effect => effect.type === ET.CORRIDOR_MEMORY)?.stacks ?? 0;
+  const previousBonus = painScene.nextDamageBonus[side];
+  recordPainHpLoss(painScene, side, amount, trueDamage, playerStats.value, enemyStats.value, selfHarm);
+  if (painScene.nextDamageBonus[side] !== previousBonus) pulseSceneEffect(ET.SELF_CHOSEN_PAIN);
+  if ((painScene.effects.find(effect => effect.type === ET.CORRIDOR_MEMORY)?.stacks ?? 0) !== previousMemory) {
+    pulseSceneEffect(ET.CORRIDOR_MEMORY);
+  }
+};
+
+const insertPainCurses = (count: number) => {
+  if (!painScene) return;
+  const allCards = [...combatState.value.playerHand, ...combatState.value.playerDeck, ...combatState.value.discardPile];
+  let remaining = Math.max(0, 4 - allCards.filter(card => card.id.startsWith('pain_curse_')).length);
+  for (let index = 0; index < count && remaining > 0; index++, remaining--) {
+    const card = PAIN_CURSES[Math.floor(Math.random() * PAIN_CURSES.length)]!;
+    combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, cloneCardForBattle(card));
+    log(`<span class="text-rose-200">佩恩向抽牌堆放入了【${card.name}】。</span>`);
+  }
+};
+
+const transferPainBleed = (from: BattleSide, to: BattleSide, limit = Number.POSITIVE_INFINITY) => {
+  const source = getEntityBySide(from);
+  const count = Math.min(limit, getEffectStacks(source, ET.BLEED));
+  if (count <= 0) return;
+  reduceEffectStacks(source, ET.BLEED, count);
+  applyStatusEffectWithRelics(to, ET.BLEED, count, { source: 'pain:transfer', sourceSide: from, lockDecayThisTurn: true });
+};
+
+const confirmPainOath = (type: PainOath) => {
+  if (!painScene || !pendingPainOaths.value.includes(type)
+    || !choosePainOath(painScene, type, combatState.value.turn, playerStats.value)) return;
+  pendingPainOaths.value = [];
+  if (type === ET.PAIN_OATH_OINTMENT) healForSide('player', Math.ceil(playerStats.value.maxHp * 0.5));
+  if (type === ET.PAIN_OATH_CUP) restoreManaForSide('player', 4);
+  if (type === ET.PAIN_OATH_SHARE) transferPainBleed('player', 'enemy');
+  if (props.trackDiscovery) recordEncounteredEffects([type]);
+  pulseSceneEffect(type);
+  log(`<span class="text-amber-200">玩家选择了【${getEffectName(type)}】，誓约成为场景效果。</span>`);
+  const resolve = resolvePainOathChoice;
+  resolvePainOathChoice = null;
+  resolve?.();
+};
+
+const requestPainOath = async () => {
+  if (!painScene) return;
+  const available = availablePainOaths(painScene, playerStats.value);
+  if (!available.length) return;
+  const options = [...available].sort(() => Math.random() - 0.5).slice(0, 3);
+  await new Promise<void>(resolve => {
+    resolvePainOathChoice = resolve;
+    pendingPainOaths.value = options;
+  });
+};
+
+const getPainOathCard = (type: PainOath): CardData => PAIN_OATH_CARDS.find(card => card.name === type)!;
+
+const cyclePainOathFocus = (event: KeyboardEvent) => {
+  const buttons = Array.from(combatRootEl.value?.querySelectorAll<HTMLButtonElement>('.pain-oath-option') ?? []);
+  if (!buttons.length) return;
+  const index = buttons.findIndex(button => button === document.activeElement);
+  buttons[(index + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length]?.focus();
+};
+watch(() => pendingPainOaths.value.length, async count => {
+  if (count <= 0) return;
+  await nextTick();
+  combatRootEl.value?.querySelector<HTMLButtonElement>('.pain-oath-option')?.focus();
+});
+
+const processPainTurnStart = () => {
+  if (!painScene) return;
+  syncPainPhase();
+  if (painScene.phase === 2 && !painScene.phaseTwoActive) {
+    painScene.phaseTwoActive = true;
+    enemyStats.value.minDice += 1;
+    enemyStats.value.maxDice += 2;
+    changePainThorns(enemyStats.value, 6 - getEffectStacks(enemyStats.value, ET.THORNS));
+    insertPainCurses(2);
+  }
+  if (combatState.value.turn > 1 && enemyStats.value.hp > 0) {
+    healForSide('enemy', getEffectStacks(enemyStats.value, ET.PAIN_MEMORY) * 2);
+  }
+  for (const effect of painScene.effects) {
+    const elapsed = combatState.value.turn - (effect.runtimeCounter ?? combatState.value.turn);
+    if (elapsed <= 0 || playerStats.value.hp <= 0) continue;
+    if (effect.type === ET.PAIN_OATH_WHIP) {
+      const { actualDamage } = applyDamageToSideWithRelics('player', playerStats.value, 2, true, '一鞭为我');
+      if (actualDamage > 0) pushFloatingNumber('player', actualDamage, 'true', '-');
+      if (actualDamage > 0) pulseSceneEffect(effect.type);
+    }
+    if (effect.type === ET.PAIN_OATH_PILLAR) {
+      if (elapsed % 2 === 0) {
+        applyStatusEffectWithRelics('player', ET.BLEED, 3, { source: 'pain:oath', sourceSide: 'enemy', lockDecayThisTurn: true });
+        pulseSceneEffect(effect.type);
+      }
+    }
+    if (effect.type === ET.PAIN_OATH_CUP && elapsed % 2 === 0) {
+      restoreManaForSide('player', 2);
+      applyStatusEffectWithRelics('player', ET.WEAKEN, 1, { source: 'pain:oath' });
+      pulseSceneEffect(effect.type);
+    }
+  }
+};
+
 const MERCY_MARKABLE_CARD_TYPES: readonly CardType[] = [
   CardType.PHYSICAL,
   CardType.MAGIC,
@@ -1881,6 +2117,7 @@ const recordCombatEffectDiscovery = () => {
   recordEncounteredEffects([
     ...playerStats.value.effects.map((effect) => effect.type),
     ...enemyStats.value.effects.map((effect) => effect.type),
+    ...sceneEffects.value.map((effect) => effect.type),
   ]);
 };
 
@@ -1931,6 +2168,7 @@ const effectTooltip = ref<{
   description: string;
   stacks: number;
   align: 'center' | 'right';
+  below: boolean;
   previewCard?: CardData;
 } | null>(null);
 
@@ -2833,13 +3071,19 @@ const applyDamageToSideWithRelics = (
     && dreamControlPercent.value <= 24;
   let effectiveTrueDamage = isTrueDamage || twinLowControlTrueDamage;
   let effectiveIncoming = incoming;
+  const painDamageSource = painScene && damageOptions.sourceSide && damageOptions.sourceSide !== side
+    ? damageOptions.sourceSide : null;
+  const painBonusBeforeDamage = painDamageSource ? painScene!.nextDamageBonus[painDamageSource] : 0;
+  if (painScene && painDamageSource) {
+    effectiveIncoming = painOutgoingDamage(painScene, painDamageSource, effectiveIncoming, combatState.value.turn, false);
+  }
   if (damageOptions.isDirectDamage && damageOptions.card?.swarmAttack && isTwinEntity(target)) {
     effectiveIncoming = Math.max(0, Math.floor(effectiveIncoming * 2));
   }
-  let adjusted = side === 'player'
+  let adjusted = side === 'player' && !painScene
     ? applyPlayerHemostaticValveDamageCap(effectiveIncoming, reason)
     : effectiveIncoming;
-  if (side === 'player') {
+  if (side === 'player' && !painScene) {
     adjusted = applyPlayerLiverMarkDamageReduction(adjusted, reason);
   }
   if (
@@ -2907,11 +3151,23 @@ const applyDamageToSideWithRelics = (
     }
   }
   const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
+  if (painScene) {
+    adjusted = painIncomingDamage(painScene, side, adjusted, effectiveTrueDamage);
+    if (side === 'player') adjusted = applyPlayerLiverMarkDamageReduction(applyPlayerHemostaticValveDamageCap(adjusted, reason), reason);
+  }
+  const phaseTransitionFloor = Math.max(0, getEffectStacks(target, ET.PHASE_TRANSITION));
+  if (phaseTransitionFloor > 0 && target.hp > phaseTransitionFloor) {
+    adjusted = Math.min(adjusted, Math.max(0, target.hp - phaseTransitionFloor));
+  }
   const result = applyDamageToEntity(target, adjusted, effectiveTrueDamage, {
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!damageOptions.card?.swarmAttack,
   });
+  if (painScene && painDamageSource && result.actualDamage > 0) {
+    painScene.nextDamageBonus[painDamageSource] = Math.max(0, painScene.nextDamageBonus[painDamageSource] - painBonusBeforeDamage);
+  }
   processPleasureDamageFeedback(side, target, result.limitOverflow, result.actualDamage, reason);
+  recordBattlePainLoss(side, Math.max(result.actualDamage, hpBeforeDamage - target.hp), effectiveTrueDamage);
   addDamageHitTakenThisCombat(side, result.actualDamage);
   if (damageOptions.isDirectDamage) {
     addDirectDamageTakenThisTurn(side, result.actualDamage);
@@ -3010,13 +3266,26 @@ const applyDirectHpLossWithRelics = (
   options?: { skipHeartMark?: boolean; sourceSide?: BattleSide; isDirectDamage?: boolean; dreamControlKind?: 'direct' | 'status' },
 ): number => {
   const damageOptions = options ?? {};
-  const incoming = Math.max(0, Math.floor(damage));
+  let incoming = Math.max(0, Math.floor(damage));
+  const painDamageSource = painScene && damageOptions.sourceSide && damageOptions.sourceSide !== side
+    ? damageOptions.sourceSide : null;
+  const painBonusBeforeDamage = painDamageSource ? painScene!.nextDamageBonus[painDamageSource] : 0;
+  if (painScene && painDamageSource) {
+    incoming = painOutgoingDamage(painScene, painDamageSource, incoming, combatState.value.turn, false);
+  }
+  if (painScene) incoming = painIncomingDamage(painScene, side, incoming, true);
   if (incoming <= 0) return 0;
-  const adjusted = side === 'player'
+  let adjusted = side === 'player'
     ? applyPlayerLiverMarkDamageReduction(applyPlayerHemostaticValveDamageCap(incoming, reason), reason)
     : incoming;
+  const phaseTransitionFloor = Math.max(0, getEffectStacks(target, ET.PHASE_TRANSITION));
+  if (phaseTransitionFloor > 0 && target.hp > phaseTransitionFloor) {
+    adjusted = Math.min(adjusted, Math.max(0, target.hp - phaseTransitionFloor));
+  }
+  const hpBeforeConversion = target.hp;
   const mirrorConverted = convertDamageByMirrorRegeneration(target, adjusted);
   if (mirrorConverted !== null) {
+    recordBattlePainLoss(side, Math.max(0, hpBeforeConversion - target.hp), false);
     const label = side === 'player' ? '我方' : '敌方';
     log(`<span class="text-violet-300">${label}[镜面再生] 免疫 ${adjusted} 点伤害，并转化为 ${mirrorConverted} 点生命上限削减。</span>`);
     if (target.maxHp <= 0) {
@@ -3027,6 +3296,10 @@ const applyDirectHpLossWithRelics = (
   const before = target.hp;
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
+  if (painScene && painDamageSource && actualDamage > 0) {
+    painScene.nextDamageBonus[painDamageSource] = Math.max(0, painScene.nextDamageBonus[painDamageSource] - painBonusBeforeDamage);
+  }
+  recordBattlePainLoss(side, actualDamage, true, true);
   processPleasureDamageFeedback(side, target, 0, actualDamage, reason);
   addDamageHitTakenThisCombat(side, actualDamage);
   if (damageOptions.isDirectDamage) {
@@ -3134,6 +3407,7 @@ const applyCorrodeOnArmorGain = (side: RelicSide, amount: number, source: string
 };
 
 const addArmorForSide = (side: RelicSide, amount: number): number => {
+  if (side === 'player' && painScene?.armorBlockedTurn === combatState.value.turn) return 0;
   const value = Math.max(0, Math.floor(amount));
   if (value <= 0) return 0;
   const target = getEntityBySide(side);
@@ -3197,6 +3471,7 @@ const healForSide = (
   if (isTwinEntity(target)) {
     value = Math.max(0, Math.floor(value * 2));
   }
+  if (painScene) value = painHealingAmount(painScene, side, value);
   if (value <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
   const sourceSide = options?.sourceSide ?? side;
   if (sourceSide !== side && getEffectStacks(target, ET.BLOODLINE) > 0) {
@@ -3409,8 +3684,9 @@ const applyStatusEffectWithRelics = (
   side: RelicSide,
   effectType: EffectType,
   stacks: number,
-  options?: RelicApplyEffectOptions,
+  options?: RelicApplyEffectOptions & { sourceSide?: RelicSide },
 ): boolean => {
+  if (side === 'player' && effectType === ET.ARMOR && painScene?.armorBlockedTurn === combatState.value.turn) return false;
   const catalystOwner: BattleSide | null = side === 'enemy'
     ? 'player'
     : (side === 'player' ? 'enemy' : null);
@@ -3444,11 +3720,16 @@ const applyStatusEffectWithRelics = (
     durationTurns: options?.durationTurns,
     temporary: options?.temporary,
   });
+  if (painScene && applied && side === 'player' && effectType === ET.BLEED
+    && (options?.sourceSide === 'enemy' || options?.source?.startsWith('enemy_pain_'))) {
+    addPainMemory(enemyStats.value, 1);
+  }
   if (applied && effectType === ET.ARMOR) {
     const armorGained = Math.max(0, getEffectStacks(target, ET.ARMOR) - armorBeforeApply);
     applyCorrodeOnArmorGain(side, armorGained, options?.source ? `因 ${options.source} ` : '');
   }
   const hpLossFromNonLivingConversion = Math.max(0, hpBeforeApply - target.hp);
+  if (hpLossFromNonLivingConversion > 0) recordBattlePainLoss(side, hpLossFromNonLivingConversion, isNonLivingPenaltyEffect);
   if (
     !applied
     && hpLossFromNonLivingConversion > 0
@@ -4780,6 +5061,7 @@ const applyCardEffectsByTrigger = (
       const applied = applyStatusEffectWithRelics(targetSide, ce.effectType!, stacks, {
         restrictedTypes: ce.restrictedTypes,
         source: card.id,
+        sourceSide: source,
         durationTurns: ce.durationTurns,
         temporary: ce.temporary,
         lockDecayThisTurn: ce.effectType === ET.BIND
@@ -5709,6 +5991,13 @@ const getCardFinalPoint = (
       });
 
   // 卡牌专属点数修正：敌方每有2层燃烧，点数+1
+  if (card.id.startsWith('enemy_pain_')) finalPoint += painPointBonusByCard.get(card) ?? painPointBonus(card, attacker);
+  if (painScene && source === 'player' && !suppressComparisonSpecials
+    && getPainOath(painScene, ET.PAIN_OATH_PILLAR)
+    && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
+    && combatState.value.enemyIntentCard?.type === card.type && !card.ignoreClash && !combatState.value.enemyIntentCard.ignoreClash) {
+    finalPoint += 1;
+  }
   if (card.id === 'burn_inferno_judgement') {
     finalPoint += Math.floor(getEffectStacks(defender, ET.BURN));
   }
@@ -6037,6 +6326,18 @@ const buildCardPreviewLines = (
   if (solitudeBonus > 0) {
     finalPoint += solitudeBonus;
     lines.push(`孤独 +${solitudeBonus} => ${finalPoint}`);
+  }
+
+  if (card.id.startsWith('enemy_pain_')) {
+    const bonus = painPointBonusByCard.get(card) ?? painPointBonus(card, attacker);
+    finalPoint += bonus;
+    if (bonus > 0) lines.push(`痛忆 +${bonus} => ${finalPoint}`);
+  }
+  if (painScene && source === 'player' && getPainOath(painScene, ET.PAIN_OATH_PILLAR)
+    && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
+    && combatState.value.enemyIntentCard?.type === card.type && !card.ignoreClash && !combatState.value.enemyIntentCard.ignoreClash) {
+    finalPoint += 1;
+    lines.push(`握住刑柱 +1 => ${finalPoint}`);
   }
 
   if (card.id === 'burn_inferno_judgement') {
@@ -6668,7 +6969,8 @@ const clearEffectTooltipTimers = () => {
 
 const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance, align: TooltipAlign = 'center') => {
   const rect = target.getBoundingClientRect();
-  const tooltipMaxWidth = 256;
+  const below = effect.polarity === 'scene';
+  const tooltipMaxWidth = below ? 320 : 256;
   const margin = 8;
   const top = Math.max(margin, rect.top - margin);
   const x = align === 'right'
@@ -6679,11 +6981,12 @@ const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance,
     );
   effectTooltip.value = {
     x,
-    y: top,
+    y: below ? rect.bottom : top,
     name: getEffectInstanceName(effect),
-    description: getEffectDescription(effect.type),
+    description: effect.polarity === 'scene' ? getSceneEffectDescription(effect) : getEffectDescription(effect.type),
     stacks: effect.stacks,
     align,
+    below,
     previewCard: effect.type === ET.FANTASY_EMBRACE
       ? getCardByName(MOORE_MIMIC_CARD_KEY) ?? undefined
       : undefined,
@@ -7362,6 +7665,11 @@ watch(
 );
 onUnmounted(() => {
   portraitLoaderDisposed = true;
+  if (painPortraitTransitionSourceTimer !== null) clearTimeout(painPortraitTransitionSourceTimer);
+  if (painPortraitTransitionEndTimer !== null) clearTimeout(painPortraitTransitionEndTimer);
+  pendingPainOaths.value = [];
+  resolvePainOathChoice?.();
+  resolvePainOathChoice = null;
   if (enemyPortraitHiddenTransitionFrameId !== null) {
     cancelAnimationFrame(enemyPortraitHiddenTransitionFrameId);
     enemyPortraitHiddenTransitionFrameId = null;
@@ -7857,6 +8165,7 @@ const useActiveSkill = async (idx: number) => {
       const hpDelta = afterHp - beforeHp;
 
       playerStats.value.hp = afterHp;
+      recordBattlePainLoss('player', Math.max(0, -hpDelta), false, true);
       if (hpDelta > 0) {
         pushFloatingNumber('player', hpDelta, 'heal', '+');
       } else if (hpDelta < 0) {
@@ -7900,6 +8209,7 @@ const useActiveSkill = async (idx: number) => {
       const wasAboveHalf = isAboveHalfHp(playerStats.value);
 
       playerStats.value.hp = afterHp;
+      recordBattlePainLoss('player', Math.max(0, -delta), false, true);
       if (delta > 0) {
         pushFloatingNumber('player', delta, 'heal', '+');
       } else if (delta < 0) {
@@ -8271,6 +8581,10 @@ function selectEnemyCard(): CardData {
   if (enemyDef) {
     // Use the enemy's custom AI logic
     refreshLeviathanAiFlags();
+    if (painScene) {
+      aiFlags.painPhaseTwo = painScene.phaseTwoActive;
+      aiFlags.painAvailableOaths = availablePainOaths(painScene, playerStats.value).length;
+    }
     aiFlags.dreamControlPercent = dreamControlPercent.value;
     const ctx: EnemyAIContext = {
       enemyStats: enemyStats.value,
@@ -8519,10 +8833,12 @@ const startTurn = () => {
 
 // Watch for INIT phase
 watch(
-  () => combatState.value.phase,
-  (phase) => {
-     if (endCombatPending.value) return;
-     if (phase === CombatPhase.TURN_START) {
+  [() => combatState.value.phase, painPortraitsReady],
+  ([phase, portraitsReady]) => {
+    if (!portraitsReady) return;
+    if (endCombatPending.value) return;
+    if (phase === CombatPhase.TURN_START) {
+      painPointBonusByCard = new WeakMap<CardData, number>();
       playerDamageTakenThisTurn.value = 0;
       directDamageTakenThisTurn.value = { player: 0, enemy: 0 };
       damageHitTakenThisTurn.value = { player: 0, enemy: 0 };
@@ -8633,6 +8949,7 @@ watch(
       activateLeviathanMirrorSeaOathIfPending();
       activateLeviathanTidalLockIfPending();
       applyPendingNextTurnCardEffects();
+      processPainTurnStart();
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
         for (const [side, label, stats] of [['player', '我方', playerStats], ['enemy', '敌方', enemyStats]] as const) {
@@ -8692,8 +9009,13 @@ watch(
               });
             } else {
               const hpBeforeOpponent = opponentStats.value.hp;
-              opponentStats.value.hp = Math.max(0, Math.min(opponentStats.value.maxHp, opponentStats.value.hp + result.opponentHpChange));
+              const opponentPhaseFloor = Math.max(0, getEffectStacks(opponentStats.value, ET.PHASE_TRANSITION));
+              const nextOpponentHp = Math.max(0, Math.min(opponentStats.value.maxHp, opponentStats.value.hp + result.opponentHpChange));
+              opponentStats.value.hp = opponentPhaseFloor > 0 && hpBeforeOpponent > opponentPhaseFloor
+                ? Math.max(opponentPhaseFloor, nextOpponentHp)
+                : nextOpponentHp;
               const actualOpponentHpDelta = opponentStats.value.hp - hpBeforeOpponent;
+              recordBattlePainLoss(opponentSide, Math.max(0, -actualOpponentHpDelta), false);
               if (actualOpponentHpDelta < 0) {
                 pushFloatingNumber(opponentSide, Math.abs(actualOpponentHpDelta), 'magic', '-');
               }
@@ -8796,7 +9118,13 @@ watch(
           const negativeHpChange = Math.min(0, result.hpChange);
           const positiveHpChange = Math.max(0, result.hpChange);
           if (negativeHpChange !== 0) {
-            stats.value.hp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + negativeHpChange));
+            const beforeLoss = stats.value.hp;
+            const phaseFloor = Math.max(0, getEffectStacks(stats.value, ET.PHASE_TRANSITION));
+            const nextHp = Math.max(0, Math.min(stats.value.maxHp, stats.value.hp + negativeHpChange));
+            stats.value.hp = phaseFloor > 0 && beforeLoss > phaseFloor
+              ? Math.max(phaseFloor, nextHp)
+              : nextHp;
+            recordBattlePainLoss(side, Math.max(0, beforeLoss - stats.value.hp), false);
           }
           if (result.mpChange !== 0) {
             changeManaWithShock(side, result.mpChange, '法力变化（回合开始）', { showPositiveFloating: true });
@@ -9122,6 +9450,7 @@ const isSameRuleClash = (card1: CardData, card2: CardData): boolean => (
 
 // Clashable check
 const isClashable = (card1: CardData, card2: CardData): boolean => {
+  if (card1.ignoreClash || card2.ignoreClash) return false;
   const t1 = card1.type;
   const t2 = card2.type;
 
@@ -9321,6 +9650,17 @@ const resolveCombat = async (
   resolveMimicCurse('enemy');
 
   const shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
+  if (painScene && !isEnemyComboPrelude) painThornsOnPlayerCard(painScene, enemyStats.value, resolvedPlayerCard);
+  for (const [side, card] of [['player', resolvedPlayerCard], ['enemy', resolvedEnemyCard]] as const) {
+    painPointBonusByCard.delete(card);
+    if (side === 'enemy' && !isEnemyComboPrelude && resolvedPlayerCard.traits.combo) continue;
+    if (card.id === PAIN_CARD.RETURN || card.id === PAIN_CARD.REMEMBER) {
+      const holder = getEntityBySide(side);
+      const bonus = painPointBonus(card, holder);
+      painPointBonusByCard.set(card, bonus);
+      addPainMemory(holder, -bonus / 2);
+    }
+  }
   const clashBypassedByIgnoreDodge = isIgnoreDodgeBypassPair(resolvedPlayerCard, resolvedEnemyCard);
   if (!shouldClash && clashBypassedByIgnoreDodge) {
     log('<span class="text-indigo-300">[无视闪避] 闪避拼点被跳过，卡牌将直接生效。</span>');
@@ -9558,6 +9898,12 @@ const resolveCombat = async (
     }
     if (!eSuccess) {
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_clash_fail');
+      if (painScene) addPainMemory(enemyStats.value, -3);
+    }
+    if (painScene?.phaseTwoActive && clashWinner === 'player'
+      && resolvedPlayerCard.type === resolvedEnemyCard.type
+      && (resolvedPlayerCard.type === CardType.PHYSICAL || resolvedPlayerCard.type === CardType.MAGIC)) {
+      changePainThorns(enemyStats.value, -2);
     }
     // 流血：只要发生拼点，双方都按各自当前流血层数受到真实伤害
     const playerBleedStacksOnClash = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
@@ -9776,7 +10122,10 @@ const resolveCombat = async (
     // Calculate final point for this card
     const finalPoint = getCardFinalPoint(source, card, baseDice);
     queueNextTurnStartCardEffects(source, card, finalPoint, attacker);
+    let extraAttributesApplied = false;
     const applyCardExtraAttributes = () => {
+      if (extraAttributesApplied) return;
+      extraAttributesApplied = true;
       const selfDamage = resolveCardSelfDamage(card);
       if (selfDamage) {
         const rawAmount = selfDamage.mode === 'percent'
@@ -9793,6 +10142,7 @@ const resolveCombat = async (
             }
             const actualMaxHpLoss = Math.max(0, beforeMaxHp - attacker.maxHp);
             const hpLossByCap = Math.max(0, beforeHp - attacker.hp);
+            recordBattlePainLoss(source, hpLossByCap, false, true);
             if (hpLossByCap > 0) {
               pushFloatingNumber(source, hpLossByCap, 'true', '-');
             }
@@ -10165,6 +10515,8 @@ const resolveCombat = async (
       const defenderDelta = nextDefenderHp - defender.hp;
       attacker.hp = nextAttackerHp;
       defender.hp = nextDefenderHp;
+      recordBattlePainLoss(source, Math.max(0, -attackerDelta), false, true);
+      recordBattlePainLoss(defenderSide, Math.max(0, -defenderDelta), false);
 
       if (attackerDelta > 0) {
         pushFloatingNumber(source, attackerDelta, 'heal', '+');
@@ -10626,6 +10978,31 @@ const resolveCombat = async (
     }
 
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
+      if (painScene && (card.id.startsWith('enemy_pain_') || card.id.startsWith('pain_curse_')) && card.selfDamage) {
+        applyCardExtraAttributes();
+        if (attacker.hp <= 0) {
+          finalizeAndTrack();
+          return;
+        }
+      }
+      if (painScene && card.id === PAIN_CARD.CHOOSE) {
+        await requestPainOath();
+        finalizeAndTrack();
+        return;
+      }
+      if (painScene && card.id === PAIN_CARD.CUT_ROBE) {
+        changePainThorns(enemyStats.value, 3);
+        insertPainCurses(1);
+      }
+      if (painScene && card.id === PAIN_CARD.RECEIVE) {
+        transferPainBleed('player', 'enemy', 4);
+        insertPainCurses(2);
+      }
+      if (painScene && source === 'player' && card.id === PAIN_CARD.CRYSTAL) changePainThorns(enemyStats.value, -4);
+      if (painScene && source === 'player' && card.id === PAIN_CARD.SCAR) {
+        painScene.armorBlockedTurn = combatState.value.turn;
+        changePainThorns(enemyStats.value, 2);
+      }
       if (source === 'enemy' && card.id === LEVIATHAN_SUMMON_CARD_ID) {
         syncCurrentPointForUi();
         const leviathanSummonName = pickLeviathanSummonName();
@@ -12857,6 +13234,7 @@ const runEndCombatSequence = async (outcome: CombatOutcome) => {
   await wait(RESULT_BANNER_STAY_MS);
   if (token !== endCombatSequenceToken) return;
   const finalPlayerStats = cloneEntityStats(playerStats.value);
+  finalPlayerStats.effects = finalPlayerStats.effects.filter(effect => effect.polarity !== 'scene' && effect.source !== 'scene:corridor');
   if (getEffectStacks(finalPlayerStats, ET.TEMP_MAX_HP) > 0) {
     removeEffect(finalPlayerStats, ET.TEMP_MAX_HP);
   }
@@ -12956,6 +13334,74 @@ watch(
 </script>
 
 <style scoped>
+.combat-scene-effects {
+  position: absolute; z-index: 45; top: 1.2rem; left: calc(50% + 3rem);
+  max-width: calc(50% - 4rem); display: flex; gap: 7px;
+  overflow-x: auto; overflow-y: hidden; padding: 3px 4px 7px; margin: -3px 0 0 -4px;
+  scrollbar-width: none;
+}
+.combat-scene-effects::-webkit-scrollbar { display: none; }
+.combat-root--scene-effects .combat-top-right-panel { top: 5.5rem; }
+.combat-scene-effect {
+  position: relative; width: 57px; height: 57px; flex: 0 0 57px;
+  border: 1px solid #8cddd5; border-radius: 6px; color: #c7f7f0; background: #142f31e6;
+  box-shadow: inset 0 0 10px #71c7ba25, 0 2px 8px #0008; font-size: 28.5px;
+  animation: pain-scene-arrive 350ms ease-out;
+  transition: border-color 180ms, background 180ms, transform 180ms;
+}
+.combat-scene-effect:hover, .combat-scene-effect:focus-visible {
+  transform: translateY(-2px); border-color: #fff0c6; outline: 1px solid #fff0c6; outline-offset: 2px;
+}
+.combat-scene-effect--oath { background: #3b202fe6; color: #fbd4dc; border-color: #b98998; }
+.combat-scene-effect--resonant { border-color: #ead09b; color: #fff0c6; box-shadow: inset 0 0 12px #71c7ba40, 0 0 12px #e3c48b50; }
+.combat-scene-effect--triggered {
+  animation: pain-scene-trigger 720ms ease-out;
+}
+.combat-scene-effect__count {
+  position: absolute; right: -3px; bottom: -5px; min-width: 20px; padding: 0 3px;
+  border: 1px solid #87bbb1; border-radius: 3px; background: #122525; color: #fff4d7;
+  font-size: 10px; line-height: 14px; font-variant-numeric: tabular-nums;
+}
+.pain-loading-overlay, .pain-oath-overlay {
+  position: absolute; inset: 0; z-index: 180; display: flex; align-items: center;
+  justify-content: center; background: #0d161dea; backdrop-filter: blur(5px);
+}
+.pain-loading-overlay { flex-direction: column; gap: 16px; color: #d4ebe7; }
+.pain-loading-spinner { font-size: 28px; animation: pain-loading-spin 1.2s linear infinite; }
+.pain-retry-button { border: 1px solid #92bdb5; border-radius: 6px; padding: 8px 16px; color: #e8f6f0; background: #203936; }
+.pain-oath-dialog { width: min(1200px, calc(100% - 32px)); height: min(700px, calc(100% - 32px)); padding: 8px; display: flex; flex-direction: column; }
+.pain-oath-dialog__title { flex: 0 0 auto; margin-bottom: 12px; font-size: 24px; line-height: 32px; text-align: center; color: #f4e4c5; }
+.pain-oath-options { display: flex; flex: 1; min-height: 0; align-items: center; justify-content: center; gap: 24px; }
+.pain-oath-option {
+  width: 100%; height: auto; flex: 0 1 calc((100% - 48px) / 3); aspect-ratio: 2 / 3;
+  max-width: calc((100% - 48px) / 3); min-width: 0;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+  animation: pain-scene-arrive 350ms ease-out;
+}
+.pain-oath-option :deep(.dungeon-card) { width: 100%; height: 100%; opacity: 1; box-shadow: none; }
+.pain-oath-option :deep(.card-face) { left: 26%; right: 26%; }
+.pain-oath-option :deep(.card-face-name) { font-size: 22px; max-height: 52px; }
+.pain-oath-option :deep(.card-face-emblem) { height: 46px; flex-basis: 46px; }
+.pain-oath-option :deep(.card-face-icon) { width: 31px; height: 31px; }
+.pain-oath-option :deep(.card-face-rules-surface) { padding: 8px 6px; font-size: 16px; line-height: 1.4; }
+.pain-oath-option :deep(.card-frame-skin) { transition: filter 180ms; }
+.pain-oath-option:focus-visible { outline: none; }
+.pain-oath-option:hover :deep(.card-frame-skin), .pain-oath-option:focus-visible :deep(.card-frame-skin) {
+  filter: drop-shadow(0 0 5px #efd08c) drop-shadow(0 0 14px #c08d4760);
+}
+@keyframes pain-scene-arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pain-scene-trigger {
+  0% { transform: scale(1); filter: brightness(1); }
+  32% { transform: scale(1.16); filter: brightness(1.8) drop-shadow(0 0 12px #fff0bf); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes pain-loading-spin { to { transform: rotate(360deg); } }
+@media (max-width: 800px) {
+  .combat-scene-effects { top: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .combat-scene-effect, .pain-oath-option { animation: none; transition: none; }
+}
 .combat-float-number {
   animation-name: combat-float-up;
   animation-timing-function: ease-out;
@@ -13523,6 +13969,10 @@ watch(
   transform: translate(0, calc(-100% - 8px));
 }
 
+.effect-tooltip--below {
+  transform: translate(-50%, 8px);
+}
+
 .effect-tooltip-name {
   color: rgba(255, 255, 255, 0.95);
   font-size: 11px;
@@ -13740,6 +14190,10 @@ watch(
   top: calc(var(--enemy-shell-height) * var(--enemy-intent-top-ratio));
 }
 
+.enemy-intent-anchor :deep(.dungeon-card) {
+  box-shadow: none;
+}
+
 .enemy-intent-anchor--twins {
   left: calc(var(--enemy-shell-width) * var(--enemy-intent-left-ratio) - 6rem);
   top: calc(var(--enemy-shell-height) * var(--enemy-intent-top-ratio) + 0.5rem);
@@ -13765,6 +14219,16 @@ watch(
 .enemy-portrait-img--intangible-active {
   opacity: 0.08;
   filter: saturate(0.82) brightness(1.12);
+}
+
+.enemy-portrait-img--pain-phase-transition {
+  animation: pain-portrait-phase-shift 780ms ease-in-out both;
+}
+
+@keyframes pain-portrait-phase-shift {
+  0% { opacity: 1; filter: blur(0) brightness(1); transform: scale(1); }
+  42% { opacity: 0.12; filter: blur(9px) brightness(1.5); transform: scale(1.025); }
+  100% { opacity: 1; filter: blur(0) brightness(1); transform: scale(1); }
 }
 
 .leviathan-body-target {

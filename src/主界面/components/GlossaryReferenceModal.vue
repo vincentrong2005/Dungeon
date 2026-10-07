@@ -505,6 +505,7 @@ const statusGroupDefinitions: Array<{ polarity: EffectPolarity; label: string; d
   { polarity: 'debuff', label: '负面状态', description: '削弱目标、持续伤害、限制行动或制造后续风险。' },
   { polarity: 'mixed', label: '双面状态', description: '同时带来收益与代价，需要结合当前局势判断。' },
   { polarity: 'special', label: '特殊机制', description: '拥有独立规则或战斗流程影响的状态。' },
+  { polarity: 'scene', label: '场景效果', description: '在场景状态栏中展示的战斗规则与誓约，可同时影响双方。' },
   { polarity: 'trait', label: '特性标记', description: '用于记录敌人、场景或特殊规则的长期标记。' },
 ];
 const tutorialSections = ['界面速览', '卡牌类型', '拼点机制', '主动技能', '状态栏'];
@@ -629,6 +630,7 @@ const toneClass = (polarity?: EffectPolarity | 'trait') => {
   if (polarity === 'debuff') return 'glossary-reference-card--debuff';
   if (polarity === 'mixed') return 'glossary-reference-card--mixed';
   if (polarity === 'special') return 'glossary-reference-card--special';
+  if (polarity === 'scene') return 'glossary-reference-card--scene';
   return 'glossary-reference-card--trait';
 };
 
@@ -810,6 +812,10 @@ watch(
 
 .glossary-reference-card--special {
   border-left-color: rgba(56, 189, 248, 0.82);
+}
+
+.glossary-reference-card--scene {
+  border-left-color: #79b9ae;
 }
 
 .glossary-reference-card--trait {

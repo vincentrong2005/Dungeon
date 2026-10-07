@@ -903,6 +903,46 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '回合开始时，获得等量护甲；召唤物每造成1次伤害，层数+1。',
   },
+  [EffectType.PAIN_MEMORY]: {
+    type: EffectType.PAIN_MEMORY, name: '痛忆', polarity: 'buff',
+    timings: ['onAfterDamage', 'onClash', 'onTurnStart'], stackable: true, maxStacks: 9,
+    description: '自身损失生命+1，真实伤害额外+1；向玩家施加流血+1；自身拼点失败时-3。每回合开始回复2倍层数的生命，上限9层。',
+  },
+  [EffectType.SELF_CHOSEN_PAIN]: {
+    type: EffectType.SELF_CHOSEN_PAIN, name: '自选之痛', polarity: 'scene',
+    timings: ['onAfterDamage', 'onBeforeAttack'], stackable: true, maxStacks: 6,
+    description: '双方自伤或受到真实伤害并实际损失生命时，下次造成的伤害+1，可累计至6；造成伤害时消耗。',
+  },
+  [EffectType.CORRIDOR_MEMORY]: {
+    type: EffectType.CORRIDOR_MEMORY, name: '长廊记忆', polarity: 'scene',
+    timings: ['onAfterDamage'], stackable: true, maxStacks: 75,
+    description: '累计双方实际损失生命÷双方战斗初始生命上限之和，每层代表1%。达到25/50/75层时，佩恩获得2/4/6层增伤，玩家获得4/8/12层增伤；治疗不减少记录。',
+  },
+  [EffectType.PAIN_OATH_WHIP]: {
+    type: EffectType.PAIN_OATH_WHIP, name: '一鞭为我', polarity: 'scene',
+    timings: ['onTurnStart', 'onBeforeAttack'], stackable: false, maxStacks: 1,
+    description: '下回合造成的伤害翻倍。此后玩家每回合开始受到2点真实伤害。',
+  },
+  [EffectType.PAIN_OATH_PILLAR]: {
+    type: EffectType.PAIN_OATH_PILLAR, name: '握住刑柱', polarity: 'scene',
+    timings: ['onTurnStart', 'onClash'], stackable: false, maxStacks: 1,
+    description: '整场战斗玩家同类型攻击拼点时点数+1；此后每两回合开始时玩家获得3层流血。',
+  },
+  [EffectType.PAIN_OATH_OINTMENT]: {
+    type: EffectType.PAIN_OATH_OINTMENT, name: '借来的圣膏', polarity: 'scene',
+    timings: ['onBeforeDamage'], stackable: false, maxStacks: 1,
+    description: '回复50%最大生命；整场战斗玩家受到的真实伤害增加25%，向上取整。',
+  },
+  [EffectType.PAIN_OATH_CUP]: {
+    type: EffectType.PAIN_OATH_CUP, name: '空杯告解', polarity: 'scene',
+    timings: ['onTurnStart'], stackable: false, maxStacks: 1,
+    description: '回复4点法力，仅一次；此后每经过2回合，在回合开始获得2点法力和1层虚弱。',
+  },
+  [EffectType.PAIN_OATH_SHARE]: {
+    type: EffectType.PAIN_OATH_SHARE, name: '分给她的伤', polarity: 'scene',
+    timings: ['passive'], stackable: false, maxStacks: 1,
+    description: '选择时将玩家当前全部流血转移给佩恩；此后玩家受到的治疗量减半。',
+  },
 };
 
 const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
@@ -1162,6 +1202,12 @@ export function applyEffect(
   const normalizedStacks = Math.max(0, Math.floor(stacks));
   if (normalizedStacks <= 0) return false;
 
+  // 转阶段期间免疫中毒及中毒量，避免毒素绕过阶段锁血。
+  if (hasEffect(entity, EffectType.PHASE_TRANSITION)
+    && (type === EffectType.POISON || type === EffectType.POISON_AMOUNT)) {
+    return false;
+  }
+
   // 非生物：免疫流血/中毒，改为受到1点真实伤害
   if (hasEffect(entity, EffectType.NON_LIVING)) {
     if (type === EffectType.POISON || type === EffectType.BLEED) {
@@ -1172,7 +1218,10 @@ export function applyEffect(
 
   const def = EFFECT_REGISTRY[type];
   const temporary = options?.temporary === true;
-  const existing = findEffect(entity, type, temporary);
+  // Scene-derived bonuses remain owned by the scene, separate from ordinary stacks.
+  const sceneSource = options?.source?.startsWith('scene:') ? options.source : null;
+  const existing = entity.effects.find(effect => effect.type === type && !!effect.temporary === temporary
+    && (sceneSource ? effect.source === sceneSource : !effect.source?.startsWith('scene:')));
   let nextStacks = normalizedStacks;
 
   if (type === EffectType.COLD) {
@@ -1256,7 +1305,7 @@ export function applyEffect(
  * 移除实体身上的指定效果
  */
 export function removeEffect(entity: EntityStats, type: EffectType, temporary?: boolean): void {
-  const removed = entity.effects.filter(e => e.type === type && (
+  const removed = entity.effects.filter(e => e.type === type && !e.source?.startsWith('scene:') && (
     typeof temporary !== 'boolean' || !!e.temporary === temporary
   ));
   if (removed.length === 0) return;
@@ -1280,7 +1329,8 @@ export function reduceEffectStacks(
   amount: number = 1,
   temporary?: boolean,
 ): void {
-  const effect = findEffect(entity, type, temporary);
+  const mutableEffects = entity.effects.filter(effect => !effect.source?.startsWith('scene:'));
+  const effect = findEffect({ ...entity, effects: mutableEffects }, type, temporary);
   if (!effect) return;
   if (type === EffectType.TEMP_MAX_HP) {
     const removed = Math.min(effect.stacks, Math.max(0, Math.floor(amount)));

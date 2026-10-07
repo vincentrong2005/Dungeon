@@ -619,7 +619,7 @@ const fetchFolderImages = async (folderPath: string): Promise<string[]> => {
   if (folderCache.has(folderPath)) return folderCache.get(folderPath)!;
   if (folderPromise.has(folderPath)) return folderPromise.get(folderPath)!;
   const task = (async () => {
-    const images = getLocalFolderImagePaths(folderPath);
+    const images = getLocalFolderImagePaths(folderPath, 'all');
     folderCache.set(folderPath, images);
     return images;
   })();

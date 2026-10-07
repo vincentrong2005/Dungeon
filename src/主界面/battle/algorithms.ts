@@ -8,6 +8,7 @@ import {
     type ClashResult,
     type DamageCalculationContext,
     EffectType,
+    type EffectInstance,
     type EntityStats,
     type PointCalculationContext,
 } from '../types';
@@ -19,6 +20,7 @@ import {
     reduceEffectStacks,
     removeEffect,
 } from './effects';
+import { PAIN_CARD, PAIN_OATHS, type PainOath } from './cardRegistry';
 
 // ═══════════════════════════════════════════════════════════════
 //  A. 最终点数计算
@@ -68,6 +70,8 @@ export function shouldClash(
 ): boolean {
   const p = playerCard.type;
   const e = enemyCard.type;
+
+  if (playerCard.ignoreClash || enemyCard.ignoreClash) return false;
 
   if (p === CardType.FUNCTION || e === CardType.FUNCTION) return forceClashFunction;
   if (p === e) return true;
@@ -435,4 +439,115 @@ export function processPostAttackEffects(_attacker: EntityStats): string[] {
 
 export function rollDice(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// 佩恩场景：累计损血、双向伤害收益与转阶段。
+type PainSide = 'player' | 'enemy';
+
+export interface PainSceneState {
+  effects: EffectInstance[];
+  initialCombinedMaxHp: number;
+  totalHpLost: number;
+  nextDamageBonus: Record<PainSide, number>;
+  phase: 1 | 2;
+  phaseTwoActive: boolean;
+  armorBlockedTurn: number;
+}
+
+export function createPainScene(player: EntityStats, enemy: EntityStats): PainSceneState {
+  return {
+    effects: [
+      { type: EffectType.SELF_CHOSEN_PAIN, stacks: 1, polarity: 'scene' },
+      { type: EffectType.CORRIDOR_MEMORY, stacks: 0, polarity: 'scene' },
+    ],
+    initialCombinedMaxHp: Math.max(1, player.maxHp + enemy.maxHp), totalHpLost: 0,
+    nextDamageBonus: { player: 0, enemy: 0 }, phase: 1, phaseTwoActive: false, armorBlockedTurn: -1,
+  };
+}
+
+export function getPainOath(state: PainSceneState, type: PainOath): EffectInstance | undefined {
+  return state.effects.find(effect => effect.type === type);
+}
+
+export function availablePainOaths(state: PainSceneState, player: EntityStats): PainOath[] {
+  return PAIN_OATHS.filter(type => !getPainOath(state, type)
+    && (type !== EffectType.PAIN_OATH_OINTMENT || player.hp <= player.maxHp * 0.75)
+    && (type !== EffectType.PAIN_OATH_SHARE || getEffectStacks(player, EffectType.BLEED) > 0));
+}
+
+export function choosePainOath(state: PainSceneState, type: PainOath, turn: number, player: EntityStats): boolean {
+  if (!availablePainOaths(state, player).includes(type)) return false;
+  state.effects.push({ type, stacks: 1, polarity: 'scene', runtimeCounter: turn });
+  return true;
+}
+
+export function addPainMemory(enemy: EntityStats, amount: number): void {
+  const effect = findEffect(enemy, EffectType.PAIN_MEMORY);
+  if (effect) effect.stacks = Math.max(0, Math.min(9, effect.stacks + amount));
+  else if (amount > 0) applyEffect(enemy, EffectType.PAIN_MEMORY, Math.min(9, amount));
+}
+
+export function recordPainHpLoss(state: PainSceneState, side: PainSide, amount: number, trueDamage: boolean,
+  player: EntityStats, enemy: EntityStats, selfHarm = false): void {
+  if (amount <= 0) return;
+  if (side === 'enemy') addPainMemory(enemy, trueDamage ? 2 : 1);
+  if (trueDamage || selfHarm) state.nextDamageBonus[side] = Math.min(6, state.nextDamageBonus[side] + 1);
+  state.totalHpLost += amount;
+  const memory = state.effects.find(effect => effect.type === EffectType.CORRIDOR_MEMORY)!;
+  memory.stacks = Math.min(75, Math.floor(state.totalHpLost * 100 / state.initialCombinedMaxHp));
+  const tier = Math.floor(memory.stacks / 25);
+  // Keep scene bonuses separate from other damage boosts so tier changes do not overwrite them.
+  for (const [entity, multiplier] of [[enemy, 2], [player, 4]] as const) {
+    let boost = entity.effects.find(effect => effect.type === EffectType.DAMAGE_BOOST && effect.source === 'scene:corridor');
+    if (!boost && tier > 0) {
+      boost = { type: EffectType.DAMAGE_BOOST, stacks: 0, polarity: 'buff', source: 'scene:corridor' };
+      entity.effects.push(boost);
+    }
+    if (boost) boost.stacks = tier * multiplier;
+  }
+}
+
+export function painIncomingDamage(state: PainSceneState, side: PainSide, amount: number, trueDamage: boolean): number {
+  return side === 'player' && trueDamage && getPainOath(state, EffectType.PAIN_OATH_OINTMENT)
+    ? Math.ceil(amount * 1.25) : amount;
+}
+
+export function painOutgoingDamage(state: PainSceneState, source: PainSide, amount: number, turn: number,
+  consume = true): number {
+  if (amount <= 0) return amount;
+  let damage = amount + state.nextDamageBonus[source];
+  if (consume) state.nextDamageBonus[source] = 0;
+  const whip = getPainOath(state, EffectType.PAIN_OATH_WHIP);
+  if (source === 'player' && whip && turn === (whip.runtimeCounter ?? 0) + 1) damage *= 2;
+  return damage;
+}
+
+export function painHealingAmount(state: PainSceneState, side: PainSide, amount: number): number {
+  return side === 'player' && getPainOath(state, EffectType.PAIN_OATH_SHARE) ? Math.floor(amount / 2) : amount;
+}
+
+export function painPointBonus(card: CardData, enemy: EntityStats): number {
+  if (card.id !== PAIN_CARD.RETURN && card.id !== PAIN_CARD.REMEMBER) return 0;
+  return Math.min(card.id === PAIN_CARD.RETURN ? 4 : 9, getEffectStacks(enemy, EffectType.PAIN_MEMORY)) * 2;
+}
+
+export function changePainThorns(enemy: EntityStats, amount: number): void {
+  const stacks = Math.max(0, Math.min(10, getEffectStacks(enemy, EffectType.THORNS) + amount));
+  removeEffect(enemy, EffectType.THORNS);
+  if (stacks > 0) applyEffect(enemy, EffectType.THORNS, stacks);
+}
+
+export function painThornsOnPlayerCard(state: PainSceneState, enemy: EntityStats, card: CardData): void {
+  if (!state.phaseTwoActive) return;
+  if (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) changePainThorns(enemy, -2);
+  else if (card.type === CardType.FUNCTION || card.type === CardType.DODGE || card.id === 'pass') changePainThorns(enemy, 2);
+}
+
+export function updatePainPhase(state: PainSceneState, enemy: EntityStats): boolean {
+  if (state.phase === 2) return false;
+  const transition = getEffectStacks(enemy, EffectType.PHASE_TRANSITION);
+  if (transition > 0 && enemy.hp > transition) return false;
+  state.phase = 2;
+  removeEffect(enemy, EffectType.PHASE_TRANSITION);
+  return true;
 }

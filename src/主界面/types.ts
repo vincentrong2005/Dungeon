@@ -176,6 +176,8 @@ export interface CardData {
   manaDrain?: number | CardManaDrainConfig;
   /** 无视闪避：对闪避牌时不进入闪避拼点，直接生效 */
   ignoreDodge?: boolean;
+  /** 无视拼点：不参与任何拼点，打出后直接生效。 */
+  ignoreClash?: boolean;
   /** 群攻：对目标造成伤害时，永久减少其本场战斗中“群集/镜·群集”可恢复的生命值 */
   swarmAttack?: boolean;
   /** 逃离：任意一方打出后立刻结束战斗（无金币/卡牌奖励） */
@@ -415,10 +417,18 @@ export enum EffectType {
   STIGMATA = '圣痕',
   /** 创世 — 回合开始时获得等量护甲；召唤物每造成1次伤害，层数+1 */
   GENESIS = '创世',
+  PAIN_MEMORY = '痛忆',
+  SELF_CHOSEN_PAIN = '自选之痛',
+  CORRIDOR_MEMORY = '长廊记忆',
+  PAIN_OATH_WHIP = '一鞭为我',
+  PAIN_OATH_PILLAR = '握住刑柱',
+  PAIN_OATH_OINTMENT = '借来的圣膏',
+  PAIN_OATH_CUP = '空杯告解',
+  PAIN_OATH_SHARE = '分给她的伤',
 }
 
 /** 效果极性分类 */
-export type EffectPolarity = 'buff' | 'debuff' | 'mixed' | 'trait' | 'special';
+export type EffectPolarity = 'buff' | 'debuff' | 'mixed' | 'trait' | 'special' | 'scene';
 
 // ── 效果运行时实例 ────────────────────────────────────────────
 export interface EffectInstance {

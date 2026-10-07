@@ -3,6 +3,7 @@ interface LocalFolderImageRule {
   end: number;
   start?: number;
   extension?: string;
+  phases?: Record<number, { start: number; end: number }>;
 }
 
 const LOCAL_FOLDER_IMAGE_RULES: Record<string, LocalFolderImageRule> = {
@@ -27,7 +28,10 @@ const LOCAL_FOLDER_IMAGE_RULES: Record<string, LocalFolderImageRule> = {
   '地牢/魔物/米拉': { baseName: '米拉', end: 11 },
   '地牢/魔物/梦魔双子': { baseName: '梦魔双子', end: 21 },
   '地牢/魔物/贝希摩斯': { baseName: '贝希摩斯', end: 8 },
-  '地牢/魔物/佩恩': { baseName: '佩恩', end: 10 },
+  '地牢/魔物/佩恩': {
+    baseName: '佩恩', end: 12,
+    phases: { 1: { start: 1, end: 6 }, 2: { start: 7, end: 12 } },
+  },
   '地牢/魔物/西格尔': { baseName: '西格尔', end: 11 },
   '地牢/魔物/摩尔': { baseName: '摩尔', end: 10 },
   '地牢/魔物/利维坦': { baseName: '利维坦', end: 11 },
@@ -37,13 +41,15 @@ const LOCAL_FOLDER_IMAGE_RULES: Record<string, LocalFolderImageRule> = {
 
 const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
-export const getLocalFolderImagePaths = (folderPath: string): string[] => {
+export const getLocalFolderImagePaths = (folderPath: string, phase: number | 'all' = 1): string[] => {
   const normalizedFolderPath = normalizeRepoPath(folderPath);
   const rule = LOCAL_FOLDER_IMAGE_RULES[normalizedFolderPath];
   if (!rule) return [];
 
-  const start = Math.max(1, Math.floor(rule.start ?? 1));
-  const end = Math.max(start, Math.floor(rule.end));
+  const range = phase === 'all' ? rule : rule.phases ? rule.phases[phase] : rule;
+  if (!range) return [];
+  const start = Math.max(1, Math.floor(range.start ?? 1));
+  const end = Math.max(start, Math.floor(range.end));
   const ext = (rule.extension ?? 'png').replace(/^\./, '');
   const paths: string[] = [];
 
@@ -54,8 +60,8 @@ export const getLocalFolderImagePaths = (folderPath: string): string[] => {
   return paths;
 };
 
-export const getLocalFolderFirstImagePath = (folderPath: string): string | null => {
-  const paths = getLocalFolderImagePaths(folderPath);
+export const getLocalFolderFirstImagePath = (folderPath: string, phase: number | 'all' = 1): string | null => {
+  const paths = getLocalFolderImagePaths(folderPath, phase);
   return paths.length > 0 ? paths[0]! : null;
 };
 

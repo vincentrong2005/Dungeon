@@ -46,6 +46,7 @@
         :negative-effect="maskLevel === 'none' ? (card.negativeEffect ?? null) : null"
         :mana-drain="maskLevel === 'none' ? (card.manaDrain ?? null) : null"
         :swarm-attack="maskLevel === 'none' ? card.swarmAttack === true : false"
+        :ignore-clash="maskLevel === 'none' ? card.ignoreClash === true : false"
         :excape="maskLevel === 'none' ? card.excape === true : false"
         :self-damage="maskLevel === 'none' ? (card.selfDamage ?? null) : null"
         :gluttony-enchanted="hasGluttonyEnchant"
@@ -151,7 +152,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 
 .card-face {
   position: absolute;
-  z-index: 2;
+  z-index: auto;
   inset: 20% 21% 19%;
   display: flex;
   min-height: 0;
@@ -164,6 +165,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 }
 
 .card-face--back {
+  z-index: 5;
   align-items: center;
   justify-content: center;
 }
@@ -180,6 +182,7 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 
 .card-face-cost {
   position: absolute;
+  z-index: 6;
   top: -5px;
   left: -7px;
   display: grid;
@@ -218,6 +221,8 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 }
 
 .card-face-name {
+  position: relative;
+  z-index: 6;
   display: -webkit-box;
   overflow: hidden;
   max-height: 28px;
@@ -272,6 +277,11 @@ const hasGluttonyEnchant = computed(() => props.maskLevel === 'none' && props.ca
 .card-face-rules :deep(.card-face-rules-surface > div) {
   height: 100%;
   max-height: none;
+}
+
+.card-face-rules :deep(.card-rules-scroll > div) {
+  position: relative;
+  z-index: 6;
 }
 
 .gluttony-card-glow {

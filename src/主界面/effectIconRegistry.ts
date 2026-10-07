@@ -93,6 +93,14 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.MERCY]: 'fa-solid fa-mercury',
   [ET.STIGMATA]: 'fa-brands fa-creative-commons-sampling-plus',
   [ET.GENESIS]: 'fa-solid fa-earth-americas',
+  [ET.PAIN_MEMORY]: 'fa-brands fa-cotton-bureau',
+  [ET.SELF_CHOSEN_PAIN]: 'fa-solid fa-hands-holding-circle',
+  [ET.CORRIDOR_MEMORY]: 'fa-brands fa-firstdraft',
+  [ET.PAIN_OATH_WHIP]: 'fa-solid fa-heart-crack',
+  [ET.PAIN_OATH_PILLAR]: 'fa-solid fa-link',
+  [ET.PAIN_OATH_OINTMENT]: 'fa-solid fa-hand-holding-medical',
+  [ET.PAIN_OATH_CUP]: 'fa-solid fa-wine-glass-empty',
+  [ET.PAIN_OATH_SHARE]: 'fa-solid fa-droplet',
 };
 
 export const EFFECT_FA_ICON_STYLE: Partial<Record<EffectType, Record<string, string>>> = {

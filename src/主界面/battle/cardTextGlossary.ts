@@ -11,6 +11,7 @@ export interface CardGlossaryEntry {
 }
 
 interface CardKeywordInput {
+  ignoreClash?: boolean;
   negativeEffect?: string | null;
   manaDrain?: number | CardManaDrainConfig | null;
   swarmAttack?: boolean;
@@ -246,6 +247,10 @@ export const getCardKeywordGlossaryEntries = (
 
   const matchedEntries = findNonOverlappingEntries(text, keywordEntries);
   const propertyEntries: CardGlossaryEntry[] = [];
+  if (input.ignoreClash || text.includes('无视拼点')) {
+    propertyEntries.push({ key: 'keyword:ignoreClash', label: '无视拼点',
+      description: '打出后直接生效，不参与任何类型的拼点，对方卡牌也正常结算。', source: 'keyword', polarity: 'special' });
+  }
 
   if (input.negativeEffect) {
     propertyEntries.push(keywordEntries[0]!);
@@ -270,6 +275,7 @@ export const getCardKeywordGlossaryEntries = (
 };
 
 export const collectCardGlossaryEntries = (input: {
+  ignoreClash?: boolean;
   title?: string;
   description?: string;
   traits?: CardTraits | null;
@@ -283,6 +289,7 @@ export const collectCardGlossaryEntries = (input: {
   const text = [input.title ?? '', input.description ?? ''].filter(Boolean).join(' ');
   const effectEntries = getCardEffectGlossaryEntries(text);
   const keywordEntries = getCardKeywordGlossaryEntries(text, {
+    ignoreClash: input.ignoreClash,
     negativeEffect: input.negativeEffect,
     manaDrain: input.manaDrain,
     swarmAttack: input.swarmAttack,

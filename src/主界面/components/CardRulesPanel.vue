@@ -65,6 +65,7 @@ const props = withDefaults(
     negativeEffect?: string | null;
     manaDrain?: number | CardManaDrainConfig | null;
     swarmAttack?: boolean;
+    ignoreClash?: boolean;
     excape?: boolean;
     selfDamage?: number | CardSelfDamageConfig | null;
     gluttonyEnchanted?: boolean;
@@ -79,6 +80,7 @@ const props = withDefaults(
     negativeEffect: null,
     manaDrain: null,
     swarmAttack: false,
+    ignoreClash: false,
     excape: false,
     selfDamage: null,
     gluttonyEnchanted: false,
@@ -120,6 +122,7 @@ const glossaryEntries = computed(() => collectCardGlossaryEntries({
   negativeEffect: props.negativeEffect,
   manaDrain: props.manaDrain,
   swarmAttack: props.swarmAttack,
+  ignoreClash: props.ignoreClash,
   excape: props.excape,
   selfDamage: props.selfDamage,
   gluttonyEnchanted: props.gluttonyEnchanted,
@@ -137,6 +140,8 @@ const entryToneClass = (entry: CardGlossaryEntry): string => {
       return 'card-rules-side-tooltip-entry--mixed';
     case 'special':
       return 'card-rules-side-tooltip-entry--special';
+    case 'scene':
+      return 'card-rules-side-tooltip-entry--scene';
     case 'trait':
     default:
       return 'card-rules-side-tooltip-entry--trait';
@@ -345,6 +350,11 @@ onBeforeUnmount(() => {
   background:
     linear-gradient(180deg, rgba(48, 53, 69, 0.96), rgba(23, 26, 36, 0.96)),
     rgba(16, 18, 26, 0.98);
+}
+
+.card-rules-side-tooltip-entry--scene {
+  border: 2px solid #79b9ae;
+  background: #193b37;
 }
 
 .card-rules-side-tooltip-head {

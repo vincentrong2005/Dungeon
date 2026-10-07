@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { CardType, EffectType, type CardData } from '../types';
+import { EFFECT_REGISTRY } from './effects';
 
 /**
  * =====================================================================
@@ -9938,6 +9939,371 @@ const 苦修幽灵_体内异物: CardData = {
   description: '不可打出；回合结束仍在手牌时，自身获得3层侵蚀。',
 };
 
+// 佩恩：双阶段卡组与场景诅咒选项。
+export const PAIN_CARD = {
+  CHOOSE: 'enemy_pain_choose',
+  WHIP: 'enemy_pain_whip',
+  QUESTION: 'enemy_pain_question',
+  SELF_HARM: 'enemy_pain_self_harm',
+  RETURN: 'enemy_pain_return',
+  CUT_ROBE: 'enemy_pain_cut_robe',
+  EMBRACE: 'enemy_pain_embrace',
+  RECEIVE: 'enemy_pain_receive',
+  REMEMBER: 'enemy_pain_remember',
+  AGAIN: 'pain_curse_again',
+  SILK: 'pain_curse_silk',
+  CRYSTAL: 'pain_curse_crystal',
+  SCAR: 'pain_curse_scar',
+} as const;
+
+export const PAIN_OATHS = [
+  EffectType.PAIN_OATH_WHIP,
+  EffectType.PAIN_OATH_PILLAR,
+  EffectType.PAIN_OATH_OINTMENT,
+  EffectType.PAIN_OATH_CUP,
+  EffectType.PAIN_OATH_SHARE,
+] as const;
+export type PainOath = typeof PAIN_OATHS[number];
+
+/** 请你选择：无视拼点，选择一张整场战斗生效的场景诅咒 */
+const 佩恩_请你选择: CardData = {
+  id: PAIN_CARD.CHOOSE,
+  name: '请你选择',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  ignoreClash: true,
+  description: '强制目标从至多3张有尚未选择的诅咒中选择1张。无视拼点。',
+};
+
+/** 刑柱鞭痕：物理攻击，为对方施加流血 */
+const 佩恩_刑柱鞭痕: CardData = {
+  id: PAIN_CARD.WHIP,
+  name: '刑柱鞭痕',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.2, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '点数*1.2，造成1倍点数伤害，为对方施加3层流血。',
+};
+
+/** 同痛之问：魔法攻击，双方各获得流血 */
+const 佩恩_同痛之问: CardData = {
+  id: PAIN_CARD.QUESTION,
+  name: '同痛之问',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '点数*1.5，造成1倍点数伤害，双方各获得4层流血。',
+};
+
+/** 自选之痛：自伤，获得流血与蓄力 */
+const 佩恩_自选之痛: CardData = {
+  id: PAIN_CARD.SELF_HARM,
+  name: '自选之痛',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  selfDamage: { mode: 'percent', value: 3, target: 'hp' },
+  description: '自伤3%最大生命，获得2层流血和4层蓄力。',
+};
+
+/** 归还真痛：消耗最多4层痛忆，增加物理攻击点数 */
+const 佩恩_归还真痛: CardData = {
+  id: PAIN_CARD.RETURN,
+  name: '归还真痛',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.3, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.3，打出时消耗最多4层痛忆，每消耗1层点数+2，造成1倍最终点数伤害。',
+};
+
+/** 割开圣袍：自伤，增加荆棘并插入诅咒 */
+const 佩恩_割开圣袍: CardData = {
+  id: PAIN_CARD.CUT_ROBE,
+  name: '割开圣袍',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  selfDamage: { mode: 'percent', value: 4, target: 'hp' },
+  description: '自伤4%最大生命，获得4层流血、3层荆棘，向对方抽牌堆插入1张佩恩诅咒。',
+};
+
+/** 刺晶拥抱：物理攻击，为对方施加流血 */
+const 佩恩_刺晶拥抱: CardData = {
+  id: PAIN_CARD.EMBRACE,
+  name: '刺晶拥抱',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.3, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '点数*1.3，造成1倍点数伤害，为对方施加3层流血。',
+};
+
+/** 接住伤口：承接流血，治疗对方并插入诅咒 */
+const 佩恩_接住伤口: CardData = {
+  id: PAIN_CARD.RECEIVE,
+  name: '接住伤口',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '将对方最多4层流血转移给自己，为对方回复0.5倍点数生命，向对方抽牌堆插入2张佩恩诅咒。',
+};
+
+/** 记得每一道伤：消耗全部痛忆，增加魔法攻击点数 */
+const 佩恩_记得每一道伤: CardData = {
+  id: PAIN_CARD.REMEMBER,
+  name: '记得每一道伤',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 4,
+  calculation: { multiplier: 1.4, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.4，打出时消耗全部痛忆，每消耗1层点数+2，造成1倍最终点数伤害。',
+};
+
+/** 再来一鞭：自伤，增加骰子点数 */
+const 佩恩_再来一鞭: CardData = {
+  id: PAIN_CARD.AGAIN,
+  name: '再来一鞭',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 4 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [],
+  selfDamage: { mode: 'percent', value: 15, target: 'hp' },
+  description: '自伤15%最大生命，当前骰子点数+4。连击，移除。',
+};
+
+/** 扯断晶丝：自伤，回复法力 */
+const 佩恩_扯断晶丝: CardData = {
+  id: PAIN_CARD.SILK,
+  name: '扯断晶丝',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  selfDamage: { mode: 'percent', value: 12, target: 'hp' },
+  description: '自伤12%最大生命，回复3点法力。连击，移除。',
+};
+
+/** 握住刺晶：获得流血，削减佩恩荆棘 */
+const 佩恩_握住刺晶: CardData = {
+  id: PAIN_CARD.CRYSTAL,
+  name: '握住刺晶',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 5 },
+  ],
+  description: '自身获得5层流血，使佩恩荆棘减少4层。连击，移除。',
+};
+
+/** 留下一道疤：回复生命，禁用本回合护甲并增加佩恩荆棘 */
+const 佩恩_留下一道疤: CardData = {
+  id: PAIN_CARD.SCAR,
+  name: '留下一道疤',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'max_hp_percent', scale: 0.1 },
+  ],
+  description: '回复10%最大生命，本回合无法获得护甲，使佩恩荆棘增加2层。连击，移除。',
+};
+
+/** 一鞭为我：下回合伤害翻倍，此后每回合承受真实伤害 */
+const 佩恩_一鞭为我: CardData = {
+  id: 'pain_oath_0',
+  name: '一鞭为我',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_WHIP].description,
+};
+
+/** 握住刑柱：同类型攻击拼点增强，此后每回合获得流血 */
+const 佩恩_握住刑柱: CardData = {
+  id: 'pain_oath_1',
+  name: '握住刑柱',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_PILLAR].description,
+};
+
+/** 借来的圣膏：回复生命，此后受到的真实伤害增加 */
+const 佩恩_借来的圣膏: CardData = {
+  id: 'pain_oath_2',
+  name: '借来的圣膏',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_OINTMENT].description,
+};
+
+/** 空杯告解：回复法力，此后每两回合获得法力与虚弱 */
+const 佩恩_空杯告解: CardData = {
+  id: 'pain_oath_3',
+  name: '空杯告解',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_CUP].description,
+};
+
+/** 分给她的伤：转移流血，此后受到的治疗量减半 */
+const 佩恩_分给她的伤: CardData = {
+  id: 'pain_oath_4',
+  name: '分给她的伤',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_SHARE].description,
+};
+
+export const PAIN_OATH_CARDS: CardData[] = [
+  佩恩_一鞭为我,
+  佩恩_握住刑柱,
+  佩恩_借来的圣膏,
+  佩恩_空杯告解,
+  佩恩_分给她的伤,
+];
+
+export const PAIN_CARDS: CardData[] = [
+  佩恩_请你选择,
+  佩恩_刑柱鞭痕,
+  佩恩_同痛之问,
+  佩恩_自选之痛,
+  佩恩_归还真痛,
+  佩恩_割开圣袍,
+  佩恩_刺晶拥抱,
+  佩恩_接住伤口,
+  佩恩_记得每一道伤,
+  佩恩_再来一鞭,
+  佩恩_扯断晶丝,
+  佩恩_握住刺晶,
+  佩恩_留下一道疤,
+];
+
+export const PAIN_CURSES = PAIN_CARDS.filter(card => card.type === CardType.CURSE);
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -10474,6 +10840,24 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [THORN_CRAWLER_NEURAL_PIERCE.name, THORN_CRAWLER_NEURAL_PIERCE],
   [THORN_CRAWLER_TOXIN_PULSE.name, THORN_CRAWLER_TOXIN_PULSE],
   [冰锥.name, 冰锥],
+  [佩恩_请你选择.name, 佩恩_请你选择],
+  [佩恩_刑柱鞭痕.name, 佩恩_刑柱鞭痕],
+  [佩恩_同痛之问.name, 佩恩_同痛之问],
+  [佩恩_自选之痛.name, 佩恩_自选之痛],
+  [佩恩_归还真痛.name, 佩恩_归还真痛],
+  [佩恩_割开圣袍.name, 佩恩_割开圣袍],
+  [佩恩_刺晶拥抱.name, 佩恩_刺晶拥抱],
+  [佩恩_接住伤口.name, 佩恩_接住伤口],
+  [佩恩_记得每一道伤.name, 佩恩_记得每一道伤],
+  [佩恩_再来一鞭.name, 佩恩_再来一鞭],
+  [佩恩_扯断晶丝.name, 佩恩_扯断晶丝],
+  [佩恩_握住刺晶.name, 佩恩_握住刺晶],
+  [佩恩_留下一道疤.name, 佩恩_留下一道疤],
+  [佩恩_一鞭为我.name, 佩恩_一鞭为我],
+  [佩恩_握住刑柱.name, 佩恩_握住刑柱],
+  [佩恩_借来的圣膏.name, 佩恩_借来的圣膏],
+  [佩恩_空杯告解.name, 佩恩_空杯告解],
+  [佩恩_分给她的伤.name, 佩恩_分给她的伤],
 ]);
 
 // ── 公共 API ────────────────────────────────────────────────────

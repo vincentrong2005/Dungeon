@@ -1,5 +1,5 @@
 import { CardType, EffectType, type CardData, type EnemyAIContext, type EnemyDefinition } from '../types';
-import { getAllCards } from './cardRegistry';
+import { PAIN_CARD, getAllCards } from './cardRegistry';
 import { calculateFinalPoint } from './algorithms';
 import { ELEMENTAL_DEBUFF_TYPES } from './effects';
 
@@ -4337,7 +4337,7 @@ const 奥赛罗: EnemyDefinition = {
       { type: EffectType.SIGHT_DEPRIVATION, stacks: 1, polarity: 'trait' },
       { type: EffectType.FATE_OBSERVATION, stacks: 1, polarity: 'special' },
       { type: EffectType.ELEMENTAL_ADAPTATION, stacks: 1, polarity: 'buff' },
-      { type: EffectType.PHASE_TRANSITION, stacks: 300, polarity: 'special' },
+      { type: EffectType.PHASE_TRANSITION, stacks: { maxHpRatio: 0.5 }, polarity: 'special' },
       { type: EffectType.MANA_SPRING, stacks: 3, polarity: 'buff' },
     ],
   },
@@ -4511,7 +4511,46 @@ const 晶体刺猬: EnemyDefinition = {
   },
 };
 
+const 佩恩: EnemyDefinition = {
+  name: '佩恩',
+  stats: {
+    hp: 600, maxHp: 700, mp: 8, minDice: 8, maxDice: 14,
+    effects: [
+      { type: EffectType.PHASE_TRANSITION, stacks: { maxHpRatio: 0.5 }, polarity: 'special' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.STURDY, stacks: 4, polarity: 'buff' },
+      { type: EffectType.PAIN_MEMORY, stacks: 0, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    PAIN_CARD.CHOOSE, PAIN_CARD.WHIP, PAIN_CARD.QUESTION, PAIN_CARD.SELF_HARM, PAIN_CARD.RETURN,
+    PAIN_CARD.CUT_ROBE, PAIN_CARD.EMBRACE, PAIN_CARD.RECEIVE, PAIN_CARD.REMEMBER,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const phaseTwo = ctx.flags.painPhaseTwo === true;
+    const cycleKey = phaseTwo ? 'painSecondCycle' : 'painFirstCycle';
+    const cycle = phaseTwo
+      ? [PAIN_CARD.CUT_ROBE, PAIN_CARD.EMBRACE, PAIN_CARD.RECEIVE, PAIN_CARD.REMEMBER]
+      : [PAIN_CARD.WHIP, PAIN_CARD.QUESTION, PAIN_CARD.SELF_HARM, PAIN_CARD.RETURN];
+    const isChoiceTurn = !phaseTwo && ctx.turn >= 1 && (ctx.turn - 1) % 6 === 0;
+    if (isChoiceTurn) {
+      return pickCardById(ctx, PAIN_CARD.CHOOSE);
+    }
+    const index = Math.max(0, Math.floor(Number(ctx.flags[cycleKey] ?? 0))) % cycle.length;
+    ctx.flags[cycleKey] = (index + 1) % cycle.length;
+    let id: string = cycle[index]!;
+    if (id === PAIN_CARD.QUESTION && ctx.enemyStats.mp < 3) id = PAIN_CARD.WHIP;
+    if (id === PAIN_CARD.REMEMBER && ctx.enemyStats.mp < 4) id = PAIN_CARD.EMBRACE;
+    const selfHarmRatio = id === PAIN_CARD.SELF_HARM ? 0.03 : id === PAIN_CARD.CUT_ROBE ? 0.04 : 0;
+    if (selfHarmRatio > 0 && ctx.enemyStats.hp <= Math.floor(ctx.enemyStats.maxHp * selfHarmRatio)) {
+      id = phaseTwo ? PAIN_CARD.EMBRACE : PAIN_CARD.WHIP;
+    }
+    return pickCardById(ctx, id);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
+  [佩恩.name, 佩恩],
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],
   [根须潜行者.name, 根须潜行者],

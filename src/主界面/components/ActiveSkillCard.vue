@@ -88,7 +88,7 @@ const footerToneClass = computed(() => {
 
 .active-face {
   position: absolute;
-  z-index: 2;
+  z-index: auto;
   inset: 17% 21% 19%;
   display: flex;
   min-height: 0;
@@ -132,6 +132,8 @@ const footerToneClass = computed(() => {
 }
 
 .active-face-name {
+  position: relative;
+  z-index: 6;
   display: -webkit-box;
   overflow: hidden;
   max-height: 31px;
@@ -182,7 +184,14 @@ const footerToneClass = computed(() => {
   max-height: none;
 }
 
+.active-face-rules :deep(.card-rules-scroll > div) {
+  position: relative;
+  z-index: 6;
+}
+
 .active-face-footer {
+  position: relative;
+  z-index: 6;
   display: flex;
   min-height: 16px;
   align-items: center;
@@ -195,6 +204,8 @@ const footerToneClass = computed(() => {
 }
 
 .active-face-empty {
+  position: relative;
+  z-index: 6;
   display: grid;
   flex: 1;
   place-items: center;
