@@ -12696,7 +12696,18 @@ const resolveCombat = async (
     return 0;
   };
 
-  queue.sort((a, b) => typePriority(b.type) - typePriority(a.type));
+  const isSameUtilityCardType = queue.length === 2
+    && queue[0].type === queue[1].type
+    && (queue[0].type === CardType.DODGE || queue[0].type === CardType.FUNCTION);
+
+  queue.sort((a, b) => {
+    const priorityDelta = typePriority(b.type) - typePriority(a.type);
+    if (priorityDelta !== 0) return priorityDelta;
+    if (isSameUtilityCardType && a.source !== b.source) {
+      return a.source === 'player' ? -1 : 1;
+    }
+    return 0;
+  });
 
   const markEnemyResolvedCardType = (card: CardData) => {
     const nextType = card.id === PASS_CARD.id ? null : card.type;
@@ -12891,6 +12902,7 @@ const resolveCombat = async (
 
   const shouldRunSimultaneousVisuals = (
     queue.length === 2
+    && !isSameUtilityCardType
     && queue.every((action) => action.type === CardType.DODGE || action.type === CardType.FUNCTION)
   );
 
