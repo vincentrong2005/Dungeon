@@ -290,6 +290,49 @@
                   "
                   class="mt-8 flex flex-col space-y-3 ui-action-buttons"
                 >
+                  <div ref="optionActionModeControlRef" class="option-action-mode-control">
+                    <button
+                      type="button"
+                      class="option-action-mode-orb"
+                      :aria-expanded="optionActionModeMenuOpen"
+                      aria-haspopup="menu"
+                      :aria-label="`选项点击行为：${currentOptionActionMode.label}`"
+                      :title="`选项点击行为：${currentOptionActionMode.label}`"
+                      @click="toggleOptionActionModeMenu"
+                    >
+                      <SlidersHorizontal class="size-4" />
+                    </button>
+                  </div>
+
+                  <Teleport to="body">
+                    <Transition name="option-action-mode-menu">
+                      <div
+                        v-if="optionActionModeMenuOpen"
+                        ref="optionActionModeMenuRef"
+                        class="option-action-mode-menu"
+                        :style="optionActionModeMenuStyle"
+                        role="menu"
+                      >
+                        <button
+                          v-for="mode in OPTION_ACTION_MODES"
+                          :key="mode.key"
+                          type="button"
+                          class="option-action-mode-item"
+                          :class="{ 'is-active': optionActionMode === mode.key }"
+                          role="menuitemradio"
+                          :aria-checked="optionActionMode === mode.key"
+                          @click="selectOptionActionMode(mode.key)"
+                        >
+                          <Send v-if="mode.key === 'send'" class="size-4" />
+                          <Replace v-else-if="mode.key === 'replace'" class="size-4" />
+                          <Copy v-else class="size-4" />
+                          <span>{{ mode.label }}</span>
+                          <ChevronRight class="option-action-mode-item__arrow size-3.5" />
+                        </button>
+                      </div>
+                    </Transition>
+                  </Teleport>
+
                   <div
                     class="h-px w-full bg-linear-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
                   ></div>
@@ -298,41 +341,37 @@
                   <button
                     v-for="(option, i) in gameStore.options"
                     :key="'opt-' + i"
-                    class="w-full text-left px-5 py-3 bg-dungeon-dark/60 hover:bg-dungeon-brown/40 text-dungeon-paper/80 hover:text-dungeon-paper rounded-sm border border-dungeon-brown/50 hover:border-dungeon-gold/40 font-ui text-sm tracking-wide transition-all duration-300 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)] hover:translate-x-1"
+                    class="option-action-btn"
                     :style="optionButtonTextStyle"
                     @click="handleOptionClick(option)"
                   >
-                    {{ option }}
+                    <span class="option-action-btn__marker">{{ getOptionMarker(i) }}</span>
+                    <span class="option-action-btn__text">{{ getOptionDisplayText(option) }}</span>
+                    <ChevronRight class="option-action-btn__arrow size-5" aria-hidden="true" />
                   </button>
 
                   <!-- E Option: Special Room Action Button -->
-                  <button
-                    v-if="gameStore.hasOptionE && specialOptionConfig"
-                    class="special-action-btn"
-                    :style="[
-                      specialOptionButtonTextStyle,
-                      {
-                        backgroundColor: specialOptionConfig.bgColor,
-                        borderColor: specialOptionConfig.borderColor,
-                        color: specialOptionConfig.textColor,
-                        boxShadow: `0 0 20px ${specialOptionConfig.glowColor}, inset 0 1px 0 rgba(255,255,255,0.1)`,
-                      },
-                    ]"
-                    @click="handleSpecialOption"
-                  >
-                    <span class="special-action-btn__shine"></span>
-                    <span class="special-action-btn__icon" aria-hidden="true">
-                      <i :class="specialOptionConfig.icon"></i>
-                    </span>
-                    <span class="special-action-btn__label">{{ specialOptionConfig.label }}</span>
-                  </button>
+                  <div v-if="gameStore.hasOptionE && specialOptionConfig" class="special-action-section">
+                    <div class="action-divider-label">行动</div>
+                    <button
+                      class="special-action-btn menu-image-button"
+                      :aria-label="specialOptionConfig.label"
+                      @click="handleSpecialOption"
+                    >
+                      <MainButtonSkin :skin="specialOptionConfig.skin" />
+                    </button>
+                  </div>
 
                   <!-- [Leave] 地图选择 -->
                   <div v-if="gameStore.hasLeave && mapSelectionAvailable" class="map-selection-section">
                     <div class="action-divider-label">地图</div>
-                    <button type="button" class="map-selection-btn" @click="openMapForSelection">
-                      <span class="map-selection-btn__icon">⌖</span>
-                      <span>{{ mapSelectionLabel }}</span>
+                    <button
+                      type="button"
+                      class="map-selection-btn menu-image-button"
+                      :aria-label="mapSelectionLabel"
+                      @click="openMapForSelection"
+                    >
+                      <MainButtonSkin skin="menuMap" />
                     </button>
                   </div>
 
@@ -341,12 +380,12 @@
                     <div class="action-divider-label action-divider-label--danger">回溯</div>
                     <div class="flex justify-center">
                       <button
-                        class="rebirth-action-btn"
+                        class="rebirth-action-btn menu-image-button"
                         :disabled="gameStore.isGenerating"
+                        aria-label="回溯重生"
                         @click="handleRebirthClick"
                       >
-                        <span class="rebirth-action-btn__icon">⟲</span>
-                        <span>回溯重生</span>
+                        <MainButtonSkin skin="menuRebirth" />
                       </button>
                     </div>
                   </div>
@@ -3355,12 +3394,17 @@ import {
   ArrowLeft,
   Box,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Coins,
+  Copy,
   Dices,
   FileText,
+  Replace,
   RotateCcw,
   Scroll,
   Send,
+  SlidersHorizontal,
   Upload,
   Users,
 } from 'lucide-vue-next';
@@ -3592,6 +3636,52 @@ const playerDetailTab = ref<PlayerDetailTab>('status');
 const playerDetailInventoryTab = ref<PlayerDetailInventoryTab>('items');
 const isUpdatingInventory = ref(false);
 const inputText = ref('');
+type OptionActionMode = 'send' | 'replace' | 'append';
+const OPTION_ACTION_MODES: ReadonlyArray<{ key: OptionActionMode; label: string }> = [
+  { key: 'send', label: '直接发送' },
+  { key: 'replace', label: '覆盖输入框' },
+  { key: 'append', label: '复制并追加' },
+];
+const optionActionMode = ref<OptionActionMode>('replace');
+const optionActionModeMenuOpen = ref(false);
+const optionActionModeControlRef = ref<HTMLElement | null>(null);
+const optionActionModeMenuRef = ref<HTMLElement | null>(null);
+const optionActionModeMenuStyle = ref<Record<string, string>>({
+  left: '0px',
+  top: '0px',
+});
+const currentOptionActionMode = computed(
+  () => OPTION_ACTION_MODES.find(mode => mode.key === optionActionMode.value) ?? OPTION_ACTION_MODES[1]!,
+);
+const closeOptionActionModeMenu = () => {
+  optionActionModeMenuOpen.value = false;
+};
+const updateOptionActionModeMenuPosition = () => {
+  if (!optionActionModeMenuOpen.value || typeof window === 'undefined') return;
+  const control = optionActionModeControlRef.value;
+  if (!control) return;
+  const rect = control.getBoundingClientRect();
+  const menuWidth = 216;
+  const menuHeight = 142;
+  const gap = 9;
+  const left = Math.min(Math.max(8, rect.right + gap), Math.max(8, window.innerWidth - menuWidth - 8));
+  const top = Math.min(Math.max(8, rect.top), Math.max(8, window.innerHeight - menuHeight - 8));
+  optionActionModeMenuStyle.value = {
+    left: `${left}px`,
+    top: `${top}px`,
+  };
+};
+const toggleOptionActionModeMenu = () => {
+  if (gameStore.isGenerating) return;
+  optionActionModeMenuOpen.value = !optionActionModeMenuOpen.value;
+  if (optionActionModeMenuOpen.value) {
+    void nextTick(updateOptionActionModeMenuPosition);
+  }
+};
+const selectOptionActionMode = (mode: OptionActionMode) => {
+  optionActionMode.value = mode;
+  closeOptionActionModeMenu();
+};
 const inputWaitingDotsStep = ref(1);
 let inputWaitingDotsTimer: number | null = null;
 const inputPlaceholder = computed(() =>
@@ -5955,15 +6045,6 @@ const optionButtonTextStyle = computed(() => ({
   lineHeight: '1.6',
 }));
 
-const specialOptionButtonFontSize = computed(() =>
-  Math.round(clampTextSettingNumber(textSettings.fontSize * (16 / DEFAULT_TEXT_SETTINGS.fontSize), 13, 20, 16)),
-);
-
-const specialOptionButtonTextStyle = computed(() => ({
-  fontSize: `${specialOptionButtonFontSize.value}px`,
-  lineHeight: '1.5',
-}));
-
 watch(
   textSettings,
   value => {
@@ -7676,10 +7757,26 @@ const appendInputToMapRebirthAction = (actionText: string): string => {
   return extraText ? `${actionText}\n${extraText}` : actionText;
 };
 
+const getOptionMarker = (index: number): string => String.fromCharCode(65 + index);
+const getOptionDisplayText = (option: string): string => option.replace(/^[A-D]\.\s*/i, '').trim();
+
 const handleOptionClick = (option: string) => {
   if (gameStore.isGenerating) return;
-  // Strip the "A. " / "B. " / etc. prefix, paste content into input box
-  const stripped = option.replace(/^[A-D]\.\s*/i, '');
+  const stripped = getOptionDisplayText(option);
+  if (!stripped) return;
+
+  if (optionActionMode.value === 'send') {
+    inputText.value = stripped;
+    handleSendInput();
+    return;
+  }
+
+  if (optionActionMode.value === 'append') {
+    const existing = inputText.value.trim();
+    inputText.value = existing ? `${existing}\n${stripped}` : stripped;
+    return;
+  }
+
   inputText.value = stripped;
 };
 
@@ -7853,61 +7950,37 @@ const handleOptionCompletionItemClick = async (target: ButtonCompletionMenuKey) 
 // ── Room type config for E option ──
 interface RoomConfig {
   label: string;
-  icon: string;
-  bgColor: string;
-  borderColor: string;
-  textColor: string;
-  glowColor: string;
+  skin: InstanceType<typeof MainButtonSkin>['$props']['skin'];
 }
 
 const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
   宝箱房: {
     label: '打开宝箱',
-    icon: 'fa-solid fa-gem',
-    bgColor: 'rgba(161,98,7,0.25)',
-    borderColor: '#eab308',
-    textColor: '#fde68a',
-    glowColor: '#eab30880',
+    skin: 'menuChest',
   },
   战斗房: {
     label: '战斗',
-    icon: 'fa-solid fa-khanda',
-    bgColor: 'rgba(185,28,28,0.25)',
-    borderColor: '#dc2626',
-    textColor: '#fca5a5',
-    glowColor: '#dc262680',
+    skin: 'menuBattle',
   },
   领主房: {
     label: '战斗',
-    icon: 'fa-brands fa-fulcrum',
-    bgColor: 'rgba(185,28,28,0.3)',
-    borderColor: '#ef4444',
-    textColor: '#fca5a5',
-    glowColor: '#ef444480',
+    skin: 'menuBattle',
   },
   商店房: {
-    label: '打开商店',
-    icon: 'fa-solid fa-store',
-    bgColor: 'rgba(21,128,61,0.25)',
-    borderColor: '#22c55e',
-    textColor: '#bbf7d0',
-    glowColor: '#22c55e80',
+    label: '购买物品',
+    skin: 'menuShop',
   },
   温泉房: {
-    label: '清除诅咒',
-    icon: 'fa-solid fa-spa',
-    bgColor: 'rgba(8,145,178,0.25)',
-    borderColor: '#06b6d4',
-    textColor: '#a5f3fc',
-    glowColor: '#06b6d480',
+    label: '治疗与净化',
+    skin: 'menuCleanse',
   },
   神像房: {
-    label: '膜拜',
-    icon: 'fa-solid fa-person-praying',
-    bgColor: 'rgba(126,34,206,0.25)',
-    borderColor: '#a855f7',
-    textColor: '#e9d5ff',
-    glowColor: '#a855f780',
+    label: '祭拜神像',
+    skin: 'menuIdol',
+  },
+  事件房: {
+    label: '打开事件',
+    skin: 'menuEvent',
   },
 };
 
@@ -7951,13 +8024,13 @@ const resolveCurrentRoomSpecialOptionConfig = (ignoreConsumed = false): RoomConf
   if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
   const roomType = gameStore.statData._当前房间类型 as string;
   if (!roomType) return null;
-  if (roomType === '事件房' || roomType === '陷阱房') return null;
+  if (roomType === '陷阱房') return null;
   return ROOM_TYPE_CONFIG[roomType] ?? null;
 };
 
 const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => resolveCurrentRoomSpecialOptionConfig());
 
-// E option: no button for 事件房 / 陷阱房
+// E option: 陷阱房 does not have a special action button.
 const specialOptionConfig = computed<RoomConfig | null>(() => {
   if (!gameStore.hasOptionE) return null;
   return currentRoomSpecialOptionConfig.value;
@@ -9568,11 +9641,14 @@ watch(
 );
 
 const handleButtonCompletionOutsidePointerDown = (event: PointerEvent) => {
-  if (!optionCompletionMenuOpen.value) return;
+  if (!optionCompletionMenuOpen.value && !optionActionModeMenuOpen.value) return;
   const target = event.target;
   if (!(target instanceof Node)) return;
   if (buttonCompletionMenuRef.value?.contains(target)) return;
+  if (optionActionModeControlRef.value?.contains(target)) return;
+  if (optionActionModeMenuRef.value?.contains(target)) return;
   closeOptionCompletionMenu();
+  closeOptionActionModeMenu();
 };
 
 onMounted(() => {
@@ -9591,9 +9667,11 @@ onMounted(() => {
     window.addEventListener('resize', handleViewportResize, { passive: true });
     window.addEventListener('orientationchange', handleViewportResize, { passive: true });
     window.visualViewport?.addEventListener('resize', handleViewportResize, { passive: true });
+    window.addEventListener('resize', updateOptionActionModeMenuPosition, { passive: true });
     window.addEventListener('focusout', handleViewportFocusOut, { passive: true });
     document.addEventListener('fullscreenchange', handleViewportResize);
     document.addEventListener('pointerdown', handleButtonCompletionOutsidePointerDown);
+    document.addEventListener('scroll', updateOptionActionModeMenuPosition, true);
     inputWaitingDotsTimer = window.setInterval(() => {
       if (!gameStore.isGenerating) return;
       inputWaitingDotsStep.value = (inputWaitingDotsStep.value % 3) + 1;
@@ -9621,6 +9699,7 @@ watch(
   (isGenerating, wasGenerating) => {
     if (isGenerating) {
       closeOptionCompletionMenu();
+      closeOptionActionModeMenu();
     }
     if (!isGenerating) {
       inputWaitingDotsStep.value = 1;
@@ -9647,6 +9726,7 @@ watch(isCompactPortraitLayout, isCompact => {
   isVariableUpdateOpen.value = false;
   isGlossaryReferenceOpen.value = false;
   closeOptionCompletionMenu();
+  closeOptionActionModeMenu();
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -10238,9 +10318,11 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', handleViewportResize);
     window.removeEventListener('orientationchange', handleViewportResize);
     window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    window.removeEventListener('resize', updateOptionActionModeMenuPosition);
     window.removeEventListener('focusout', handleViewportFocusOut);
     document.removeEventListener('fullscreenchange', handleViewportResize);
     document.removeEventListener('pointerdown', handleButtonCompletionOutsidePointerDown);
+    document.removeEventListener('scroll', updateOptionActionModeMenuPosition, true);
     if (inputWaitingDotsTimer !== null) {
       window.clearInterval(inputWaitingDotsTimer);
       inputWaitingDotsTimer = null;
@@ -10425,102 +10507,273 @@ onBeforeUnmount(() => {
 }
 
 .ui-action-buttons {
+  position: relative;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
-.special-action-btn {
-  position: relative;
-  isolation: isolate;
+.option-action-mode-control {
+  position: absolute;
+  top: -1.05rem;
+  left: 0;
+  z-index: 20;
+}
+
+.option-action-mode-orb {
   display: inline-flex;
-  width: 100%;
-  min-height: 3.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
-  overflow: hidden;
-  border-width: 1px;
-  border-style: solid;
-  border-radius: 0.55rem;
-  padding: 0.85rem 1.2rem;
-  font-family: var(--font-heading, inherit);
-  font-size: 1rem;
-  letter-spacing: 0.08em;
+  border: 1px solid rgba(212, 175, 55, 0.58);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 236, 179, 0.2), transparent 42%),
+    rgba(19, 12, 8, 0.96);
+  color: rgba(251, 191, 36, 0.92);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 12px 26px rgba(0, 0, 0, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 5px 14px rgba(0, 0, 0, 0.36),
+    0 0 12px rgba(251, 191, 36, 0.12);
+  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.option-action-mode-orb:hover,
+.option-action-mode-orb:focus-visible,
+.option-action-mode-orb[aria-expanded='true'] {
+  border-color: rgba(251, 191, 36, 0.96);
+  color: rgba(255, 246, 207, 0.98);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 7px 16px rgba(0, 0, 0, 0.44),
+    0 0 18px rgba(251, 191, 36, 0.26);
+}
+
+.option-action-mode-orb:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.78);
+  outline-offset: 0.2rem;
+}
+
+.option-action-mode-menu {
+  position: fixed;
+  z-index: 200;
+  display: flex;
+  width: min(13.5rem, calc(100vw - 2rem));
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.42rem;
+  border: 1px solid rgba(212, 175, 55, 0.42);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgba(25, 16, 9, 0.98), rgba(12, 9, 8, 0.98)),
+    radial-gradient(circle at 82% 14%, rgba(251, 191, 36, 0.1), transparent 48%);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.46),
+    0 0 18px rgba(251, 191, 36, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+.option-action-mode-item {
+  display: flex;
+  width: 100%;
+  min-height: 2.35rem;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: rgba(49, 30, 14, 0.72);
+  color: rgba(236, 225, 200, 0.86);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  font-family: var(--font-ui, inherit);
+  font-size: 0.78rem;
+  font-weight: 700;
+  transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.option-action-mode-item:hover,
+.option-action-mode-item:focus-visible,
+.option-action-mode-item.is-active {
+  border-color: rgba(251, 191, 36, 0.54);
+  background: rgba(93, 57, 20, 0.78);
+  color: rgba(255, 247, 224, 0.98);
+  transform: translateX(1px);
+}
+
+.option-action-mode-item:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.6);
+  outline-offset: 1px;
+}
+
+.option-action-mode-item__arrow {
+  margin-left: auto;
+  color: rgba(251, 191, 36, 0.56);
+}
+
+.option-action-mode-menu-enter-active,
+.option-action-mode-menu-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  transform-origin: left center;
+}
+
+.option-action-mode-menu-enter-from,
+.option-action-mode-menu-leave-to {
+  opacity: 0;
+  transform: translateX(-6px) scale(0.98);
+}
+
+.option-action-btn {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.9rem;
+  overflow: hidden;
+  border: 1px solid rgba(125, 92, 48, 0.5);
+  border-radius: 0.48rem;
+  background:
+    linear-gradient(110deg, rgba(48, 29, 15, 0.88), rgba(20, 17, 14, 0.9) 72%),
+    rgba(9, 9, 9, 0.8);
+  color: rgba(235, 226, 208, 0.86);
+  padding: 0.78rem 1rem 0.78rem 0.82rem;
+  text-align: left;
+  font-family: var(--font-ui, inherit);
+  font-weight: 650;
+  letter-spacing: 0.025em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 5px 14px rgba(0, 0, 0, 0.18);
   transition:
     transform 0.18s ease,
-    filter 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease,
     box-shadow 0.18s ease;
 }
 
-.special-action-btn::before {
+.option-action-btn::before {
   content: '';
   position: absolute;
-  inset: 1px;
-  z-index: -1;
-  border-radius: 0.45rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.14), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 42%);
-  opacity: 0.72;
+  inset: 0 auto 0 0;
+  width: 0.18rem;
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.84), rgba(180, 83, 9, 0.52));
+  opacity: 0.78;
+  transition: width 0.18s ease, opacity 0.18s ease;
 }
 
-.special-action-btn:hover:not(:disabled),
-.special-action-btn:focus-visible {
+.option-action-btn:hover,
+.option-action-btn:focus-visible {
+  border-color: rgba(212, 175, 55, 0.68);
+  background:
+    linear-gradient(110deg, rgba(76, 46, 20, 0.92), rgba(26, 21, 15, 0.94) 72%),
+    rgba(14, 12, 10, 0.88);
+  color: rgba(255, 247, 224, 0.98);
+  transform: translateX(0.28rem);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 7px 18px rgba(0, 0, 0, 0.28),
+    0 0 14px rgba(212, 175, 55, 0.1);
+}
+
+.option-action-btn:hover::before,
+.option-action-btn:focus-visible::before {
+  width: 0.32rem;
+  opacity: 1;
+}
+
+.option-action-btn:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.58);
+  outline-offset: 2px;
+}
+
+.option-action-btn:active {
+  transform: translateX(0.14rem) scale(0.995);
+}
+
+.option-action-btn__marker {
+  position: relative;
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  border-radius: 0.38rem;
+  background: rgba(251, 191, 36, 0.08);
+  color: rgba(251, 220, 144, 0.96);
+  font-family: var(--font-heading, inherit);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.option-action-btn__text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.option-action-btn__arrow {
+  flex: 0 0 auto;
+  color: rgba(212, 175, 55, 0.48);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.option-action-btn:hover .option-action-btn__arrow,
+.option-action-btn:focus-visible .option-action-btn__arrow {
+  color: rgba(251, 191, 36, 0.92);
+  transform: translateX(0.16rem);
+}
+
+.menu-image-button {
+  position: relative;
+  display: block;
+  width: min(66.6667%, 34.6667rem);
+  aspect-ratio: 810 / 166;
+  min-height: 0;
+  margin-inline: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.menu-image-button:hover:not(:disabled),
+.menu-image-button:focus-visible {
   transform: translateY(-1px);
   filter: brightness(1.08) saturate(1.06);
 }
 
-.special-action-btn:active:not(:disabled) {
+.menu-image-button:focus-visible {
+  outline: 2px solid rgba(251, 191, 36, 0.78);
+  outline-offset: 0.25rem;
+}
+
+.menu-image-button:active:not(:disabled) {
   transform: translateY(0) scale(0.99);
 }
 
-.special-action-btn:disabled {
+.menu-image-button:disabled {
   cursor: not-allowed;
-  filter: grayscale(0.35);
+  filter: grayscale(0.45);
   opacity: 0.52;
 }
 
-.special-action-btn__shine {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.18) 42%, transparent 58%);
-  opacity: 0;
-  transform: translateX(-80%);
-  transition:
-    opacity 0.2s ease,
-    transform 0.55s ease;
+.special-action-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
 }
 
-.special-action-btn:hover .special-action-btn__shine,
-.special-action-btn:focus-visible .special-action-btn__shine {
-  opacity: 1;
-  transform: translateX(80%);
-}
-
-.special-action-btn__icon {
-  display: inline-flex;
-  width: 2rem;
-  height: 2rem;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 0.45rem;
-  background: rgba(0, 0, 0, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  font-size: 1.15rem;
-}
-
-.special-action-btn__label {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: center;
+.special-action-section .action-divider-label {
+  margin-bottom: 0;
 }
 
 .map-selection-section {
@@ -10528,46 +10781,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.55rem;
   margin-top: 1rem;
-}
-
-.map-selection-btn {
-  display: inline-flex;
-  min-height: 3.1rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  width: 100%;
-  border: 1px solid rgba(56, 189, 248, 0.48);
-  border-radius: 0.55rem;
-  background: linear-gradient(135deg, rgba(14, 116, 144, 0.32), rgba(12, 74, 110, 0.22)), rgba(8, 18, 26, 0.82);
-  color: rgba(224, 242, 254, 0.96);
-  font-family: var(--font-ui, inherit);
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 0.72rem 1rem;
-  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.map-selection-btn:hover,
-.map-selection-btn:focus-visible {
-  transform: translateY(-1px);
-  border-color: rgba(125, 211, 252, 0.9);
-  background: linear-gradient(135deg, rgba(14, 116, 144, 0.48), rgba(12, 74, 110, 0.34)), rgba(8, 18, 26, 0.9);
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.18);
-}
-
-.map-selection-btn__icon {
-  display: inline-flex;
-  width: 1.4rem;
-  height: 1.4rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(125, 211, 252, 0.4);
-  border-radius: 50%;
-  color: rgba(186, 230, 253, 0.96);
-  font-size: 1rem;
-  line-height: 1;
 }
 
 .rebirth-section {
@@ -10608,79 +10821,6 @@ onBeforeUnmount(() => {
 
 .action-divider-label--danger::after {
   background: linear-gradient(90deg, rgba(248, 113, 113, 0.36), transparent);
-}
-
-.rebirth-action-btn {
-  position: relative;
-  isolation: isolate;
-  display: inline-flex;
-  min-height: 3.35rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.58rem;
-  overflow: hidden;
-  border-radius: 0.55rem;
-  border: 1px solid rgba(248, 113, 113, 0.62);
-  background:
-    radial-gradient(circle at 18% 18%, rgba(248, 113, 113, 0.2), transparent 34%),
-    linear-gradient(180deg, rgba(69, 10, 10, 0.86), rgba(23, 10, 12, 0.95));
-  color: rgba(254, 226, 226, 0.96);
-  padding: 0.78rem 1.45rem;
-  font-family: var(--font-heading, inherit);
-  font-size: 0.9rem;
-  letter-spacing: 0.08em;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 16px rgba(239, 68, 68, 0.24),
-    0 12px 26px rgba(0, 0, 0, 0.28);
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    filter 0.18s ease;
-}
-
-.rebirth-action-btn::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  z-index: -1;
-  border-radius: 0.45rem;
-  border: 1px solid rgba(254, 202, 202, 0.08);
-  background: linear-gradient(135deg, rgba(254, 202, 202, 0.12), transparent 45%);
-}
-
-.rebirth-action-btn:hover:not(:disabled),
-.rebirth-action-btn:focus-visible {
-  transform: translateY(-1px);
-  border-color: rgba(252, 165, 165, 0.92);
-  filter: brightness(1.07);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 20px rgba(248, 113, 113, 0.4),
-    0 14px 28px rgba(0, 0, 0, 0.34);
-}
-
-.rebirth-action-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-}
-
-.rebirth-action-btn:disabled {
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-  opacity: 0.46;
-}
-
-.rebirth-action-btn__icon {
-  display: inline-flex;
-  width: 1.9rem;
-  height: 1.9rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.42rem;
-  background: rgba(127, 29, 29, 0.42);
-  font-size: 1rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .ui-input-shell {
