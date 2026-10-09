@@ -910,13 +910,13 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.SELF_CHOSEN_PAIN]: {
     type: EffectType.SELF_CHOSEN_PAIN, name: '自选之痛', polarity: 'scene',
-    timings: ['onAfterDamage', 'onBeforeAttack'], stackable: true, maxStacks: 6,
-    description: '双方自伤或受到真实伤害并实际损失生命时，下次造成的伤害+1，可累计至6；造成伤害时消耗。',
+    timings: ['onAfterDamage', 'onDiceRoll'], stackable: true, maxStacks: 0,
+    description: '双方自伤或受到真实伤害并实际损失生命时，下次投掷的点数+1。投掷时消耗。',
   },
   [EffectType.CORRIDOR_MEMORY]: {
     type: EffectType.CORRIDOR_MEMORY, name: '长廊记忆', polarity: 'scene',
-    timings: ['onAfterDamage'], stackable: true, maxStacks: 75,
-    description: '累计双方实际损失生命÷双方战斗初始生命上限之和，每层代表1%。达到25/50/75层时，佩恩获得2/4/6层增伤，玩家获得4/8/12层增伤；治疗不减少记录。',
+    timings: ['onAfterDamage'], stackable: true, maxStacks: 60,
+    description: '累计双方实际损失生命÷双方战斗初始生命上限之和，每层代表1%。达到20/40/60层时，佩恩获得2/4/6层增伤，玩家获得双倍；治疗不减少记录。',
   },
   [EffectType.PAIN_OATH_WHIP]: {
     type: EffectType.PAIN_OATH_WHIP, name: '一鞭为我', polarity: 'scene',

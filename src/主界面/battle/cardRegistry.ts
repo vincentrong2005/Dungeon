@@ -10048,11 +10048,11 @@ const 佩恩_归还真痛: CardData = {
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.3, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0 },
+  damageLogic: { mode: 'relative', scale: 0.7 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.3，打出时消耗最多4层痛忆，每消耗1层点数+2，造成1倍最终点数伤害。',
+  description: '点数*1.3，打出时消耗最多4层痛忆，每消耗1层点数+2，造成0.7倍最终点数伤害。',
 };
 
 /** 割开圣袍：自伤，增加荆棘并插入诅咒 */
@@ -10119,11 +10119,11 @@ const 佩恩_记得每一道伤: CardData = {
   rarity: '稀有',
   manaCost: 4,
   calculation: { multiplier: 1.4, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0 },
+  damageLogic: { mode: 'relative', scale: 0.7 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.4，打出时消耗全部痛忆，每消耗1层点数+2，造成1倍最终点数伤害。',
+  description: '点数*1.4，打出时消耗全部痛忆，每消耗1层点数+2，造成0.7倍最终点数伤害。',
 };
 
 /** 再来一鞭：自伤，增加骰子点数 */

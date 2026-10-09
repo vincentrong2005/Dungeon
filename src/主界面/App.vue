@@ -7,6 +7,7 @@
         key="splash"
         :environment-report="environmentReport"
         :environment-checking="isEnvironmentChecking"
+        :suppress-environment-panel="isStartingGame"
         @start="startGame"
         @force-start="forceStartGame"
         @check-environment="checkEnvironment()"
@@ -47,6 +48,7 @@ const isCollectionOpen = ref(false);
 const isOpeningEntryOpen = ref(false);
 const isOpeningEntrySubmitting = ref(false);
 const isEnvironmentChecking = ref(false);
+const isStartingGame = ref(false);
 const openingEntryError = ref<string | null>(null);
 const splashBackgroundUrl = ref('');
 const environmentReport = ref<EnvironmentCheckReport | null>(null);
@@ -67,12 +69,16 @@ onUnmounted(() => {
 async function startGame() {
   if (isEnvironmentChecking.value) return;
 
-  const report = await checkEnvironment({ notifyFailure: true });
-  if (!report.ready) {
-    return;
-  }
+  isStartingGame.value = true;
+  try {
+    const report = await checkEnvironment({ notifyFailure: true });
+    if (!report.ready) return;
 
-  await enterGame();
+    environmentReport.value = null;
+    await enterGame();
+  } finally {
+    isStartingGame.value = false;
+  }
 }
 
 async function forceStartGame() {

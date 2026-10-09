@@ -148,8 +148,8 @@
         v-for="effect in sceneEffects" :key="`${effect.type}-${sceneEffectPulse[effect.type] ?? 0}`" type="button"
         class="combat-scene-effect" :class="{
           'combat-scene-effect--oath': effect.type !== ET.SELF_CHOSEN_PAIN && effect.type !== ET.CORRIDOR_MEMORY,
-          'combat-scene-effect--resonant': (effect.type === ET.CORRIDOR_MEMORY && effect.stacks >= 25)
-            || (effect.type === ET.SELF_CHOSEN_PAIN && ((painScene?.nextDamageBonus.player ?? 0) + (painScene?.nextDamageBonus.enemy ?? 0)) > 0),
+          'combat-scene-effect--resonant': (effect.type === ET.CORRIDOR_MEMORY && effect.stacks >= 20)
+            || (effect.type === ET.SELF_CHOSEN_PAIN && ((painScene?.nextRollBonus.player ?? 0) + (painScene?.nextRollBonus.enemy ?? 0)) > 0),
           'combat-scene-effect--triggered': (sceneEffectPulse[effect.type] ?? 0) > 0,
         }"
         :aria-label="`${getEffectName(effect.type)}：${getSceneEffectDescription(effect)}`"
@@ -159,7 +159,7 @@
         @touchend="handleEffectTouchEnd" @touchcancel="handleEffectTouchEnd">
         <i :class="getEffectFontAwesomeClass(effect.type)" aria-hidden="true"></i>
         <span v-if="effect.type === ET.CORRIDOR_MEMORY" class="combat-scene-effect__count">{{ effect.stacks }}%</span>
-        <span v-else-if="effect.type === ET.SELF_CHOSEN_PAIN" class="combat-scene-effect__count">{{ painScene?.nextDamageBonus.player }}/{{ painScene?.nextDamageBonus.enemy }}</span>
+        <span v-else-if="effect.type === ET.SELF_CHOSEN_PAIN" class="combat-scene-effect__count">{{ painScene?.nextRollBonus.player }}/{{ painScene?.nextRollBonus.enemy }}</span>
       </button>
     </div>
     <div v-if="isPainBattle && !painPortraitsReady" class="pain-loading-overlay" role="status">
@@ -517,9 +517,10 @@
               v-for="eff in enemyVisibleEffects"
               :key="`enemy-${eff.type}-${eff.temporary ? 'temporary' : 'normal'}`"
               type="button"
+              data-effect-side="enemy"
               class="effect-icon-btn"
               :class="[effectIconBoxClass(eff.polarity), isBlockedEffectAnimating('enemy', eff.type) ? 'effect-blocked-shake' : '']"
-              :aria-label="`${getEffectInstanceName(eff)}: ${getEffectDescription(eff.type)}`"
+              :aria-label="`${getEffectInstanceName(eff)}: ${getEffectDescription(eff.type, 'enemy')}`"
               @mouseenter="showEffectTooltip($event, eff)"
               @mouseleave="hideEffectTooltip"
               @focus="showEffectTooltip($event, eff)"
@@ -1123,7 +1124,7 @@ import {
     calculateFinalPoint,
     consumeColdAfterDealingDamage,
     triggerSwarmReviveIfNeeded as triggerSwarmReviveIfNeededInAlgorithm,
-    addPainMemory, availablePainOaths, changePainThorns, choosePainOath, createPainScene,
+    addPainMemory, availablePainOaths, changePainThorns, choosePainOath, consumePainRollBonus, createPainScene,
     getPainOath, painHealingAmount, painIncomingDamage, painOutgoingDamage, painPointBonus,
     painThornsOnPlayerCard, recordPainHpLoss, updatePainPhase,
 } from '../battle/algorithms';
@@ -1508,7 +1509,7 @@ const transitionPainPortraitTo = (portrait: string) => {
 const getSceneEffectDescription = (effect: EffectInstance) => {
   let description = EFFECT_REGISTRY[effect.type]?.description ?? '';
   if (effect.type === ET.SELF_CHOSEN_PAIN && painScene) {
-    description += ` 当前下次伤害加成：玩家+${painScene.nextDamageBonus.player}，佩恩+${painScene.nextDamageBonus.enemy}。`;
+    description += ` 当前下次投掷点数加成：玩家+${painScene.nextRollBonus.player}，佩恩+${painScene.nextRollBonus.enemy}。`;
   }
   if (effect.type === ET.CORRIDOR_MEMORY && painScene) {
     description += ` 当前累计损血${painScene.totalHpLost}/${painScene.initialCombinedMaxHp}（${effect.stacks}%）。`;
@@ -1533,8 +1534,13 @@ const getEffectName = (type: EffectType): string => {
 const getEffectInstanceName = (effect: Pick<EffectInstance, 'type' | 'temporary'>): string => (
   effect.temporary ? `临时${getEffectName(effect.type)}` : getEffectName(effect.type)
 );
-const getEffectDescription = (type: EffectType): string => {
-  return EFFECT_REGISTRY[type]?.description ?? '';
+const getEffectDescription = (type: EffectType, side?: BattleSide): string => {
+  const description = EFFECT_REGISTRY[type]?.description ?? '';
+  if (isPainBattle && side === 'enemy') {
+    if (type === ET.PHASE_TRANSITION) return `${description}；转阶段后更换卡组，下回合开始时获得6层荆棘。`;
+    if (type === ET.THORNS) return `${description}；玩家打出物理/魔法牌时，佩恩的荆棘减少2层；打出功能/闪避牌时增加2层。`;
+  }
+  return description;
 };
 const createStatusEffectPreview = (type: EffectType, stacks: number): EffectInstance => ({
   type,
@@ -1938,9 +1944,9 @@ watch(() => enemyStats.value.hp, syncPainPhase, { flush: 'sync' });
 const recordBattlePainLoss = (side: BattleSide, amount: number, trueDamage: boolean, selfHarm = false) => {
   if (!painScene) return;
   const previousMemory = painScene.effects.find(effect => effect.type === ET.CORRIDOR_MEMORY)?.stacks ?? 0;
-  const previousBonus = painScene.nextDamageBonus[side];
+  const previousBonus = painScene.nextRollBonus[side];
   recordPainHpLoss(painScene, side, amount, trueDamage, playerStats.value, enemyStats.value, selfHarm);
-  if (painScene.nextDamageBonus[side] !== previousBonus) pulseSceneEffect(ET.SELF_CHOSEN_PAIN);
+  if (painScene.nextRollBonus[side] !== previousBonus) pulseSceneEffect(ET.SELF_CHOSEN_PAIN);
   if ((painScene.effects.find(effect => effect.type === ET.CORRIDOR_MEMORY)?.stacks ?? 0) !== previousMemory) {
     pulseSceneEffect(ET.CORRIDOR_MEMORY);
   }
@@ -3073,9 +3079,8 @@ const applyDamageToSideWithRelics = (
   let effectiveIncoming = incoming;
   const painDamageSource = painScene && damageOptions.sourceSide && damageOptions.sourceSide !== side
     ? damageOptions.sourceSide : null;
-  const painBonusBeforeDamage = painDamageSource ? painScene!.nextDamageBonus[painDamageSource] : 0;
   if (painScene && painDamageSource) {
-    effectiveIncoming = painOutgoingDamage(painScene, painDamageSource, effectiveIncoming, combatState.value.turn, false);
+    effectiveIncoming = painOutgoingDamage(painScene, painDamageSource, effectiveIncoming, combatState.value.turn);
   }
   if (damageOptions.isDirectDamage && damageOptions.card?.swarmAttack && isTwinEntity(target)) {
     effectiveIncoming = Math.max(0, Math.floor(effectiveIncoming * 2));
@@ -3163,9 +3168,6 @@ const applyDamageToSideWithRelics = (
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!damageOptions.card?.swarmAttack,
   });
-  if (painScene && painDamageSource && result.actualDamage > 0) {
-    painScene.nextDamageBonus[painDamageSource] = Math.max(0, painScene.nextDamageBonus[painDamageSource] - painBonusBeforeDamage);
-  }
   processPleasureDamageFeedback(side, target, result.limitOverflow, result.actualDamage, reason);
   recordBattlePainLoss(side, Math.max(result.actualDamage, hpBeforeDamage - target.hp), effectiveTrueDamage);
   addDamageHitTakenThisCombat(side, result.actualDamage);
@@ -3269,9 +3271,8 @@ const applyDirectHpLossWithRelics = (
   let incoming = Math.max(0, Math.floor(damage));
   const painDamageSource = painScene && damageOptions.sourceSide && damageOptions.sourceSide !== side
     ? damageOptions.sourceSide : null;
-  const painBonusBeforeDamage = painDamageSource ? painScene!.nextDamageBonus[painDamageSource] : 0;
   if (painScene && painDamageSource) {
-    incoming = painOutgoingDamage(painScene, painDamageSource, incoming, combatState.value.turn, false);
+    incoming = painOutgoingDamage(painScene, painDamageSource, incoming, combatState.value.turn);
   }
   if (painScene) incoming = painIncomingDamage(painScene, side, incoming, true);
   if (incoming <= 0) return 0;
@@ -3296,9 +3297,6 @@ const applyDirectHpLossWithRelics = (
   const before = target.hp;
   target.hp = Math.max(0, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
-  if (painScene && painDamageSource && actualDamage > 0) {
-    painScene.nextDamageBonus[painDamageSource] = Math.max(0, painScene.nextDamageBonus[painDamageSource] - painBonusBeforeDamage);
-  }
   recordBattlePainLoss(side, actualDamage, true, true);
   processPleasureDamageFeedback(side, target, 0, actualDamage, reason);
   addDamageHitTakenThisCombat(side, actualDamage);
@@ -5819,6 +5817,14 @@ const applyHitAttachEffects = (
 const consumeChargeOnRoll = (stats: EntityStats, label: string, rolled: number) => {
   let next = rolled;
 
+  const painSide = stats === playerStats.value ? 'player' : stats === enemyStats.value ? 'enemy' : null;
+  if (painScene && painSide && painScene.nextRollBonus[painSide] > 0) {
+    const bonus = painScene.nextRollBonus[painSide];
+    next = consumePainRollBonus(painScene, painSide, next);
+    pulseSceneEffect(ET.SELF_CHOSEN_PAIN);
+    log(`<span class="text-rose-200">${label}[自选之痛] +${bonus}，原始骰子 ${rolled} → ${next}</span>`);
+  }
+
   const chargeStacks = getEffectStacks(stats, ET.CHARGE);
   if (chargeStacks > 0) {
     removeEffect(stats, ET.CHARGE);
@@ -6983,7 +6989,9 @@ const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance,
     x,
     y: below ? rect.bottom : top,
     name: getEffectInstanceName(effect),
-    description: effect.polarity === 'scene' ? getSceneEffectDescription(effect) : getEffectDescription(effect.type),
+    description: effect.polarity === 'scene'
+      ? getSceneEffectDescription(effect)
+      : getEffectDescription(effect.type, target.dataset.effectSide === 'enemy' ? 'enemy' : undefined),
     stacks: effect.stacks,
     align,
     below,

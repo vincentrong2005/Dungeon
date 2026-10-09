@@ -448,7 +448,7 @@ export interface PainSceneState {
   effects: EffectInstance[];
   initialCombinedMaxHp: number;
   totalHpLost: number;
-  nextDamageBonus: Record<PainSide, number>;
+  nextRollBonus: Record<PainSide, number>;
   phase: 1 | 2;
   phaseTwoActive: boolean;
   armorBlockedTurn: number;
@@ -461,7 +461,7 @@ export function createPainScene(player: EntityStats, enemy: EntityStats): PainSc
       { type: EffectType.CORRIDOR_MEMORY, stacks: 0, polarity: 'scene' },
     ],
     initialCombinedMaxHp: Math.max(1, player.maxHp + enemy.maxHp), totalHpLost: 0,
-    nextDamageBonus: { player: 0, enemy: 0 }, phase: 1, phaseTwoActive: false, armorBlockedTurn: -1,
+    nextRollBonus: { player: 0, enemy: 0 }, phase: 1, phaseTwoActive: false, armorBlockedTurn: -1,
   };
 }
 
@@ -491,11 +491,11 @@ export function recordPainHpLoss(state: PainSceneState, side: PainSide, amount: 
   player: EntityStats, enemy: EntityStats, selfHarm = false): void {
   if (amount <= 0) return;
   if (side === 'enemy') addPainMemory(enemy, trueDamage ? 2 : 1);
-  if (trueDamage || selfHarm) state.nextDamageBonus[side] = Math.min(6, state.nextDamageBonus[side] + 1);
+  if (trueDamage || selfHarm) state.nextRollBonus[side] += 1;
   state.totalHpLost += amount;
   const memory = state.effects.find(effect => effect.type === EffectType.CORRIDOR_MEMORY)!;
-  memory.stacks = Math.min(75, Math.floor(state.totalHpLost * 100 / state.initialCombinedMaxHp));
-  const tier = Math.floor(memory.stacks / 25);
+  memory.stacks = Math.min(60, Math.floor(state.totalHpLost * 100 / state.initialCombinedMaxHp));
+  const tier = Math.floor(memory.stacks / 20);
   // Keep scene bonuses separate from other damage boosts so tier changes do not overwrite them.
   for (const [entity, multiplier] of [[enemy, 2], [player, 4]] as const) {
     let boost = entity.effects.find(effect => effect.type === EffectType.DAMAGE_BOOST && effect.source === 'scene:corridor');
@@ -512,14 +512,16 @@ export function painIncomingDamage(state: PainSceneState, side: PainSide, amount
     ? Math.ceil(amount * 1.25) : amount;
 }
 
-export function painOutgoingDamage(state: PainSceneState, source: PainSide, amount: number, turn: number,
-  consume = true): number {
+export function consumePainRollBonus(state: PainSceneState, side: PainSide, rolled: number): number {
+  const bonus = state.nextRollBonus[side];
+  state.nextRollBonus[side] = 0;
+  return rolled + bonus;
+}
+
+export function painOutgoingDamage(state: PainSceneState, source: PainSide, amount: number, turn: number): number {
   if (amount <= 0) return amount;
-  let damage = amount + state.nextDamageBonus[source];
-  if (consume) state.nextDamageBonus[source] = 0;
   const whip = getPainOath(state, EffectType.PAIN_OATH_WHIP);
-  if (source === 'player' && whip && turn === (whip.runtimeCounter ?? 0) + 1) damage *= 2;
-  return damage;
+  return source === 'player' && whip && turn === (whip.runtimeCounter ?? 0) + 1 ? amount * 2 : amount;
 }
 
 export function painHealingAmount(state: PainSceneState, side: PainSide, amount: number): number {
