@@ -13,6 +13,7 @@
         @check-environment="checkEnvironment()"
         @toggle-fullscreen="toggleFullScreen"
         @open-collection="isCollectionOpen = true"
+        @open-tutorial="startTutorialTraining"
         @background-change="splashBackgroundUrl = $event"
       />
 
@@ -29,6 +30,7 @@
       />
     </Transition>
     <WitchCollectionModal :is-open="isCollectionOpen" @close="isCollectionOpen = false" />
+    <TutorialBattleView v-if="isTutorialBattleOpen" @close="closeTutorialBattle" />
   </div>
 </template>
 
@@ -36,6 +38,7 @@
 import { ensureAuthorTestAccessBenefits } from './authorTestAccess';
 import GameView from './components/GameView.vue';
 import SplashScreen from './components/SplashScreen.vue';
+import TutorialBattleView from './components/TutorialBattleView.vue';
 import WitchCollectionModal from './components/WitchCollectionModal.vue';
 import { disposeBgm, initializeBgm } from './bgm';
 import { runEnvironmentCheck, type EnvironmentCheckReport } from './environmentCheck';
@@ -45,6 +48,7 @@ import { buildOpeningPrompt, type OpeningInfoSubmission } from './openingProfile
 
 const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
 const isCollectionOpen = ref(false);
+const isTutorialBattleOpen = ref(false);
 const isOpeningEntryOpen = ref(false);
 const isOpeningEntrySubmitting = ref(false);
 const isEnvironmentChecking = ref(false);
@@ -53,6 +57,14 @@ const openingEntryError = ref<string | null>(null);
 const splashBackgroundUrl = ref('');
 const environmentReport = ref<EnvironmentCheckReport | null>(null);
 const gameStore = useGameStore();
+
+function startTutorialTraining() {
+  isTutorialBattleOpen.value = true;
+}
+
+function closeTutorialBattle() {
+  isTutorialBattleOpen.value = false;
+}
 
 onMounted(() => {
   ensureAuthorTestAccessBenefits();

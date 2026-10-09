@@ -65,9 +65,9 @@
           type="button"
           class="splash-menu-button splash-menu-button--tutorial"
           :style="{ backgroundImage: `url('${menuSkin}')` }"
-          aria-label="教程（暂未开放）"
-          title="教程（暂未开放）"
-          @click="showTutorialNotice"
+          aria-label="教程"
+          title="教程"
+          @click="$emit('openTutorial')"
         ></button>
       </div>
 
@@ -93,13 +93,6 @@
         <span class="splash-update-card__arrow" aria-hidden="true">›</span>
       </button>
     </main>
-
-    <Transition name="tutorial-notice-fade">
-      <div v-if="tutorialNoticeVisible" class="tutorial-notice" role="status" aria-live="polite">
-        <span class="tutorial-notice__mark">!</span>
-        <span>教程尚未完工，敬请期待</span>
-      </div>
-    </Transition>
 
     <Transition name="panel-fade">
       <section
@@ -223,6 +216,7 @@ const emit = defineEmits<{
   checkEnvironment: [];
   toggleFullscreen: [];
   openCollection: [];
+  openTutorial: [];
   backgroundChange: [url: string];
 }>();
 
@@ -237,9 +231,8 @@ const splashBackgrounds: string[] = [mainBackgroundUrl];
 const updateModalOpen = ref(false);
 const updateCardButton = ref<HTMLButtonElement | null>(null);
 const updateCloseButton = ref<HTMLButtonElement | null>(null);
-const tutorialNoticeVisible = ref(false);
-let tutorialNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 const updateEntries: { date: string; content: string; milestone?: string }[] = [
+  { date: '10.10', content: '标题界面UI重做，教程功能更新' },
   { date: '10.07', content: '更新苦修之路' },
   { date: '10.05', content: '地图系统重做' },
   { date: '10.03', content: '更新卡牌、按钮美化' },
@@ -317,15 +310,6 @@ function dismissPanel() {
 const pickRandomBackground = (exclude?: string) => {
   const candidates = exclude ? splashBackgrounds.filter(url => url !== exclude) : splashBackgrounds;
   return candidates[Math.floor(Math.random() * candidates.length)] ?? splashBackgrounds[0];
-};
-
-const showTutorialNotice = () => {
-  tutorialNoticeVisible.value = true;
-  if (tutorialNoticeTimer) clearTimeout(tutorialNoticeTimer);
-  tutorialNoticeTimer = setTimeout(() => {
-    tutorialNoticeVisible.value = false;
-    tutorialNoticeTimer = null;
-  }, 2400);
 };
 
 const preloadImage = (url: string) =>
@@ -413,10 +397,6 @@ onBeforeUnmount(() => {
   if (backgroundFadeTimer) {
     clearTimeout(backgroundFadeTimer);
     backgroundFadeTimer = null;
-  }
-  if (tutorialNoticeTimer) {
-    clearTimeout(tutorialNoticeTimer);
-    tutorialNoticeTimer = null;
   }
 });
 </script>

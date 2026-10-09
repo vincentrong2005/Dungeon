@@ -841,6 +841,7 @@
           <div
             v-for="(card, idx) in combatState.playerHand"
             :key="handCardKey(card)"
+            :data-tutorial-card-id="card.id"
             class="relative transition-all duration-500 origin-bottom"
             :class="[handCardClass(card), isCardShaking(card) ? 'invalid-card-shake' : '']"
             :style="transitionStyle(500)"
@@ -886,6 +887,7 @@
               v-for="slot in playerActiveSkillSlots"
               :key="`active-skill-slot-${slot.idx}`"
               type="button"
+              :data-tutorial-active-skill="slot.idx"
               class="rounded-xl transition-all"
               :class="[
                 activeSkillButtonDisabled(slot.idx)
@@ -1178,16 +1180,24 @@ const props = withDefaults(defineProps<{
   playerActiveSkills?: ActiveSkillData[];
   playerRelics?: Record<string, number>;
   playerPortraitOverrideUrl?: string;
+  backgroundAreaOverride?: string;
   testStartAt999?: boolean;
   uiFontFamily?: string;
   trackDiscovery?: boolean;
+  preservePlayerDeckOrder?: boolean;
+  tutorialDiceScript?: ReadonlyArray<{ player: number; enemy: number }>;
+  tutorialInitialRerollCharges?: number;
 }>(), {
   playerActiveSkills: () => [],
   playerRelics: () => ({}),
   playerPortraitOverrideUrl: '',
+  backgroundAreaOverride: '',
   testStartAt999: false,
   uiFontFamily: '',
   trackDiscovery: true,
+  preservePlayerDeckOrder: false,
+  tutorialDiceScript: () => [],
+  tutorialInitialRerollCharges: 0,
 });
 
 const emit = defineEmits<{
@@ -1195,15 +1205,20 @@ const emit = defineEmits<{
   openDeck: [];
   openRelics: [];
   openGlossary: [];
+  playerCardSelected: [card: CardData];
+  playerDiceRerolled: [before: number, after: number];
+  activeSkillUsed: [skill: ActiveSkillData];
+  turnResolved: [turn: number];
 }>();
 
 const gameStore = useGameStore();
+const isTutorialBattle = props.enemyName === '训练人偶';
 const resolveCurrentFloorNumber = () => {
   const area = (gameStore.statData._当前区域 as string) || '';
   const floorFromArea = getFloorNumberForArea(area);
   const fallback = Math.max(1, Math.floor(Number(gameStore.statData._楼层数 ?? 1)));
   const floor = area ? floorFromArea : fallback;
-  gameStore.statData._楼层数 = floor;
+  if (!isTutorialBattle) gameStore.statData._楼层数 = floor;
   return floor;
 };
 const currentFloorNumber = resolveCurrentFloorNumber();
@@ -1389,12 +1404,12 @@ const bgIsLordFallback = ref(false);
 const bgImageError = ref(false);
 
 const HF_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF`;
-const currentArea = computed(() => (gameStore.statData._当前区域 as string) || '');
+const currentArea = computed(() => props.backgroundAreaOverride || (gameStore.statData._当前区域 as string) || '');
 const currentRoomType = computed(() => (gameStore.statData._当前房间类型 as string) || '');
 const isCurrentOpponentLord = () => currentRoomType.value.includes('领主') || BOSS_FOLDER_NAMES.has(enemyDisplayName);
 const bgImageUrl = computed(() => {
   if (!currentArea.value || bgImageError.value) return '';
-  const isLord = currentRoomType.value === '领主' && !bgIsLordFallback.value;
+  const isLord = !props.backgroundAreaOverride && currentRoomType.value === '领主' && !bgIsLordFallback.value;
   const suffix = isLord ? `${currentArea.value}_领主` : currentArea.value;
   return `${HF_BASE}/${encodeURIComponent(suffix)}.png`;
 });
@@ -1437,7 +1452,7 @@ const buildEnemyInitialStats = (): EntityStats => {
     baseStats.minDice = Math.max(0, Math.floor(props.initialPlayerStats.minDice));
     baseStats.maxDice = Math.max(baseStats.minDice, Math.floor(props.initialPlayerStats.maxDice));
   }
-  if (difficultyHpMultiplier !== 1 && baseStats.maxHp < INFINITE_HP_VALUE) {
+  if (!isTutorialBattle && difficultyHpMultiplier !== 1 && baseStats.maxHp < INFINITE_HP_VALUE) {
     const scaledMaxHp = Math.max(1, Math.round(baseStats.maxHp * difficultyHpMultiplier));
     const scaledHp = Math.max(1, Math.min(scaledMaxHp, Math.round(baseStats.hp * difficultyHpMultiplier)));
     baseStats.maxHp = scaledMaxHp;
@@ -1922,7 +1937,10 @@ const combatState = ref<CombatState>({
   playerBaseDice: 1,
   enemyBaseDice: 1,
   playerHand: [],
-  playerDeck: toBattleDeck(props.playerDeck).sort(() => Math.random() - 0.5),
+  playerDeck: (() => {
+    const deck = toBattleDeck(props.playerDeck);
+    return props.preservePlayerDeckOrder ? deck : deck.sort(() => Math.random() - 0.5);
+  })(),
   discardPile: [],
   enemyDeck: [...enemyDeck],
   enemyDiscard: [],
@@ -6901,6 +6919,7 @@ const handlePlayerDiceClick = () => {
   previewPlayerDice.value = null;
   log(`<span class="text-amber-200">我方骰子重掷：${before} → ${after}</span>`);
   triggerPlayerAfterRerollRelics(before, after);
+  emit('playerDiceRerolled', before, after);
 };
 
 const canPreviewEnemyDice = () => {
@@ -8320,6 +8339,7 @@ const useActiveSkill = async (idx: number) => {
   }
 
   commitActiveSkillUse(idx, skill);
+  emit('activeSkillUsed', skill);
   activeSkillResolving.value = false;
 };
 
@@ -8707,6 +8727,13 @@ const resolveEnemyComboPreludeIfNeeded = async (initialCard: CardData): Promise<
 const startTurn = () => {
   if (endCombatPending.value) return;
   log(`<span class="text-slate-300">——第${combatState.value.turn}回合——</span>`);
+  if (combatState.value.turn === 1 && props.tutorialInitialRerollCharges > 0) {
+    const initialCharges = Math.max(0, Math.floor(props.tutorialInitialRerollCharges));
+    if (initialCharges > 0) {
+      playerDiceRerollCharges.value = Math.max(playerDiceRerollCharges.value, initialCharges);
+      log(`<span class="text-amber-300">教学演示：训练场预置了 ${initialCharges} 次重掷机会。</span>`);
+    }
+  }
   hideIdleDiceUntilNextTurn.value = false;
   enemyManaLackHintTurn = -1;
   armorDecaySkippedThisTurn.value.player = false;
@@ -8800,10 +8827,21 @@ const startTurn = () => {
 
   setTimeout(() => {
     if (endCombatPending.value) return;
-    const pRawRoll = rollPlayerDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
-    const eRawRoll = usesPlayerPreviousPointDice && previousPlayerFinalPoint.value !== null
-      ? Math.max(0, Math.floor(previousPlayerFinalPoint.value))
-      : Math.floor(Math.random() * (effectiveEnemyMaxDice.value - effectiveEnemyMinDice.value + 1)) + effectiveEnemyMinDice.value;
+    const scriptedDice = props.tutorialDiceScript[combatState.value.turn - 1];
+    const pRawRoll = scriptedDice
+      ? Math.min(
+          playerStats.value.maxDice,
+          Math.max(playerStats.value.minDice, Math.floor(scriptedDice.player)),
+        )
+      : rollPlayerDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
+    const eRawRoll = scriptedDice
+      ? Math.min(
+          effectiveEnemyMaxDice.value,
+          Math.max(effectiveEnemyMinDice.value, Math.floor(scriptedDice.enemy)),
+        )
+      : usesPlayerPreviousPointDice && previousPlayerFinalPoint.value !== null
+        ? Math.max(0, Math.floor(previousPlayerFinalPoint.value))
+        : Math.floor(Math.random() * (effectiveEnemyMaxDice.value - effectiveEnemyMinDice.value + 1)) + effectiveEnemyMinDice.value;
     const pRoll = consumeChargeOnRoll(playerStats.value, '我方', pRawRoll);
     const eRoll = consumeChargeOnRoll(enemyStats.value, '敌方', eRawRoll);
     playerTurnRawDice.value = pRawRoll;
@@ -9401,6 +9439,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   showPlayerPlayedCard(playedCard);
   combatState.value.discardPile.push(discardCard);
   combatState.value.playerSelectedCard = playedCard;
+  emit('playerCardSelected', playedCard);
   combatState.value.phase = CombatPhase.RESOLUTION;
 };
 
@@ -13193,8 +13232,10 @@ const resolveCombat = async (
   combatState.value.discardPile = [...combatState.value.discardPile, ...discardingCards];
   combatState.value.playerHand = mergePlayerHandWithDrawnCards(retainedCards, []);
   resetTwinTurnSelections();
+  const resolvedTurn = combatState.value.turn;
   combatState.value.turn += 1;
   combatState.value.phase = CombatPhase.TURN_START;
+  emit('turnResolved', resolvedTurn);
   } catch (error) {
     console.error('[resolveCombat] error', error);
     stopAllCardAnimations();

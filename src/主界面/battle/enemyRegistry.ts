@@ -762,6 +762,32 @@ function create宝箱怪Definition(currentFloor: number): EnemyDefinition {
   };
 }
 
+/** 教程训练战：固定牌组与出牌顺序，确保新玩家能按章节观察规则。 */
+const 训练人偶: EnemyDefinition = {
+  name: '训练人偶',
+  stats: {
+    hp: 20,
+    maxHp: 20,
+    mp: 10,
+    minDice: 1,
+    maxDice: 6,
+    effects: [],
+  },
+  deck: buildDeckById(['basic_physical', 'basic_magic', 'basic_shield', 'basic_dodge']),
+  selectCard(ctx: EnemyAIContext) {
+    const teachingCycle = [
+      'basic_physical',
+      'basic_physical',
+      'basic_magic',
+      'basic_physical',
+      'basic_shield',
+      'basic_dodge',
+    ];
+    const index = Math.max(0, Math.floor(ctx.turn) - 1) % teachingCycle.length;
+    return pickCardById(ctx, teachingCycle[index]!);
+  },
+};
+
 const 游荡粘液球: EnemyDefinition = {
   name: '游荡粘液球',
   stats: {
@@ -4640,6 +4666,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
 const ENEMY_NAME_ORDER: readonly string[] = [沐芯兰名称, 宝箱怪名称, ...STATIC_ENEMY_REGISTRY.keys()];
 
 export function getEnemyByName(name: string, currentFloor: number = 1): EnemyDefinition | undefined {
+  if (name === 训练人偶.name) return 训练人偶;
   if (name === 沐芯兰名称) {
     return create沐芯兰Definition(currentFloor);
   }
