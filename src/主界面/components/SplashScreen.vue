@@ -71,7 +71,13 @@
         ></button>
       </div>
 
-      <button type="button" class="splash-update-card" aria-label="查看完整更新日志" @click="updateModalOpen = true">
+      <button
+        ref="updateCardButton"
+        type="button"
+        class="splash-update-card"
+        aria-label="查看完整更新日志"
+        @click="updateModalOpen = true"
+      >
         <img
           class="splash-update-card__skin"
           :src="updateCardSkin"
@@ -80,7 +86,6 @@
           width="2148"
           height="732"
         />
-        <img class="splash-update-card__portrait" :src="painPortraitUrl" alt="佩恩" width="1024" height="1024" />
         <span class="splash-update-card__copy">
           <span>新的区域已解锁</span>
           <strong>苦修之路·「佩恩」</strong>
@@ -163,6 +168,8 @@
         class="splash-update-overlay"
         role="presentation"
         @click.self="updateModalOpen = false"
+        @keydown.esc.stop.prevent="updateModalOpen = false"
+        @keydown.tab.stop.prevent="updateCloseButton?.focus()"
       >
         <section class="splash-update-dialog" role="dialog" aria-modal="true" aria-labelledby="splash-update-title">
           <div class="splash-update-dialog__header">
@@ -171,6 +178,7 @@
               <h2 id="splash-update-title">更新日志</h2>
             </div>
             <button
+              ref="updateCloseButton"
               type="button"
               class="splash-update-dialog__close"
               aria-label="关闭更新日志"
@@ -179,15 +187,20 @@
               <X class="size-5" />
             </button>
           </div>
-          <div class="splash-update-dialog__body">
-            <p
-              v-for="entry in updateEntries"
-              :key="entry"
-              :class="entry.startsWith('------') ? 'splash-update-dialog__divider' : ''"
-            >
-              {{ entry }}
-            </p>
-          </div>
+          <ol class="splash-update-dialog__body" aria-label="更新记录">
+            <template v-for="(entry, index) in updateEntries" :key="entry.date">
+              <li v-if="entry.milestone" class="splash-update-dialog__milestone">
+                <span>{{ entry.milestone }}</span>
+              </li>
+              <li class="splash-update-dialog__entry" :class="{ 'splash-update-dialog__entry--latest': index === 0 }">
+                <span class="splash-update-dialog__date">{{ entry.date }}</span>
+                <div class="splash-update-dialog__content">
+                  <span>{{ entry.content }}</span>
+                  <span v-if="index === 0" class="splash-update-dialog__latest">最新</span>
+                </div>
+              </li>
+            </template>
+          </ol>
         </section>
       </div>
     </Transition>
@@ -197,7 +210,6 @@
 <script setup lang="ts">
 import { AlertTriangle, Maximize, ShieldCheck, X } from 'lucide-vue-next';
 import type { EnvironmentCheckReport, EnvironmentDependencyStatus } from '../environmentCheck';
-import { getLocalFolderImagePaths } from '../localAssetManifest';
 
 const props = defineProps<{
   environmentReport: EnvironmentCheckReport | null;
@@ -222,23 +234,21 @@ const menuSkin = `${TITLE_SCREEN_ASSET_ROOT}/%E8%8F%9C%E5%8D%95%E6%8C%89%E9%92%A
 const updateCardSkin = `${TITLE_SCREEN_ASSET_ROOT}/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97%E5%AE%B9%E5%99%A8.png`;
 const mainBackgroundUrl = `${TITLE_SCREEN_ASSET_ROOT}/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF.png`;
 const splashBackgrounds: string[] = [mainBackgroundUrl];
-const painPortraitPaths = getLocalFolderImagePaths('地牢/魔物/佩恩', 1);
-const painPortraitUrl = ref('');
 const updateModalOpen = ref(false);
+const updateCardButton = ref<HTMLButtonElement | null>(null);
+const updateCloseButton = ref<HTMLButtonElement | null>(null);
 const tutorialNoticeVisible = ref(false);
 let tutorialNoticeTimer: ReturnType<typeof setTimeout> | null = null;
-const updateEntries = [
-  '# 更新日志',
-  '- 10.07 更新苦修之路',
-  '- 10.05 地图系统重做',
-  '- 10.03 更新卡牌、按钮美化',
-  '- 7.07 更新圣水之海',
-  '- 6.21 更新终极区域',
-  '- 6.18 更新交媾祭坛',
-  '------ 第四层更新完毕 ------',
-  '- 5.31 更新极乐宴会厅',
-  '- 5.21 更新春梦回廊',
-  '- 5.18 更新自定义难度',
+const updateEntries: { date: string; content: string; milestone?: string }[] = [
+  { date: '10.07', content: '更新苦修之路' },
+  { date: '10.05', content: '地图系统重做' },
+  { date: '10.03', content: '更新卡牌、按钮美化' },
+  { date: '7.07', content: '更新圣水之海' },
+  { date: '6.21', content: '更新终极区域' },
+  { date: '6.18', content: '更新交媾祭坛' },
+  { date: '5.31', content: '更新极乐宴会厅', milestone: '第四层更新完毕' },
+  { date: '5.21', content: '更新春梦回廊' },
+  { date: '5.18', content: '更新自定义难度' },
 ];
 const currentBackgroundUrl = ref<string>(splashBackgrounds[0]);
 const incomingBackgroundUrl = ref<string | null>(null);
@@ -309,17 +319,6 @@ const pickRandomBackground = (exclude?: string) => {
   return candidates[Math.floor(Math.random() * candidates.length)] ?? splashBackgrounds[0];
 };
 
-const toImageUrl = (repoPath: string) =>
-  `${IMAGE_CDN_ROOT}/${repoPath
-    .split('/')
-    .map(segment => encodeURIComponent(segment))
-    .join('/')}`;
-
-const pickPainPortrait = () => {
-  const path = painPortraitPaths[Math.floor(Math.random() * painPortraitPaths.length)] ?? painPortraitPaths[0];
-  if (path) painPortraitUrl.value = toImageUrl(path);
-};
-
 const showTutorialNotice = () => {
   tutorialNoticeVisible.value = true;
   if (tutorialNoticeTimer) clearTimeout(tutorialNoticeTimer);
@@ -382,9 +381,13 @@ const switchBackground = async () => {
 
 onMounted(() => {
   currentBackgroundUrl.value = pickRandomBackground();
-  pickPainPortrait();
   emit('backgroundChange', currentBackgroundUrl.value);
   isVisible.value = true;
+});
+
+watch(updateModalOpen, async open => {
+  await nextTick();
+  (open ? updateCloseButton.value : updateCardButton.value)?.focus();
 });
 
 watch(
@@ -559,17 +562,6 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: contain;
   pointer-events: none;
-}
-
-.splash-update-card__portrait {
-  position: absolute;
-  bottom: 20%;
-  left: -7%;
-  z-index: 1;
-  width: 45%;
-  height: auto;
-  pointer-events: none;
-  filter: drop-shadow(0 0 0.45rem rgba(219, 223, 255, 0.38));
 }
 
 .splash-update-card__copy {
@@ -806,82 +798,147 @@ onBeforeUnmount(() => {
 }
 
 .splash-update-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 50;
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding: 3cqw;
   background: rgba(3, 2, 4, 0.74);
-  backdrop-filter: blur(0.45rem);
+  backdrop-filter: blur(0.4cqw);
 }
 
 .splash-update-dialog {
-  width: min(36rem, 100%);
-  max-height: min(82vh, 44rem);
-  overflow: auto;
-  border: 1px solid rgba(241, 179, 82, 0.5);
-  border-radius: 0.85rem;
-  background: linear-gradient(145deg, rgba(52, 21, 16, 0.97), rgba(13, 11, 17, 0.98)), #120b08;
+  display: flex;
+  flex-direction: column;
+  width: min(56cqw, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(224, 190, 131, 0.45);
+  border-radius: min(8px, 0.5cqw);
+  background: #171419;
   box-shadow:
-    0 1.4rem 4rem rgba(0, 0, 0, 0.72),
-    inset 0 0 2.5rem rgba(183, 67, 29, 0.12);
+    0 1.4cqw 4cqw rgba(0, 0, 0, 0.72),
+    inset 0 0 0 0.25cqw rgba(224, 190, 131, 0.05);
 }
 
 .splash-update-dialog__header {
   display: flex;
-  align-items: flex-start;
+  flex-shrink: 0;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1.25rem 1.35rem 1rem;
-  border-bottom: 1px solid rgba(241, 179, 82, 0.2);
+  gap: 1cqw;
+  padding: 1.7cqw 2.3cqw;
+  border-bottom: 1px solid rgba(224, 190, 131, 0.24);
+  background: #211a20;
 }
 
 .splash-update-dialog__eyebrow {
-  color: rgba(242, 184, 86, 0.7);
-  font-size: 0.625rem;
-  letter-spacing: 0.28em;
+  color: #b9a184;
+  font-size: 0.7cqw;
+  letter-spacing: 0;
 }
 
 .splash-update-dialog h2 {
-  margin: 0.3rem 0 0;
+  margin: 0.4cqw 0 0;
   color: #ffe9c7;
   font-family: 'MaShanZheng', 'Microsoft YaHei', sans-serif;
-  font-size: 1.5rem;
-  letter-spacing: 0.18em;
+  font-size: 2cqw;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
 
 .splash-update-dialog__close {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
+  flex-shrink: 0;
+  width: 2.8cqw;
+  height: 2.8cqw;
+  border-radius: min(6px, 0.4cqw);
+  background: transparent;
+}
+
+.splash-update-dialog__close :deep(svg) {
+  width: 1.4cqw;
+  height: 1.4cqw;
+}
+
+.splash-update-dialog__close:focus-visible {
+  outline: 2px solid #ffc47e;
+  outline-offset: 2px;
 }
 
 .splash-update-dialog__body {
-  padding: 1rem 1.35rem 1.35rem;
-  color: rgba(255, 244, 225, 0.9);
-  font-size: 0.95rem;
-  line-height: 1.7;
-}
-
-.splash-update-dialog__body p {
+  min-height: 0;
   margin: 0;
+  padding: 0.6cqw 2.3cqw 1.2cqw;
+  overflow-y: auto;
+  color: #e5dee2;
+  font-size: 1.15cqw;
+  line-height: 1.5;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: #64505b #171419;
 }
 
-.splash-update-dialog__body p:first-child {
-  margin-bottom: 0.45rem;
-  color: #f4c86b;
-  font-family: 'MaShanZheng', 'Microsoft YaHei', sans-serif;
-  font-size: 1.05rem;
-  letter-spacing: 0.14em;
+.splash-update-dialog__entry {
+  display: grid;
+  grid-template-columns: 5.3cqw minmax(0, 1fr);
+  align-items: center;
+  gap: 1.6cqw;
+  padding: 1.05cqw 1.1cqw;
+  border-bottom: 1px solid rgba(213, 202, 217, 0.12);
 }
 
-.splash-update-dialog__divider {
-  margin: 0.55rem 0 !important;
-  color: #f3b85e;
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-  text-align: center;
+.splash-update-dialog__entry:last-child {
+  border-bottom: 0;
+}
+
+.splash-update-dialog__entry--latest {
+  color: #fff0d8;
+  background: rgba(224, 190, 131, 0.07);
+  box-shadow: inset 0.2cqw 0 #d9ad6c;
+}
+
+.splash-update-dialog__date {
+  color: #a99eaa;
+  font-family: 'Consolas', monospace;
+  font-size: 1.05cqw;
+  font-variant-numeric: tabular-nums;
+}
+
+.splash-update-dialog__entry--latest .splash-update-dialog__date {
+  color: #e7bc7a;
+}
+
+.splash-update-dialog__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1cqw;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.splash-update-dialog__latest {
+  flex-shrink: 0;
+  color: #e7bc7a;
+  font-size: 0.8cqw;
+}
+
+.splash-update-dialog__milestone {
+  display: flex;
+  align-items: center;
+  gap: 1.2cqw;
+  padding: 1.25cqw 1.1cqw;
+  color: #bea384;
+  font-size: 0.9cqw;
+}
+
+.splash-update-dialog__milestone::before,
+.splash-update-dialog__milestone::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(224, 190, 131, 0.24);
 }
 
 .update-fade-enter-active,
