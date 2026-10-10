@@ -8,6 +8,21 @@
       class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
       :style="{ backgroundImage: `url('${currentBackgroundUrl}')` }"
     ></div>
+    <video
+      ref="backgroundVideo"
+      class="absolute inset-0 z-0 size-full object-cover transition-opacity duration-700 ease-in-out"
+      :class="isVideoReady ? 'opacity-100' : 'opacity-0'"
+      :src="mainBackgroundVideoUrl"
+      :poster="mainBackgroundUrl"
+      autoplay
+      loop
+      muted
+      playsinline
+      preload="auto"
+      aria-hidden="true"
+      @canplay="handleVideoCanPlay"
+      @error="handleVideoError"
+    ></video>
     <div
       v-if="incomingBackgroundUrl"
       class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out"
@@ -227,8 +242,11 @@ const titleSkin = `${TITLE_SCREEN_ASSET_ROOT}/%E6%AC%B2%E6%9C%9B%E5%9C%B0%E7%89%
 const menuSkin = `${TITLE_SCREEN_ASSET_ROOT}/%E8%8F%9C%E5%8D%95%E6%8C%89%E9%92%AE.png`;
 const updateCardSkin = `${TITLE_SCREEN_ASSET_ROOT}/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97%E5%AE%B9%E5%99%A8.png`;
 const mainBackgroundUrl = `${TITLE_SCREEN_ASSET_ROOT}/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF.png`;
+const mainBackgroundVideoUrl = `${TITLE_SCREEN_ASSET_ROOT}/%E4%B8%BB%E9%A1%B5%E8%83%8C%E6%99%AF.mp4`;
 const splashBackgrounds: string[] = [mainBackgroundUrl];
 const updateModalOpen = ref(false);
+const backgroundVideo = ref<HTMLVideoElement | null>(null);
+const isVideoReady = ref(false);
 const updateCardButton = ref<HTMLButtonElement | null>(null);
 const updateCloseButton = ref<HTMLButtonElement | null>(null);
 const updateEntries: { date: string; content: string; milestone?: string }[] = [
@@ -326,6 +344,25 @@ const preloadImage = (url: string) =>
     img.src = url;
     setTimeout(finish, 1200);
   });
+
+function handleVideoCanPlay() {
+  const video = backgroundVideo.value;
+  if (!video) return;
+
+  isVideoReady.value = false;
+  void video
+    .play()
+    .then(() => {
+      isVideoReady.value = true;
+    })
+    .catch(() => {
+      isVideoReady.value = false;
+    });
+}
+
+function handleVideoError() {
+  isVideoReady.value = false;
+}
 
 const switchBackground = async () => {
   if (isBackgroundTransitioning.value) return;
