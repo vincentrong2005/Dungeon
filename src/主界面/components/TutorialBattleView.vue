@@ -24,6 +24,7 @@
         @player-dice-rerolled="handlePlayerDiceRerolled"
         @active-skill-used="handleActiveSkillUsed"
         @turn-resolved="handleTurnResolved"
+        @ready="battleReady = true"
         @open-deck="deckOpen = true"
         @open-relics="relicsOpen = true"
         @open-glossary="referenceOpen = true"
@@ -255,6 +256,7 @@ const steps: LessonStep[] = [
 ];
 
 const battleKey = ref(0);
+const battleReady = ref(false);
 const battleResult = ref<'win' | 'lose' | 'escape' | null>(null);
 const deckOpen = ref(false);
 const relicsOpen = ref(false);
@@ -274,7 +276,8 @@ let targetRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const currentStep = computed(() => steps[stepIndex.value]!);
 const lessonVisible = computed(() => (
-  !battleResult.value
+  battleReady.value
+  && !battleResult.value
   && !tutorialComplete.value
   && !awaitingResolution.value
 ));
@@ -420,6 +423,7 @@ const handleEndCombat = (outcome: 'win' | 'lose' | 'escape') => {
 };
 
 const restartBattle = () => {
+  battleReady.value = false;
   battleResult.value = null;
   deckOpen.value = false;
   relicsOpen.value = false;

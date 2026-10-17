@@ -633,6 +633,7 @@
         <!-- Modals -->
         <DungeonModal
           title="详细状态栏"
+          :icon="FileText"
           :is-open="activeModal === 'statusDetails'"
           panel-class="max-w-6xl"
           @close="activeModal = null"
@@ -654,13 +655,13 @@
                 <div class="player-detail-subtitle">详细状态记录</div>
               </div>
               <div class="player-detail-upload-actions">
-                <button type="button" class="player-detail-upload-btn" @click="openPlayerPortraitUploadDialog">
+                <button type="button" class="player-detail-upload-btn panel-action" @click="openPlayerPortraitUploadDialog">
                   <Upload class="size-4" />
                   上传自定义立绘
                 </button>
                 <button
                   type="button"
-                  class="player-detail-upload-btn player-detail-upload-btn--ghost"
+                  class="player-detail-upload-btn player-detail-upload-btn--ghost panel-action"
                   :disabled="!playerCustomPortraitUrl"
                   @click="resetCustomPlayerPortrait"
                 >
@@ -672,27 +673,27 @@
             </div>
 
             <div class="player-detail-data-panel custom-scrollbar">
-              <div class="player-detail-tabbar">
+              <div class="player-detail-tabbar panel-tabs">
                 <button
                   type="button"
-                  class="player-detail-tab"
-                  :class="{ 'player-detail-tab--active': playerDetailTab === 'status' }"
+                  class="player-detail-tab panel-tab"
+                  :class="{ 'is-active': playerDetailTab === 'status' }"
                   @click="playerDetailTab = 'status'"
                 >
-                  状态
+                  <FileText aria-hidden="true" />状态
                 </button>
                 <button
                   type="button"
-                  class="player-detail-tab"
-                  :class="{ 'player-detail-tab--active': playerDetailTab === 'inventory' }"
+                  class="player-detail-tab panel-tab"
+                  :class="{ 'is-active': playerDetailTab === 'inventory' }"
                   @click="playerDetailTab = 'inventory'"
                 >
-                  背包
+                  <Box aria-hidden="true" />背包
                 </button>
               </div>
 
               <template v-if="playerDetailTab === 'status'">
-                <section class="player-detail-section">
+                <section class="player-detail-section panel-section">
                   <div class="player-detail-section-title">基础数值</div>
                   <div class="player-detail-stat-grid">
                     <div class="player-detail-stat-card">
@@ -718,7 +719,7 @@
                   </div>
                 </section>
 
-                <section class="player-detail-section">
+                <section class="player-detail-section panel-section">
                   <div class="player-detail-section-head">
                     <div class="player-detail-section-title">负面状态</div>
                     <div class="player-detail-section-meta">{{ negativeStatusEntries.length }} 项</div>
@@ -736,7 +737,7 @@
                   </div>
                 </section>
 
-                <section class="player-detail-section">
+                <section class="player-detail-section panel-section">
                   <div class="player-detail-section-title">主角信息</div>
                   <div class="player-detail-info-grid">
                     <div
@@ -758,33 +759,33 @@
               </template>
 
               <template v-else>
-                <section class="player-detail-section">
+                <section class="player-detail-section panel-section">
                   <div class="player-detail-section-head">
                     <div class="player-detail-section-title">背包</div>
                     <div class="player-detail-section-meta">共 {{ totalInventoryEntryCount }} 项</div>
                   </div>
 
-                  <div class="player-detail-subtabbar">
+                  <div class="player-detail-subtabbar panel-tabs">
                     <button
                       type="button"
-                      class="player-detail-subtab"
-                      :class="{ 'player-detail-subtab--active': playerDetailInventoryTab === 'items' }"
+                      class="player-detail-subtab panel-tab"
+                      :class="{ 'is-active': playerDetailInventoryTab === 'items' }"
                       @click="playerDetailInventoryTab = 'items'"
                     >
                       物品（{{ inventoryItems.length }}）
                     </button>
                     <button
                       type="button"
-                      class="player-detail-subtab"
-                      :class="{ 'player-detail-subtab--active': playerDetailInventoryTab === 'relics' }"
+                      class="player-detail-subtab panel-tab"
+                      :class="{ 'is-active': playerDetailInventoryTab === 'relics' }"
                       @click="playerDetailInventoryTab = 'relics'"
                     >
                       圣遗物（{{ relicEntries.length }}）
                     </button>
                     <button
                       type="button"
-                      class="player-detail-subtab"
-                      :class="{ 'player-detail-subtab--active': playerDetailInventoryTab === 'consumables' }"
+                      class="player-detail-subtab panel-tab"
+                      :class="{ 'is-active': playerDetailInventoryTab === 'consumables' }"
                       @click="playerDetailInventoryTab = 'consumables'"
                     >
                       消耗品（{{ inventoryConsumables.length }}）
@@ -797,7 +798,7 @@
                       <article
                         v-for="(item, index) in inventoryItems"
                         :key="`inventory-item-${item.名字}-${index}`"
-                        class="player-detail-bag-card"
+                        class="player-detail-bag-card panel-item"
                       >
                         <div class="player-detail-bag-copy">
                           <div class="player-detail-bag-name">{{ item.名字 }}</div>
@@ -806,7 +807,7 @@
                         <div class="player-detail-bag-actions">
                           <button
                             type="button"
-                            class="player-detail-bag-btn player-detail-bag-btn--danger"
+                            class="player-detail-bag-btn panel-action panel-action--danger"
                             :disabled="inventoryActionDisabled"
                             @click="discardInventoryItem(index)"
                           >
@@ -826,7 +827,7 @@
                         v-for="relic in relicEntries"
                         :key="relic.name"
                         type="button"
-                        class="relative flex flex-col items-center p-1.5 rounded-sm border border-dungeon-brown/30 bg-[#1a0f08]/35 hover:border-dungeon-gold/40 transition-colors focus:outline-none focus:border-dungeon-gold/60"
+                        class="panel-item relative flex flex-col items-center p-2 transition-colors"
                         @mouseenter="showRelicTooltip($event, relic)"
                         @mouseleave="hideRelicTooltip"
                         @focus="showRelicTooltip($event, relic)"
@@ -859,7 +860,7 @@
                       <article
                         v-for="(consumable, index) in inventoryConsumables"
                         :key="`inventory-consumable-${consumable.名字}-${index}`"
-                        class="player-detail-bag-card player-detail-bag-card--consumable"
+                        class="player-detail-bag-card player-detail-bag-card--consumable panel-item"
                       >
                         <div class="player-detail-bag-copy">
                           <div class="player-detail-bag-head">
@@ -878,7 +879,7 @@
                         <div class="player-detail-bag-actions">
                           <button
                             type="button"
-                            class="player-detail-bag-btn"
+                            class="player-detail-bag-btn panel-action"
                             :disabled="inventoryActionDisabled"
                             @click="useConsumable(index)"
                           >
@@ -886,7 +887,7 @@
                           </button>
                           <button
                             type="button"
-                            class="player-detail-bag-btn player-detail-bag-btn--danger"
+                            class="player-detail-bag-btn panel-action panel-action--danger"
                             :disabled="inventoryActionDisabled"
                             @click="discardConsumable(index)"
                           >
@@ -904,6 +905,7 @@
 
         <DungeonModal
           title="地牢地图"
+          :icon="MapIcon"
           :is-open="activeModal === 'map'"
           panel-class="max-w-5xl"
           body-id="dungeon-map-modal-body"
@@ -912,11 +914,6 @@
         >
           <div class="map-modal">
             <section class="map-hero">
-              <div class="map-hero__copy">
-                <div class="map-hero__eyebrow">Cartography Archive</div>
-                <div class="map-hero__title">地牢地图</div>
-                <div class="map-hero__desc">从底部起点向上探索，领主房位于地图顶端。节点符号代表房间类型。</div>
-              </div>
               <div class="map-hero__aside">
                 <div class="map-hero__chips">
                 <div class="map-hero__chip">
@@ -952,32 +949,18 @@
             <div class="map-toolbar">
               <div class="map-summary">
                 <span
-                  >楼层：<span class="map-summary-highlight">{{ mapCurrentFloorLabel }}</span></span
-                >
-                <span class="map-summary-divider">|</span>
-                <span
-                  >区域：<span class="map-summary-highlight">{{ mapCurrentAreaLabel }}</span></span
-                >
-                <span class="map-summary-divider">|</span>
-                <span
-                  >本层路径：<span class="map-summary-highlight">{{ currentFloorPath.length }}</span> 房</span
-                >
-                <span class="map-summary-divider">|</span>
-                <span
                   >统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房</span
                 >
-                <span class="map-summary-divider">|</span>
-                <span>操作提示：拖拽查看细节，点击可达节点前进</span>
               </div>
               <div class="map-controls">
-                <button type="button" class="map-control-btn" @click="handleMapZoomOut">-</button>
-                <button type="button" class="map-control-btn" @click="handleMapZoomIn">+</button>
-                <button type="button" class="map-control-btn map-control-btn--wide" @click="handleMapResetView">
-                  重置视图
+                <button type="button" class="map-control-btn panel-action panel-icon-button" title="缩小地图" aria-label="缩小地图" @click="handleMapZoomOut"><ZoomOut /></button>
+                <button type="button" class="map-control-btn panel-action panel-icon-button" title="放大地图" aria-label="放大地图" @click="handleMapZoomIn"><ZoomIn /></button>
+                <button type="button" class="map-control-btn panel-action panel-icon-button" title="重置视图" aria-label="重置视图" @click="handleMapResetView">
+                  <Scan />
                 </button>
               </div>
             </div>
-            <div v-if="mapNodes.length === 0" class="map-empty">当前楼层地图尚未生成</div>
+            <div v-if="mapNodes.length === 0" class="map-empty panel-empty">当前楼层地图尚未生成</div>
             <div
               v-else
               ref="mapViewportRef"
@@ -1043,6 +1026,7 @@
 
         <DungeonModal
           title="羁绊"
+          :icon="Users"
           :is-open="activeModal === 'bonds'"
           panel-class="max-w-4xl"
           @close="activeModal = null"
@@ -1103,15 +1087,16 @@
                 />
                 <div class="bond-preview-footer">
                   <span class="bond-preview-name">{{ bondPortraitPreview.name }}</span>
-                  <button type="button" class="bond-preview-close-btn" @click="closeBondPortraitPreview">关闭</button>
+                  <button type="button" class="bond-preview-close-btn" title="关闭立绘" aria-label="关闭立绘" @click="closeBondPortraitPreview"><X class="size-4" /></button>
                 </div>
               </div>
             </div>
           </Transition>
         </Teleport>
 
-        <DungeonModal title="符文卡组" :is-open="activeModal === 'deck'" @close="activeModal = null">
-          <div v-if="resolvedDeck.length > 0" class="grid grid-cols-3 gap-8 overflow-y-auto max-h-[60%] p-4">
+        <DungeonModal title="符文卡组" :icon="Scroll" :is-open="activeModal === 'deck'" @close="activeModal = null">
+          <div class="deck-panel-head"><span>已装备卡牌</span><span>{{ resolvedDeck.length }} 张</span></div>
+          <div v-if="resolvedDeck.length > 0" class="deck-panel-grid">
             <div
               v-for="(card, i) in resolvedDeck"
               :key="i"
@@ -1128,19 +1113,13 @@
 
         <DungeonModal
           title="魔法书"
+          :icon="NotebookText"
           :is-open="activeModal === 'magicBooks'"
           panel-class="max-w-[92rem] max-h-[94%]"
           @close="activeModal = null"
         >
           <div class="magic-books-layout">
-            <section class="magic-books-hero">
-              <div class="magic-books-hero__copy">
-                <div class="magic-books-hero__eyebrow">Arcane Library</div>
-                <div class="magic-books-hero__title">魔法书藏馆</div>
-                <div class="magic-books-hero__desc">
-                  这里管理附加魔法书与开局主动技能。附加书影响卡池结构，主动槽决定你每场战斗的起手工具。
-                </div>
-              </div>
+            <section class="magic-books-hero panel-section">
               <div class="magic-books-hero__chips">
                 <div class="magic-books-hero__chip">
                   <span class="magic-books-hero__chip-label">已携带魔法书</span>
@@ -1157,22 +1136,22 @@
               </div>
             </section>
 
-            <div class="magic-books-tabs">
+            <div class="magic-books-tabs panel-tabs">
               <button
                 type="button"
-                class="magic-books-tab"
+                class="magic-books-tab panel-tab"
                 :class="magicBooksNavTab === 'books' ? 'is-active' : ''"
                 @click="magicBooksNavTab = 'books'"
               >
-                附加魔法书
+                <NotebookText aria-hidden="true" />附加魔法书
               </button>
               <button
                 type="button"
-                class="magic-books-tab"
+                class="magic-books-tab panel-tab"
                 :class="magicBooksNavTab === 'active' ? 'is-active' : ''"
                 @click="magicBooksNavTab = 'active'"
               >
-                主动
+                <Sparkles aria-hidden="true" />主动技能
               </button>
             </div>
 
@@ -1182,7 +1161,7 @@
                   v-for="bookName in carryableMagicBookNames"
                   :key="`magic-book-${bookName}`"
                   type="button"
-                  class="magic-book-card"
+                  class="magic-book-card panel-item"
                   :class="{
                     'is-equipped': carriedMagicBookSet.has(bookName),
                     'is-locked': isMagicBookLocked(bookName),
@@ -1214,17 +1193,6 @@
                       loading="lazy"
                     />
                     <div class="magic-book-card__shade"></div>
-                    <div class="magic-book-card__header">
-                      <span class="magic-book-card__badge">
-                        {{
-                          isMagicBookLocked(bookName)
-                            ? '未解锁'
-                            : carriedMagicBookSet.has(bookName)
-                              ? '已携带'
-                              : '待装配'
-                        }}
-                      </span>
-                    </div>
                     <div v-if="isMagicBookLocked(bookName)" class="magic-book-card__lock">挑战过商人后解锁</div>
                     <div class="magic-book-card__title-wrap">
                       <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
@@ -1232,26 +1200,26 @@
                   </div>
                   <div class="magic-book-card__footer">
                     <span class="magic-book-card__footer-title">{{ bookName }}</span>
-                    <span class="magic-book-card__footer-action">
+                    <span class="magic-book-card__footer-action magic-book-card__badge">
                       {{
                         isMagicBookLocked(bookName)
-                          ? '解锁条件'
+                          ? '未解锁'
                           : carriedMagicBookSet.has(bookName)
-                            ? '点击卸下'
-                            : '点击携带'
+                            ? '已携带'
+                            : '未携带'
                       }}
                     </span>
                   </div>
                 </button>
               </div>
-              <div v-else class="magic-books-empty">当前没有可选的附加魔法书。</div>
+              <div v-else class="magic-books-empty panel-empty">当前没有可选的附加魔法书。</div>
             </template>
 
             <template v-else>
-              <div class="magic-books-active-panel">
+              <div class="magic-books-active-panel panel-section">
                 <div class="magic-books-active-panel__head">
                   <div>
-                    <div class="magic-books-active-panel__title">起始主动槽</div>
+                    <div class="magic-books-active-panel__title panel-heading">起始主动槽</div>
                     <div class="magic-books-active-panel__desc">
                       先选中要编辑的槽位，再从下方技能库中指定一张开局主动技能。
                     </div>
@@ -1263,7 +1231,7 @@
                     v-for="entry in startingActiveSkillEntries"
                     :key="`starting-active-slot-${entry.idx}`"
                     type="button"
-                    class="magic-books-slot-card"
+                    class="magic-books-slot-card panel-item"
                     :class="selectedStartingActiveSlot === entry.idx ? 'is-selected' : ''"
                     :disabled="isUpdatingStartingActiveSkills"
                     @click="selectedStartingActiveSlot = entry.idx"
@@ -1294,7 +1262,7 @@
                 <div class="magic-books-active-panel__actions">
                   <button
                     type="button"
-                    class="magic-books-clear-btn"
+                    class="magic-books-clear-btn panel-action"
                     :disabled="isUpdatingStartingActiveSkills"
                     @click="clearStartingActiveSkill(selectedStartingActiveSlot)"
                   >
@@ -1308,7 +1276,7 @@
                   v-for="skill in startingActiveSkillOptions"
                   :key="`starting-active-skill-${skill.id}`"
                   type="button"
-                  class="magic-books-skill-card"
+                  class="magic-books-skill-card panel-item"
                   :class="[
                     skill.rarity === '稀有' ? 'rare-active-skill-card' : '',
                     { 'is-equipped': isSkillEquippedInStartingActive(skill.name) },
@@ -1350,21 +1318,14 @@
 
         <DungeonModal
           title="魔法帽"
+          :icon="Sparkles"
           :is-open="activeModal === 'magicHat'"
           panel-class="max-w-5xl"
           @close="activeModal = null"
         >
           <div class="magic-hat-layout">
-            <section class="magic-hat-hero">
-              <div class="magic-hat-hero__mesh"></div>
+            <section class="magic-hat-hero panel-section">
               <div class="magic-hat-hero__content">
-                <div class="magic-hat-hero__copy">
-                  <div class="magic-hat-hero__eyebrow">Arcane Atelier</div>
-                  <div class="magic-hat-hero__title">魔法帽工坊</div>
-                  <div class="magic-hat-hero__desc">
-                    在这里校准开局资源与试炼强度。困难及以上难度会让领主随回合逐渐变强。
-                  </div>
-                </div>
                 <div class="magic-hat-hero__chips">
                   <div class="magic-hat-hero__chip">
                     <span class="magic-hat-hero__chip-label">当前难度</span>
@@ -1382,10 +1343,10 @@
               </div>
             </section>
 
-            <section class="magic-hat-section">
+            <section class="magic-hat-section panel-section">
               <div class="magic-hat-section__head">
                 <div>
-                  <div class="magic-hat-section__title">难度调节</div>
+                  <div class="magic-hat-section__title panel-heading">难度调节</div>
                   <div class="magic-hat-section__subtitle">仅影响局内战斗，不会改动你已经购买或升级过的成长项。</div>
                 </div>
               </div>
@@ -1397,7 +1358,7 @@
                       v-for="option in magicHatDifficultyOptions"
                       :key="`magic-hat-difficulty-${option.value}`"
                       type="button"
-                      class="magic-hat-difficulty-card"
+                      class="magic-hat-difficulty-card panel-item"
                       :class="[
                         getMagicHatDifficultyClass(option.value),
                         {
@@ -1430,7 +1391,7 @@
                     <div
                       v-for="group in magicHatCustomInfluenceGroups"
                       :key="`magic-hat-custom-group-${group.title}`"
-                      class="magic-hat-custom-group"
+                      class="magic-hat-custom-group panel-section"
                       :class="getMagicHatCustomGroupClass(group.title)"
                     >
                       <div class="magic-hat-custom-group__title">{{ group.title }}</div>
@@ -1439,7 +1400,7 @@
                           v-for="option in group.options"
                           :key="`magic-hat-custom-${option.value}`"
                           type="button"
-                          class="magic-hat-custom-option"
+                          class="magic-hat-custom-option panel-item"
                           :class="{ 'is-active': hasMagicHatCustomInfluence(option.value) }"
                           :disabled="isUpdatingMagicHatDifficulty"
                           :aria-pressed="hasMagicHatCustomInfluence(option.value)"
@@ -1474,10 +1435,10 @@
               </div>
             </section>
 
-            <section class="magic-hat-section magic-hat-growth-section">
+            <section class="magic-hat-section magic-hat-growth-section panel-section">
               <div class="magic-hat-section__head magic-hat-section__head--compact">
                 <div>
-                  <div class="magic-hat-section__title">成长调节</div>
+                  <div class="magic-hat-section__title panel-heading">成长调节</div>
                   <div class="magic-hat-section__subtitle">起始增幅写入当前楼层变量；局外成长跨存档保存在本地。</div>
                 </div>
                 <div class="magic-hat-growth-actions">
@@ -1487,7 +1448,7 @@
                   </div>
                   <button
                     type="button"
-                    class="magic-hat-reset-btn"
+                    class="magic-hat-reset-btn panel-action panel-action--danger"
                     :disabled="isUpgradingMagicHat || magicHatResetRefund <= 0"
                     @click="resetMagicHatGrowths"
                   >
@@ -1506,7 +1467,7 @@
                 <article
                   v-for="track in magicHatTracks"
                   :key="`magic-hat-${track.id}`"
-                  class="magic-hat-track-card"
+                  class="magic-hat-track-card panel-item"
                   :class="getMagicHatTrackClass(track.id)"
                 >
                   <div class="magic-hat-track-card__top">
@@ -1544,7 +1505,7 @@
 
                   <button
                     type="button"
-                    class="magic-hat-track-card__action"
+                    class="magic-hat-track-card__action panel-action"
                     :class="{ 'is-disabled': track.isMax }"
                     :disabled="isUpgradingMagicHat || track.isMax"
                     @click="upgradeMagicHatStat(track.id)"
@@ -1566,7 +1527,7 @@
                 <article
                   v-for="growth in magicHatMetaGrowthCards"
                   :key="`magic-hat-growth-${growth.id}`"
-                  class="magic-hat-track-card"
+                  class="magic-hat-track-card panel-item"
                   :class="getMagicHatMetaGrowthClass(growth.id)"
                 >
                   <div class="magic-hat-track-card__top">
@@ -1602,7 +1563,7 @@
 
                   <button
                     type="button"
-                    class="magic-hat-track-card__action"
+                    class="magic-hat-track-card__action panel-action"
                     :class="{ 'is-disabled': growth.owned }"
                     :disabled="isUpgradingMagicHat || growth.owned"
                     @click="unlockMagicHatMetaGrowth(growth.id)"
@@ -1632,47 +1593,33 @@
         <!-- Settings Modal -->
         <DungeonModal
           title="系统设置"
+          variant="settings"
           :is-open="activeModal === 'settings'"
           @close="
             activeModal = null;
             closeSettingsHelp();
           "
         >
-          <div class="settings-panel flex flex-col space-y-5 w-full max-w-2xl mx-auto">
-            <div class="settings-nav">
+          <div class="settings-panel">
+            <div class="settings-nav" role="tablist" aria-label="设置分类" @keydown="handleSettingsTabKeydown">
               <button
+                v-for="tab in settingsTabs"
+                :id="`settings-tab-${tab.id}`"
+                :key="tab.id"
                 type="button"
+                role="tab"
                 class="settings-nav-btn"
-                :class="{ 'is-active': settingsNavTab === 'text' }"
-                @click="settingsNavTab = 'text'"
+                :class="{ 'is-active': settingsNavTab === tab.id }"
+                :aria-selected="settingsNavTab === tab.id"
+                aria-controls="settings-content"
+                :tabindex="settingsNavTab === tab.id ? 0 : -1"
+                @click="settingsNavTab = tab.id"
               >
-                正文框设置
-              </button>
-              <button
-                type="button"
-                class="settings-nav-btn"
-                :class="{ 'is-active': settingsNavTab === 'music' }"
-                @click="settingsNavTab = 'music'"
-              >
-                背景音乐
-              </button>
-              <button
-                type="button"
-                class="settings-nav-btn"
-                :class="{ 'is-active': settingsNavTab === 'ai' }"
-                @click="settingsNavTab = 'ai'"
-              >
-                AI回复
-              </button>
-              <button
-                type="button"
-                class="settings-nav-btn"
-                :class="{ 'is-active': settingsNavTab === 'summary' }"
-                @click="settingsNavTab = 'summary'"
-              >
-                总结
+                <component :is="tab.icon" aria-hidden="true" />
+                <span>{{ tab.label }}</span>
               </button>
             </div>
+            <div id="settings-content" role="tabpanel" :aria-labelledby="`settings-tab-${settingsNavTab}`" tabindex="0">
             <section v-if="settingsNavTab === 'text'" class="settings-section settings-section--text">
               <h3 class="settings-section-title">正文框设置</h3>
               <div class="space-y-4">
@@ -1775,6 +1722,7 @@
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
+                    aria-label="自动回顶"
                     :class="{ 'is-on': isAutoScrollTopOnReplyEnabled }"
                     :aria-checked="isAutoScrollTopOnReplyEnabled"
                     role="switch"
@@ -1813,6 +1761,7 @@
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
+                    aria-label="单层显示"
                     :class="{ 'is-on': textSettings.singleLayerDisplay }"
                     :aria-checked="textSettings.singleLayerDisplay"
                     role="switch"
@@ -1829,37 +1778,8 @@
             </section>
 
             <section v-else-if="settingsNavTab === 'music'" class="settings-section settings-section--music">
-              <h3 class="settings-section-title">背景音乐</h3>
-              <div class="space-y-4">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐</label>
-                  <select
-                    v-model="selectedBgmTrackId"
-                    :disabled="bgmTracks.length === 0"
-                    class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded-sm focus:outline-none focus:border-dungeon-gold font-ui disabled:opacity-50 disabled:cursor-not-allowed sm:min-w-56"
-                  >
-                    <option v-if="bgmTracks.length === 0" value="">暂无可用曲目</option>
-                    <option v-for="track in bgmTracks" :key="track.id" :value="track.id">
-                      {{ track.name }}
-                    </option>
-                  </select>
-                </div>
-
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <label class="text-dungeon-paper/70 text-sm font-ui">背景音乐音量</label>
-                  <div class="flex items-center gap-2 sm:shrink-0">
-                    <input
-                      v-model.number="bgmVolumePercent"
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      class="w-32 accent-dungeon-gold"
-                    />
-                    <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{ bgmVolumePercent }}%</span>
-                  </div>
-                </div>
-              </div>
+              <h3 class="settings-section-title">声音与特效</h3>
+              <SoundSettings include-music />
             </section>
 
             <section v-else-if="settingsNavTab === 'ai'" class="settings-section settings-section--ai">
@@ -1892,6 +1812,7 @@
                     type="button"
                     class="settings-switch sm:shrink-0"
                     :class="{ 'is-on': isStreamingEnabled }"
+                    aria-label="启用流式传输"
                     :aria-checked="isStreamingEnabled"
                     role="switch"
                     @click="isStreamingEnabled = !isStreamingEnabled"
@@ -1931,6 +1852,7 @@
                     type="button"
                     class="settings-switch sm:shrink-0"
                     :class="{ 'is-on': isForbidMatchingXmlInsideThinkEnabled }"
+                    aria-label="禁止匹配思维链内XML标签"
                     :aria-checked="isForbidMatchingXmlInsideThinkEnabled"
                     role="switch"
                     @click="isForbidMatchingXmlInsideThinkEnabled = !isForbidMatchingXmlInsideThinkEnabled"
@@ -1970,6 +1892,7 @@
                     type="button"
                     class="settings-switch sm:shrink-0"
                     :class="{ 'is-on': isButtonCompletionEnabled }"
+                    aria-label="按钮补全"
                     :aria-checked="isButtonCompletionEnabled"
                     role="switch"
                     @click="isButtonCompletionEnabled = !isButtonCompletionEnabled"
@@ -2009,6 +1932,7 @@
                     type="button"
                     class="settings-switch sm:shrink-0"
                     :class="{ 'is-on': isMapRebirthInputAppendEnabled }"
+                    aria-label="地图重生输入追加"
                     :aria-checked="isMapRebirthInputAppendEnabled"
                     role="switch"
                     @click="isMapRebirthInputAppendEnabled = !isMapRebirthInputAppendEnabled"
@@ -2051,6 +1975,7 @@
                     type="button"
                     class="settings-switch sm:shrink-0"
                     :class="{ 'is-on': isFastModeEnabled, 'is-disabled': isFastModeLocked }"
+                    aria-label="快速模式"
                     :aria-checked="isFastModeEnabled"
                     :disabled="isFastModeLocked"
                     role="switch"
@@ -2096,6 +2021,7 @@
                     type="button"
                     class="settings-switch sm:shrink-0"
                     :class="{ 'is-on': isAutoSummaryEnabled }"
+                    aria-label="自动总结"
                     :aria-checked="isAutoSummaryEnabled"
                     role="switch"
                     @click="isAutoSummaryEnabled = !isAutoSummaryEnabled"
@@ -2366,29 +2292,34 @@
               </div>
             </section>
 
+            </div>
             <div class="settings-system-actions">
               <h3 class="settings-section-title settings-section-title--neutral">系统</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="settings-system-grid">
                 <button class="settings-action-btn settings-action-btn--gold" @click="toggleFullScreen">
+                  <Maximize2 aria-hidden="true" />
                   切换全屏模式
                 </button>
                 <button class="settings-action-btn settings-action-btn--danger" @click="$emit('backToSplash')">
+                  <LogOut aria-hidden="true" />
                   退出到标题
                 </button>
                 <button
-                  class="settings-action-btn sm:col-span-2"
+                  class="settings-action-btn settings-action-btn--test"
                   :class="isCombatTestUnlocked ? 'settings-action-btn--accent' : 'settings-action-btn--locked'"
                   :title="isCombatTestUnlocked ? '进入战斗测试' : '作者测试用'"
                   @click="handleCombatTestButtonClick"
                 >
-                  {{ isCombatTestUnlocked ? '⚔ 进入战斗测试' : '作者测试用' }}
+                  <Swords v-if="isCombatTestUnlocked" aria-hidden="true" />
+                  <LockKeyhole v-else aria-hidden="true" />
+                  {{ isCombatTestUnlocked ? '进入战斗测试' : '作者测试用' }}
                 </button>
               </div>
             </div>
           </div>
         </DungeonModal>
 
-        <DungeonModal title="大总结结果确认" :is-open="!!bigSummaryDraft" @close="closeBigSummaryDraft">
+        <DungeonModal title="大总结结果确认" :icon="NotebookText" :is-open="!!bigSummaryDraft" @close="closeBigSummaryDraft">
           <div v-if="bigSummaryDraft" class="flex flex-col gap-4 w-full">
             <div class="text-sm text-dungeon-paper/75 font-ui">
               已生成范围 {{ bigSummaryDraft.rangeStart }}-{{ bigSummaryDraft.rangeEnd }} 的大总结（共
@@ -2425,7 +2356,7 @@
         </DungeonModal>
 
         <!-- Combat Test Builder Modal -->
-        <DungeonModal title="战斗测试配置" :is-open="activeModal === 'combatTestBuilder'" @close="activeModal = null">
+        <DungeonModal title="战斗测试配置" :icon="Swords" :is-open="activeModal === 'combatTestBuilder'" @close="activeModal = null">
           <div class="flex flex-col gap-4 w-full max-w-4xl">
             <template v-if="combatTestStep === 'deck'">
               <div class="flex items-center justify-between">
@@ -2765,8 +2696,8 @@
         />
 
         <!-- Variable Update Viewer -->
-        <DungeonModal title="变量更新" :is-open="isVariableUpdateOpen" @close="isVariableUpdateOpen = false">
-          <div class="variable-update-panel">
+        <DungeonModal title="变量更新" :icon="FileText" :is-open="isVariableUpdateOpen" @close="isVariableUpdateOpen = false">
+          <div class="variable-update-panel panel-section">
             <div class="variable-update-head">
               <FileText class="variable-update-head-icon" />
               <div>
@@ -3400,13 +3331,26 @@ import {
   Copy,
   Dices,
   FileText,
+  LockKeyhole,
+  LogOut,
+  Maximize2,
+  Map as MapIcon,
+  NotebookText,
   Replace,
   RotateCcw,
   Scroll,
+  Scan,
   Send,
   SlidersHorizontal,
+  Sparkles,
+  Swords,
+  Type,
   Upload,
   Users,
+  Volume2,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-vue-next';
 import type { PropType } from 'vue';
 import { defineEmits, defineProps, withDefaults, } from 'vue';
@@ -3415,7 +3359,6 @@ import { getAllActiveSkills, resolveActiveSkillNames } from '../battle/activeSki
 import { getAllCards, getCardByName, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
-import { bgmTrackId, bgmTracks, bgmVolume, setBgmTrack, setBgmVolume } from '../bgm';
 import { recordEncounteredCards, recordEncounteredRelics } from '../codexStore';
 import {
   CUSTOM_DIFFICULTY_BASE_OPTIONS,
@@ -3450,6 +3393,7 @@ import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 import DungeonModal from './DungeonModal.vue';
+import SoundSettings from './SoundSettings.vue';
 import GlossaryReferenceModal from './GlossaryReferenceModal.vue';
 import MainButtonSkin from './MainButtonSkin.vue';
 import OpeningInfoEntryView from './OpeningInfoEntryView.vue';
@@ -6140,6 +6084,25 @@ type BigSummaryDraft = {
 };
 
 const settingsNavTab = ref<SettingsNavTab>('text');
+const settingsTabs = [
+  { id: 'text', label: '正文显示', icon: Type },
+  { id: 'music', label: '声音特效', icon: Volume2 },
+  { id: 'ai', label: 'AI回复', icon: Sparkles },
+  { id: 'summary', label: '总结', icon: NotebookText },
+] as const;
+
+function handleSettingsTabKeydown(event: KeyboardEvent) {
+  const tabs = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  const current = tabs.indexOf(event.target as HTMLButtonElement);
+  if (current < 0) return;
+  const next = event.key === 'ArrowRight' ? (current + 1) % tabs.length
+    : event.key === 'ArrowLeft' ? (current + tabs.length - 1) % tabs.length
+      : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
+  if (next < 0) return;
+  event.preventDefault();
+  tabs[next]!.click();
+  tabs[next]!.focus();
+}
 const isManualSummaryRunning = ref(false);
 const normalizeIntegerInput = (value: number, fallback: number, min: number, max: number): number => {
   const parsed = Number(value);
@@ -6452,16 +6415,6 @@ const handleManualSummary = async () => {
     isManualSummaryRunning.value = false;
   }
 };
-
-const selectedBgmTrackId = computed<string>({
-  get: () => bgmTrackId.value,
-  set: value => setBgmTrack(value),
-});
-
-const bgmVolumePercent = computed<number>({
-  get: () => Math.round(bgmVolume.value * 100),
-  set: value => setBgmVolume(value / 100),
-});
 
 /** Strip entire <image>…</image> blocks – used only for streaming preview */
 const stripImageBlocks = (text: string) =>
@@ -11329,6 +11282,10 @@ onBeforeUnmount(() => {
     0 0 10px rgba(212, 175, 55, 0.35);
 }
 
+.deck-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--panel-divider); color: var(--panel-muted); font-size: 12px; }
+.deck-panel-head span:last-child { color: var(--panel-accent); font-variant-numeric: tabular-nums; }
+.deck-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); justify-items: center; gap: 28px 20px; padding: 24px 0 8px; }
+
 .magic-books-layout {
   width: 100%;
   max-width: 90rem;
@@ -11341,21 +11298,12 @@ onBeforeUnmount(() => {
 .magic-books-hero,
 .magic-books-active-panel {
   position: relative;
-  overflow: hidden;
-  border-radius: 1.1rem;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 28%),
-    radial-gradient(circle at left top, rgba(251, 191, 36, 0.12), transparent 32%),
-    linear-gradient(145deg, rgba(30, 18, 12, 0.96), rgba(14, 9, 7, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 236, 201, 0.05),
-    0 18px 34px rgba(0, 0, 0, 0.28);
+  min-width: 0;
 }
 
 .magic-books-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(16rem, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   padding: 1.2rem 1.25rem;
 }
@@ -11386,6 +11334,7 @@ onBeforeUnmount(() => {
 
 .magic-books-hero__chips {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
 }
 
@@ -11394,11 +11343,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.85rem 0.95rem;
-  border-radius: 0.92rem;
-  border: 1px solid rgba(212, 175, 55, 0.16);
-  background: rgba(5, 4, 5, 0.42);
-  backdrop-filter: blur(8px);
+  padding: 4px 16px;
+  border-left: 1px solid var(--panel-divider);
 }
 
 .magic-books-hero__chip-label {
@@ -11407,10 +11353,10 @@ onBeforeUnmount(() => {
 }
 
 .magic-books-hero__chip-value {
-  color: rgba(255, 224, 163, 0.97);
-  font-family: 'Cinzel', serif;
+  color: var(--panel-accent);
+  font-family: inherit;
   font-size: 1rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .magic-books-tabs {
@@ -11572,7 +11518,6 @@ onBeforeUnmount(() => {
   background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.08) 45%, rgba(0, 0, 0, 0.42));
 }
 
-.magic-book-card__header,
 .magic-book-card__title-wrap {
   position: absolute;
   left: 0;
@@ -11580,21 +11525,15 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
-.magic-book-card__header {
-  top: 0;
-  padding: 0.75rem;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .magic-book-card__badge {
-  padding: 0.24rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 236, 201, 0.14);
-  background: rgba(0, 0, 0, 0.34);
-  color: rgba(251, 237, 203, 0.84);
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
+  background: #ffffff04;
+  color: var(--panel-muted);
   font-size: 0.68rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 
 .magic-book-card__title-wrap {
@@ -11629,7 +11568,7 @@ onBeforeUnmount(() => {
 
 .magic-book-card__footer-title {
   color: rgba(255, 239, 205, 0.92);
-  font-family: 'Cinzel', serif;
+  font-family: inherit;
   font-size: 0.86rem;
 }
 
@@ -12124,8 +12063,8 @@ onBeforeUnmount(() => {
 .player-detail-modal {
   display: grid;
   grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
-  gap: 1.1rem;
-  min-height: 34rem;
+  gap: 28px;
+  min-width: 0;
 }
 
 .player-detail-portrait-panel {
@@ -12134,16 +12073,9 @@ onBeforeUnmount(() => {
   justify-content: flex-start;
   gap: 0.9rem;
   height: 100%;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(212, 175, 55, 0.24);
-  background:
-    radial-gradient(circle at 24% 16%, rgba(245, 158, 11, 0.17), transparent 38%),
-    radial-gradient(circle at 78% 5%, rgba(59, 130, 246, 0.12), transparent 30%),
-    linear-gradient(180deg, rgba(24, 22, 22, 0.97), rgba(8, 8, 10, 0.95));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 18px 34px rgba(0, 0, 0, 0.22);
+  min-width: 0;
+  padding-right: 24px;
+  border-right: 1px solid var(--panel-divider);
 }
 
 .player-detail-portrait-shell {
@@ -12158,14 +12090,8 @@ onBeforeUnmount(() => {
   max-height: min(56vh, 34rem);
   border-radius: 0.5rem;
   overflow: hidden;
-  border: 1px solid rgba(245, 158, 11, 0.34);
-  background:
-    radial-gradient(circle at 50% 16%, rgba(251, 191, 36, 0.15), transparent 42%),
-    linear-gradient(180deg, rgba(20, 24, 30, 0.9), rgba(7, 7, 8, 0.98));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 40px rgba(0, 0, 0, 0.34),
-    0 0 22px rgba(245, 158, 11, 0.08);
+  border: 1px solid var(--panel-border);
+  background: #1c2220;
 }
 
 .player-detail-portrait-image {
@@ -12188,23 +12114,20 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-nameplate {
-  padding: 0.8rem 0.95rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(212, 175, 55, 0.24);
-  background: linear-gradient(135deg, rgba(18, 16, 15, 0.86), rgba(6, 6, 7, 0.82));
+  padding: 8px 0;
 }
 
 .player-detail-name {
   font-family: var(--font-heading, inherit);
-  font-size: 1.35rem;
-  letter-spacing: 0.08em;
-  color: rgba(254, 243, 199, 0.96);
+  font-size: 18px;
+  letter-spacing: 0;
+  color: #ece6d8;
 }
 
 .player-detail-subtitle {
   margin-top: 0.2rem;
   font-size: 0.75rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(245, 222, 179, 0.55);
 }
@@ -12253,11 +12176,12 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-data-panel {
+  min-width: 0;
   max-height: 42rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
   padding: 0.05rem 0.35rem 0.05rem 0.05rem;
 }
 
@@ -12269,7 +12193,7 @@ onBeforeUnmount(() => {
   top: 0;
   z-index: 2;
   padding: 0 0 0.2rem;
-  backdrop-filter: blur(10px);
+  background: var(--panel-bg);
 }
 
 .player-detail-tab,
@@ -12311,15 +12235,7 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-section {
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(212, 175, 55, 0.16);
-  background:
-    radial-gradient(circle at 96% 0%, rgba(96, 165, 250, 0.08), transparent 32%),
-    linear-gradient(180deg, rgba(20, 20, 23, 0.96), rgba(10, 10, 12, 0.92));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 12px 24px rgba(0, 0, 0, 0.16);
+  min-width: 0;
 }
 
 .player-detail-section-head {
@@ -12331,9 +12247,9 @@ onBeforeUnmount(() => {
 
 .player-detail-section-title {
   font-family: var(--font-heading, inherit);
-  font-size: 1rem;
-  letter-spacing: 0.08em;
-  color: rgba(253, 230, 138, 0.94);
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--panel-accent);
 }
 
 .player-detail-section-meta {
@@ -12362,16 +12278,15 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 0.35rem;
   padding: 0.9rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(0, 0, 0, 0.18));
+  border-bottom: 1px solid var(--panel-divider);
+  background: #ffffff03;
 }
 
 .player-detail-stat-card::before {
   content: '';
   position: absolute;
   inset: 0 auto 0 0;
-  width: 3px;
+  width: 2px;
   background: var(--detail-stat-accent, rgba(212, 175, 55, 0.8));
 }
 
@@ -12393,7 +12308,7 @@ onBeforeUnmount(() => {
 
 .player-detail-stat-label {
   font-size: 0.72rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(212, 212, 216, 0.58);
 }
@@ -12434,9 +12349,8 @@ onBeforeUnmount(() => {
 
 .player-detail-empty {
   margin-top: 0.8rem;
-  border-radius: 0.5rem;
-  border: 1px dashed rgba(212, 175, 55, 0.24);
-  background: rgba(0, 0, 0, 0.16);
+  border: 0;
+  background: none;
   padding: 0.95rem 1rem;
   color: rgba(212, 212, 216, 0.72);
   text-align: center;
@@ -12450,11 +12364,9 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-negative-item {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(251, 113, 133, 0.25);
-  background:
-    linear-gradient(120deg, rgba(69, 10, 10, 0.58), rgba(24, 24, 27, 0.62)),
-    rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  border-left: 2px solid #b17771;
+  background: #b177710b;
   padding: 0.85rem 0.95rem;
 }
 
@@ -12596,15 +12508,13 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-info-item {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.18));
+  border-bottom: 1px solid var(--panel-divider);
   padding: 0.85rem 0.95rem;
 }
 
 .player-detail-info-label {
   font-size: 0.72rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: rgba(245, 222, 179, 0.54);
 }
@@ -12630,9 +12540,20 @@ onBeforeUnmount(() => {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .player-detail-portrait-panel { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: start; gap: 12px 20px; height: auto; padding-right: 0; padding-bottom: 20px; border-right: 0; border-bottom: 1px solid var(--panel-divider); }
+  .player-detail-nameplate, .player-detail-upload-actions { grid-column: 2; }
+  .player-detail-nameplate { padding: 0; }
+  .player-detail-upload-actions { flex-direction: column; align-items: flex-start; }
+  .player-detail-upload-hint { grid-column: 1 / -1; margin: 0; }
+  .player-detail-data-panel { max-height: none; overflow-y: visible; }
+
   .player-detail-portrait-shell {
-    width: min(100%, 22rem);
-    max-height: min(48vh, 28rem);
+    grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: start;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: none;
   }
 
   .player-detail-stat-grid,
@@ -12649,6 +12570,14 @@ onBeforeUnmount(() => {
   .player-detail-bag-tags {
     justify-content: flex-start;
   }
+}
+
+@media (max-width: 520px) {
+  .player-detail-portrait-panel { grid-template-columns: 88px minmax(0, 1fr); gap: 12px 16px; }
+  .player-detail-portrait-shell { aspect-ratio: 3 / 5; }
+  .player-detail-tabbar { position: static; }
+  .player-detail-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .player-detail-stat-card { padding: 12px; }
 }
 
 /* Combat overlay transition */
@@ -12693,7 +12622,7 @@ onBeforeUnmount(() => {
 
 .map-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.2rem;
   padding: 0.25rem 0.2rem 0.55rem;
   border-bottom: 1px solid rgba(220, 203, 163, 0.18);
@@ -12733,7 +12662,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0.4rem;
 }
 
@@ -12753,9 +12682,9 @@ onBeforeUnmount(() => {
 }
 
 .map-hero__chip-value {
-  color: rgba(245, 229, 190, 0.95);
-  font-family: 'Cinzel', serif;
-  font-size: 0.78rem;
+  color: var(--panel-accent);
+  font-family: inherit;
+  font-size: 14px;
 }
 
 .map-legend {
@@ -12877,16 +12806,13 @@ onBeforeUnmount(() => {
   height: min(68vh, 42rem);
   min-height: 24rem;
   border-radius: 0.45rem;
-  border: 8px solid #4a4030;
+  border: 1px solid var(--panel-border);
   background: #e9e4cf;
   overflow: hidden;
   touch-action: none;
   user-select: none;
   cursor: grab;
-  box-shadow:
-    inset 0 0 0 1px rgba(250, 244, 220, 0.45),
-    inset 0 0 28px rgba(62, 55, 42, 0.4),
-    0 14px 26px rgba(0, 0, 0, 0.28);
+  box-shadow: none;
 }
 
 .map-viewport:active {
@@ -13075,28 +13001,19 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: stretch;
   gap: 0.9rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background:
-    linear-gradient(140deg, rgba(20, 12, 8, 0.95), rgba(30, 19, 12, 0.9)),
-    radial-gradient(circle at 85% 0%, rgba(212, 175, 55, 0.12), transparent 48%);
-  padding: 0.72rem;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 10px 22px rgba(0, 0, 0, 0.34);
+  min-width: 0;
+  border-bottom: 1px solid var(--panel-divider);
+  padding: 16px 0;
 }
 
 .bond-portrait-frame {
   width: clamp(4.9rem, 16vw, 6.3rem);
   min-width: clamp(4.9rem, 16vw, 6.3rem);
   height: clamp(4.9rem, 15vw, 6.3rem);
-  border-radius: 0.7rem;
+  border-radius: 6px;
   overflow: hidden;
-  border: 1px solid rgba(212, 175, 55, 0.45);
-  background: rgba(11, 8, 6, 0.9);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 10px 20px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-surface);
 }
 
 .bond-portrait-frame--clickable {
@@ -13108,12 +13025,7 @@ onBeforeUnmount(() => {
 }
 
 .bond-portrait-frame--clickable:hover {
-  transform: translateY(-1px) scale(1.02);
-  border-color: rgba(251, 191, 36, 0.66);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 14px 24px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(251, 191, 36, 0.28);
+  border-color: var(--panel-accent);
 }
 
 .bond-portrait-image {
@@ -13131,7 +13043,7 @@ onBeforeUnmount(() => {
   color: rgba(212, 175, 55, 0.88);
   font-size: 1.3rem;
   font-family: 'MagicBookTitle', 'KaiTi', serif;
-  background: radial-gradient(circle at 50% 35%, rgba(212, 175, 55, 0.24), rgba(21, 13, 9, 0.94));
+  background: var(--panel-surface);
 }
 
 .bond-affection-wrap {
@@ -13153,14 +13065,14 @@ onBeforeUnmount(() => {
 .bond-role-name {
   color: rgba(255, 243, 214, 0.95);
   font-size: 1rem;
-  letter-spacing: 0.03em;
-  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  letter-spacing: 0;
+  font-family: inherit;
 }
 
 .bond-affection-value {
   font-size: 0.9rem;
   font-weight: 700;
-  font-family: 'Cinzel', 'Microsoft YaHei', sans-serif;
+  font-family: inherit;
 }
 
 .bond-affection-value--positive {
@@ -13173,11 +13085,10 @@ onBeforeUnmount(() => {
 
 .bond-affection-track {
   position: relative;
-  height: 0.72rem;
+  height: 5px;
   border-radius: 9999px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: linear-gradient(90deg, rgba(26, 42, 58, 0.72), rgba(26, 18, 14, 0.72)), rgba(7, 7, 10, 0.72);
+  background: #3b4241;
 }
 
 .bond-affection-fill {
@@ -13187,25 +13098,21 @@ onBeforeUnmount(() => {
 }
 
 .bond-affection-fill--positive {
-  background: linear-gradient(90deg, rgba(245, 158, 11, 0.92), rgba(251, 191, 36, 0.95)), rgba(245, 158, 11, 0.9);
-  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+  background: #c6ae76;
 }
 
 .bond-affection-fill--negative {
-  background: linear-gradient(90deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.96)), rgba(14, 165, 233, 0.9);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.34);
+  background: #79a4b8;
 }
 
 .bond-preview-panel {
   width: min(86vw, 1100px);
   max-height: 90vh;
-  border-radius: 0.95rem;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(212, 175, 55, 0.42);
-  background: rgba(10, 8, 7, 0.95);
-  box-shadow:
-    0 20px 56px rgba(0, 0, 0, 0.62),
-    0 0 36px rgba(251, 191, 36, 0.22);
+  border: 1px solid #716249;
+  background: #151918;
+  box-shadow: 0 28px 90px #000a;
 }
 
 .bond-preview-image {
@@ -13213,7 +13120,7 @@ onBeforeUnmount(() => {
   width: 100%;
   max-height: calc(90vh - 3.2rem);
   object-fit: contain;
-  background: radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.08), rgba(8, 7, 6, 0.95) 62%);
+  background: #151918;
 }
 
 .bond-preview-footer {
@@ -13221,9 +13128,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
-  border-top: 1px solid rgba(212, 175, 55, 0.28);
+  border-top: 1px solid #ffffff12;
   padding: 0.52rem 0.72rem;
-  background: rgba(21, 13, 9, 0.94);
+  background: #1a1f1e;
 }
 
 .bond-preview-name {
@@ -13234,11 +13141,15 @@ onBeforeUnmount(() => {
 }
 
 .bond-preview-close-btn {
-  border-radius: 9999px;
-  border: 1px solid rgba(212, 175, 55, 0.5);
-  background: rgba(17, 11, 8, 0.8);
-  color: rgba(251, 191, 36, 0.95);
-  padding: 0.18rem 0.72rem;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  border: 0;
+  background: transparent;
+  color: #a7b1aa;
+  padding: 0;
   font-size: 0.78rem;
   transition:
     border-color 0.2s ease,
@@ -13866,9 +13777,9 @@ onBeforeUnmount(() => {
 .variable-update-body {
   max-height: 58vh;
   overflow-y: auto;
-  border-radius: 0.72rem;
-  border: 1px solid rgba(120, 85, 56, 0.6);
-  background: rgba(10, 9, 8, 0.7);
+  border-radius: 5px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-surface);
   padding: 0.75rem;
 }
 
@@ -13895,23 +13806,40 @@ onBeforeUnmount(() => {
 
 .settings-panel {
   width: 100%;
+  color: #d8dcdb;
+  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0;
+}
+
+@media (max-width: 520px) {
+  .settings-panel .settings-nav-btn { flex-direction: column; gap: 7px; padding: 14px 3px 12px; font-size: 12px; }
+  .settings-panel .settings-section { padding-top: 20px; }
+  .settings-panel .settings-section > .space-y-4 > [class~='sm:flex-row'] { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .settings-panel .settings-help { max-width: calc(100% - 54px); }
+  .settings-panel .settings-action-btn { gap: 6px; padding-inline: 7px; font-size: 11px; }
 }
 
 .settings-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid #ffffff12;
 }
 
 .settings-nav-btn {
-  border-radius: 0.56rem;
-  border: 1px solid rgba(120, 85, 56, 0.75);
-  padding: 0.42rem 0.78rem;
-  background: rgba(20, 12, 8, 0.82);
-  color: rgba(214, 211, 209, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 19px 8px 17px;
+  background: transparent;
+  color: #86958c;
   font-family: 'Inter', sans-serif;
-  font-size: 0.76rem;
-  letter-spacing: 0.02em;
+  font-size: 13px;
+  letter-spacing: 0;
   transition:
     border-color 0.18s ease,
     color 0.18s ease,
@@ -13919,54 +13847,59 @@ onBeforeUnmount(() => {
     transform 0.18s ease;
 }
 
+.settings-nav-btn svg { width: 17px; height: 17px; flex-shrink: 0; stroke-width: 1.6; }
+.settings-nav-btn span { white-space: nowrap; }
+
 .settings-nav-btn:hover,
 .settings-nav-btn:focus-visible {
-  outline: none;
-  border-color: rgba(212, 175, 55, 0.62);
-  color: rgba(250, 237, 205, 0.94);
-  background: rgba(40, 22, 11, 0.82);
-  transform: translateY(-1px);
+  color: #dfd9c9;
+  background: #ffffff04;
+  transform: none;
 }
+.settings-nav-btn:focus-visible { outline: 1px solid #c6ae76; outline-offset: -4px; }
 
 .settings-nav-btn.is-active {
-  border-color: rgba(245, 158, 11, 0.86);
-  color: rgba(255, 231, 170, 0.98);
-  background: radial-gradient(circle at 15% 10%, rgba(245, 158, 11, 0.14), transparent 58%), rgba(72, 31, 13, 0.85);
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.14);
+  border-bottom-color: #c6ae76;
+  color: #ddc89a;
+  background: #ffffff03;
+  box-shadow: none;
 }
 
 .settings-section {
-  border-radius: 1rem;
-  border: 1px solid rgba(92, 62, 38, 0.78);
-  padding: 1rem;
-  background: linear-gradient(180deg, rgba(20, 12, 8, 0.94), rgba(9, 6, 5, 0.86));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 10px 24px rgba(0, 0, 0, 0.2);
+  padding: 24px 0 18px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
 }
+.settings-section > .space-y-4 > .flex { min-height: 56px; margin-block: 0; padding: 12px 0; border-bottom: 1px solid #ffffff0c; }
+.settings-section > .space-y-4 > .flex:last-child { border-bottom: 0; }
+.settings-section .settings-help, .settings-section label { color: #c6ceca; }
+.settings-panel :is(input[type='number'], textarea, .settings-select) { border-color: #414644; border-radius: 5px; background: #1c2121; color: #e1e5e2; letter-spacing: 0; }
+.settings-panel input[type='range'] { accent-color: #c6ae76; cursor: pointer; }
+.settings-panel :is(input, textarea, select):focus-visible { outline: 1px solid #c6ae76; outline-offset: 3px; }
+#settings-content:focus-visible { outline: 1px solid #c6ae7680; outline-offset: 5px; }
 
 .settings-system-actions {
-  border-top: 1px solid rgba(212, 175, 55, 0.18);
-  padding-top: 1.1rem;
+  border-top: 1px solid #ffffff12;
+  padding-top: 18px;
 }
+.settings-system-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
 .settings-section-title {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.95rem;
-  font-family: 'Cinzel', serif;
-  font-size: 0.95rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .settings-section-title::before,
 .settings-section-title::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  opacity: 0.95;
+  display: none;
 }
 
 .settings-section--text .settings-section-title {
@@ -14016,15 +13949,16 @@ onBeforeUnmount(() => {
 
 .settings-select {
   max-width: 100%;
+  height: 36px;
 }
 
 .settings-stepper-btn {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 0.45rem;
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  background: radial-gradient(circle at 26% 20%, rgba(251, 191, 36, 0.12), transparent 55%), rgba(26, 15, 8, 0.88);
-  color: rgba(212, 175, 55, 0.86);
+  border-radius: 4px;
+  border: 1px solid #414644;
+  background: #232a27;
+  color: #ddc89a;
   font-size: 0.92rem;
   line-height: 1;
   transition:
@@ -14067,14 +14001,12 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
-  width: 5.8rem;
-  height: 2.2rem;
-  border-radius: 0.72rem;
-  border: 1px solid rgba(212, 175, 55, 0.32);
-  background: linear-gradient(180deg, rgba(34, 21, 14, 0.98), rgba(18, 12, 9, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 8px 16px rgba(0, 0, 0, 0.18);
+  width: 40px;
+  height: 22px;
+  border-radius: 12px;
+  border: 1px solid #505956;
+  background: #2b3331;
+  box-shadow: none;
   overflow: hidden;
   transition:
     border-color 0.18s ease,
@@ -14083,21 +14015,12 @@ onBeforeUnmount(() => {
 
 .settings-switch:hover:not(:disabled) .settings-switch-track,
 .settings-switch:focus-visible:not(:disabled) .settings-switch-track {
-  border-color: rgba(251, 191, 36, 0.54);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 12px rgba(212, 175, 55, 0.12);
+  border-color: #c6ae76;
+  box-shadow: 0 0 0 3px #c6ae7618;
 }
 
 .settings-switch-label {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  transition: color 0.18s ease;
+  display: none;
 }
 
 .settings-switch-label--off {
@@ -14110,18 +14033,14 @@ onBeforeUnmount(() => {
 
 .settings-switch-thumb {
   position: absolute;
-  left: 0.17rem;
-  top: 0.17rem;
-  width: 2.58rem;
-  height: 1.84rem;
-  border-radius: 0.56rem;
-  border: 1px solid rgba(212, 175, 55, 0.34);
-  background:
-    radial-gradient(circle at 35% 30%, rgba(251, 191, 36, 0.14), transparent 58%),
-    linear-gradient(180deg, rgba(82, 49, 28, 0.98), rgba(56, 33, 20, 0.96));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 4px 10px rgba(0, 0, 0, 0.28);
+  left: 3px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 0;
+  background: #8c9892;
+  box-shadow: none;
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -14129,12 +14048,10 @@ onBeforeUnmount(() => {
 }
 
 .settings-switch.is-on .settings-switch-thumb {
-  transform: translateX(2.88rem);
-  border-color: rgba(251, 191, 36, 0.62);
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255, 247, 200, 0.18), transparent 58%),
-    linear-gradient(180deg, rgba(158, 98, 32, 0.98), rgba(114, 65, 22, 0.96));
+  transform: translateX(18px);
+  background: #c5e1cc;
 }
+.settings-switch.is-on .settings-switch-track { border-color: #8eae99; background: #335341; }
 
 .settings-switch.is-on .settings-switch-label--off {
   color: rgba(212, 175, 55, 0.46);
@@ -14145,10 +14062,10 @@ onBeforeUnmount(() => {
 }
 
 .settings-primary-btn {
-  border-radius: 0.58rem;
-  border: 1px solid rgba(217, 119, 6, 0.55);
-  background: radial-gradient(circle at 18% 12%, rgba(251, 191, 36, 0.16), transparent 52%), rgba(69, 26, 3, 0.64);
-  color: rgba(252, 211, 77, 0.96);
+  border-radius: 5px;
+  border: 1px solid #796e51;
+  background: #353126;
+  color: #dfcfab;
   font-family: 'Inter', sans-serif;
   font-size: 0.84rem;
   padding: 0.52rem 1.04rem;
@@ -14174,12 +14091,18 @@ onBeforeUnmount(() => {
 }
 
 .settings-action-btn {
-  border-radius: 0.68rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 38px;
+  min-width: 0;
+  border-radius: 5px;
   border-width: 1px;
-  padding: 0.76rem 0.95rem;
+  padding: 9px 12px;
   font-family: 'Inter', sans-serif;
-  font-size: 0.82rem;
-  letter-spacing: 0.03em;
+  font-size: 12px;
+  letter-spacing: 0;
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -14187,6 +14110,8 @@ onBeforeUnmount(() => {
     box-shadow 0.18s ease,
     color 0.18s ease;
 }
+.settings-action-btn svg { width: 15px; height: 15px; flex-shrink: 0; stroke-width: 1.6; }
+.settings-action-btn--test { grid-column: 1 / -1; }
 
 .settings-action-btn:hover,
 .settings-action-btn:focus-visible {
@@ -14195,9 +14120,9 @@ onBeforeUnmount(() => {
 }
 
 .settings-action-btn--gold {
-  border-color: rgba(212, 175, 55, 0.38);
-  background: rgba(40, 22, 11, 0.72);
-  color: rgba(232, 194, 111, 0.94);
+  border-color: #4a504a;
+  background: #202623;
+  color: #d2d4c8;
 }
 
 .settings-action-btn--gold:hover,
@@ -14209,9 +14134,9 @@ onBeforeUnmount(() => {
 }
 
 .settings-action-btn--danger {
-  border-color: rgba(127, 29, 29, 0.6);
-  background: rgba(69, 10, 10, 0.34);
-  color: rgba(248, 113, 113, 0.92);
+  border-color: #724a43;
+  background: #352522;
+  color: #da9d8e;
 }
 
 .settings-action-btn--danger:hover,
@@ -14223,9 +14148,9 @@ onBeforeUnmount(() => {
 }
 
 .settings-action-btn--accent {
-  border-color: rgba(217, 119, 6, 0.56);
-  background: radial-gradient(circle at 12% 10%, rgba(251, 191, 36, 0.14), transparent 50%), rgba(69, 26, 3, 0.48);
-  color: rgba(251, 191, 36, 0.94);
+  border-color: #756646;
+  background: #29291f;
+  color: #cab88d;
 }
 
 .settings-action-btn--accent:hover,
@@ -14294,9 +14219,9 @@ onBeforeUnmount(() => {
   z-index: 30;
   width: min(22rem, 78vw);
   padding: 0.75rem 0.85rem;
-  border-radius: 0.8rem;
+  border-radius: 6px;
   border: 1px solid rgba(212, 175, 55, 0.24);
-  background: rgba(8, 6, 5, 0.96);
+  background: #151b18;
   color: rgba(237, 226, 205, 0.92);
   font-family: 'Microsoft YaHei', sans-serif;
   font-size: 0.78rem;
@@ -14483,15 +14408,7 @@ onBeforeUnmount(() => {
 .magic-hat-hero,
 .magic-hat-section {
   position: relative;
-  overflow: hidden;
-  border-radius: 1.1rem;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background:
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 34%),
-    linear-gradient(145deg, rgba(33, 19, 12, 0.96), rgba(15, 9, 6, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 236, 201, 0.05),
-    0 18px 34px rgba(0, 0, 0, 0.28);
+  min-width: 0;
 }
 
 .magic-hat-hero {
@@ -14511,7 +14428,7 @@ onBeforeUnmount(() => {
 .magic-hat-hero__content {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: stretch;
 }
@@ -14543,6 +14460,7 @@ onBeforeUnmount(() => {
 
 .magic-hat-hero__chips {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
 }
 
@@ -14551,11 +14469,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.8rem 0.9rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(212, 175, 55, 0.16);
-  background: rgba(8, 6, 5, 0.5);
-  backdrop-filter: blur(8px);
+  padding: 4px 16px;
+  border-left: 1px solid var(--panel-divider);
 }
 
 .magic-hat-hero__chip-label {
@@ -14565,10 +14480,10 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-hero__chip-value {
-  color: rgba(255, 224, 163, 0.96);
-  font-family: 'Cinzel', serif;
+  color: var(--panel-accent);
+  font-family: inherit;
   font-size: 1rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .magic-hat-section {
@@ -14726,7 +14641,7 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-difficulty-card::before {
-  content: '';
+  content: none;
   position: absolute;
   left: 0;
   right: 0;
@@ -14737,7 +14652,7 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-difficulty-card::after {
-  content: '';
+  content: none;
   position: absolute;
   inset: 0;
   background: linear-gradient(140deg, rgba(255, 255, 255, 0.04), transparent 42%);
@@ -14805,9 +14720,9 @@ onBeforeUnmount(() => {
 
 .magic-hat-difficulty-card__name {
   color: rgba(255, 239, 205, 0.98);
-  font-family: 'Cinzel', serif;
+  font-family: inherit;
   font-size: 0.95rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 
 .magic-hat-difficulty-card__state {
@@ -14854,23 +14769,23 @@ onBeforeUnmount(() => {
 
 .magic-hat-preview {
   padding: 1rem 1rem 1.05rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(212, 175, 55, 0.14);
-  background: linear-gradient(180deg, rgba(251, 191, 36, 0.08), transparent 24%), rgba(6, 5, 4, 0.78);
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-surface);
 }
 
 .magic-hat-preview__label {
   color: rgba(212, 175, 55, 0.72);
   font-size: 0.72rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .magic-hat-preview__difficulty {
   margin-top: 0.45rem;
   color: rgba(255, 229, 170, 0.98);
-  font-family: 'Cinzel', serif;
-  font-size: 1.2rem;
+  font-family: inherit;
+  font-size: 16px;
 }
 
 .magic-hat-preview__list {
@@ -14902,13 +14817,7 @@ onBeforeUnmount(() => {
 .magic-hat-custom-panel {
   display: grid;
   gap: 0.85rem;
-  padding: 0.95rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(212, 175, 55, 0.16);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 24%),
-    radial-gradient(circle at 18% 0%, rgba(168, 85, 247, 0.12), transparent 28%),
-    rgba(8, 6, 6, 0.72);
+  padding: 0;
 }
 
 .magic-hat-custom-group {
@@ -15083,9 +14992,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.8rem;
   padding: 0.75rem 0.95rem;
-  border-radius: 0.95rem;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background: radial-gradient(circle at left center, rgba(251, 191, 36, 0.15), transparent 42%), rgba(8, 6, 5, 0.56);
+  border-left: 1px solid var(--panel-divider);
 }
 
 .magic-hat-points-card__label {
@@ -15095,8 +15002,8 @@ onBeforeUnmount(() => {
 
 .magic-hat-points-card__value {
   color: rgba(255, 224, 163, 0.98);
-  font-family: 'Cinzel', serif;
-  font-size: 1.2rem;
+  font-family: inherit;
+  font-size: 18px;
 }
 
 .magic-hat-track-grid {
@@ -15151,14 +15058,14 @@ onBeforeUnmount(() => {
 .magic-hat-track-card__kicker {
   color: rgba(212, 175, 55, 0.72);
   font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .magic-hat-track-card__title {
   margin-top: 0.3rem;
   color: rgba(255, 239, 205, 0.98);
-  font-family: 'Cinzel', serif;
+  font-family: inherit;
   font-size: 1rem;
   line-height: 1.35;
 }
@@ -15169,9 +15076,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 2.15rem;
   height: 2.15rem;
-  border-radius: 0.8rem;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background: rgba(0, 0, 0, 0.24);
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
+  background: #ffffff04;
   color: rgba(255, 224, 163, 0.95);
   font-family: 'Cinzel', serif;
   font-size: 0.95rem;
@@ -15185,9 +15092,7 @@ onBeforeUnmount(() => {
 
 .magic-hat-track-card__stat {
   padding: 0.72rem 0.75rem;
-  border-radius: 0.82rem;
-  border: 1px solid rgba(120, 85, 56, 0.38);
-  background: rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid var(--panel-divider);
 }
 
 .magic-hat-track-card__stat-label {
@@ -15205,11 +15110,10 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-track-card__bar {
-  height: 0.62rem;
+  height: 5px;
   overflow: hidden;
   border-radius: 999px;
-  border: 1px solid rgba(120, 85, 56, 0.4);
-  background: rgba(0, 0, 0, 0.34);
+  background: #3b4241;
 }
 
 .magic-hat-track-card__bar-fill {
@@ -15286,6 +15190,10 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .magic-books-hero__chips,
+  .magic-hat-hero__chips { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+
+  .bond-affection-head { flex-wrap: wrap; gap: 4px 12px; }
   .magic-books-hero,
   .map-hero {
     grid-template-columns: minmax(0, 1fr);

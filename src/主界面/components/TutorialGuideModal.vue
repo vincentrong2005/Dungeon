@@ -2,12 +2,13 @@
 <template>
   <DungeonModal
     title="新手教程"
+    :icon="BookOpen"
     :is-open="isOpen"
     panel-class="tutorial-guide-modal !max-w-[min(94vw,980px)]"
     @close="emit('close')"
   >
     <div class="tutorial-guide-root">
-      <div class="tutorial-guide-intro">
+      <div class="tutorial-guide-intro panel-section">
         <div>
           <div class="tutorial-guide-kicker"><BookOpen class="size-4" /> 战斗入门</div>
           <h2>先看意图，再看骰子，最后出牌</h2>
@@ -16,13 +17,13 @@
         <div class="tutorial-guide-dummy-mark" aria-hidden="true"><Swords class="size-7" /></div>
       </div>
 
-      <nav class="tutorial-guide-tabs" aria-label="教程章节">
+      <nav class="tutorial-guide-tabs panel-tabs" aria-label="教程章节">
         <button
           v-for="entry in chapters"
           :key="entry.id"
           type="button"
-          class="tutorial-guide-tab"
-          :class="{ 'tutorial-guide-tab--active': chapter === entry.id }"
+          class="tutorial-guide-tab panel-tab"
+          :class="{ 'is-active': chapter === entry.id }"
           @click="chapter = entry.id"
         >
           <span>{{ entry.label }}</span>
@@ -184,19 +185,19 @@
       </section>
 
       <div class="tutorial-guide-footer">
-        <button type="button" class="tutorial-guide-nav-button" :disabled="chapter === 1" @click="chapter -= 1">
+        <button type="button" class="tutorial-guide-nav-button panel-action" :disabled="chapter === 1" @click="chapter -= 1">
           <ChevronLeft class="size-4" /> 上一章
         </button>
         <span>第 {{ chapter }} / {{ chapters.length }} 章</span>
         <button
           v-if="chapter < chapters.length"
           type="button"
-          class="tutorial-guide-nav-button"
+          class="tutorial-guide-nav-button panel-action"
           @click="chapter += 1"
         >
           下一章 <ChevronRight class="size-4" />
         </button>
-        <button v-else type="button" class="tutorial-guide-start-button" @click="emit('startTraining')">
+        <button v-else type="button" class="tutorial-guide-start-button panel-action" @click="emit('startTraining')">
           <Swords class="size-4" /> 进入训练战
         </button>
       </div>
@@ -228,7 +229,7 @@ watch(() => props.isOpen, (isOpen) => {
 .tutorial-guide-root { display: flex; flex-direction: column; gap: 1rem; }
 .tutorial-guide-intro { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid rgba(245, 158, 11, 0.25); background: rgba(42, 25, 15, 0.75); }
 .tutorial-guide-kicker { display: flex; align-items: center; gap: 0.4rem; color: #f6c86e; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; }
-.tutorial-guide-intro h2 { margin: 0.35rem 0 0; color: #fff1c8; font-family: Georgia, serif; font-size: clamp(1.2rem, 2.5vw, 1.75rem); }
+.tutorial-guide-intro h2 { margin: 0.35rem 0 0; color: #e4dfd3; font: 500 18px/1.6 'Inter', 'Microsoft YaHei', sans-serif; }
 .tutorial-guide-intro p { margin: 0.35rem 0 0; color: rgba(255, 244, 214, 0.68); font-size: 0.78rem; }
 .tutorial-guide-dummy-mark { display: grid; width: 3.5rem; aspect-ratio: 1; place-items: center; border: 1px solid rgba(245, 158, 11, 0.38); color: #f6c86e; background: rgba(0, 0, 0, 0.25); }
 .tutorial-guide-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.45rem; }
@@ -238,7 +239,7 @@ watch(() => props.isOpen, (isOpen) => {
 .tutorial-guide-section { display: flex; flex-direction: column; gap: 1rem; }
 .tutorial-guide-section-heading { display: flex; gap: 0.75rem; align-items: flex-start; }
 .tutorial-guide-section-number { color: #eeb85e; font-family: Georgia, serif; font-size: 1.35rem; font-weight: 700; }
-.tutorial-guide-section-heading h3 { margin: 0; color: #ffefc4; font-family: Georgia, serif; font-size: 1.2rem; }
+.tutorial-guide-section-heading h3 { margin: 0; color: #e4dfd3; font: 500 15px/1.6 'Inter', 'Microsoft YaHei', sans-serif; }
 .tutorial-guide-section-heading p { margin: 0.25rem 0 0; color: rgba(255,244,214,0.62); font-size: 0.78rem; }
 .tutorial-guide-layout-map { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 0.6rem; align-items: stretch; }
 .tutorial-guide-map-side, .tutorial-guide-map-center { display: flex; min-height: 7.5rem; flex-direction: column; justify-content: center; gap: 0.45rem; border: 1px solid rgba(255,255,255,0.1); padding: 0.75rem; background: rgba(0,0,0,0.2); font-size: 0.74rem; }

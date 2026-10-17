@@ -60,6 +60,7 @@
           :disabled="environmentChecking"
           aria-label="开始冒险"
           @click="$emit('start')"
+          data-ui-sound="confirm"
         ></button>
         <button
           type="button"
@@ -83,6 +84,7 @@
           aria-label="教程"
           title="教程"
           @click="$emit('openTutorial')"
+          data-ui-sound="confirm"
         ></button>
       </div>
 
@@ -250,6 +252,7 @@ const isVideoReady = ref(false);
 const updateCardButton = ref<HTMLButtonElement | null>(null);
 const updateCloseButton = ref<HTMLButtonElement | null>(null);
 const updateEntries: { date: string; content: string; milestone?: string }[] = [
+  { date: '10.17', content: '增加大量音效与特效' },
   { date: '10.10', content: '标题界面UI重做，教程功能更新' },
   { date: '10.07', content: '更新苦修之路' },
   { date: '10.05', content: '地图系统重做' },

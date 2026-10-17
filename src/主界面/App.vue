@@ -41,6 +41,7 @@ import SplashScreen from './components/SplashScreen.vue';
 import TutorialBattleView from './components/TutorialBattleView.vue';
 import WitchCollectionModal from './components/WitchCollectionModal.vue';
 import { disposeBgm, initializeBgm } from './bgm';
+import { disposeSfx, initializeSfx } from './sfx';
 import { runEnvironmentCheck, type EnvironmentCheckReport } from './environmentCheck';
 import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
@@ -69,10 +70,12 @@ function closeTutorialBattle() {
 onMounted(() => {
   ensureAuthorTestAccessBenefits();
   void initializeBgm();
+  initializeSfx();
 });
 
 onUnmounted(() => {
   disposeBgm();
+  disposeSfx();
 });
 
 /**

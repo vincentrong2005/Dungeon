@@ -8,62 +8,52 @@
       <div
         data-card-tooltip-boundary
         :class="[
-          'relative mx-4 flex max-h-[90%] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-amber-300/35 bg-[#100b09]/95 shadow-[0_24px_60px_rgba(0,0,0,0.65),0_0_50px_rgba(217,119,6,0.22)]',
+          'dungeon-modal relative mx-4 flex max-h-[90%] w-full max-w-3xl flex-col overflow-hidden',
+          { 'dungeon-modal--settings': variant === 'settings' },
           panelClass,
         ]"
       >
-        <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_-10%,rgba(251,191,36,0.2),transparent_45%),radial-gradient(circle_at_84%_0%,rgba(251,191,36,0.12),transparent_36%)]"></div>
-        <div class="pointer-events-none absolute inset-[1px] rounded-[15px] border border-white/6"></div>
-
         <!-- Header -->
-        <div
-          class="relative flex shrink-0 items-center justify-between rounded-t-2xl border-b border-amber-300/25 bg-[linear-gradient(120deg,rgba(34,21,14,0.96),rgba(59,35,20,0.92)_46%,rgba(33,20,13,0.96))] px-6 py-4"
-        >
-          <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)] opacity-40"></div>
-          <h2 class="relative text-xl font-heading tracking-[0.2em] text-amber-100 drop-shadow-[0_0_10px_rgba(251,191,36,0.35)]">{{ title }}</h2>
+        <div class="dungeon-modal-header relative flex shrink-0 items-center justify-between">
+          <h2 class="dungeon-modal-title"><component :is="icon ?? (variant === 'settings' ? SlidersHorizontal : PanelsTopLeft)" aria-hidden="true" />{{ title }}</h2>
           <button
             type="button"
-            class="relative size-[68px] shrink-0 border-0 bg-transparent p-0 transition-[transform,filter] hover:scale-105 hover:brightness-125 focus-visible:outline-2 focus-visible:outline-amber-300"
+            class="dungeon-modal-close"
             title="关闭"
             aria-label="关闭"
+            data-ui-sound="cancel"
             @click="$emit('close')"
           >
-            <MainButtonSkin skin="close" />
+            <X aria-hidden="true" />
           </button>
         </div>
 
         <!-- Body -->
         <div
           :id="bodyId"
-          class="relative flex-1 overflow-y-auto custom-scrollbar bg-[linear-gradient(160deg,rgba(20,13,9,0.92),rgba(30,19,12,0.9))] p-8 text-dungeon-paper/80"
+          class="dungeon-modal-body relative flex-1 overflow-y-auto custom-scrollbar"
           @scroll="$emit('bodyScroll', $event)"
         >
           <slot>
-            <div class="text-center py-12">
-              <div class="mb-4 text-4xl opacity-20 animate-pulse">❖</div>
-              <p class="font-ui text-sm uppercase tracking-widest">模块已加载 // 等待数据同步</p>
-            </div>
+            <div class="panel-empty">暂无数据</div>
           </slot>
         </div>
-
-        <!-- Ornamental Corners -->
-        <div class="pointer-events-none absolute -left-1 -top-1 h-5 w-5 border-l-2 border-t-2 border-amber-300/75"></div>
-        <div class="pointer-events-none absolute -right-1 -top-1 h-5 w-5 border-r-2 border-t-2 border-amber-300/75"></div>
-        <div class="pointer-events-none absolute -bottom-1 -left-1 h-5 w-5 border-b-2 border-l-2 border-amber-300/75"></div>
-        <div class="pointer-events-none absolute -bottom-1 -right-1 h-5 w-5 border-b-2 border-r-2 border-amber-300/75"></div>
       </div>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import MainButtonSkin from './MainButtonSkin.vue';
+import type { Component } from 'vue';
+import { PanelsTopLeft, SlidersHorizontal, X } from 'lucide-vue-next';
 
 defineProps<{
   title: string;
   isOpen: boolean;
   panelClass?: string;
   bodyId?: string;
+  variant?: 'settings';
+  icon?: Component;
 }>();
 
 defineEmits<{
@@ -71,3 +61,81 @@ defineEmits<{
   bodyScroll: [event: Event];
 }>();
 </script>
+
+<style scoped>
+.dungeon-modal {
+  --panel-bg: #151918;
+  --panel-surface: #1c2121;
+  --panel-border: #414644;
+  --panel-divider: #ffffff12;
+  --panel-accent: #c6ae76;
+  --panel-text: #d8dcdb;
+  --panel-muted: #939e98;
+  --font-heading: 'Inter', 'Microsoft YaHei', sans-serif;
+  border: 1px solid #716249;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  box-shadow: 0 28px 90px #000a;
+  color: var(--panel-text);
+  color-scheme: dark;
+  font: 14px/1.6 'Inter', 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0;
+}
+.dungeon-modal--settings { max-width: 760px; }
+.dungeon-modal-header {
+  gap: 16px;
+  padding: 18px 26px;
+  border-bottom: 1px solid var(--panel-divider);
+  background: #1a1f1e;
+}
+.dungeon-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  font: 500 17px/1.4 'Inter', 'Microsoft YaHei', sans-serif;
+  letter-spacing: 0;
+  color: #ece6d8;
+  filter: none;
+}
+.dungeon-modal-title svg { width: 19px; height: 19px; flex-shrink: 0; color: var(--panel-accent); stroke-width: 1.5; }
+.dungeon-modal-close { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #a7b1aa; cursor: pointer; transition: background 160ms, color 160ms; }
+.dungeon-modal-close:hover { background: #ffffff09; color: #eee6d4; }
+.dungeon-modal-close:focus-visible { outline: 2px solid var(--panel-accent); outline-offset: 3px; }
+.dungeon-modal-close svg { width: 20px; height: 20px; stroke-width: 1.5; }
+.dungeon-modal-body { min-height: 0; padding: 24px 26px; overflow-wrap: anywhere; scrollbar-color: #505a54 transparent; }
+.dungeon-modal--settings .dungeon-modal-body { padding: 0 26px 24px; background: none; }
+
+/* Shared controls keep slotted panels consistent without styling card artwork. */
+.dungeon-modal .dungeon-modal-body :deep(.panel-tabs) { display: flex; flex-wrap: wrap; gap: 0; padding: 0; border: 0; border-bottom: 1px solid var(--panel-divider); border-radius: 0; background: var(--panel-bg); box-shadow: none; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-tab) { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 8px; min-width: 0; min-height: 48px; padding: 12px 14px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--panel-muted); font: inherit; font-size: 13px; letter-spacing: 0; box-shadow: none; transform: none; cursor: pointer; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-tab:hover) { background: #ffffff04; color: #dfd9c9; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-tab:is(.is-active, .active)) { border-bottom-color: var(--panel-accent); background: #ffffff03; color: #ddc89a; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-tab svg) { width: 17px; height: 17px; flex-shrink: 0; stroke-width: 1.6; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-section) { padding: 20px 0; border: 0; border-bottom: 1px solid var(--panel-divider); border-radius: 0; background: none; box-shadow: none; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-section:last-child) { border-bottom: 0; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-heading) { color: #e4dfd3; font: 500 14px/1.5 'Inter', 'Microsoft YaHei', sans-serif; letter-spacing: 0; text-shadow: none; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-item) { border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-surface); box-shadow: none; transform: none; }
+.dungeon-modal .dungeon-modal-body :deep(button.panel-item:hover:not(:disabled)) { border-color: #857653; background: #232a26; box-shadow: none; transform: none; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-item:is(.is-active, .is-selected, .is-equipped)) { border-color: var(--panel-accent); background: #27302a; box-shadow: inset 0 0 0 1px #c6ae7620; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-action) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 12px; border: 1px solid var(--panel-border); border-radius: 4px; background: #202623; color: #d2d4c8; font: inherit; font-size: 12px; line-height: 1.5; letter-spacing: 0; box-shadow: none; transform: none; cursor: pointer; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-action:hover:not(:disabled)) { border-color: #857653; background: #2b322d; color: #eee6d4; box-shadow: none; transform: none; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-action--danger) { border-color: #644b46; background: #342521; color: #d6aaa0; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-action--danger:hover:not(:disabled)) { border-color: #b08073; background: #45302a; color: #f2c4b8; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-action:is(.is-active, .active)) { border-color: #857653; background: #c6ae7614; color: #ddc89a; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-action svg) { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.6; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-icon-button) { width: 34px; height: 34px; min-width: 34px; min-height: 34px; padding: 0; }
+.dungeon-modal .dungeon-modal-body :deep(:is(.panel-action, .panel-item):disabled) { opacity: 0.45; cursor: not-allowed; }
+.dungeon-modal .dungeon-modal-body :deep(:is(.panel-action, .panel-tab, .panel-item):focus-visible) { outline: 2px solid var(--panel-accent); outline-offset: 3px; }
+.dungeon-modal .dungeon-modal-body :deep(.panel-empty) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px 16px; border: 0; border-radius: 0; background: none; color: var(--panel-muted); font-size: 13px; text-align: center; }
+@media (max-width: 520px) {
+  .dungeon-modal-header { padding: 16px 18px; }
+  .dungeon-modal-body { padding: 18px; }
+  .dungeon-modal--settings .dungeon-modal-body { padding: 0 18px 20px; }
+  .dungeon-modal .dungeon-modal-body :deep(.panel-tab) { gap: 6px; padding: 12px 7px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dungeon-modal-close { transition: none; }
+}
+</style>

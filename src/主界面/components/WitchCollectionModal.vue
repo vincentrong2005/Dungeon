@@ -1,20 +1,18 @@
 <template>
   <DungeonModal
     title="魔女的收藏"
+    :icon="Library"
     :is-open="isOpen"
     panel-class="codex-single-modal !max-w-[min(96vw,1500px)] !max-h-[94%]"
     @close="$emit('close')"
   >
     <div class="codex-root">
-      <!-- Decorative top glow line -->
-      <div class="codex-top-glow"></div>
-
-      <header class="top-nav">
+      <header class="top-nav panel-tabs">
         <button
           v-for="tab in tabs"
           :key="tab.id"
           type="button"
-          class="top-nav-btn"
+          class="top-nav-btn panel-tab"
           :class="{ active: activeTab === tab.id }"
           @click="setMainTab(tab.id)"
         >
@@ -30,7 +28,7 @@
             v-for="item in sideItems"
             :key="`${activeTab}-${item.key}`"
             type="button"
-            class="side-btn"
+            class="side-btn panel-action"
             :class="{ active: currentFilter === item.key }"
             @click="setFilter(item.key)"
           >
@@ -53,7 +51,7 @@
               </div>
 
               <div v-else-if="activeTab === 'relics'" class="entry-grid">
-                <article v-for="relic in pagedRelics" :key="`relic-${relic.id}`" class="entry-card">
+                <article v-for="relic in pagedRelics" :key="`relic-${relic.id}`" class="entry-card panel-item">
                   <div class="entry-title">{{ encounteredRelicIds.has(relic.id) ? relic.name : '???' }}</div>
                   <div class="entry-meta">{{ encounteredRelicIds.has(relic.id) ? `${relic.category} · ${relic.rarity}` : '??? · ???' }}</div>
                   <p class="entry-desc">{{ encounteredRelicIds.has(relic.id) ? relic.effect : '???' }}</p>
@@ -61,7 +59,7 @@
               </div>
 
               <div v-else-if="activeTab === 'status'" class="entry-grid">
-                <article v-for="effect in pagedEffects" :key="`effect-${effect.type}`" class="entry-card">
+                <article v-for="effect in pagedEffects" :key="`effect-${effect.type}`" class="entry-card panel-item">
                   <div class="effect-row">
                     <span class="effect-icon">
                       <i
@@ -83,7 +81,7 @@
                 <article
                   v-for="enemy in pagedEnemyLikeEntries"
                   :key="enemy.name"
-                  class="entry-card enemy-card"
+                  class="entry-card enemy-card panel-item"
                   :class="{ 'enemy-card--expanded': expandedEnemyName === enemy.name }"
                   tabindex="0"
                   role="button"
@@ -159,12 +157,12 @@
               </div>
 
               <div class="page-foot">
-                <button type="button" class="bookmark bookmark-prev" :disabled="currentPage <= 1" @click="prevPage">
-                  ◀
+                <button type="button" class="bookmark bookmark-prev panel-action panel-icon-button" title="上一页" aria-label="上一页" :disabled="currentPage <= 1" @click="prevPage">
+                  <ChevronLeft />
                 </button>
                 <span class="page-indicator">第 {{ currentPage }} / {{ totalPages }} 页</span>
-                <button type="button" class="bookmark bookmark-next" :disabled="currentPage >= totalPages" @click="nextPage">
-                  下一页
+                <button type="button" class="bookmark bookmark-next panel-action panel-icon-button" title="下一页" aria-label="下一页" :disabled="currentPage >= totalPages" @click="nextPage">
+                  <ChevronRight />
                 </button>
               </div>
             </article>
@@ -182,9 +180,10 @@
           type="button"
           class="portrait-lightbox-close"
           aria-label="关闭立绘预览"
+          title="关闭立绘预览"
           @click="closePortraitPreview"
         >
-          ×
+          <X class="size-5" />
         </button>
         <img
           class="portrait-lightbox-image"
@@ -198,6 +197,7 @@
 </template>
 
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight, Library, X } from 'lucide-vue-next';
 import { getAllCards } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, getEffectDisplayOrder } from '../battle/effects';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
@@ -746,7 +746,7 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 }
 
 .top-nav-btn::before {
-  content: '';
+  content: none;
   position: absolute;
   inset: 0;
   background: linear-gradient(135deg, transparent 40%, rgba(212, 175, 55, 0.06));
@@ -811,10 +811,8 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 
 /* ── Side Navigation ── */
 .side-nav {
-  border: 1px solid rgba(180, 83, 9, 0.28);
-  border-radius: 1rem;
-  background: linear-gradient(170deg, rgba(30, 16, 14, 0.88), rgba(16, 8, 7, 0.92));
-  padding: 0.75rem;
+  border-right: 1px solid var(--panel-divider);
+  padding: 0 16px 0 0;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -824,7 +822,7 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 }
 
 .side-nav::before {
-  content: '';
+  content: none;
   position: absolute;
   top: 0;
   left: 0;
@@ -867,15 +865,12 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 
 /* ── Book Shell & Page ── */
 .book-shell {
-  border: 1px solid rgba(180, 83, 9, 0.28);
-  border-radius: 1rem;
-  background: linear-gradient(170deg, rgba(26, 14, 12, 0.7), rgba(14, 8, 6, 0.85));
-  padding: 0.75rem;
+  min-width: 0;
   position: relative;
 }
 
 .book-shell::before {
-  content: '';
+  content: none;
   position: absolute;
   top: 0;
   left: 0;
@@ -887,13 +882,7 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 }
 
 .book-page {
-  border: 1px solid rgba(180, 83, 9, 0.2);
-  border-radius: 0.85rem;
-  background:
-    radial-gradient(circle at 15% 5%, rgba(160, 50, 50, 0.08), transparent 35%),
-    radial-gradient(circle at 85% 95%, rgba(212, 175, 55, 0.05), transparent 35%),
-    rgba(12, 7, 6, 0.75);
-  padding: 0.85rem 0.85rem 3.6rem;
+  padding: 12px 0 54px;
   min-height: 62vh;
   position: relative;
   display: flex;
@@ -912,7 +901,7 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 
 .entry-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 265px), 1fr));
   gap: 0.65rem;
   flex: 1;
   align-content: start;
@@ -920,7 +909,7 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
 
 .enemy-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 0.7rem;
   flex: 1;
   align-content: start;
@@ -1202,6 +1191,9 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
     flex-wrap: wrap;
     align-items: center;
     max-height: none;
+    padding: 0 0 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--panel-divider);
   }
 
   .side-title {
@@ -1216,5 +1208,10 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   .card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+@media (max-width: 520px) {
+  .card-grid { grid-template-columns: minmax(0, 1fr); }
+  .enemy-card--expanded { grid-column: auto; }
 }
 </style>

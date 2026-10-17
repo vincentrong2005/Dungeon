@@ -1,25 +1,27 @@
 <template>
   <DungeonModal
     title="词条与状态"
+    :icon="NotebookText"
     :is-open="isOpen"
     panel-class="glossary-reference-modal !max-w-[min(94vw,980px)]"
     @close="$emit('close')"
   >
     <div class="glossary-reference-root">
-      <div class="glossary-reference-tabs" role="tablist" aria-label="帮助分类">
+      <div class="glossary-reference-tabs panel-tabs" aria-label="帮助分类">
         <button
           v-for="tab in tabs"
           :key="tab.id"
           type="button"
-          class="glossary-reference-tab"
+          class="glossary-reference-tab panel-tab"
           :class="{ active: activeTab === tab.id }"
+          :aria-pressed="activeTab === tab.id"
           @click="activeTab = tab.id"
         >
-          {{ tab.label }}
+          <component :is="tab.icon" aria-hidden="true" />{{ tab.label }}
         </button>
       </div>
 
-      <section v-if="activeTab === 'tutorial'" class="glossary-reference-section">
+      <section v-if="activeTab === 'tutorial'" class="glossary-reference-section panel-section">
         <div class="glossary-reference-head">
           <div>
             <div class="glossary-reference-title">战斗教程</div>
@@ -334,7 +336,7 @@
         </div>
       </section>
 
-      <section v-else-if="activeTab === 'terms'" class="glossary-reference-section">
+      <section v-else-if="activeTab === 'terms'" class="glossary-reference-section panel-section">
         <div class="glossary-reference-head">
           <div>
             <div class="glossary-reference-title">卡牌词条</div>
@@ -343,7 +345,7 @@
           <div class="glossary-reference-head-actions">
             <button
               type="button"
-              class="glossary-reference-layout-btn"
+              class="glossary-reference-layout-btn panel-action"
               :class="{ active: referenceLayout === 'readable' }"
               @click="toggleReferenceLayout"
             >
@@ -366,7 +368,7 @@
         </div>
       </section>
 
-      <section v-else class="glossary-reference-section">
+      <section v-else class="glossary-reference-section panel-section">
         <div class="glossary-reference-head">
           <div>
             <div class="glossary-reference-title">已解锁状态</div>
@@ -375,7 +377,7 @@
           <div class="glossary-reference-head-actions">
             <button
               type="button"
-              class="glossary-reference-layout-btn"
+              class="glossary-reference-layout-btn panel-action"
               :class="{ active: referenceLayout === 'readable' }"
               @click="toggleReferenceLayout"
             >
@@ -399,7 +401,7 @@
                   v-for="entry in group.entries"
                   :key="`index-${entry.type}`"
                   type="button"
-                  class="glossary-reference-status-index-btn"
+                  class="glossary-reference-status-index-btn panel-action"
                   @click="scrollToStatus(entry.type)"
                 >
                   <span class="glossary-reference-status-index-icon">
@@ -421,7 +423,7 @@
             <section
               v-for="group in unlockedEffectGroups"
               :key="group.polarity"
-              class="glossary-reference-status-group"
+              class="glossary-reference-status-group panel-section"
               :class="toneClass(group.polarity)"
             >
               <div class="glossary-reference-status-group-head">
@@ -465,6 +467,8 @@
 </template>
 
 <script setup lang="ts">
+import { BookOpen, NotebookText, Sparkles } from 'lucide-vue-next';
+import type { Component } from 'vue';
 import {
   getCardKeywordGlossaryEntries,
   getCardTraitGlossaryEntries,
@@ -493,10 +497,10 @@ type EffectStatusEntry = {
   faStyle: Record<string, string> | undefined;
 };
 
-const tabs: Array<{ id: ReferenceTab; label: string }> = [
-  { id: 'tutorial', label: '战斗教程' },
-  { id: 'terms', label: '卡牌词条' },
-  { id: 'status', label: '已解锁状态' },
+const tabs: Array<{ id: ReferenceTab; label: string; icon: Component }> = [
+  { id: 'tutorial', label: '战斗教程', icon: BookOpen },
+  { id: 'terms', label: '卡牌词条', icon: NotebookText },
+  { id: 'status', label: '已解锁状态', icon: Sparkles },
 ];
 const activeTab = ref<ReferenceTab>('tutorial');
 const referenceLayout = ref<ReferenceLayout>('compact');
@@ -718,10 +722,10 @@ watch(
 }
 
 .glossary-reference-title {
-  color: rgba(254, 243, 199, 0.98);
+  color: #e4dfd3;
   font-family: var(--font-heading);
-  font-size: 1rem;
-  letter-spacing: 0.12em;
+  font-size: 14px;
+  letter-spacing: 0;
 }
 
 .glossary-reference-subtitle {

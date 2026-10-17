@@ -1,6 +1,6 @@
 <template>
-  <DungeonModal title="回档记录" :is-open="isOpen" @close="$emit('close')">
-    <div v-if="entries.length === 0" class="save-load-empty">
+  <DungeonModal title="回档记录" :icon="History" :is-open="isOpen" @close="$emit('close')">
+    <div v-if="entries.length === 0" class="save-load-empty panel-empty">
       <BookOpen class="save-load-empty-icon" />
       <p class="save-load-empty-text">暂无存档记录</p>
     </div>
@@ -12,6 +12,7 @@
           <button
             class="save-load-order-btn"
             :class="sortOrder === 'desc' ? 'is-active' : ''"
+            :aria-pressed="sortOrder === 'desc'"
             type="button"
             @click="setSortOrder('desc')"
           >
@@ -20,6 +21,7 @@
           <button
             class="save-load-order-btn"
             :class="sortOrder === 'asc' ? 'is-active' : ''"
+            :aria-pressed="sortOrder === 'asc'"
             type="button"
             @click="setSortOrder('asc')"
           >
@@ -32,7 +34,7 @@
         <button
           v-for="entry in sortedEntries"
           :key="entry.messageId"
-          class="save-load-entry group"
+          class="save-load-entry panel-item group"
           @click="handleRollback(entry.messageId)"
         >
           <div class="save-load-entry-badge">
@@ -49,7 +51,7 @@
 
     <div class="save-load-actions">
       <button
-        class="save-load-action-btn"
+        class="save-load-action-btn panel-action"
         :disabled="gameStore.isGenerating"
         @click="handleReroll"
       >
@@ -57,7 +59,7 @@
         <span class="font-ui text-sm tracking-wide">重Roll</span>
       </button>
       <button
-        class="save-load-action-btn"
+        class="save-load-action-btn panel-action"
         :class="gameStore.isEditing ? 'is-active' : ''"
         :disabled="gameStore.isGenerating"
         @click="handleEdit"
@@ -80,13 +82,13 @@
         </p>
         <div class="save-load-confirm-actions">
           <button
-            class="save-load-confirm-btn save-load-confirm-btn--cancel"
+            class="save-load-confirm-btn panel-action"
             @click="confirmTarget = null"
           >
             取消
           </button>
           <button
-            class="save-load-confirm-btn save-load-confirm-btn--confirm"
+            class="save-load-confirm-btn panel-action panel-action--danger"
             @click="doRollback"
           >
             确认回档
@@ -98,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { BookOpen, Pencil, RefreshCw, RotateCcw } from 'lucide-vue-next';
+import { BookOpen, History, Pencil, RefreshCw, RotateCcw } from 'lucide-vue-next';
 import { useGameStore, type SaveEntry } from '../gameStore';
 import DungeonModal from './DungeonModal.vue';
 
@@ -205,9 +207,9 @@ function handleEdit() {
 
 .save-load-order-toggle {
   display: inline-flex;
-  border-radius: 0.58rem;
-  border: 1px solid rgba(92, 62, 38, 0.7);
-  background: rgba(16, 11, 8, 0.72);
+  border-radius: 5px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-surface);
   padding: 0.16rem;
 }
 
@@ -230,10 +232,12 @@ function handleEdit() {
 }
 
 .save-load-order-btn.is-active {
-  border-color: rgba(212, 175, 55, 0.38);
-  background: rgba(120, 53, 15, 0.26);
-  color: rgba(251, 191, 36, 0.96);
+  border-color: #c6ae7640;
+  background: #c6ae7618;
+  color: var(--panel-accent);
 }
+
+.save-load-order-btn:focus-visible { outline: 2px solid var(--panel-accent); outline-offset: 2px; }
 
 .save-load-entry {
   display: flex;
@@ -263,13 +267,13 @@ function handleEdit() {
   justify-content: center;
   min-width: 2.35rem;
   height: 2.35rem;
-  border-radius: 0.65rem;
-  border: 1px solid rgba(212, 175, 55, 0.32);
-  background: rgba(26, 15, 8, 0.95);
-  color: rgba(251, 191, 36, 0.95);
-  font-family: 'Cinzel', serif;
+  border-radius: 4px;
+  border: 1px solid #c6ae7630;
+  background: #c6ae760b;
+  color: var(--panel-accent);
+  font-family: inherit;
   font-size: 0.76rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
 }
 
 .save-load-entry-main {
@@ -352,23 +356,19 @@ function handleEdit() {
 
 .save-load-confirm {
   width: min(92vw, 26rem);
-  border-radius: 0.9rem;
-  border: 1px solid rgba(212, 175, 55, 0.34);
-  background:
-    radial-gradient(circle at 18% 10%, rgba(251, 191, 36, 0.14), transparent 52%),
-    rgba(10, 8, 6, 0.95);
-  padding: 1.08rem 1.12rem;
-  box-shadow:
-    0 20px 48px rgba(0, 0, 0, 0.52),
-    0 0 20px rgba(212, 175, 55, 0.16);
+  border-radius: 8px;
+  border: 1px solid #716249;
+  background: var(--panel-bg);
+  padding: 24px;
+  box-shadow: 0 28px 90px #000a;
 }
 
 .save-load-confirm-title {
   margin: 0;
-  color: rgba(251, 191, 36, 0.95);
+  color: #ece6d8;
   font-size: 1rem;
-  letter-spacing: 0.05em;
-  font-family: 'Cinzel', serif;
+  letter-spacing: 0;
+  font-family: inherit;
 }
 
 .save-load-confirm-text {
