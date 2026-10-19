@@ -497,15 +497,24 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '不死',
   },
-  [EffectType.MIRROR_REGENERATION]: {
-    type: EffectType.MIRROR_REGENERATION,
-    name: '镜面再生',
+  [EffectType.REGENERATION]: {
+    type: EffectType.REGENERATION,
+    name: '再生',
     polarity: 'buff',
     timings: ['onAfterDamage', 'onTurnEnd'],
     stackable: true,
     maxStacks: 0,
     description:
       '受到致命伤时锁定为1点生命并眩晕3回合；免疫期间受到的伤害改为等量生命上限削减。眩晕结束后回复至满血并消耗1层',
+  },
+  [EffectType.DISORIENTATION]: {
+    type: EffectType.DISORIENTATION,
+    name: '紊乱',
+    polarity: 'debuff',
+    timings: ['onCardPlay', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '出牌时重掷自身的骰子；回合结束时层数-1',
   },
   [EffectType.MIMICKER]: {
     type: EffectType.MIMICKER,
@@ -980,7 +989,8 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.MANA_SPRING,
   EffectType.FANTASY_EMBRACE,
   EffectType.VOID_TAINT,
-  EffectType.MIRROR_REGENERATION,
+  EffectType.REGENERATION,
+  EffectType.DISORIENTATION,
   EffectType.MIRROR_SWARM,
   EffectType.MIMICKER,
   EffectType.DANCE_HALL,
@@ -1646,7 +1656,7 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
 
 /**
  * 处理回合结束时所有效果触发
- * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 被操控(-1) → 共鸣锁(-1) → 眩晕(-1)
+ * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 被操控(-1) → 共鸣锁(-1) → 眩晕(-1) → 紊乱(-1)
  */
 export function processOnTurnEnd(entity: EntityStats): string[] {
   const logs: string[] = [];
@@ -1754,25 +1764,32 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
     }
   }
 
-  const mirrorRegenerationEffect = findEffect(entity, EffectType.MIRROR_REGENERATION);
+  // 紊乱：无论本回合跳过还是打出多张连击，回合结束固定减少1层
+  const disorientationEffect = findEffect(entity, EffectType.DISORIENTATION);
+  if (disorientationEffect && disorientationEffect.stacks > 0) {
+    reduceEffectStacks(entity, EffectType.DISORIENTATION, 1);
+    logs.push(`[紊乱] 回合结束，层数衰减（剩余${getEffectStacks(entity, EffectType.DISORIENTATION)}层）。`);
+  }
+
+  const mirrorRegenerationEffect = findEffect(entity, EffectType.REGENERATION);
   if (mirrorRegenerationEffect && mirrorRegenerationEffect.stacks > 0) {
     const remaining = Math.max(0, Math.floor(mirrorRegenerationEffect.runtimeCounter ?? 0));
     if (remaining > 0) {
       if (mirrorRegenerationEffect.lockDecayThisTurn) {
         mirrorRegenerationEffect.lockDecayThisTurn = false;
-        logs.push('[镜面再生] 触发回合不计入眩晕倒计时。');
+        logs.push('[再生] 触发回合不计入眩晕倒计时。');
       } else {
         const nextRemaining = Math.max(0, remaining - 1);
         mirrorRegenerationEffect.runtimeCounter = nextRemaining;
         if (nextRemaining > 0) {
           applyEffect(entity, EffectType.STUN, 1, { source: 'effect:mirror_regeneration' });
-          logs.push(`[镜面再生] 镜面免疫剩余 ${nextRemaining} 回合。`);
+          logs.push(`[再生] 镜面免疫剩余 ${nextRemaining} 回合。`);
         } else {
           const recovered = Math.max(0, entity.maxHp - entity.hp);
           entity.hp = entity.maxHp;
           removeEffect(entity, EffectType.STUN);
-          reduceEffectStacks(entity, EffectType.MIRROR_REGENERATION, 1);
-          logs.push(`[镜面再生] 眩晕结束，回复至满血${recovered > 0 ? `（+${recovered}）` : ''}，层数-1。`);
+          reduceEffectStacks(entity, EffectType.REGENERATION, 1);
+          logs.push(`[再生] 眩晕结束，回复至满血${recovered > 0 ? `（+${recovered}）` : ''}，层数-1。`);
         }
       }
     }

@@ -8046,7 +8046,7 @@ const sanitizeCombatLogLine = (line: string) => {
 };
 
 const TURN_LOG_MARKER_RE = /^——第\d+回合——$/;
-const COMBAT_LOG_TURN_LIMIT = 10;
+const COMBAT_LOG_TURN_LIMIT = 40;
 
 const formatCombatLogs = (logs: string[]) => {
   const ordered = [...logs]
@@ -8083,12 +8083,12 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
           : '本次战斗发生在地牢探索途中。';
   const followupLine =
     outcome === 'win'
-      ? '请根据以下最近10个回合的完整战斗日志继续剧情，并体现胜利后的后续发展。'
+      ? `请根据以下最近${COMBAT_LOG_TURN_LIMIT}个回合的完整战斗日志继续剧情，并体现胜利后的后续发展。`
       : outcome === 'lose'
-        ? '请根据以下最近10个回合的完整战斗日志继续剧情，并体现战败后的后续发展。'
-        : '请根据以下最近10个回合的完整战斗日志继续剧情，并体现脱离战斗后的后续发展。';
+        ? `请根据以下最近${COMBAT_LOG_TURN_LIMIT}个回合的完整战斗日志继续剧情，并体现战败后的后续发展。`
+        : `请根据以下最近${COMBAT_LOG_TURN_LIMIT}个回合的完整战斗日志继续剧情，并体现脱离战斗后的后续发展。`;
   const writingInstruction = '写作要求：请先根据上述日志描写战斗中的关键场面、攻防变化与最终收束，再自然过渡到战斗结束后的状态；不要跳过战斗过程直接从战斗后的场景开始写。';
-  return `${outcomeLine}\n${contextLine}\n${followupLine}\n最近10个回合战斗日志（时间顺序，仅保留最终点数）：\n${formatCombatLogs(logs)}\n${writingInstruction}`;
+  return `${outcomeLine}\n${contextLine}\n${followupLine}\n最近${COMBAT_LOG_TURN_LIMIT}个回合战斗日志（时间顺序，仅保留最终点数）：\n${formatCombatLogs(logs)}\n${writingInstruction}`;
 };
 
 const isFastModeSyncRoomType = (roomType: string): boolean =>

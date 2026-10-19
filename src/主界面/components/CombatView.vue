@@ -1657,7 +1657,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.CLUSTER_CREATURE]: Bug,
   [ET.BLOOD_COCOON]: Heart,
   [ET.INDOMITABLE]: Heart,
-  [ET.MIRROR_REGENERATION]: SquareDashed,
+  [ET.REGENERATION]: SquareDashed,
   [ET.MIMICKER]: Copy,
   [ET.DANCE_HALL]: Sparkles,
   [ET.CO_DANCE]: Link2,
@@ -1674,6 +1674,7 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.FATE_OBSERVATION]: Sparkles,
   [ET.SILENCE]: Ban,
   [ET.RESONANCE_LOCK]: GitCommit,
+  [ET.DISORIENTATION]: Sparkles,
   [ET.STURDY]: Shield,
   [ET.SHOCK]: Zap,
   [ET.FLAME_ATTACH]: Flame,
@@ -2391,12 +2392,10 @@ function presentCardHit(entity: EntityStats, card: CardData | undefined, impactD
 
 function processOnTurnStart(entity: EntityStats) {
   const whiteTurbid = getEffectStacks(entity, ET.WHITE_TURBID);
-  const manaDrain = getEffectStacks(entity, ET.MANA_DRAIN);
   const orgasm = getEffectStacks(entity, ET.ORGASM);
   const result = processEntityTurnStart(entity);
   if (result.isStunned) presentEffect(entity, 'stun');
   if (whiteTurbid > 0) presentEffect(entity, 'slime');
-  if (manaDrain > 0) presentEffect(entity, 'manaDrain');
   if (orgasm > 0) presentEffect(entity, 'heart');
   return result;
 }
@@ -3358,7 +3357,7 @@ const applyDamageToSideWithRelics = (
 };
 
 const convertDamageByMirrorRegeneration = (target: EntityStats, incoming: number): number | null => {
-  const mirrorRegeneration = findEffect(target, ET.MIRROR_REGENERATION);
+  const mirrorRegeneration = findEffect(target, ET.REGENERATION);
   if (!mirrorRegeneration || mirrorRegeneration.stacks <= 0) return null;
   if (Math.floor(mirrorRegeneration.runtimeCounter ?? 0) <= 0) return null;
   const convertedDamage = Math.max(0, Math.floor(incoming));
@@ -3402,9 +3401,9 @@ const applyDirectHpLossWithRelics = (
   if (mirrorConverted !== null) {
     recordBattlePainLoss(side, Math.max(0, hpBeforeConversion - target.hp), false);
     const label = side === 'player' ? '我方' : '敌方';
-    log(`<span class="text-violet-300">${label}[镜面再生] 免疫 ${adjusted} 点伤害，并转化为 ${mirrorConverted} 点生命上限削减。</span>`);
+    log(`<span class="text-violet-300">${label}[再生] 免疫 ${adjusted} 点伤害，并转化为 ${mirrorConverted} 点生命上限削减。</span>`);
     if (target.maxHp <= 0) {
-      log(`<span class="text-violet-300">${label}[镜面再生] 生命上限归零，镜像崩解。</span>`);
+      log(`<span class="text-violet-300">${label}[再生] 生命上限归零，镜像崩解。</span>`);
     }
     return 0;
   }
@@ -9886,8 +9885,44 @@ const resolveCombat = async (
       triggerPlayerAfterRerollRelics(before, rerolled);
     }
   };
-  rerollByTrait('player', resolvedPlayerCard);
-  rerollByTrait('enemy', resolvedEnemyCard);
+  // 卡牌自身重掷和重掷对手都会影响本次拼点，因此统一在拼点前处理。
+  if (resolvedPlayerCard.traits.reroll !== 'none') {
+    rerollByTrait('player', resolvedPlayerCard);
+  }
+  if (resolvedEnemyCard.traits.reroll !== 'none') {
+    rerollByTrait('enemy', resolvedEnemyCard);
+  }
+
+  // 紊乱来自对方上一回合的效果，也在拼点前触发。
+  // 与卡牌自带重掷分开处理；跳过回合不会触发，层数统一在回合结束时衰减。
+  const rerollByDisorientation = (source: BattleSide, card: CardData) => {
+    if (card.id === PASS_CARD.id) return;
+    const sourceStats = getEntityBySide(source);
+    const disorientation = findEffect(sourceStats, ET.DISORIENTATION);
+    if (!disorientation || disorientation.stacks <= 0) return;
+
+    const sourceLabel = source === 'player' ? '我方' : '敌方';
+    const rerolledRaw = source === 'player'
+      ? rollPlayerDiceInRange(sourceStats.minDice, sourceStats.maxDice)
+      : rollDiceInRange(sourceStats.minDice, sourceStats.maxDice);
+    const rerolledCharge = consumeChargeOnRoll(sourceStats, sourceLabel, rerolledRaw);
+    const rerolled = source === 'player'
+      ? applyCheatSilverCoinToPlayerReroll(rerolledCharge)
+      : rerolledCharge;
+    battleFeedback.action('roll');
+    const before = source === 'player' ? resolvedPlayerDice : resolvedEnemyDice;
+
+    if (source === 'player') {
+      resolvedPlayerDice = rerolled;
+      combatState.value.playerBaseDice = rerolled;
+      triggerPlayerAfterRerollRelics(before, rerolled);
+    } else {
+      setResolvedEnemyDice(rerolled);
+    }
+    log(`<span class="text-violet-300">${sourceLabel}【${card.name}】触发紊乱：${sourceLabel}骰子 ${before} → ${rerolled}</span>`);
+  };
+  rerollByDisorientation('player', resolvedPlayerCard);
+  rerollByDisorientation('enemy', resolvedEnemyCard);
 
   if (resolvedEnemyCard.id === 'enemy_executioner_puppet_execution') {
     executionerPuppetPointModifier.value = resolvedPlayerCard.type === CardType.DODGE

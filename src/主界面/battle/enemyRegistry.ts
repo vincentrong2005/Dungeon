@@ -3698,7 +3698,7 @@ const 镜像分身: EnemyDefinition = {
     minDice: 1,
     maxDice: 1,
     effects: [
-      { type: EffectType.MIRROR_REGENERATION, stacks: 3, polarity: 'buff' },
+      { type: EffectType.REGENERATION, stacks: 3, polarity: 'buff' },
       { type: EffectType.MIMICKER, stacks: 1, polarity: 'trait' },
       { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
     ],
@@ -3721,7 +3721,7 @@ const 米拉: EnemyDefinition = {
     effects: [
       { type: EffectType.DANCE_HALL, stacks: 1, polarity: 'trait' },
       { type: EffectType.MIMICKER, stacks: 1, polarity: 'trait' },
-      { type: EffectType.MIRROR_REGENERATION, stacks: 2, polarity: 'buff' },
+      { type: EffectType.REGENERATION, stacks: 2, polarity: 'buff' },
       { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
     ],
   },
@@ -4575,6 +4575,52 @@ const 佩恩: EnemyDefinition = {
   },
 };
 
+const 符文精灵: EnemyDefinition = {
+  name: '符文精灵',
+  stats: {
+    hp: 200,
+    maxHp: 300,
+    mp: 0,
+    minDice: 3,
+    maxDice: 6,
+    effects: [
+      { type: EffectType.REGENERATION, stacks: 5, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.NON_ENTITY, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    'enemy_rune_sprite_six_color',
+    'enemy_rune_sprite_five_color',
+    'enemy_rune_sprite_four_color',
+    'enemy_rune_sprite_three_color',
+    'enemy_rune_sprite_two_color',
+    'enemy_rune_sprite_gold',
+    'enemy_rune_sprite_chain_resonance',
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.mp < 6) {
+      return pickCardById(ctx, 'enemy_rune_sprite_chain_resonance');
+    }
+
+    const regenerationStacks = ctx.enemyStats.effects
+      .filter(effect => effect.type === EffectType.REGENERATION)
+      .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
+    const cardId = regenerationStacks >= 5
+      ? 'enemy_rune_sprite_six_color'
+      : regenerationStacks === 4
+        ? 'enemy_rune_sprite_five_color'
+        : regenerationStacks === 3
+          ? 'enemy_rune_sprite_four_color'
+          : regenerationStacks === 2
+            ? 'enemy_rune_sprite_three_color'
+            : regenerationStacks === 1
+              ? 'enemy_rune_sprite_two_color'
+              : 'enemy_rune_sprite_gold';
+    return pickCardById(ctx, cardId);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
   [佩恩.name, 佩恩],
   [游荡粘液球.name, 游荡粘液球],
@@ -4661,6 +4707,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [触手羽毛笔.name, 触手羽毛笔],
   [书魔.name, 书魔],
   [晶体刺猬.name, 晶体刺猬],
+  [符文精灵.name, 符文精灵],
 ]);
 
 const ENEMY_NAME_ORDER: readonly string[] = [沐芯兰名称, 宝箱怪名称, ...STATIC_ENEMY_REGISTRY.keys()];

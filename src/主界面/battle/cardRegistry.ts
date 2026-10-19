@@ -10278,6 +10278,149 @@ const 佩恩_分给她的伤: CardData = {
   description: EFFECT_REGISTRY[EffectType.PAIN_OATH_SHARE].description,
 };
 
+/** 符文精灵：按自身再生层数逐级降低符文颜色，施加对应元素与控制效果。 */
+const 符文精灵_六色符: CardData = {
+  id: 'enemy_rune_sprite_six_color',
+  name: '六色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 6.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 6 },
+  ],
+  description: '点数*6，施加1层性兴奋、1层敏感、1层被操控、1层腐蚀、1层束缚、6层燃烧。',
+};
+
+const 符文精灵_五色符: CardData = {
+  id: 'enemy_rune_sprite_five_color',
+  name: '五色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 5.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
+  ],
+  description: '点数*5，施加1层敏感、1层被操控、1层腐蚀、1层束缚、5层燃烧。',
+};
+
+const 符文精灵_四色符: CardData = {
+  id: 'enemy_rune_sprite_four_color',
+  name: '四色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 4.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '点数*4，施加1层被操控、1层腐蚀、1层束缚、4层燃烧。',
+};
+
+const 符文精灵_三色符: CardData = {
+  id: 'enemy_rune_sprite_three_color',
+  name: '三色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '点数*3，施加1层腐蚀、1层束缚、3层燃烧。',
+};
+
+const 符文精灵_双色符: CardData = {
+  id: 'enemy_rune_sprite_two_color',
+  name: '双色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '点数*2，施加1层束缚、2层燃烧。',
+};
+
+const 符文精灵_金符: CardData = {
+  id: 'enemy_rune_sprite_gold',
+  name: '金符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1层燃烧。',
+};
+
+const 符文精灵_连锁共鸣: CardData = {
+  id: 'enemy_rune_sprite_chain_resonance',
+  name: '连锁共鸣',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'enemy', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_next_turn_start'],
+      kind: 'apply_buff',
+      effectType: EffectType.DISORIENTATION,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '重掷对手；下回合开始施加1层紊乱；回复自身1倍点数法力。',
+};
+
 export const PAIN_OATH_CARDS: CardData[] = [
   佩恩_一鞭为我,
   佩恩_握住刑柱,
@@ -10839,6 +10982,13 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [THORN_CRAWLER_BARBED_GRASP.name, THORN_CRAWLER_BARBED_GRASP],
   [THORN_CRAWLER_NEURAL_PIERCE.name, THORN_CRAWLER_NEURAL_PIERCE],
   [THORN_CRAWLER_TOXIN_PULSE.name, THORN_CRAWLER_TOXIN_PULSE],
+  [符文精灵_六色符.name, 符文精灵_六色符],
+  [符文精灵_五色符.name, 符文精灵_五色符],
+  [符文精灵_四色符.name, 符文精灵_四色符],
+  [符文精灵_三色符.name, 符文精灵_三色符],
+  [符文精灵_双色符.name, 符文精灵_双色符],
+  [符文精灵_金符.name, 符文精灵_金符],
+  [符文精灵_连锁共鸣.name, 符文精灵_连锁共鸣],
   [冰锥.name, 冰锥],
   [佩恩_请你选择.name, 佩恩_请你选择],
   [佩恩_刑柱鞭痕.name, 佩恩_刑柱鞭痕],
