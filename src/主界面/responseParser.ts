@@ -84,15 +84,23 @@ function isBlockLevelTagStart(text: string, index: number): boolean {
   return prevChar === '\n' || prevChar === '\r' || prevChar === '>';
 }
 
+interface MainTextBlock {
+  content: string;
+  start: number;
+  end: number;
+}
+
 /**
  * 正文专用提取：匹配“第一个开标签 + 最后一个闭标签”
  * 并移除中间重复的同名标签，避免正文出现额外 <content>/<maintext> 标签字样
+ * 保留原文范围，供正文外的吐槽按位置合并。
  */
-function extractTagFromFirstOpenToLastClose(text: string, tagName: string): string {
+function extractTagFromFirstOpenToLastClose(text: string, tagName: string): MainTextBlock | null {
   const escapedTagName = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const openRegex = new RegExp(`<\\s*${escapedTagName}(?:\\s[^>]*)?>`, 'ig');
   const closeRegex = new RegExp(`<\\s*\\/\\s*${escapedTagName}\\s*>`, 'ig');
 
+  let firstOpenStart = -1;
   let firstOpenEnd = -1;
   let openMatch: RegExpExecArray | null;
   while ((openMatch = openRegex.exec(text)) !== null) {
@@ -101,30 +109,37 @@ function extractTagFromFirstOpenToLastClose(text: string, tagName: string): stri
     const firstChar = afterOpen[0];
     // 过滤“标签示例”写法，如 "<maintext>, <option>"
     if (firstChar === ',' || firstChar === '，') continue;
+    firstOpenStart = openMatch.index;
     firstOpenEnd = openRegex.lastIndex;
     break;
   }
-  if (firstOpenEnd < 0) return '';
+  if (firstOpenEnd < 0) return null;
 
   let lastCloseStart = -1;
+  let lastCloseEnd = -1;
   let closeMatch: RegExpExecArray | null;
   while ((closeMatch = closeRegex.exec(text)) !== null) {
     if (closeMatch.index < firstOpenEnd) continue;
     lastCloseStart = closeMatch.index;
+    lastCloseEnd = closeRegex.lastIndex;
   }
-  if (lastCloseStart < 0) return '';
+  if (lastCloseStart < 0) return null;
 
   const innerContent = text.slice(firstOpenEnd, lastCloseStart);
   const redundantTagRegex = new RegExp(`<\\s*${escapedTagName}(?:\\s[^>]*)?>|<\\s*\\/\\s*${escapedTagName}\\s*>`, 'ig');
-  return innerContent.replace(redundantTagRegex, '').trim();
+  return {
+    content: innerContent.replace(redundantTagRegex, '').trim(),
+    start: firstOpenStart,
+    end: lastCloseEnd,
+  };
 }
 
-function extractMainTagByPriority(text: string, tagNames: string[]): string {
+function extractMainTagByPriority(text: string, tagNames: string[]): MainTextBlock | null {
   for (const tagName of tagNames) {
-    const content = extractTagFromFirstOpenToLastClose(text, tagName);
-    if (content) return content;
+    const block = extractTagFromFirstOpenToLastClose(text, tagName);
+    if (block?.content) return block;
   }
-  return '';
+  return null;
 }
 
 const BODY_START_MARKER_REGEX = /<!--\s*2\s*[.．。]?\s*正文\s*-->/gi;
@@ -270,25 +285,17 @@ function extractTucaoBlocks(text: string): string[] {
   return result;
 }
 
-function appendExternalTucaoBlocks(mainText: string, fullText: string): string {
-  const internalCounts = new Map<string, number>();
-  for (const block of extractTucaoBlocks(mainText)) {
-    internalCounts.set(block, (internalCounts.get(block) ?? 0) + 1);
-  }
-
-  const externalBlocks: string[] = [];
-  for (const block of extractTucaoBlocks(fullText)) {
-    const remainingInternal = internalCounts.get(block) ?? 0;
-    if (remainingInternal > 0) {
-      internalCounts.set(block, remainingInternal - 1);
-      continue;
-    }
-    externalBlocks.push(block);
-  }
-  if (externalBlocks.length === 0) return mainText;
-
-  const merged = externalBlocks.map(block => `<tucao>\n${block}\n</tucao>`).join('\n\n');
-  return [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
+function mergeExternalTucaoBlocks(mainText: string, fullText: string, mainBlock: MainTextBlock | null): string {
+  // 按原文范围区分正文前后，避免内容相同的吐槽被误判为正文内已有的块。
+  const beforeBlocks = mainBlock ? extractTucaoBlocks(fullText.slice(0, mainBlock.start)) : [];
+  const afterBlocks = extractTucaoBlocks(mainBlock ? fullText.slice(mainBlock.end) : fullText);
+  return [
+    ...beforeBlocks.map(block => `<tucao>\n${block}\n</tucao>`),
+    mainText,
+    ...afterBlocks.map(block => `<tucao>\n${block}\n</tucao>`),
+  ]
+    .filter(part => part && part.trim().length > 0)
+    .join('\n\n');
 }
 
 /**
@@ -374,9 +381,9 @@ export function parseResponse(text: string, options?: ResponseParserOptions): Pa
   const cleanText = getParserSourceText(text, options);
 
   // 提取各标签
-  const mainTextRaw = extractMainTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
-  let mainText = removeHtmlComments(mainTextRaw);
-  mainText = appendExternalTucaoBlocks(mainText, cleanText);
+  const mainBlock = extractMainTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
+  let mainText = removeHtmlComments(mainBlock?.content ?? '');
+  mainText = mergeExternalTucaoBlocks(mainText, cleanText, mainBlock);
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
   mainText = appendExternalDisplayBlocks(mainText, cleanText);
   const optionRaw = extractTag(cleanText, 'option');
@@ -430,9 +437,9 @@ export function extractSummary(messageText: string, options?: ResponseParserOpti
  */
 export function extractMainText(messageText: string, options?: ResponseParserOptions): string {
   const clean = getParserSourceText(messageText, options);
-  const mainTextRaw = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
-  let mainText = removeHtmlComments(mainTextRaw);
-  mainText = appendExternalTucaoBlocks(mainText, clean);
+  const mainBlock = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
+  let mainText = removeHtmlComments(mainBlock?.content ?? '');
+  mainText = mergeExternalTucaoBlocks(mainText, clean, mainBlock);
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
   mainText = appendExternalDisplayBlocks(mainText, clean);
   return mainText;
@@ -444,8 +451,8 @@ export function extractMainText(messageText: string, options?: ResponseParserOpt
  */
 export function extractMainTextOnly(messageText: string, options?: ResponseParserOptions): string {
   const clean = getParserSourceText(messageText, options);
-  const mainTextRaw = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
-  return removeHtmlComments(mainTextRaw);
+  const mainBlock = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
+  return removeHtmlComments(mainBlock?.content ?? '');
 }
 
 /**
