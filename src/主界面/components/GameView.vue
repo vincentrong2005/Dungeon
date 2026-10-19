@@ -201,57 +201,22 @@
                   </p>
                   <!-- Final main text -->
                   <div v-else class="story-rich-text">
-                    <template v-for="line in storyMainLines" :key="line.key">
-                      <!-- Image block (inline at original position) -->
-                      <div v-if="getImageBlockForLine(line)" class="image-block-inline">
-                        <span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.openTag }}</span
-                        >{{ getImageBlockForLine(line)!.innerContent
-                        }}<span class="image-tag-sr-only">{{ getImageBlockForLine(line)!.closeTag }}</span>
-                      </div>
-                      <!-- Normal text line -->
-                      <p
-                        v-else
-                        :class="[
-                          'story-line',
-                          `story-line-level-${line.level}`,
-                          line.align === 'right' ? 'story-line--right' : '',
-                          line.variant === 'divider' ? 'story-line--divider' : '',
-                          line.anchor === 'currentFloor' ? 'story-line--current-floor-start' : '',
-                        ]"
-                      >
-                        <template v-if="line.segments.length > 0">
-                          <span
-                            v-for="segment in line.segments"
-                            :key="segment.key"
-                            :class="{
-                              'story-segment-muted': segment.type === 'muted',
-                              'story-segment-quote': segment.type === 'quote',
-                            }"
-                          >
-                            {{ segment.text }}
-                          </span>
-                        </template>
-                        <span v-else class="story-line-empty">&nbsp;</span>
-                      </p>
-                    </template>
-
-                    <div v-if="storySpecialSections.length > 0" class="story-tucao-section-list">
+                    <template v-for="node in storyContentNodes" :key="node.key">
                       <div
-                        v-for="(section, sectionIndex) in storySpecialSections"
-                        :key="section.key"
-                        :class="['story-tucao-wrap', `story-tucao-wrap--${section.kind}`]"
+                        v-if="node.type === 'special'"
+                        :class="['story-tucao-wrap', `story-tucao-wrap--${node.kind}`]"
                       >
-                        <button class="story-tucao-toggle" type="button" @click="toggleTucao(section.key)">
+                        <button class="story-tucao-toggle" type="button" @click="toggleTucao(node.key)">
                           {{
-                            isTucaoExpanded(section.key)
-                              ? `收起${section.title || getStorySpecialTitle(section, Number(sectionIndex))}`
-                              : getStorySpecialTitle(section, Number(sectionIndex))
+                            isTucaoExpanded(node.key)
+                              ? `收起${node.title || getStorySpecialTitle(node)}`
+                              : getStorySpecialTitle(node)
                           }}
                         </button>
                         <Transition name="tucao-expand">
-                          <div v-if="isTucaoExpanded(section.key)" class="story-tucao-panel">
+                          <div v-if="isTucaoExpanded(node.key)" class="story-tucao-panel">
                             <p
-                              v-for="line in section.lines"
+                              v-for="line in node.lines"
                               :key="line.key"
                               :class="[
                                 'story-line',
@@ -278,7 +243,38 @@
                           </div>
                         </Transition>
                       </div>
-                    </div>
+                      <!-- Image block (inline at original position) -->
+                      <div v-else-if="getImageBlockForLine(node)" class="image-block-inline">
+                        <span class="image-tag-sr-only">{{ getImageBlockForLine(node)!.openTag }}</span
+                        >{{ getImageBlockForLine(node)!.innerContent
+                        }}<span class="image-tag-sr-only">{{ getImageBlockForLine(node)!.closeTag }}</span>
+                      </div>
+                      <!-- Normal text line -->
+                      <p
+                        v-else
+                        :class="[
+                          'story-line',
+                          `story-line-level-${node.level}`,
+                          node.align === 'right' ? 'story-line--right' : '',
+                          node.variant === 'divider' ? 'story-line--divider' : '',
+                          node.anchor === 'currentFloor' ? 'story-line--current-floor-start' : '',
+                        ]"
+                      >
+                        <template v-if="node.segments.length > 0">
+                          <span
+                            v-for="segment in node.segments"
+                            :key="segment.key"
+                            :class="{
+                              'story-segment-muted': segment.type === 'muted',
+                              'story-segment-quote': segment.type === 'quote',
+                            }"
+                          >
+                            {{ segment.text }}
+                          </span>
+                        </template>
+                        <span v-else class="story-line-empty">&nbsp;</span>
+                      </p>
+                    </template>
                   </div>
                 </div>
 
@@ -7242,14 +7238,16 @@ interface StoryLineBlock {
 }
 
 interface StoryTucaoSection {
+  type: 'special';
   key: string;
   kind: 'tucao' | 'catsay' | 'sexualScene';
+  displayIndex: number;
   title: string;
   lines: StoryLineBlock[];
 }
 
 interface StoryContentState {
-  lines: StoryLineBlock[];
+  nodes: Array<StoryLineBlock | StoryTucaoSection>;
   specialSections: StoryTucaoSection[];
 }
 
@@ -7324,11 +7322,11 @@ function cleanupStorySpecialContent(
   };
 }
 
-function getStorySpecialTitle(section: StoryTucaoSection, sectionIndex: number): string {
+function getStorySpecialTitle(section: StoryTucaoSection): string {
   if (section.title) return section.title;
-  if (section.kind === 'catsay') return `😼 咪咪点评 ${sectionIndex + 1}`;
-  if (section.kind === 'sexualScene') return `角色细节展示 ${sectionIndex + 1}`;
-  return `🎮 此方的脑内剧场 ${sectionIndex + 1}`;
+  if (section.kind === 'catsay') return `😼 咪咪点评 ${section.displayIndex}`;
+  if (section.kind === 'sexualScene') return `角色细节展示 ${section.displayIndex}`;
+  return `🎮 此方的脑内剧场 ${section.displayIndex}`;
 }
 
 function parseInlineSegments(line: string, keyPrefix: string): StoryInlineSegment[] {
@@ -7450,7 +7448,7 @@ function parseTextLines(text: string, keyPrefix: string): StoryLineBlock[] {
 
 function parseStoryContent(text: string): StoryContentState {
   const normalized = normalizeTucaoMarkers(text).replace(/\r\n/g, '\n');
-  const lines: StoryLineBlock[] = [];
+  const nodes: Array<StoryLineBlock | StoryTucaoSection> = [];
   const specialSections: StoryTucaoSection[] = [];
   let cursor = 0;
   let sectionIndex = 0;
@@ -7465,7 +7463,7 @@ function parseStoryContent(text: string): StoryContentState {
     const openEnd = storySpecialOpenTagRegex.lastIndex;
 
     const plainPart = normalized.slice(cursor, openStart);
-    lines.push(...parseTextLines(plainPart, `story-${sectionIndex}-plain-${cursor}`));
+    nodes.push(...parseTextLines(plainPart, `story-${sectionIndex}-plain-${cursor}`));
 
     const closeMatch = closeTagRegex.exec(normalized.slice(openEnd));
     const closeStart = closeMatch ? openEnd + closeMatch.index : -1;
@@ -7477,12 +7475,16 @@ function parseStoryContent(text: string): StoryContentState {
     const tucaoKey = `story-${kind}-${sectionIndex}-${openStart}`;
     const parsedTucaoLines = parseTextLines(content, tucaoKey);
     if (parsedTucaoLines.length > 0) {
-      specialSections.push({
+      const section: StoryTucaoSection = {
+        type: 'special',
         key: tucaoKey,
         kind,
+        displayIndex: specialSections.length + 1,
         title,
         lines: parsedTucaoLines,
-      });
+      };
+      nodes.push(section);
+      specialSections.push(section);
     }
 
     cursor = nextCursor;
@@ -7496,16 +7498,16 @@ function parseStoryContent(text: string): StoryContentState {
   }
 
   const tail = normalized.slice(cursor);
-  lines.push(...parseTextLines(tail, `story-tail-${cursor}`));
+  nodes.push(...parseTextLines(tail, `story-tail-${cursor}`));
 
   return {
-    lines,
+    nodes,
     specialSections,
   };
 }
 
 const storyContentState = computed<StoryContentState>(() => parseStoryContent(displayText.value));
-const storyMainLines = computed<StoryLineBlock[]>(() => storyContentState.value.lines);
+const storyContentNodes = computed<Array<StoryLineBlock | StoryTucaoSection>>(() => storyContentState.value.nodes);
 const storySpecialSections = computed<StoryTucaoSection[]>(() => storyContentState.value.specialSections);
 
 watch(
@@ -9892,6 +9894,7 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
     }
     const pendingStatDataFields: Record<string, any> = {
       ...(currentRoomType === '领主房' ? { _血量: nextFloorRecoveryHpAfterLord.value } : {}),
+      ...(currentRoomType === '陷阱房' ? { $当前事件: '' } : {}),
       ...(currentArea === '魔女的小窝'
         ? buildInventoryUpdateFields({
             _圣遗物: buildStartingRelicInventoryForMetaGrowths(inventoryRelicMap.value),
@@ -9921,7 +9924,7 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
       };
     }
 
-    const generatedMap = generateDungeonMap();
+    const generatedMap = generateDungeonMap(Math.random, nextArea);
     const statuses = Array.isArray(gameStore.statData.$负面状态) ? gameStore.statData.$负面状态 : [];
     const nextMap = statuses.includes('[被标记]') ? replaceFutureRoomsWithBattle(generatedMap, 0) : generatedMap;
     gameStore.setPendingRoomChanges({
@@ -9946,14 +9949,19 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
   if (statKey) incrementKeys.push(statKey);
   const encounterMonster = roomType === '领主房' ? pickLordMonsterByArea(currentArea) : roomType === '战斗房' ? pickBattleMonsterByArea(currentArea) : null;
   const trapName = roomType === '陷阱房' ? pickTrapByArea(currentArea) : null;
-  let pendingStatDataFields: Record<string, any> | undefined;
+  let pendingStatDataFields: Record<string, any> | undefined =
+    currentRoomType === '陷阱房' ? { $当前事件: '' } : undefined;
   if (roomType === '陷阱房') {
     pendingStatDataFields = {
+      ...(pendingStatDataFields ?? {}),
       $当前事件: trapName ?? '',
       _血量: Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5),
     };
   } else if (roomType === '温泉房') {
-    pendingStatDataFields = { _血量: Math.max(1, displayMaxHp.value) };
+    pendingStatDataFields = {
+      ...(pendingStatDataFields ?? {}),
+      _血量: Math.max(1, displayMaxHp.value),
+    };
   }
   if (worldGrowthPendingFields) {
     pendingStatDataFields = { ...(pendingStatDataFields ?? {}), ...worldGrowthPendingFields };

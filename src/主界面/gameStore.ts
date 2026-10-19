@@ -1031,7 +1031,7 @@ export const useGameStore = defineStore('game', () => {
       if (!area || area === '魔女的小窝' || area === FINAL_AREA_NAME) return false;
       if (normalizeDungeonMap(statData.value.$地图).length === MAP_ROUTE_COUNT) return false;
 
-      const generatedMap = generateDungeonMap();
+      const generatedMap = generateDungeonMap(Math.random, area);
       const statuses = Array.isArray(statData.value.$负面状态) ? statData.value.$负面状态 : [];
       const currentY = Array.isArray(statData.value.$路径) ? statData.value.$路径.length : 0;
       const map = statuses.includes('[被标记]')

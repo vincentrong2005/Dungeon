@@ -70,7 +70,7 @@ const createNextRow = (previous: number[], random: () => number): number[] | nul
   return visit(0, 1) ? next : null;
 };
 
-const assignRoomTypes = (rows: number[][], random: () => number): DungeonMap => {
+const assignRoomTypes = (rows: number[][], random: () => number, area: string): DungeonMap => {
   const assigned = new Map<string, MapRoomType>();
   let shopCount = 0;
 
@@ -86,7 +86,12 @@ const assignRoomTypes = (rows: number[][], random: () => number): DungeonMap => 
 
       const weightedTypes = MAP_ROOM_TYPES.map(type => ({
         type,
-        weight: type === '商店房' && (y <= 5 || shopCount >= 2) ? 0 : ROOM_WEIGHTS[type],
+        weight:
+          type === '陷阱房' && area === '呻吟阅览室'
+            ? 0
+            : type === '商店房' && (y <= 5 || shopCount >= 2)
+              ? 0
+              : ROOM_WEIGHTS[type],
       })).filter(item => item.weight > 0);
       const totalWeight = weightedTypes.reduce((sum, item) => sum + item.weight, 0);
       let roll = random() * totalWeight;
@@ -119,7 +124,7 @@ const hasDuplicateRoute = (map: DungeonMap): boolean => {
   return keys.size !== map.length;
 };
 
-export const generateDungeonMap = (random: () => number = Math.random): DungeonMap => {
+export const generateDungeonMap = (random: () => number = Math.random, area = ''): DungeonMap => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const rows: number[][] = [createInitialRow(random)];
     let failed = false;
@@ -133,14 +138,14 @@ export const generateDungeonMap = (random: () => number = Math.random): DungeonM
     }
     if (failed) continue;
 
-    const typedMap = assignRoomTypes(rows, random);
+    const typedMap = assignRoomTypes(rows, random, area);
     if (!hasDuplicateRoute(typedMap)) return typedMap;
   }
 
   const fallbackRows = Array.from({ length: MAP_HEIGHT }, (_, index) =>
     Array.from({ length: MAP_ROUTE_COUNT }, (_, routeIndex) => clampX(routeIndex + 1 + (index % 2))),
   );
-  return assignRoomTypes(fallbackRows, random);
+  return assignRoomTypes(fallbackRows, random, area);
 };
 
 export const normalizeDungeonMap = (value: unknown): DungeonMap => {

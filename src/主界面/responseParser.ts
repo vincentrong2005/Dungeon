@@ -31,7 +31,7 @@ export interface ParsedResponse {
 }
 
 export interface ResponseParserOptions {
-  /** 默认 true：禁止匹配思维链（think/thinking）内的 XML 标签 */
+  /** 默认 true：禁止匹配思维链（think/thinking/draft_notes/KONATAN_PLANNING）内的 XML 标签 */
   forbidMatchingXmlInsideThink?: boolean;
 }
 
@@ -143,7 +143,7 @@ function findLastBodyStartMarkerEnd(text: string): number {
 
 /**
  * 移除思维链块
- * 支持多种变体：<think>, <thinking>, <draft_notes> 及大小写变体等
+ * 支持多种变体：<think>, <thinking>, <draft_notes>, <KONATAN_PLANNING> 及大小写变体等
  * 支持错误闭合（如 <thinking> ... </think>）
  * 支持将最后一个 <!-- 2.正文 --> 视为正文起点，忽略其之前的全部内容
  * 同时处理未闭合的思维链标签（流式传输中可能出现）
@@ -151,7 +151,7 @@ function findLastBodyStartMarkerEnd(text: string): number {
 function removeThinkBlock(text: string): string {
   const bodyStartMarkerEnd = findLastBodyStartMarkerEnd(text);
   const sourceText = bodyStartMarkerEnd >= 0 ? text.slice(bodyStartMarkerEnd) : text;
-  const thinkTagRegex = /<\s*(\/?)\s*(think|thinking|draft_notes)\b[^>]*>/gi;
+  const thinkTagRegex = /<\s*(\/?)\s*(think|thinking|draft_notes|KONATAN_PLANNING)\b[^>]*>/gi;
 
   let result = '';
   let isInsideThinkBlock = false;
@@ -198,7 +198,7 @@ function getParserSourceText(text: string, options?: ResponseParserOptions): str
 
 /**
  * 流式显示时：一旦检测到思维链结束标签，则隐藏结束标签之前的全部文本
- * 支持 </think> / </thinking> / </draft_notes> / <!-- 2.正文 --> 及大小写变体
+ * 支持 </think> / </thinking> / </draft_notes> / </KONATAN_PLANNING> / <!-- 2.正文 --> 及大小写变体
  */
 export function filterStreamingTextAfterThinkEnd(text: string): string {
   if (!text) return '';
@@ -208,7 +208,7 @@ export function filterStreamingTextAfterThinkEnd(text: string): string {
     return text.slice(bodyStartMarkerEnd).trimStart();
   }
 
-  const closeThinkTagRegex = /<\s*\/\s*(think|thinking|draft_notes)\b[^>]*>/i;
+  const closeThinkTagRegex = /<\s*\/\s*(think|thinking|draft_notes|KONATAN_PLANNING)\b[^>]*>/i;
   const closeMatch = closeThinkTagRegex.exec(text);
   if (!closeMatch) return text;
 
@@ -268,6 +268,27 @@ function extractTucaoBlocks(text: string): string[] {
   }
 
   return result;
+}
+
+function appendExternalTucaoBlocks(mainText: string, fullText: string): string {
+  const internalCounts = new Map<string, number>();
+  for (const block of extractTucaoBlocks(mainText)) {
+    internalCounts.set(block, (internalCounts.get(block) ?? 0) + 1);
+  }
+
+  const externalBlocks: string[] = [];
+  for (const block of extractTucaoBlocks(fullText)) {
+    const remainingInternal = internalCounts.get(block) ?? 0;
+    if (remainingInternal > 0) {
+      internalCounts.set(block, remainingInternal - 1);
+      continue;
+    }
+    externalBlocks.push(block);
+  }
+  if (externalBlocks.length === 0) return mainText;
+
+  const merged = externalBlocks.map(block => `<tucao>\n${block}\n</tucao>`).join('\n\n');
+  return [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
 }
 
 /**
@@ -355,14 +376,7 @@ export function parseResponse(text: string, options?: ResponseParserOptions): Pa
   // 提取各标签
   const mainTextRaw = extractMainTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
   let mainText = removeHtmlComments(mainTextRaw);
-  const mainHasTucao = /<\s*\/?\s*(?:tucao|吐槽)\b|\[\s*\/?\s*tucao\s*]|&lt;\s*\/?\s*tucao\b/i.test(mainTextRaw);
-  if (!mainHasTucao) {
-    const fallbackTucao = extractTucaoBlocks(cleanText);
-    if (fallbackTucao.length > 0) {
-      const merged = fallbackTucao.map(block => `<tucao>\n${block}\n</tucao>`).join('\n\n');
-      mainText = [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
-    }
-  }
+  mainText = appendExternalTucaoBlocks(mainText, cleanText);
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
   mainText = appendExternalDisplayBlocks(mainText, cleanText);
   const optionRaw = extractTag(cleanText, 'option');
@@ -418,14 +432,7 @@ export function extractMainText(messageText: string, options?: ResponseParserOpt
   const clean = getParserSourceText(messageText, options);
   const mainTextRaw = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
   let mainText = removeHtmlComments(mainTextRaw);
-  const mainHasTucao = /<\s*\/?\s*(?:tucao|吐槽)\b|\[\s*\/?\s*tucao\s*]|&lt;\s*\/?\s*tucao\b/i.test(mainTextRaw);
-  if (!mainHasTucao) {
-    const fallbackTucao = extractTucaoBlocks(clean);
-    if (fallbackTucao.length > 0) {
-      const merged = fallbackTucao.map(block => `<tucao>\n${block}\n</tucao>`).join('\n\n');
-      mainText = [mainText, merged].filter(part => part && part.trim().length > 0).join('\n\n');
-    }
-  }
+  mainText = appendExternalTucaoBlocks(mainText, clean);
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
   mainText = appendExternalDisplayBlocks(mainText, clean);
   return mainText;
