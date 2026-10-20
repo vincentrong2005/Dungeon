@@ -2711,22 +2711,57 @@
 
         <!-- Shop Overlay -->
         <Transition name="combat-fade">
-          <div v-if="showShopView" class="absolute inset-0 z-94 bg-black">
+          <div
+            v-if="showShopView"
+            class="shop-scene absolute inset-0 z-94 bg-black"
+            :style="{ '--shop-frame-image': `url(${shopFrameUrl})`, '--shop-compass-image': `url(${shopCompassUrl})` }"
+          >
             <img :src="shopBackgroundUrl" class="absolute inset-0 size-full object-cover" alt="商店背景" />
-            <div class="absolute inset-0 bg-black/22"></div>
+            <div class="shop-scene-shade"></div>
 
-            <img
-              v-if="!isMerchantDefeated"
-              :src="shopMerchantPortraitUrl"
-              class="pointer-events-none absolute left-0 bottom-0 z-99 h-[92vh] max-h-[1216px] w-auto object-contain"
-              alt="沐芯兰"
-            />
+            <header class="shop-brand">
+              <span class="shop-brand-compass" aria-hidden="true"></span>
+              <div class="shop-brand-copy">
+                <h2>神秘商店</h2>
+                <div class="shop-brand-divider"></div>
+                <div class="shop-brand-name">沐芯兰</div>
+                <div class="shop-brand-subtitle">Mysterious Merchant</div>
+              </div>
+            </header>
 
-            <div class="shop-layout absolute inset-y-0 right-0 z-96 flex items-center px-4 md:px-7">
-              <div class="shop-panel ml-auto w-full max-w-3xl h-[84vh] max-h-[860px]">
-                <div class="shop-panel-head">
-                  <div class="font-heading text-xl text-amber-100">沐芯兰的商店</div>
-                </div>
+            <section class="shop-rules" aria-label="交易规则">
+              <h3>交易规则</h3>
+              <ul>
+                <li><Scan aria-hidden="true" />这里沐芯兰最大</li>
+                <li><Sparkles aria-hidden="true" />仅出售圣遗物</li>
+                <li><Coins aria-hidden="true" />自由交易</li>
+                <li><LogOut aria-hidden="true" />自由离开</li>
+                <li><Swords aria-hidden="true" />挑衅的话后果自负</li>
+              </ul>
+            </section>
+
+            <div class="shop-dialogue">
+              <div class="shop-dialogue-name">沐芯兰</div>
+              <p v-if="isMerchantDefeated">「……这里的东西，你想拿就拿吧。」</p>
+              <p v-else-if="shopDialogue === '（微笑）'">{{ shopDialogue }}</p>
+              <p v-else>「{{ shopDialogue }}」</p>
+            </div>
+
+            <div class="shop-gold" aria-label="当前金币">
+              <Coins aria-hidden="true" />
+              <span>{{ Math.max(0, Number(displayGold) - shopSpentGold) }}</span>
+            </div>
+
+            <div class="shop-layout">
+              <section class="shop-panel" aria-label="圣遗物商店">
+                <div class="shop-panel-ornament" aria-hidden="true"></div>
+                <header class="shop-panel-head">
+                  <span class="shop-panel-compass" aria-hidden="true"></span>
+                  <div>
+                    <h2>圣遗物商店</h2>
+                    <span>ARTIFACTS SHOP</span>
+                  </div>
+                </header>
 
                 <div class="shop-goods-grid custom-scrollbar">
                   <button
@@ -2736,8 +2771,11 @@
                     class="shop-item-card"
                     :class="{
                       'is-sold': item.sold,
+                      'is-legendary': item.relic.rarity === '传奇',
+                      'is-rare': item.relic.rarity === '稀有',
                       'is-awaiting-confirm': isTouchViewport && pendingShopProductKey === item.key && !item.sold,
                     }"
+                    :aria-label="`${item.relic.name}，${item.sold ? '已售出' : `${item.finalPrice}金币`}`"
                     :disabled="item.sold || shopBuying"
                     @click="handleShopProductClick($event, item)"
                     @mouseenter="showShopProductTooltip($event, item)"
@@ -2747,10 +2785,12 @@
                   >
                     <div class="shop-item-icon-wrap">
                       <Box class="shop-item-icon" />
+                      <span class="shop-item-count">×1</span>
                     </div>
+                    <div class="shop-item-name">{{ item.relic.name }}</div>
                     <div class="shop-item-price">
-                      <Coins class="size-3.5" />
-                      <span>{{ item.finalPrice }}</span>
+                      <Coins aria-hidden="true" />
+                      <span>{{ item.sold ? '已售出' : item.finalPrice === 0 ? '免费' : item.finalPrice }}</span>
                     </div>
                     <span
                       v-if="isTouchViewport && pendingShopProductKey === item.key && !item.sold"
@@ -2760,32 +2800,31 @@
                     </span>
                   </button>
 
-                  <div
-                    v-if="shopProducts.length === 0"
-                    class="rounded-sm border border-amber-200/15 bg-black/25 py-10 text-center text-sm text-amber-100/65"
-                  >
+                  <div v-if="shopProducts.length === 0" class="shop-empty">
                     暂无可售商品
                   </div>
                 </div>
 
                 <div class="shop-panel-foot">
                   <button
-                    class="shop-rob-btn px-5 py-2 font-ui text-xs tracking-wider text-amber-50"
+                    type="button"
+                    class="shop-rob-btn"
                     :disabled="shopBuying || gameStore.isGenerating || shopRobbing || isMerchantDefeated"
-                    :style="{ opacity: shopRobBtnOpacity }"
+                    :title="shopRobClickCount < 5 ? `再点击 ${6 - shopRobClickCount} 次发起抢夺` : '点击发起抢夺'"
                     @click="handleShopRobClick"
                   >
                     抢夺
                   </button>
                   <button
-                    class="shop-exit-btn px-7 py-3 font-ui text-sm tracking-wider text-amber-50"
+                    type="button"
+                    class="shop-exit-btn"
                     :disabled="shopBuying || gameStore.isGenerating || shopRobbing"
                     @click="exitShop"
                   >
-                    退出商店
+                    离 开 <ArrowRight aria-hidden="true" />
                   </button>
                 </div>
-              </div>
+              </section>
             </div>
           </div>
         </Transition>
@@ -3319,6 +3358,7 @@
 <script setup lang="ts">
 import {
   ArrowLeft,
+  ArrowRight,
   Box,
   ChevronDown,
   ChevronLeft,
@@ -3679,6 +3719,7 @@ const shopPurchasedItems = ref<Array<{ name: string; rarity: string; price: numb
 const shopEntrySpentGold = ref(0);
 const shopEntryPurchasedCount = ref(0);
 const shopRobClickCount = ref(0);
+const shopDialogue = ref('');
 const shopRobbing = ref(false);
 const shopSessionKey = ref<string | null>(null);
 const showChestView = ref(false);
@@ -4368,11 +4409,11 @@ const CHEST_BG_CLOSED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF
 const CHEST_BG_OPENED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B12.png`;
 const CHEST_BG_MIMIC = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B13.png`;
 const SHOP_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png`;
-const SHOP_MERCHANT_PORTRAIT_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/%E6%B2%90%E8%8A%AF%E5%85%B0/%E6%B2%90%E8%8A%AF%E5%85%B04.png`;
 const IDOL_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E7%A5%9E%E5%83%8F.png`;
 const idolBackgroundUrl = IDOL_BG_URL;
 const shopBackgroundUrl = SHOP_BG_URL;
-const shopMerchantPortraitUrl = SHOP_MERCHANT_PORTRAIT_URL;
+const shopFrameUrl = toResolveUrl('地牢/素材库/主界面/商店描金边框-透明.png');
+const shopCompassUrl = toResolveUrl('地牢/素材库/主界面/商店罗盘-透明.png');
 const chestBackgroundUrl = computed(() => {
   if (chestStage.value === 'opened') return CHEST_BG_OPENED;
   if (chestStage.value === 'mimic') return CHEST_BG_MIMIC;
@@ -4564,10 +4605,6 @@ const muxinlanFavor = computed<number>(() => {
   return Math.max(-200, Math.min(200, safe));
 });
 const shopDiscountRate = computed(() => Math.max(0, Math.min(200, muxinlanFavor.value)) * 0.001);
-const shopRobBtnOpacity = computed(() => {
-  const revealed = Math.min(5, shopRobClickCount.value);
-  return (0.32 + revealed * 0.13).toFixed(2);
-});
 const canEditMagicBooks = computed(() => ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝');
 const isUpdatingMagicBooks = ref(false);
 const magicBooksNavTab = ref<'books' | 'active'>('books');
@@ -8519,6 +8556,42 @@ const getCurrentShopSessionKey = (): string => {
   return `${floor}|${area}|${roomType}|${roomsPassed}`;
 };
 
+const shopGreetingLines = [
+  '欢迎光临。东西在那儿，价格在上面。',
+  '哦，新面孔。难得，自己看看吧。',
+  '来了啊。茶水免费，货架随便看。',
+  '还活着呢，呵。',
+];
+const shopRobDialogueLines = [
+  [
+    '嗯？',
+    '……哦。',
+    '看看货吧，别整那没用的。',
+    '挺有精神的嘛，省点力气留给后面的路比较好哦。',
+  ],
+  [
+    '你还挺执着的。',
+    '我不建议继续哦。',
+    '……你是来买东西的，还是来找别的什么的？',
+  ],
+  [
+    '我再说一次。我是中立商人。这个身份保护你，也保护我。',
+    '你现在做的事情，正在让这层保护变薄。',
+    '建议你喝口茶，坐下来，冷静一下。这是免费的忠告，不常有。',
+  ],
+  [
+    '…………',
+    '请适可而止哦。',
+    '（微笑）',
+  ],
+];
+const setShopDialogue = (robClickCount = 0) => {
+  const lines = robClickCount > 0
+    ? shopRobDialogueLines[Math.min(robClickCount, shopRobDialogueLines.length) - 1]!
+    : shopGreetingLines;
+  shopDialogue.value = pickRandom(lines) ?? '';
+};
+
 const resetShopSession = () => {
   resetShopProductConfirmation();
   shopSessionKey.value = null;
@@ -8554,6 +8627,7 @@ const openShopView = () => {
   if (isMerchantDefeated.value) {
     applyMerchantDefeatedShopState();
   }
+  setShopDialogue();
   showShopView.value = true;
 };
 
@@ -8669,6 +8743,9 @@ const handleShopRobClick = async () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value || isMerchantDefeated.value) return;
   if (shopRobClickCount.value < 5) {
     shopRobClickCount.value += 1;
+    if (shopRobClickCount.value <= shopRobDialogueLines.length) {
+      setShopDialogue(shopRobClickCount.value);
+    }
     return;
   }
 
@@ -9473,6 +9550,7 @@ const restoreOverlaySnapshot = () => {
             }))
         : [];
       shopRobClickCount.value = Math.max(0, toNonNegativeInt(parsed.shop.robClickCount, 0));
+      setShopDialogue(shopRobClickCount.value);
       shopRobbing.value = Boolean(parsed.shop.robbing);
       shopSessionKey.value = getCurrentShopSessionKey();
       shopBuying.value = false;
@@ -13361,181 +13439,665 @@ onBeforeUnmount(() => {
   line-height: 1.5;
 }
 
-.shop-panel {
-  border: 1px solid rgba(217, 119, 6, 0.4);
-  border-radius: 0.9rem;
-  background:
-    linear-gradient(145deg, rgba(23, 14, 8, 0.92), rgba(35, 21, 11, 0.9)),
-    radial-gradient(circle at 70% 10%, rgba(180, 83, 9, 0.2), transparent 52%);
-  box-shadow:
-    0 0 28px rgba(180, 83, 9, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  padding: 1.1rem 1.2rem 1.2rem;
+.shop-scene-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(3, 3, 5, 0.1), transparent 46%, rgba(1, 1, 3, 0.12));
+  pointer-events: none;
+}
+
+.shop-brand {
+  position: absolute;
+  z-index: 2;
+  top: 5%;
+  left: 1.5%;
   display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
+  align-items: flex-start;
+  color: #f6dfb1;
+  text-shadow: 0 2px 8px #000;
+}
+
+.shop-brand-compass,
+.shop-panel-compass {
+  flex: none;
+  background: var(--shop-compass-image) center / contain no-repeat;
+}
+
+.shop-brand-compass {
+  width: 105px;
+  height: 105px;
+  margin: -9px -15px 0 -12px;
+}
+
+.shop-brand-copy h2 {
+  margin: 0;
+  font: 48px/1.15 'MagicBookTitle', 'KaiTi', serif;
+  color: #ffdfaa;
+}
+
+.shop-brand-divider {
+  height: 1px;
+  margin: 8px 0 8px;
+  background: linear-gradient(90deg, #ae7c40, rgba(174, 124, 64, 0));
+}
+
+.shop-brand-divider::after {
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin-left: 68%;
+  transform: translateY(-3px) rotate(45deg);
+  border: 1px solid #c59861;
+  content: '';
+}
+
+.shop-brand-name {
+  font: 24px/1.2 'MagicBookTitle', 'KaiTi', serif;
+}
+
+.shop-brand-subtitle {
+  margin-top: 2px;
+  font: 12px/1.3 Georgia, serif;
+  color: #bfa17b;
+}
+
+.shop-rules {
+  position: absolute;
+  z-index: 2;
+  top: 22%;
+  left: 3.2%;
+  width: 220px;
+  padding: 10px 13px 14px;
+  background: rgba(4, 4, 6, 0.13);
+  border-left: 1px solid rgba(185, 132, 66, 0.22);
+  border-top: 1px solid rgba(185, 132, 66, 0.46);
+  border-bottom: 1px solid rgba(185, 132, 66, 0.46);
+  color: #e9ded0;
+  text-shadow: 0 2px 4px #000;
+}
+
+.shop-rules h3 {
+  margin: 0 0 9px;
+  padding-left: 9px;
+  font: 23px/1.3 'MagicBookTitle', 'KaiTi', serif;
+  color: #fff0d0;
+  border-bottom: 1px solid rgba(173, 124, 69, 0.46);
+}
+
+.shop-rules ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-rules li {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  white-space: nowrap;
+  font: 17px/1.4 'MagicBookTitle', 'KaiTi', serif;
+}
+
+.shop-rules svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: #d9a75f;
+}
+
+.shop-dialogue {
+  position: absolute;
+  z-index: 2;
+  left: 14%;
+  bottom: 10%;
+  width: 32%;
+  padding: 30px 37px 19px;
+  background: rgba(5, 5, 7, 0.36);
+  border: 1px solid rgba(175, 123, 59, 0.62);
+  color: #f4eee4;
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.12);
+}
+
+.shop-dialogue::after {
+  position: absolute;
+  inset: -15px;
+  background: var(--shop-frame-image) center / 100% 100% no-repeat;
+  pointer-events: none;
+  content: '';
+}
+
+.shop-dialogue-name {
+  position: absolute;
+  top: -18px;
+  left: 32px;
+  min-width: 120px;
+  padding: 2px 22px;
+  background: rgba(11, 9, 9, 0.35);
+  border: 1px solid #875b30;
+  color: #e6b976;
+  text-align: center;
+  font: 23px/1.2 'MagicBookTitle', 'KaiTi', serif;
+}
+
+.shop-dialogue p {
+  margin: 0;
+  font: 19px/1.6 'MagicBookTitle', 'KaiTi', serif;
+  white-space: normal;
+  text-shadow: 0 1px 4px #000, 0 1px 10px #000;
+}
+
+.shop-gold {
+  position: absolute;
+  z-index: 3;
+  top: 2.6%;
+  right: 7.4%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  min-width: 150px;
+  height: 47px;
+  padding: 5px 17px;
+  border: 1px solid #a57843;
+  border-radius: 24px;
+  background: rgba(6, 6, 8, 0.28);
+  box-shadow: inset 0 0 9px rgba(140, 89, 40, 0.16);
+  font: 21px/1 Georgia, serif;
+  color: #f5e8d4;
+}
+
+.shop-gold > svg {
+  flex: none;
+  width: 25px;
+  height: 25px;
+  color: #e9c48c;
+}
+
+.shop-gold span {
+  min-width: 3ch;
+  text-align: right;
+  text-shadow: 0 1px 4px #000;
 }
 
 .shop-layout {
-  left: 30%;
+  position: absolute;
+  z-index: 2;
+  top: 10%;
+  right: 2.4%;
+  width: 46%;
+  height: 84%;
+}
+
+.shop-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 43px 52px 28px;
+  border: 1px solid rgba(159, 106, 50, 0.76);
+  background: rgba(5, 5, 7, 0.56);
+  box-shadow: inset 0 0 75px rgba(0, 0, 0, 0.12);
+  color: #f3dfb8;
+}
+
+.shop-panel-ornament {
+  position: absolute;
+  inset: -20px;
+  background: var(--shop-frame-image) center / 100% 100% no-repeat;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .shop-panel-head {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.8rem;
-  border-bottom: 1px solid rgba(245, 158, 11, 0.25);
-  padding-bottom: 0.55rem;
+  flex: none;
+  align-items: center;
+  gap: 15px;
+  height: 86px;
+  border-bottom: 1px solid rgba(195, 143, 74, 0.58);
+}
+
+.shop-panel-head::after,
+.shop-panel-foot::before {
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 7px;
+  height: 7px;
+  transform: translateX(-50%) rotate(45deg);
+  border: 1px solid rgba(222, 167, 91, 0.88);
+  background: rgba(32, 19, 12, 0.55);
+  content: '';
+}
+
+.shop-panel-compass {
+  width: 92px;
+  height: 92px;
+  margin-left: -24px;
+}
+
+.shop-panel-head h2 {
+  margin: 0 0 4px;
+  font: 36px/1.2 'MagicBookTitle', 'KaiTi', serif;
+  color: #f8d39c;
+  text-shadow: 0 0 10px rgba(182, 107, 30, 0.33);
+}
+
+.shop-panel-head span:not(.shop-panel-compass) {
+  font: 12px/1.1 Georgia, serif;
+  color: #bc9161;
 }
 
 .shop-goods-grid {
-  flex: 1;
-  overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  column-gap: 1rem;
-  row-gap: 1.28rem;
-  margin-top: 1.44rem;
-  padding-right: 0.15rem;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(180px, 1fr);
   align-content: start;
+  gap: 16px 18px;
+  overflow-y: auto;
+  margin: 16px -5px 10px;
+  padding: 7px 10px 8px 5px;
 }
 
 .shop-item-card {
   position: relative;
-  border: 0;
-  border-radius: 0.55rem;
-  background: transparent;
-  width: 100%;
-  min-height: 132px;
-  padding: 0.28rem 0.2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.28rem;
-  transition:
-    transform 0.2s ease,
-    opacity 0.25s ease,
-    filter 0.2s ease;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 19px 11px 17px;
+  border: 1px solid rgba(180, 123, 61, 0.42);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(22, 15, 14, 0.16), rgba(2, 2, 4, 0.35));
+  color: #eee5d6;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
 }
 
-.shop-item-card:hover {
-  transform: translateY(-1px) scale(1.02);
-  filter: brightness(1.04);
+.shop-item-card::after {
+  position: absolute;
+  inset: -7px;
+  background: var(--shop-frame-image) center / 100% 100% no-repeat;
+  opacity: 0.8;
+  pointer-events: none;
+  content: '';
 }
 
-.shop-item-card.is-awaiting-confirm .shop-item-icon {
-  transform: scale(1.08);
-  filter: drop-shadow(0 0 16px rgba(251, 191, 36, 0.9)) drop-shadow(0 0 28px rgba(245, 158, 11, 0.48));
+.shop-item-card:hover:not(:disabled),
+.shop-item-card:focus-visible {
+  transform: translateY(-2px);
+  filter: brightness(1.24);
 }
 
 .shop-item-card.is-sold {
-  opacity: 0.18;
-  pointer-events: none;
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 
 .shop-item-icon-wrap {
-  margin-top: 0;
+  position: relative;
+  display: grid;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  place-items: center;
+  color: #a6bad8;
+}
+
+.shop-item-icon-wrap::before {
+  position: absolute;
+  width: 118px;
+  height: 118px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.25;
+  box-shadow: 0 0 14px currentColor, inset 0 0 14px currentColor;
+  content: '';
+}
+
+.shop-item-card.is-rare .shop-item-icon-wrap {
+  color: #c59dbd;
+}
+
+.shop-item-card.is-legendary .shop-item-icon-wrap {
+  color: #e7bb76;
 }
 
 .shop-item-icon {
-  width: 3.4rem;
-  height: 3.4rem;
-  color: rgba(251, 191, 36, 0.98);
-  filter: drop-shadow(0 0 11px rgba(245, 158, 11, 0.65));
+  width: 79px;
+  height: 79px;
+  stroke-width: 1.1;
+  filter: drop-shadow(0 0 13px currentColor);
+}
+
+.shop-item-count {
+  position: absolute;
+  right: 3px;
+  bottom: 8px;
+  font: 16px/1 Georgia, serif;
+  color: #f4ede1;
+}
+
+.shop-item-name {
+  flex: none;
+  width: 100%;
+  display: grid;
+  height: 2.8em;
+  margin: 4px 0 8px;
+  padding: 0 2px;
+  place-items: center;
+  font: 15px/1.25 'MagicBookTitle', 'KaiTi', serif;
+  text-align: center;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 4px #000;
 }
 
 .shop-item-price {
-  display: inline-flex;
+  display: flex;
+  flex: none;
   align-items: center;
-  gap: 0.3rem;
-  border: 1px solid rgba(245, 158, 11, 0.55);
-  border-radius: 9999px;
-  padding: 0.14rem 0.5rem;
-  color: rgba(255, 237, 213, 0.96);
-  background: rgba(38, 22, 11, 0.82);
-  font-size: 10px;
+  justify-content: center;
+  gap: 10px;
+  width: 78%;
+  height: 34px;
+  border: 1px solid rgba(184, 132, 65, 0.62);
+  border-radius: 2px;
+  background: rgba(12, 9, 7, 0.23);
+  color: #e8bb7b;
+  font: 16px/1 Georgia, serif;
+}
+
+.shop-item-price svg {
+  width: 18px;
+  height: 18px;
 }
 
 .shop-item-confirm-hint {
   position: absolute;
+  z-index: 1;
+  bottom: 12px;
   left: 50%;
-  bottom: 0.08rem;
   transform: translateX(-50%);
-  white-space: nowrap;
-  border: 1px solid rgba(251, 191, 36, 0.55);
-  border-radius: 9999px;
-  background: rgba(15, 10, 6, 0.92);
-  color: rgba(255, 235, 170, 0.98);
-  padding: 0.15rem 0.5rem;
-  font-size: 0.68rem;
-  line-height: 1.2;
-  box-shadow:
-    0 0 12px rgba(245, 158, 11, 0.28),
-    0 4px 14px rgba(0, 0, 0, 0.26);
+  width: max-content;
+  max-width: 90%;
+  padding: 4px 8px;
+  border: 1px solid #d5ac74;
+  background: #0c0a09;
+  color: #f8dab0;
+  font: 12px/1.2 'MagicBookTitle', 'KaiTi', serif;
   pointer-events: none;
 }
 
+.shop-empty {
+  grid-column: 1 / -1;
+  align-self: center;
+  text-align: center;
+  font: 22px/1.5 'MagicBookTitle', 'KaiTi', serif;
+  color: #c3a987;
+}
+
 .shop-panel-foot {
-  margin-top: 0.35rem;
+  position: relative;
   display: flex;
-  justify-content: space-between;
+  flex: none;
   align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  height: 84px;
+  padding: 5px 38px 17px 0;
+  border-top: 1px solid rgba(195, 143, 74, 0.58);
+}
+
+.shop-panel-foot::before {
+  top: -4px;
+  bottom: auto;
+}
+
+.shop-rob-btn,
+.shop-exit-btn {
+  position: relative;
+  z-index: 1;
+  height: 50px;
+  border: 1px solid #9f6e37;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(21, 14, 10, 0.26), rgba(74, 48, 25, 0.44) 50%, rgba(21, 14, 10, 0.26));
+  box-shadow: inset 0 0 10px rgba(154, 99, 43, 0.18);
+  color: #f1c384;
+  font: 23px/1 'MagicBookTitle', 'KaiTi', serif;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .shop-rob-btn {
-  border-radius: 9999px;
-  border: 1px solid rgba(251, 191, 36, 0.5);
-  background:
-    radial-gradient(circle at 22% 20%, rgba(255, 237, 213, 0.16), transparent 45%),
-    linear-gradient(120deg, rgba(41, 24, 12, 0.8), rgba(92, 47, 14, 0.75) 50%, rgba(34, 19, 9, 0.82));
-  box-shadow:
-    0 0 10px rgba(245, 158, 11, 0.25),
-    inset 0 1px 0 rgba(255, 237, 213, 0.15);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
-}
-
-.shop-rob-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow:
-    0 0 14px rgba(245, 158, 11, 0.42),
-    inset 0 1px 0 rgba(255, 237, 213, 0.2);
-}
-
-.shop-rob-btn:disabled {
-  cursor: not-allowed;
+  width: 160px;
 }
 
 .shop-exit-btn {
-  border-radius: 9999px;
-  border: 1px solid rgba(251, 191, 36, 0.72);
-  background:
-    radial-gradient(circle at 22% 20%, rgba(255, 237, 213, 0.22), transparent 45%),
-    linear-gradient(120deg, rgba(41, 24, 12, 0.94), rgba(92, 47, 14, 0.92) 50%, rgba(34, 19, 9, 0.95));
-  box-shadow:
-    0 0 14px rgba(245, 158, 11, 0.45),
-    0 0 30px rgba(180, 83, 9, 0.35),
-    inset 0 1px 0 rgba(255, 237, 213, 0.2);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 17px;
+  width: 245px;
 }
 
+.shop-exit-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.shop-rob-btn:hover:not(:disabled),
 .shop-exit-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow:
-    0 0 18px rgba(251, 191, 36, 0.62),
-    0 0 36px rgba(217, 119, 6, 0.42),
-    inset 0 1px 0 rgba(255, 237, 213, 0.24);
+  background-color: rgba(163, 99, 41, 0.18);
+  box-shadow: inset 0 0 12px rgba(213, 153, 79, 0.35);
 }
 
+.shop-rob-btn:disabled,
 .shop-exit-btn:disabled {
-  opacity: 0.48;
   cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.ui-viewport--compact-portrait .shop-brand {
+  top: 2%;
+  left: 2%;
+}
+
+.ui-viewport--compact-portrait .shop-brand-compass {
+  width: 49px;
+  height: 49px;
+  margin: 0 2px 0 0;
+}
+
+.ui-viewport--compact-portrait .shop-brand-copy h2 {
+  font-size: 25px;
+}
+
+.ui-viewport--compact-portrait .shop-brand-divider,
+.ui-viewport--compact-portrait .shop-brand-subtitle {
+  display: none;
+}
+
+.ui-viewport--compact-portrait .shop-brand-name {
+  font-size: 13px;
+}
+
+.ui-viewport--compact-portrait .shop-gold {
+  top: 2%;
+  right: 3%;
+  min-width: 88px;
+  height: 36px;
+  gap: 5px;
+  padding: 2px 9px;
+  font-size: 15px;
+}
+
+.ui-viewport--compact-portrait .shop-gold > svg {
+  width: 17px;
+  height: 17px;
+}
+
+.ui-viewport--compact-portrait .shop-rules {
+  top: 9%;
+  left: 3%;
+  width: 94%;
+  padding: 4px 7px 6px;
+}
+
+.ui-viewport--compact-portrait .shop-rules h3 {
+  margin-bottom: 3px;
+  font-size: 15px;
+}
+
+.ui-viewport--compact-portrait .shop-rules ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.ui-viewport--compact-portrait .shop-rules li {
+  gap: 3px;
+  font-size: 11px;
+}
+
+.ui-viewport--compact-portrait .shop-rules svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ui-viewport--compact-portrait .shop-dialogue {
+  top: 19%;
+  bottom: auto;
+  left: 5%;
+  width: 90%;
+  padding: 16px 14px 7px;
+}
+
+.ui-viewport--compact-portrait .shop-dialogue-name {
+  top: -13px;
+  left: 13px;
+  min-width: 78px;
+  padding: 1px 6px;
+  font-size: 15px;
+}
+
+.ui-viewport--compact-portrait .shop-dialogue p {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ui-viewport--compact-portrait .shop-dialogue p br {
+  display: none;
+}
+
+.ui-viewport--compact-portrait .shop-layout {
+  top: 34%;
+  right: 3%;
+  width: 94%;
+  height: 63%;
+}
+
+.ui-viewport--compact-portrait .shop-panel {
+  padding: 13px 14px 10px;
+}
+
+.ui-viewport--compact-portrait .shop-panel-ornament {
+  inset: -7px;
+}
+
+.ui-viewport--compact-portrait .shop-panel-head {
+  height: 42px;
+  gap: 2px;
+}
+
+.ui-viewport--compact-portrait .shop-panel-compass {
+  width: 47px;
+  height: 47px;
+  margin-left: -8px;
+}
+
+.ui-viewport--compact-portrait .shop-panel-head h2 {
+  margin-bottom: 0;
+  font-size: 23px;
+}
+
+.ui-viewport--compact-portrait .shop-panel-head span:not(.shop-panel-compass) {
+  font-size: 9px;
+}
+
+.ui-viewport--compact-portrait .shop-goods-grid {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(120px, 1fr);
+  gap: 7px;
+  margin: 8px -3px 0;
+  padding: 4px 5px;
+}
+
+.ui-viewport--compact-portrait .shop-item-card {
+  padding: 9px 3px 8px;
+}
+
+.ui-viewport--compact-portrait .shop-item-card::after {
+  inset: -3px;
+}
+
+.ui-viewport--compact-portrait .shop-item-icon-wrap::before {
+  width: 55px;
+  height: 55px;
+}
+
+.ui-viewport--compact-portrait .shop-item-icon {
+  width: 43px;
+  height: 43px;
+}
+
+.ui-viewport--compact-portrait .shop-item-count {
+  right: 3px;
+  bottom: 0;
+  font-size: 11px;
+}
+
+.ui-viewport--compact-portrait .shop-item-name {
+  margin: 2px 0 4px;
+  font-size: 12px;
+}
+
+.ui-viewport--compact-portrait .shop-item-price {
+  height: 24px;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.ui-viewport--compact-portrait .shop-item-price svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ui-viewport--compact-portrait .shop-panel-foot {
+  height: 52px;
+  gap: 8px;
+  padding: 3px 30px 12px 0;
+}
+
+.ui-viewport--compact-portrait .shop-rob-btn,
+.ui-viewport--compact-portrait .shop-exit-btn {
+  width: 92px;
+  height: 30px;
+  font-size: 16px;
+}
+
+.ui-viewport--compact-portrait .shop-exit-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .spring-cleanse-float {
@@ -15279,24 +15841,6 @@ onBeforeUnmount(() => {
 
   .magic-hat-track-card__action-cost {
     text-align: left;
-  }
-
-  .shop-layout {
-    left: 2%;
-    right: 2%;
-  }
-
-  .shop-panel {
-    height: 82vh;
-    max-height: none;
-    padding: 0.9rem;
-  }
-
-  .shop-goods-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: 0.7rem;
-    row-gap: 0.95rem;
-    margin-top: 1.2rem;
   }
 
   .chest-reward-anchor {
