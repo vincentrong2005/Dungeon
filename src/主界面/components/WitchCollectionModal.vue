@@ -437,8 +437,6 @@ const ENEMY_FLOOR_HINT: Record<string, number> = {
   晶体刺猬: 5,
   苦修幽灵: 5,
   符文精灵: 5,
-  光球守卫: 5,
-  胎儿魔物: 5,
   脐带触手: 5,
   佩恩: 5,
   西格尔: 5,
