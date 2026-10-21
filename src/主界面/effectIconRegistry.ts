@@ -94,6 +94,8 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.MERCY]: 'fa-solid fa-mercury',
   [ET.STIGMATA]: 'fa-brands fa-creative-commons-sampling-plus',
   [ET.GENESIS]: 'fa-solid fa-earth-americas',
+  [ET.RUNE_PROTECTION]: 'fa-solid fa-sheet-plastic',
+  [ET.RUNE_ENERGY]: 'fa-solid fa-circle-nodes',
   [ET.PAIN_MEMORY]: 'fa-brands fa-cotton-bureau',
   [ET.SELF_CHOSEN_PAIN]: 'fa-solid fa-hands-holding-circle',
   [ET.CORRIDOR_MEMORY]: 'fa-brands fa-firstdraft',

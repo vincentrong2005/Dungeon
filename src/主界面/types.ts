@@ -97,6 +97,7 @@ export interface CardEffect {
     | 'restore_mana'   // 回复魔力
     | 'cleanse'        // 清除自身指定类型的 Debuff
     | 'modify_dice'    // 调整最小/最大骰子点数
+    | 'suppress_point_modifiers' // 本回合仅使用原始投掷点数
     | 'escape';        // 触发逃离战斗
 
   // ── apply_buff 专用 ──
@@ -419,6 +420,8 @@ export enum EffectType {
   STIGMATA = '圣痕',
   /** 创世 — 回合开始时获得等量护甲；召唤物每造成1次伤害，层数+1 */
   GENESIS = '创世',
+  RUNE_PROTECTION = '符文防护',
+  RUNE_ENERGY = '符能',
   PAIN_MEMORY = '痛忆',
   SELF_CHOSEN_PAIN = '自选之痛',
   CORRIDOR_MEMORY = '长廊记忆',
@@ -498,6 +501,17 @@ export interface EntityStats {
   swarmHealReduction?: number;
   /** 欢愉隐藏的限伤溢出累计值，不在战斗界面显示 */
   pleasureOverflowDamage?: number;
+  /** 本回合忽略所有点数修正，下一回合开始清除。 */
+  pointModifiersSuppressed?: boolean;
+  /** 符文效果的回合记录；撤防倒计时只在回合开始推进。 */
+  runeState?: {
+    protectionBroken: boolean;
+    protectionSuppressed: boolean;
+    suppressedTurnsRemaining: number;
+    hadClash: boolean;
+    turnEnded: boolean;
+    consecutiveClashLosses: number;
+  };
   /** 当前身上的效果列表 */
   effects: EffectInstance[];
 }

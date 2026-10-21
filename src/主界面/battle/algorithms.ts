@@ -19,6 +19,7 @@ import {
     hasEffect,
     reduceEffectStacks,
     removeEffect,
+    isRuneProtectionActive,
 } from './effects';
 import { PAIN_CARD, PAIN_OATHS, type PainOath } from './cardRegistry';
 
@@ -357,6 +358,10 @@ export function applyDamageToEntity(
   const logs: string[] = [];
   let limitOverflow = 0;
   let damageBeforeLimit: number | undefined;
+  if (!isTrueDamage && damage > 0 && isRuneProtectionActive(target)) {
+    logs.push(`[符文防护] 免疫${Math.floor(damage)}点非真实伤害。`);
+    return { actualDamage: 0, logs, limitOverflow: 0 };
+  }
   if (!options?.swarmAttack && getEffectStacks(target, EffectType.CLUSTER_CREATURE) > 0 && damage > 0) {
     const beforeClusterReduction = Math.max(0, Math.floor(damage));
     damage = Math.floor(beforeClusterReduction * 0.5);

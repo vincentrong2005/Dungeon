@@ -912,44 +912,94 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '回合开始时，获得等量护甲；召唤物每造成1次伤害，层数+1。',
   },
+  [EffectType.RUNE_PROTECTION]: {
+    type: EffectType.RUNE_PROTECTION,
+    name: '符文防护',
+    polarity: 'trait',
+    timings: ['onTurnStart', 'onClash', 'passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '每回合开始免疫所有非真实伤害，不阻止负面状态施加；首次进入拼点时，在相关伤害结算前解除，本回合不再恢复。',
+  },
+  [EffectType.RUNE_ENERGY]: {
+    type: EffectType.RUNE_ENERGY,
+    name: '符能',
+    polarity: 'buff',
+    timings: ['onTurnStart', 'onClash', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 10,
+    description: '每回合开始获得等量护甲；每次己方拼点获胜+1，对方拼点获胜-1；未发生拼点的回合结束时+2。最低0层，上限10层。',
+  },
   [EffectType.PAIN_MEMORY]: {
-    type: EffectType.PAIN_MEMORY, name: '痛忆', polarity: 'buff',
-    timings: ['onAfterDamage', 'onClash', 'onTurnStart'], stackable: true, maxStacks: 9,
+    type: EffectType.PAIN_MEMORY,
+    name: '痛忆',
+    polarity: 'buff',
+    timings: ['onAfterDamage', 'onClash', 'onTurnStart'],
+    stackable: true,
+    maxStacks: 9,
     description: '自身损失生命+1，真实伤害额外+1；向玩家施加流血+1；自身拼点失败时-3。每回合开始回复2倍层数的生命，上限9层。',
   },
   [EffectType.SELF_CHOSEN_PAIN]: {
-    type: EffectType.SELF_CHOSEN_PAIN, name: '自选之痛', polarity: 'scene',
-    timings: ['onAfterDamage', 'onDiceRoll'], stackable: true, maxStacks: 0,
+    type: EffectType.SELF_CHOSEN_PAIN,
+    name: '自选之痛',
+    polarity: 'scene',
+    timings: ['onAfterDamage', 'onDiceRoll'],
+    stackable: true,
+    maxStacks: 0,
     description: '双方自伤或受到真实伤害并实际损失生命时，下次投掷的点数+1。投掷时消耗。',
   },
   [EffectType.CORRIDOR_MEMORY]: {
-    type: EffectType.CORRIDOR_MEMORY, name: '长廊记忆', polarity: 'scene',
-    timings: ['onAfterDamage'], stackable: true, maxStacks: 60,
+    type: EffectType.CORRIDOR_MEMORY,
+    name: '长廊记忆',
+    polarity: 'scene',
+    timings: ['onAfterDamage'],
+    stackable: true,
+    maxStacks: 60,
     description: '累计双方实际损失生命÷双方战斗初始生命上限之和，每层代表1%。达到20/40/60层时，佩恩获得2/4/6层增伤，玩家获得双倍；治疗不减少记录。',
   },
   [EffectType.PAIN_OATH_WHIP]: {
-    type: EffectType.PAIN_OATH_WHIP, name: '一鞭为我', polarity: 'scene',
-    timings: ['onTurnStart', 'onBeforeAttack'], stackable: false, maxStacks: 1,
+    type: EffectType.PAIN_OATH_WHIP,
+    name: '一鞭为我',
+    polarity: 'scene',
+    timings: ['onTurnStart', 'onBeforeAttack'],
+    stackable: false,
+    maxStacks: 1,
     description: '下回合造成的伤害翻倍。此后玩家每回合开始受到2点真实伤害。',
   },
   [EffectType.PAIN_OATH_PILLAR]: {
-    type: EffectType.PAIN_OATH_PILLAR, name: '握住刑柱', polarity: 'scene',
-    timings: ['onTurnStart', 'onClash'], stackable: false, maxStacks: 1,
+    type: EffectType.PAIN_OATH_PILLAR,
+    name: '握住刑柱',
+    polarity: 'scene',
+    timings: ['onTurnStart', 'onClash'],
+    stackable: false,
+    maxStacks: 1,
     description: '整场战斗玩家同类型攻击拼点时点数+1；此后每两回合开始时玩家获得3层流血。',
   },
   [EffectType.PAIN_OATH_OINTMENT]: {
-    type: EffectType.PAIN_OATH_OINTMENT, name: '借来的圣膏', polarity: 'scene',
-    timings: ['onBeforeDamage'], stackable: false, maxStacks: 1,
+    type: EffectType.PAIN_OATH_OINTMENT,
+    name: '借来的圣膏',
+    polarity: 'scene',
+    timings: ['onBeforeDamage'],
+    stackable: false,
+    maxStacks: 1,
     description: '回复50%最大生命；整场战斗玩家受到的真实伤害增加25%，向上取整。',
   },
   [EffectType.PAIN_OATH_CUP]: {
-    type: EffectType.PAIN_OATH_CUP, name: '空杯告解', polarity: 'scene',
-    timings: ['onTurnStart'], stackable: false, maxStacks: 1,
+    type: EffectType.PAIN_OATH_CUP,
+    name: '空杯告解',
+    polarity: 'scene',
+    timings: ['onTurnStart'],
+    stackable: false,
+    maxStacks: 1,
     description: '回复4点法力，仅一次；此后每经过2回合，在回合开始获得2点法力和1层虚弱。',
   },
   [EffectType.PAIN_OATH_SHARE]: {
-    type: EffectType.PAIN_OATH_SHARE, name: '分给她的伤', polarity: 'scene',
-    timings: ['passive'], stackable: false, maxStacks: 1,
+    type: EffectType.PAIN_OATH_SHARE,
+    name: '分给她的伤',
+    polarity: 'scene',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
     description: '选择时将玩家当前全部流血转移给佩恩；此后玩家受到的治疗量减半。',
   },
 };
@@ -971,6 +1021,8 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.MERCY,
   EffectType.STIGMATA,
   EffectType.GENESIS,
+  EffectType.RUNE_PROTECTION,
+  EffectType.RUNE_ENERGY,
   EffectType.RESONANCE_LOCK,
   EffectType.BRAND_MARK,
   EffectType.DAMAGE_BOOST,
@@ -1363,6 +1415,77 @@ export function reduceEffectStacks(
 //  回合效果结算（按触发时机）
 // ═══════════════════════════════════════════════════════════════
 
+function getRuneState(entity: EntityStats): NonNullable<EntityStats['runeState']> {
+  return entity.runeState ??= {
+    protectionBroken: false,
+    protectionSuppressed: false,
+    suppressedTurnsRemaining: 0,
+    hadClash: false,
+    turnEnded: false,
+    consecutiveClashLosses: 0,
+  };
+}
+
+export function isRuneProtectionActive(entity: EntityStats): boolean {
+  return hasEffect(entity, EffectType.RUNE_PROTECTION)
+    && !entity.runeState?.protectionBroken
+    && !entity.runeState?.protectionSuppressed;
+}
+
+/** 符能归零时保留实例，后续回合仍可重新积累。 */
+export function changeRuneEnergy(entity: EntityStats, delta: number): number {
+  const energy = findEffect(entity, EffectType.RUNE_ENERGY);
+  if (!energy) return 0;
+  const before = energy.stacks;
+  energy.stacks = Math.max(0, Math.min(EFFECT_REGISTRY[EffectType.RUNE_ENERGY].maxStacks, Math.floor(before + delta)));
+  return energy.stacks - before;
+}
+
+export function startRuneTurn(entity: EntityStats): string[] {
+  if (!findEffect(entity, EffectType.RUNE_PROTECTION) && !findEffect(entity, EffectType.RUNE_ENERGY)) return [];
+  const state = getRuneState(entity);
+  state.protectionBroken = false;
+  state.protectionSuppressed = state.suppressedTurnsRemaining > 0;
+  state.suppressedTurnsRemaining = Math.max(0, state.suppressedTurnsRemaining - 1);
+  state.hadClash = false;
+  state.turnEnded = false;
+  const logs: string[] = [];
+  if (hasEffect(entity, EffectType.RUNE_PROTECTION)) {
+    logs.push(state.protectionSuppressed
+      ? `[符文防护] 本回合撤防，之后还有${state.suppressedTurnsRemaining}回合撤防。`
+      : '[符文防护] 本回合防护已恢复。');
+  }
+  const energy = getEffectStacks(entity, EffectType.RUNE_ENERGY);
+  if (energy > 0) {
+    applyEffect(entity, EffectType.ARMOR, energy, { source: 'effect:rune_energy' });
+    logs.push(`[符能] 获得${energy}点护甲。`);
+  }
+  return logs;
+}
+
+export function beginRuneClash(entity: EntityStats): void {
+  if (!findEffect(entity, EffectType.RUNE_PROTECTION) && !findEffect(entity, EffectType.RUNE_ENERGY)) return;
+  const state = getRuneState(entity);
+  state.hadClash = true;
+  state.protectionBroken = true;
+}
+
+export function resolveRuneClashEnergy(entity: EntityStats, won: boolean | null): void {
+  if (!findEffect(entity, EffectType.RUNE_ENERGY)) return;
+  const state = getRuneState(entity);
+  state.consecutiveClashLosses = won === false ? (state.consecutiveClashLosses ?? 0) + 1 : 0;
+  if (won !== null) changeRuneEnergy(entity, won ? 1 : -1);
+}
+
+/** 打出时锁定点数加成并安排下三回合撤防，不改变本回合防护。 */
+export function consumeRuneFinisherEnergy(entity: EntityStats): number {
+  const energy = getEffectStacks(entity, EffectType.RUNE_ENERGY);
+  changeRuneEnergy(entity, -energy);
+  const state = getRuneState(entity);
+  state.suppressedTurnsRemaining = Math.max(3, state.suppressedTurnsRemaining);
+  return energy;
+}
+
 /** 回合开始效果结算结果 */
 export interface TurnStartResult {
   hpChange: number;
@@ -1379,7 +1502,7 @@ export interface TurnStartResult {
  * 处理回合开始时所有效果触发
  * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 性兴奋 → 元素适应体 → 元素皮层 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
  */
-export function processOnTurnStart(entity: EntityStats): TurnStartResult {
+export function processOnTurnStart(entity: EntityStats, options?: { runeTurnAlreadyStarted?: boolean }): TurnStartResult {
   const result: TurnStartResult = {
     hpChange: 0,
     mpChange: 0,
@@ -1389,6 +1512,8 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     logs: [],
     applyToOpponent: [],
   };
+
+  if (!options?.runeTurnAlreadyStarted) result.logs.push(...startRuneTurn(entity));
 
   // 饕餮体质：回合开始时先减少自身元素状态与中毒量，避免高额中毒量在判定前直接压死
   if (getEffectStacks(entity, EffectType.GLUTTONY_CONSTITUTION) > 0) {
@@ -1660,6 +1785,14 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
  */
 export function processOnTurnEnd(entity: EntityStats): string[] {
   const logs: string[] = [];
+  const runeState = entity.runeState;
+  if (runeState && !runeState.turnEnded) {
+    if (!runeState.hadClash && findEffect(entity, EffectType.RUNE_ENERGY)) {
+      changeRuneEnergy(entity, 2);
+      logs.push(`[符能] 本回合未发生拼点，层数+2（当前${getEffectStacks(entity, EffectType.RUNE_ENERGY)}层）。`);
+    }
+    runeState.turnEnded = true;
+  }
 
   // 中毒：转化为中毒量，然后中毒-1
   const poisonStacks = getEffectStacks(entity, EffectType.POISON);

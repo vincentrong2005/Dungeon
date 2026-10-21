@@ -105,7 +105,7 @@
         />
         <span class="splash-update-card__copy">
           <span>新的区域已解锁</span>
-          <strong>苦修之路·「佩恩」</strong>
+          <strong>神谕淫纹室·「西格尔」</strong>
         </span>
         <span class="splash-update-card__arrow" aria-hidden="true">›</span>
       </button>
@@ -252,6 +252,7 @@ const isVideoReady = ref(false);
 const updateCardButton = ref<HTMLButtonElement | null>(null);
 const updateCloseButton = ref<HTMLButtonElement | null>(null);
 const updateEntries: { date: string; content: string; milestone?: string }[] = [
+  { date: '10.21', content: '更新神谕淫纹室' },
   { date: '10.20', content: '更新信息录入界面UI，商店UI' },
   { date: '10.17', content: '增加大量音效与特效' },
   { date: '10.10', content: '标题界面UI重做，教程功能更新' },

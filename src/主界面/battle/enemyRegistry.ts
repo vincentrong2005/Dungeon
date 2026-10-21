@@ -1,7 +1,7 @@
 import { CardType, EffectType, type CardData, type EnemyAIContext, type EnemyDefinition } from '../types';
-import { PAIN_CARD, getAllCards } from './cardRegistry';
+import { PAIN_CARD, SIGEL_CARD, getAllCards } from './cardRegistry';
 import { calculateFinalPoint } from './algorithms';
-import { ELEMENTAL_DEBUFF_TYPES } from './effects';
+import { ELEMENTAL_DEBUFF_TYPES, getEffectStacks } from './effects';
 
 function pickCardById(ctx: EnemyAIContext, id: string): CardData {
   return ctx.deck.find(c => c.id === id) ?? ctx.deck[0]!;
@@ -4621,7 +4621,60 @@ const 符文精灵: EnemyDefinition = {
   },
 };
 
+const 西格尔: EnemyDefinition = {
+  name: '西格尔',
+  stats: {
+    hp: 650,
+    maxHp: 650,
+    mp: 8,
+    minDice: 8,
+    maxDice: 14,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.RUNE_PROTECTION, stacks: 1, polarity: 'trait' },
+      { type: EffectType.RUNE_ENERGY, stacks: 0, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    SIGEL_CARD.FRAGMENT,
+    SIGEL_CARD.FLAME,
+    SIGEL_CARD.FROST,
+    SIGEL_CARD.SHIFT,
+    SIGEL_CARD.REDRAW,
+    SIGEL_CARD.DISORDER,
+    SIGEL_CARD.WEAKEN,
+    SIGEL_CARD.FINALE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.enemyStats.runeState && ctx.enemyStats.runeState.consecutiveClashLosses >= 3) {
+      ctx.enemyStats.runeState.consecutiveClashLosses = 0;
+      return pickCardById(ctx, SIGEL_CARD.WEAKEN);
+    }
+    if (getEffectStacks(ctx.enemyStats, EffectType.RUNE_ENERGY) >= 8 && ctx.enemyStats.mp >= 8) {
+      return pickCardById(ctx, SIGEL_CARD.FINALE);
+    }
+    if (ctx.enemyStats.mp < 3) {
+      return pickCardById(ctx, SIGEL_CARD.REDRAW);
+    }
+    const cycle = [
+      SIGEL_CARD.FRAGMENT,
+      SIGEL_CARD.FLAME,
+      SIGEL_CARD.FROST,
+      SIGEL_CARD.SHIFT,
+      SIGEL_CARD.DISORDER,
+    ];
+    const index = Math.max(0, Math.floor(Number(ctx.flags.sigelCycle ?? 0))) % cycle.length;
+    const id = cycle[index]!;
+    if (id === SIGEL_CARD.DISORDER && ctx.enemyStats.mp < 5) {
+      return pickCardById(ctx, SIGEL_CARD.REDRAW);
+    }
+    ctx.flags.sigelCycle = (index + 1) % cycle.length;
+    return pickCardById(ctx, id);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
+  [西格尔.name, 西格尔],
   [佩恩.name, 佩恩],
   [游荡粘液球.name, 游荡粘液球],
   [荧光蛾.name, 荧光蛾],

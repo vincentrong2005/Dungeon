@@ -1141,8 +1141,8 @@ import {
     getPainOath, painHealingAmount, painIncomingDamage, painOutgoingDamage, painPointBonus,
     painThornsOnPlayerCard, recordPainHpLoss, updatePainPhase,
 } from '../battle/algorithms';
-import { PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, getAllCards, getCardByName, type PainOath } from '../battle/cardRegistry';
-import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, canPlayCard, findEffect, getEffectDisplayOrder, getEffectStacks, processOnTurnEnd, processOnTurnStart as processEntityTurnStart, reduceEffectStacks, removeEffect } from '../battle/effects';
+import { PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, SIGEL_CARD, getAllCards, getCardByName, type PainOath } from '../battle/cardRegistry';
+import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, beginRuneClash, canPlayCard, consumeRuneFinisherEnergy, findEffect, getEffectDisplayOrder, getEffectStacks, isRuneProtectionActive, processOnTurnEnd, processOnTurnStart as processEntityTurnStart, reduceEffectStacks, removeEffect, resolveRuneClashEnergy, startRuneTurn } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import { resolveInitialEntityStats } from '../battle/initialStats';
 import {
@@ -1537,6 +1537,9 @@ const pulseSceneEffect = (type: EffectType) => {
 };
 const pendingPainOaths = ref<PainOath[]>([]);
 let painPointBonusByCard = new WeakMap<CardData, number>();
+let runeConsumedEnergyByCard = new WeakMap<CardData, number>();
+const pendingRuneShiftCards = new Map<CardData, BattleSide>();
+let unmodifiedDiceByEntity = new WeakMap<EntityStats, number>();
 let resolvePainOathChoice: (() => void) | null = null;
 
 async function loadPainPortraits() {
@@ -1606,6 +1609,12 @@ const getEffectInstanceName = (effect: Pick<EffectInstance, 'type' | 'temporary'
 );
 const getEffectDescription = (type: EffectType, side?: BattleSide): string => {
   const description = EFFECT_REGISTRY[type]?.description ?? '';
+  if (type === ET.RUNE_PROTECTION && side) {
+    const entity = side === 'player' ? playerStats.value : enemyStats.value;
+    const state = entity.runeState;
+    const status = isRuneProtectionActive(entity) ? '防护生效中' : state?.protectionSuppressed ? '终式撤防中' : '拼点后已解除';
+    return `${description} 当前：${status}；后续撤防${state?.suppressedTurnsRemaining ?? 0}回合。`;
+  }
   if (isPainBattle && side === 'enemy') {
     if (type === ET.PHASE_TRANSITION) return `${description}；转阶段后更换卡组，下回合开始时获得6层荆棘。`;
     if (type === ET.THORNS) return `${description}；玩家打出物理/魔法牌时，佩恩的荆棘减少2层；打出功能/闪避牌时增加2层。`;
@@ -2390,10 +2399,10 @@ function presentCardHit(entity: EntityStats, card: CardData | undefined, impactD
   }
 }
 
-function processOnTurnStart(entity: EntityStats) {
+function processOnTurnStart(entity: EntityStats, runeTurnAlreadyStarted = false) {
   const whiteTurbid = getEffectStacks(entity, ET.WHITE_TURBID);
   const orgasm = getEffectStacks(entity, ET.ORGASM);
-  const result = processEntityTurnStart(entity);
+  const result = processEntityTurnStart(entity, { runeTurnAlreadyStarted });
   if (result.isStunned) presentEffect(entity, 'stun');
   if (whiteTurbid > 0) presentEffect(entity, 'slime');
   if (orgasm > 0) presentEffect(entity, 'heart');
@@ -5098,7 +5107,11 @@ const applyCardEffectsByTrigger = (
     const targetEntity = targetKey === 'self' ? attacker : defender;
     const targetSide = resolveTargetSide(source, targetKey);
 
-    if (ce.kind === 'heal') {
+    if (ce.kind === 'suppress_point_modifiers') {
+      targetEntity.pointModifiersSuppressed = true;
+      log(`<span class="text-violet-300">${label}【${card.name}】使对方本回合仅使用原始投掷点数。</span>`);
+      hasEffect = true;
+    } else if (ce.kind === 'heal') {
       const healAmount = ce.valueMode === 'point_scale'
         ? Math.floor(finalPoint * (ce.scale ?? 1))
         : ce.valueMode === 'max_hp_percent'
@@ -5935,7 +5948,15 @@ const applyHitAttachEffects = (
   }
 };
 
+const startCardPointTurn = () => {
+  unmodifiedDiceByEntity = new WeakMap<EntityStats, number>();
+  playerStats.value.pointModifiersSuppressed = false;
+  enemyStats.value.pointModifiersSuppressed = false;
+};
+
 const consumeChargeOnRoll = (stats: EntityStats, label: string, rolled: number) => {
+  unmodifiedDiceByEntity.set(toRaw(stats), Math.max(0, Math.floor(rolled)));
+  if (stats.pointModifiersSuppressed) return Math.max(0, Math.floor(rolled));
   let next = rolled;
 
   const painSide = stats === playerStats.value ? 'player' : stats === enemyStats.value ? 'enemy' : null;
@@ -6097,6 +6118,29 @@ const getMercyEffectAgainstCard = (source: BattleSide, card: CardData): EffectIn
   )) ?? null;
 };
 
+const prepareRuneCardOnPlay = (side: BattleSide, card: CardData) => {
+  if (card.id === SIGEL_CARD.SHIFT) pendingRuneShiftCards.set(card, side);
+  const rawCard = toRaw(card);
+  if (card.id !== SIGEL_CARD.FINALE || runeConsumedEnergyByCard.has(rawCard)) return;
+  const consumed = consumeRuneFinisherEnergy(getEntityBySide(side));
+  runeConsumedEnergyByCard.set(rawCard, consumed);
+  log(`<span class="text-amber-300">${side === 'player' ? '我方' : '敌方'}【${card.name}】消耗${consumed}层符能，点数+${consumed * 2}；之后3回合撤防。</span>`);
+};
+
+const getRuneFinisherPointBonus = (side: BattleSide, card: CardData): number => {
+  const consumed = runeConsumedEnergyByCard.get(toRaw(card))
+    ?? getEffectStacks(getEntityBySide(side), ET.RUNE_ENERGY);
+  return consumed * 2;
+};
+
+const processRuneShiftTurnEnd = () => {
+  for (const [card, side] of pendingRuneShiftCards) {
+    if (getEntityBySide(side).hp <= 0 || hasTakenDamageThisTurn(side)) continue;
+    applyCardEffectsByTrigger(side, card, 0, 'on_no_damage_taken_this_turn');
+  }
+  pendingRuneShiftCards.clear();
+};
+
 const getCardFinalPoint = (
   source: 'player' | 'enemy',
   card: CardData,
@@ -6106,6 +6150,9 @@ const getCardFinalPoint = (
 ) => {
   const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
   const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
+  if (attacker.pointModifiersSuppressed) {
+    return card.id === PASS_CARD.id ? 0 : unmodifiedDiceByEntity.get(toRaw(attacker)) ?? Math.max(0, Math.floor(baseDice));
+  }
   const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
 
   let finalPoint = shriveledHandActive
@@ -6119,6 +6166,7 @@ const getCardFinalPoint = (
 
   // 卡牌专属点数修正：敌方每有2层燃烧，点数+1
   if (card.id.startsWith('enemy_pain_')) finalPoint += painPointBonusByCard.get(card) ?? painPointBonus(card, attacker);
+  if (card.id === SIGEL_CARD.FINALE) finalPoint += getRuneFinisherPointBonus(source, card);
   if (painScene && source === 'player' && !suppressComparisonSpecials
     && getPainOath(painScene, ET.PAIN_OATH_PILLAR)
     && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
@@ -6431,6 +6479,10 @@ const buildCardPreviewLines = (
   const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
   const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
   const lines: string[] = [];
+  if (attacker.pointModifiersSuppressed) {
+    const rawPoint = card.id === PASS_CARD.id ? 0 : unmodifiedDiceByEntity.get(toRaw(attacker)) ?? Math.max(0, Math.floor(baseDice));
+    return [`原始：${rawPoint}`, '削弱符：本回合所有点数修正失效', `最终：${rawPoint}`];
+  }
   const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
 
   lines.push(`原始：${baseDice}`);
@@ -6459,6 +6511,12 @@ const buildCardPreviewLines = (
     const bonus = painPointBonusByCard.get(card) ?? painPointBonus(card, attacker);
     finalPoint += bonus;
     if (bonus > 0) lines.push(`痛忆 +${bonus} => ${finalPoint}`);
+  }
+  if (card.id === SIGEL_CARD.FINALE) {
+    const bonus = getRuneFinisherPointBonus(source, card);
+    finalPoint += bonus;
+    lines.push(`消耗符能 +${bonus} => ${finalPoint}`);
+    lines.push('打出时撤去之后3回合的符文防护');
   }
   if (painScene && source === 'player' && getPainOath(painScene, ET.PAIN_OATH_PILLAR)
     && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
@@ -8993,6 +9051,12 @@ watch(
     if (endCombatPending.value) return;
     if (phase === CombatPhase.TURN_START) {
       painPointBonusByCard = new WeakMap<CardData, number>();
+      runeConsumedEnergyByCard = new WeakMap<CardData, number>();
+      pendingRuneShiftCards.clear();
+      startCardPointTurn();
+      for (const [side, entity] of [['我方', playerStats.value], ['敌方', enemyStats.value]] as const) {
+        for (const entry of startRuneTurn(entity)) log(`${side}${entry}`);
+      }
       playerDamageTakenThisTurn.value = 0;
       directDamageTakenThisTurn.value = { player: 0, enemy: 0 };
       damageHitTakenThisTurn.value = { player: 0, enemy: 0 };
@@ -9113,7 +9177,7 @@ watch(
           const poisonAmountBeforeTurnStart = getEffectStacks(stats.value, ET.POISON_AMOUNT);
           const hpBeforeTurnStart = stats.value.hp;
           const poisonAmountLethalTriggered = poisonAmountBeforeTurnStart > 0 && poisonAmountBeforeTurnStart >= hpBeforeTurnStart;
-          const result = processOnTurnStart(stats.value);
+          const result = processOnTurnStart(stats.value, true);
           let turnStartLogs = [...result.logs];
           let burnDamageTaken = 0;
           let burnIsTrueDamage = false;
@@ -9810,6 +9874,10 @@ const resolveCombat = async (
   resolveMimicCurse('enemy');
 
   const shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
+  for (const [side, card] of [['player', resolvedPlayerCard], ['enemy', resolvedEnemyCard]] as const) {
+    if (side === 'enemy' && deferEnemyMagicManaPayment && !shouldClash) continue;
+    prepareRuneCardOnPlay(side, card);
+  }
   if (painScene && !isEnemyComboPrelude) painThornsOnPlayerCard(painScene, enemyStats.value, resolvedPlayerCard);
   for (const [side, card] of [['player', resolvedPlayerCard], ['enemy', resolvedEnemyCard]] as const) {
     painPointBonusByCard.delete(card);
@@ -10026,6 +10094,9 @@ const resolveCombat = async (
   let clashWinner: 'player' | 'enemy' | 'tie' | null = null;
 
   if (shouldClash) {
+    // 进入拼点即解除，先于 on_clash、流血和双方卡牌伤害。
+    beginRuneClash(playerStats.value);
+    beginRuneClash(getEntityBySide('enemy'));
     previewPlayerDice.value = pClashPoint;
     previewEnemyDice.value = eClashPoint;
     showClashAnimation.value = true;
@@ -10082,7 +10153,11 @@ const resolveCombat = async (
       }
     }
 
-    if (clashWinner) battleFeedback.action('clashResult');
+    if (clashWinner) {
+      resolveRuneClashEnergy(playerStats.value, clashWinner === 'tie' ? null : clashWinner === 'player');
+      resolveRuneClashEnergy(getEntityBySide('enemy'), clashWinner === 'tie' ? null : clashWinner === 'enemy');
+      battleFeedback.action('clashResult');
+    }
     if (clashWinner === 'player') shatteringTarget.value = 'enemy';
     else if (clashWinner === 'enemy') shatteringTarget.value = 'player';
     else if (clashWinner === 'tie') {
@@ -10320,6 +10395,7 @@ const resolveCombat = async (
     }
 
     // Calculate final point for this card
+    prepareRuneCardOnPlay(source, card);
     const finalPoint = getCardFinalPoint(source, card, baseDice);
     queueNextTurnStartCardEffects(source, card, finalPoint, attacker);
     let extraAttributesApplied = false;
@@ -10611,7 +10687,7 @@ const resolveCombat = async (
     if (!hasTakenDirectDamageThisTurn(source)) {
       applyCardEffects('on_no_direct_damage_taken_this_turn');
     }
-    if (!hasTakenDamageThisTurn(source)) {
+    if (card.id !== SIGEL_CARD.SHIFT && !hasTakenDamageThisTurn(source)) {
       applyCardEffects('on_no_damage_taken_this_turn');
     }
     triggerLowTempEngraverOnFunctionPlay();
@@ -13378,6 +13454,8 @@ const resolveCombat = async (
   if (options.deferTurnCleanup) {
     return;
   }
+
+  processRuneShiftTurnEnd();
 
   // Cleanup
   const handBeforeCleanup = [...combatState.value.playerHand];

@@ -823,7 +823,12 @@
                         v-for="relic in relicEntries"
                         :key="relic.name"
                         type="button"
-                        class="panel-item relative flex flex-col items-center p-2 transition-colors"
+                        class="panel-item inventory-relic relative flex flex-col items-center p-2 transition-colors"
+                        :class="{
+                          'is-legendary': relic.rarity === '传奇',
+                          'is-rare': relic.rarity === '稀有',
+                        }"
+                        :aria-label="`${relic.name}，${relic.rarity}，数量${relic.count}`"
                         @mouseenter="showRelicTooltip($event, relic)"
                         @mouseleave="hideRelicTooltip"
                         @focus="showRelicTooltip($event, relic)"
@@ -832,17 +837,11 @@
                         @touchend="handleRelicTouchEnd"
                         @touchcancel="handleRelicTouchEnd"
                       >
-                        <div class="relative">
-                          <Box class="size-9 text-dungeon-gold/75" />
-                          <span
-                            class="absolute -bottom-1 -right-3 font-ui text-dungeon-gold/80 text-[10px] bg-dungeon-dark/70 border border-dungeon-brown/30 rounded-sm px-0.5 leading-tight"
-                            >x{{ relic.count }}</span
-                          >
+                        <div class="inventory-relic-icon-wrap">
+                          <Box class="inventory-relic-icon" />
+                          <span class="inventory-relic-count">x{{ relic.count }}</span>
                         </div>
-                        <span
-                          class="font-heading text-dungeon-gold text-[11px] text-center mt-1 leading-relaxed truncate w-full"
-                          >{{ relic.name }}</span
-                        >
+                        <span class="inventory-relic-name">{{ relic.name }}</span>
                       </button>
                     </div>
                     <div v-else class="player-detail-empty">尚未获得圣遗物。</div>
@@ -5571,7 +5570,10 @@ const relicEntries = computed(() => {
         description: relic?.description ?? relic?.effect ?? '',
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
+    .sort((a, b) => {
+      const rarityOrder = { '传奇': 0, '稀有': 1, '普通': 2 };
+      return rarityOrder[a.rarity] - rarityOrder[b.rarity] || a.name.localeCompare(b.name, 'zh-Hans-CN');
+    });
 });
 
 type RelicEntryView = (typeof relicEntries.value)[number];
@@ -13744,6 +13746,57 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
+.inventory-relic {
+  min-width: 0;
+  color: #a6bad8;
+}
+
+.inventory-relic-icon-wrap {
+  position: relative;
+  display: grid;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+}
+
+.inventory-relic-icon-wrap::before {
+  position: absolute;
+  inset: 2px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.25;
+  box-shadow: 0 0 10px currentColor, inset 0 0 10px currentColor;
+  content: '';
+}
+
+.inventory-relic-icon {
+  width: 36px;
+  height: 36px;
+  stroke-width: 1.1;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.inventory-relic-count {
+  position: absolute;
+  right: -3px;
+  bottom: 0;
+  padding: 0 2px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: #15121a;
+  font: 10px/1.3 var(--font-ui);
+}
+
+.inventory-relic-name {
+  width: 100%;
+  min-height: 3em;
+  margin-top: 6px;
+  font: 11px/1.5 var(--font-heading);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
 .shop-item-icon-wrap {
   position: relative;
   display: grid;
@@ -13765,10 +13818,12 @@ onBeforeUnmount(() => {
   content: '';
 }
 
+.inventory-relic.is-rare,
 .shop-item-card.is-rare .shop-item-icon-wrap {
   color: #c59dbd;
 }
 
+.inventory-relic.is-legendary,
 .shop-item-card.is-legendary .shop-item-icon-wrap {
   color: #e7bb76;
 }
