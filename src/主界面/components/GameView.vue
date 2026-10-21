@@ -2871,7 +2871,14 @@
                   @touchend.stop="handleRelicTouchEnd"
                   @touchcancel.stop="handleRelicTouchEnd"
                 >
-                  <Box class="chest-reward-icon" />
+                  <Box
+                    class="chest-reward-icon"
+                    :class="{
+                      'is-common': relic.rarity === '普通',
+                      'is-rare': relic.rarity === '稀有',
+                      'is-legendary': relic.rarity === '传奇',
+                    }"
+                  />
                   <span
                     v-if="isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i]"
                     class="chest-reward-confirm-hint"
@@ -4404,9 +4411,9 @@ const BG_OPACITY_KEY = 'dungeon.bg_overlay_opacity';
 const bgOverlayOpacity = ref(parseFloat(localStorage.getItem(BG_OPACITY_KEY) ?? '0.5'));
 watch(bgOverlayOpacity, v => localStorage.setItem(BG_OPACITY_KEY, String(v)));
 
-const CHEST_BG_CLOSED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B11.png`;
-const CHEST_BG_OPENED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B12.png`;
-const CHEST_BG_MIMIC = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B13.png`;
+const CHEST_BG_CLOSED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF1.png`;
+const CHEST_BG_OPENED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF2.png`;
+const CHEST_BG_MIMIC = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF3.png`;
 const SHOP_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png`;
 const IDOL_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E7%A5%9E%E5%83%8F.png`;
 const idolBackgroundUrl = IDOL_BG_URL;
@@ -13254,7 +13261,7 @@ onBeforeUnmount(() => {
 .chest-reward-anchor {
   position: absolute;
   left: 51%;
-  top: 56.5%;
+  top: 45%;
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
@@ -13317,15 +13324,41 @@ onBeforeUnmount(() => {
 }
 
 .chest-reward-icon {
+  --chest-reward-color: rgba(96, 165, 250, 0.98);
+  --chest-reward-glow-strong: rgba(96, 165, 250, 0.95);
+  --chest-reward-glow-medium: rgba(59, 130, 246, 0.72);
+  --chest-reward-glow-soft: rgba(37, 99, 235, 0.4);
   width: 6.5rem;
   height: 6.5rem;
-  color: rgba(252, 211, 77, 0.98);
+  color: var(--chest-reward-color);
   transition:
     transform 0.2s ease,
     opacity 0.2s ease,
     filter 0.2s ease;
-  filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 28px rgba(245, 158, 11, 0.55))
+  filter: drop-shadow(0 0 14px var(--chest-reward-glow-medium))
+    drop-shadow(0 0 28px var(--chest-reward-glow-soft))
     drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
+}
+
+.chest-reward-icon.is-common {
+  --chest-reward-color: rgba(96, 165, 250, 0.98);
+  --chest-reward-glow-strong: rgba(96, 165, 250, 0.95);
+  --chest-reward-glow-medium: rgba(59, 130, 246, 0.72);
+  --chest-reward-glow-soft: rgba(37, 99, 235, 0.4);
+}
+
+.chest-reward-icon.is-rare {
+  --chest-reward-color: rgba(192, 132, 252, 0.98);
+  --chest-reward-glow-strong: rgba(216, 180, 254, 0.95);
+  --chest-reward-glow-medium: rgba(168, 85, 247, 0.72);
+  --chest-reward-glow-soft: rgba(126, 34, 206, 0.42);
+}
+
+.chest-reward-icon.is-legendary {
+  --chest-reward-color: rgba(252, 211, 77, 0.98);
+  --chest-reward-glow-strong: rgba(254, 240, 138, 0.95);
+  --chest-reward-glow-medium: rgba(251, 191, 36, 0.8);
+  --chest-reward-glow-soft: rgba(245, 158, 11, 0.55);
 }
 
 .chest-reward-btn {
@@ -13334,14 +13367,31 @@ onBeforeUnmount(() => {
   background: transparent;
   padding: 0.25rem;
   position: relative;
+  animation: chest-reward-float 4.2s ease-in-out infinite;
   transition:
     transform 0.2s ease,
     opacity 0.2s ease;
 }
 
+.chest-reward-btn:nth-child(2) {
+  animation-delay: -2.1s;
+}
+
+@keyframes chest-reward-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-0.25rem);
+  }
+}
+
 .chest-reward-btn.is-awaiting-confirm .chest-reward-icon {
   transform: scale(1.08);
-  filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.95)) drop-shadow(0 0 34px rgba(245, 158, 11, 0.62))
+  filter: drop-shadow(0 0 18px var(--chest-reward-glow-strong))
+    drop-shadow(0 0 34px var(--chest-reward-glow-medium))
     drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
 }
 
@@ -13375,7 +13425,8 @@ onBeforeUnmount(() => {
 .chest-reward-btn.is-collected .chest-reward-icon {
   opacity: 0;
   transform: scale(0.82);
-  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.45)) drop-shadow(0 0 16px rgba(245, 158, 11, 0.25))
+  filter: drop-shadow(0 0 8px var(--chest-reward-glow-medium))
+    drop-shadow(0 0 16px var(--chest-reward-glow-soft))
     drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
 }
 
@@ -15900,7 +15951,7 @@ onBeforeUnmount(() => {
 
   .chest-reward-anchor {
     left: 46%;
-    top: 57.5%;
+    top: 46%;
   }
 
   .idol-slots-row {
