@@ -113,6 +113,7 @@ export const Schema = z.object({
             .object({
               x: z.coerce.number().int().min(1).max(6).prefault(1),
               房间类型: z.string().prefault('战斗房'),
+              神像类型: z.enum(['白神像', '黑神像']).optional(),
             })
             .prefault({}),
         )

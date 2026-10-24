@@ -10,13 +10,32 @@
         <!-- Dynamic Background -->
         <div class="absolute inset-0 z-0">
           <img
-            v-if="bgImageUrl"
-            :src="bgImageUrl"
+            v-if="bgImageDisplayedUrl"
+            :src="bgImageDisplayedUrl"
             class="absolute inset-0 size-full object-cover"
             alt=""
             @error="onBgError"
           />
           <div class="absolute inset-0" :style="{ backgroundColor: `rgba(0,0,0,${bgOverlayOpacity})` }"></div>
+        </div>
+
+        <Transition name="game-feedback-fade">
+          <div v-if="gameFeedbackMessage" :key="`game-feedback-${gameFeedbackMessage.id}`" class="game-feedback-float" role="status">
+            {{ gameFeedbackMessage.text }}
+          </div>
+        </Transition>
+
+        <div
+          v-if="roomAssetLoading || appImageStartupLoading"
+          class="room-asset-loading"
+          :class="{ 'is-error': appImageStartupError }"
+          role="status"
+          aria-live="polite"
+        >
+          <span>{{ appImageStartupLoading ? appImageStartupText : roomAssetLoadingText }}</span>
+          <button v-if="appImageStartupError" type="button" class="room-asset-loading__retry" @click="retryMainImageAssets">
+            重新加载
+          </button>
         </div>
 
         <div v-if="showLandscapeHint" class="landscape-hint-overlay">
@@ -352,6 +371,8 @@
                     <button
                       class="special-action-btn menu-image-button"
                       :aria-label="specialOptionConfig.label"
+                      :disabled="specialRoomOpening || roomAssetLoading || appImageStartupLoading"
+                      :aria-busy="specialRoomOpening || roomAssetLoading || appImageStartupLoading"
                       @click="handleSpecialOption"
                     >
                       <MainButtonSkin :skin="specialOptionConfig.skin" />
@@ -2921,50 +2942,100 @@
           >
             <img :src="idolBackgroundUrl" class="absolute inset-0 size-full object-cover" alt="神像界面背景" />
 
-            <div class="idol-layout absolute inset-0 z-97">
-              <div class="idol-slots-row">
-                <div class="idol-slot-wrap">
-                  <div class="idol-slot-hint">增加1.5倍点数的生命上限</div>
-                  <div
-                    ref="idolSlotMaxHpRef"
-                    class="idol-slot"
-                    :class="{
-                      'is-preview': idolSnapPreviewTarget === 'maxHp',
-                      'is-selected': idolAssignedTarget === 'maxHp',
-                    }"
-                  ></div>
-                </div>
-                <div class="idol-slot-wrap">
-                  <div class="idol-slot-hint">增加1倍点数的初始魔力</div>
-                  <div
-                    ref="idolSlotMpRef"
-                    class="idol-slot"
-                    :class="{
-                      'is-preview': idolSnapPreviewTarget === 'mp',
-                      'is-selected': idolAssignedTarget === 'mp',
-                    }"
-                  ></div>
-                </div>
-                <div class="idol-slot-wrap">
-                  <div class="idol-slot-hint">增加2倍点数的金币</div>
-                  <div
-                    ref="idolSlotGoldRef"
-                    class="idol-slot"
-                    :class="{
-                      'is-preview': idolSnapPreviewTarget === 'gold',
-                      'is-selected': idolAssignedTarget === 'gold',
-                    }"
-                  ></div>
-                </div>
+            <div class="idol-layout absolute inset-0 z-97" :class="{ 'idol-layout--black': idolVariant === 'black' }">
+              <div class="idol-slots-row" :class="{ 'idol-slots-row--black': idolVariant === 'black' }">
+                <template v-if="idolVariant === 'white'">
+                  <div class="idol-slot-wrap">
+                    <div class="idol-slot-hint">生命上限 +1.5倍骰子点数</div>
+                    <div
+                      ref="idolSlotMaxHpRef"
+                      class="idol-slot"
+                      :class="{
+                        'is-preview': idolSlotIsPreview('maxHp'),
+                        'is-selected': idolSlotIsSelected('maxHp'),
+                      }"
+                    >
+                      <img class="idol-slot-art" :src="idolSlotAssetUrl('maxHp')" alt="" aria-hidden="true" />
+                    </div>
+                  </div>
+                  <div class="idol-slot-wrap">
+                    <div class="idol-slot-hint">初始魔量 +骰子点数</div>
+                    <div
+                      ref="idolSlotMpRef"
+                      class="idol-slot"
+                      :class="{
+                        'is-preview': idolSlotIsPreview('mp'),
+                        'is-selected': idolSlotIsSelected('mp'),
+                      }"
+                    >
+                      <img class="idol-slot-art" :src="idolSlotAssetUrl('mp')" alt="" aria-hidden="true" />
+                    </div>
+                  </div>
+                  <div class="idol-slot-wrap">
+                    <div class="idol-slot-hint">金币 +2倍骰子点数</div>
+                    <div
+                      ref="idolSlotGoldRef"
+                      class="idol-slot"
+                      :class="{
+                        'is-preview': idolSlotIsPreview('gold'),
+                        'is-selected': idolSlotIsSelected('gold'),
+                      }"
+                    >
+                      <img class="idol-slot-art" :src="idolSlotAssetUrl('gold')" alt="" aria-hidden="true" />
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else>
+                  <div class="idol-slot-wrap">
+                    <div class="idol-slot-hint">献祭骰子点数生命：初始法力+当前最大点数（{{ idolDiceMax }}）</div>
+                    <div
+                      ref="idolSlotMpRef"
+                      class="idol-slot"
+                      :class="{
+                        'is-preview': idolSlotIsPreview('blackMp'),
+                        'is-selected': idolSlotIsSelected('blackMp'),
+                      }"
+                    >
+                      <img class="idol-slot-art" :src="idolSlotAssetUrl('blackMp')" alt="" aria-hidden="true" />
+                    </div>
+                  </div>
+                  <div class="idol-slot-wrap">
+                    <div class="idol-slot-hint">献祭骰子点数生命上限：最小与最大点数各+1</div>
+                    <div
+                      ref="idolSlotMaxHpRef"
+                      class="idol-slot"
+                      :class="{
+                        'is-preview': idolSlotIsPreview('blackDice'),
+                        'is-selected': idolSlotIsSelected('blackDice'),
+                      }"
+                    >
+                      <img class="idol-slot-art" :src="idolSlotAssetUrl('blackDice')" alt="" aria-hidden="true" />
+                    </div>
+                  </div>
+                  <div class="idol-slot-wrap">
+                    <div class="idol-slot-hint">献祭骰子点数生命：金币+3倍骰子点数</div>
+                    <div
+                      ref="idolSlotGoldRef"
+                      class="idol-slot"
+                      :class="{
+                        'is-preview': idolSlotIsPreview('blackGold'),
+                        'is-selected': idolSlotIsSelected('blackGold'),
+                      }"
+                    >
+                      <img class="idol-slot-art" :src="idolSlotAssetUrl('blackGold')" alt="" aria-hidden="true" />
+                    </div>
+                  </div>
+                </template>
               </div>
 
               <div ref="idolDiceStageRef" class="idol-dice-stage">
                 <div
                   ref="idolDiceRef"
                   class="idol-dice-draggable"
-                  :class="{ 'is-locked': idolDiceRolling }"
+                  :class="{ 'is-locked': idolDiceRolling, 'is-black-dice': idolVariant === 'black' }"
                   :style="{ transform: `translate(${idolDicePosition.x}px, ${idolDicePosition.y}px)` }"
-                  @pointerdown="handleIdolDicePointerDown"
+                  @pointerdown="handleIdolDicePointerDown($event, 0)"
                 >
                   <DungeonDice
                     :value="idolDiceValue"
@@ -2975,18 +3046,45 @@
                     :rolling-max="idolDiceMax"
                   />
                 </div>
+                <div
+                  v-if="idolVariant === 'black'"
+                  ref="idolDiceTwoRef"
+                  class="idol-dice-draggable idol-dice-draggable--second"
+                  :class="{ 'is-locked': idolDiceRolling }"
+                  :style="{ transform: `translate(${idolDiceTwoPosition.x}px, ${idolDiceTwoPosition.y}px)` }"
+                  @pointerdown="handleIdolDicePointerDown($event, 1)"
+                >
+                  <DungeonDice
+                    :value="idolDiceTwoValue"
+                    :rolling="idolDiceRolling"
+                    color="gold"
+                    size="lg"
+                    :rolling-min="idolDiceMin"
+                    :rolling-max="idolDiceMax"
+                  />
+                </div>
               </div>
             </div>
 
-            <button
-              v-if="!idolDiceRolling && idolAssignedTarget"
-              type="button"
-              class="map-overlay-finish-btn"
-              :disabled="gameStore.isGenerating"
-              @click="finishIdolRoom"
-            >
-              打开地图，选择下一目的地
-            </button>
+            <div v-if="!idolDiceRolling" class="idol-overlay-actions">
+              <button
+                v-if="idolHasAssignedDice"
+                type="button"
+                class="map-overlay-finish-btn"
+                :disabled="gameStore.isGenerating"
+                @click="finishIdolRoom"
+              >
+                供奉并打开地图
+              </button>
+              <button
+                type="button"
+                class="idol-leave-btn"
+                :disabled="gameStore.isGenerating"
+                @click="leaveIdolRoom"
+              >
+                不供奉，直接离开
+              </button>
+            </div>
           </div>
         </Transition>
 
@@ -3718,6 +3816,7 @@ const showCombat = ref(false);
 const combatEnemyName = ref('');
 const showShopView = ref(false);
 const showIdolView = ref(false);
+const idolRoomMapExitReady = ref(false);
 const shopProducts = ref<ShopProduct[]>([]);
 const shopBuying = ref(false);
 const shopSpentGold = ref(0);
@@ -3743,17 +3842,33 @@ const pendingChestRewardIndex = ref<number | null>(null);
 const chestRoomCompletionReady = computed(() => chestStage.value === 'opened');
 const pendingShopProductKey = ref<string | null>(null);
 const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
+const gameFeedbackMessage = ref<{ id: number; text: string } | null>(null);
+const roomAssetLoading = ref(false);
+const roomAssetLoadingText = ref('正在加载主界面图片...');
+const appImageStartupLoading = ref(true);
+const appImageStartupText = ref('正在加载主界面图片...');
+const appImageStartupError = ref(false);
+const specialRoomOpening = ref(false);
+const bgImageDisplayedUrl = ref('');
+const mainImageAssetsReady = ref(false);
+const idolVariant = ref<IdolVariant>('white');
 const idolDiceValue = ref(1);
+const idolDiceTwoValue = ref(1);
 const idolDiceRolling = ref(false);
-const idolAssignedTarget = ref<IdolBlessingTarget | null>(null);
-const idolSnapPreviewTarget = ref<IdolBlessingTarget | null>(null);
+const idolAssignedTarget = ref<IdolSlotTarget | null>(null);
+const idolDiceTwoAssignedTarget = ref<IdolSlotTarget | null>(null);
+const idolSnapPreviewTarget = ref<IdolSlotTarget | null>(null);
+const idolDiceTwoSnapPreviewTarget = ref<IdolSlotTarget | null>(null);
 const idolDicePosition = ref({ x: 0, y: 0 });
+const idolDiceTwoPosition = ref({ x: 0, y: 0 });
 const idolDiceStageRef = ref<HTMLElement | null>(null);
 const idolDiceRef = ref<HTMLElement | null>(null);
+const idolDiceTwoRef = ref<HTMLElement | null>(null);
 const idolSlotMaxHpRef = ref<HTMLElement | null>(null);
 const idolSlotMpRef = ref<HTMLElement | null>(null);
 const idolSlotGoldRef = ref<HTMLElement | null>(null);
 const idolDragPointerId = ref<number | null>(null);
+const idolDragDiceIndex = ref<0 | 1 | null>(null);
 const idolDragStart = ref({ x: 0, y: 0 });
 const idolDragStartPos = ref({ x: 0, y: 0 });
 const combatTestStep = ref<'deck' | 'enemy'>('deck');
@@ -3810,10 +3925,13 @@ let chestRewardConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 let shopProductConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
 let hotSpringCleanseTimer: ReturnType<typeof setTimeout> | null = null;
+let gameFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
 let idolRollTimer: ReturnType<typeof setTimeout> | null = null;
+let roomAssetLoadCount = 0;
 let relicTooltipLongPressTimer: ReturnType<typeof setTimeout> | null = null;
 let relicTooltipAutoHideTimer: ReturnType<typeof setTimeout> | null = null;
 let hotSpringCleanseMessageId = 0;
+let gameFeedbackMessageId = 0;
 
 interface ShopProduct {
   key: string;
@@ -3840,15 +3958,16 @@ interface CarriedInventoryPayload {
 
 type CombatContext = 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
 type CombatOutcome = 'win' | 'lose' | 'escape';
-type IdolBlessingTarget = 'maxHp' | 'mp' | 'gold';
+type IdolVariant = 'white' | 'black';
+type IdolSlotTarget = 'maxHp' | 'mp' | 'gold' | 'blackMp' | 'blackDice' | 'blackGold';
 interface IdolBlessingConfig {
-  target: IdolBlessingTarget;
+  target: IdolSlotTarget;
   slotLabel: string;
   statueName: string;
   rewardText: (dice: number) => string;
 }
 interface IdolSnapCandidate {
-  target: IdolBlessingTarget;
+  target: IdolSlotTarget;
   distance: number;
   snapX: number;
   snapY: number;
@@ -3884,11 +4003,16 @@ interface PersistedShopState {
 }
 
 interface PersistedIdolState {
+  variant?: IdolVariant;
   diceValue: number;
+  diceTwoValue?: number;
   diceRolling: boolean;
-  assignedTarget: IdolBlessingTarget | null;
-  snapPreviewTarget: IdolBlessingTarget | null;
+  assignedTarget: IdolSlotTarget | null;
+  diceTwoAssignedTarget?: IdolSlotTarget | null;
+  snapPreviewTarget: IdolSlotTarget | null;
+  diceTwoSnapPreviewTarget?: IdolSlotTarget | null;
   dicePosition: { x: number; y: number };
+  diceTwoPosition?: { x: number; y: number };
 }
 
 interface PersistedVictoryState {
@@ -4019,6 +4143,11 @@ const tryFallbackBondPortrait = async (characterName: string): Promise<boolean> 
 
   const nextUrl = toResolveUrl(firstPath);
   if (bondPortraitUrls.value[characterName] === nextUrl) return false;
+  try {
+    await preloadImage(nextUrl);
+  } catch {
+    return false;
+  }
 
   bondPortraitUrls.value = {
     ...bondPortraitUrls.value,
@@ -4049,7 +4178,14 @@ const resolveCharacterPortraitUrl = async (characterName: string): Promise<strin
 const initPlayerPortraitPreviewUrl = async () => {
   playerCustomPortraitUrl.value = readStoredCustomPlayerPortrait();
   playerStatusPortraitError.value = false;
-  defaultPlayerPortraitUrl.value = await resolveCharacterPortraitUrl('玩家');
+  const portraitUrl = await resolveCharacterPortraitUrl('玩家');
+  try {
+    await preloadImage(portraitUrl);
+    defaultPlayerPortraitUrl.value = portraitUrl;
+  } catch {
+    defaultPlayerPortraitUrl.value = '';
+    playerStatusPortraitError.value = true;
+  }
 };
 
 const playerBattlePortraitUrl = computed(() => playerCustomPortraitUrl.value || defaultPlayerPortraitUrl.value || '');
@@ -4337,6 +4473,18 @@ const ensureBondPortraitLoaded = async (characterName: string) => {
   const task = (async () => {
     const url = await resolveCharacterPortraitUrl(characterName);
     if (bondPortraitLoaderDisposed) return;
+    try {
+      await preloadImage(url);
+    } catch {
+      if (!bondPortraitLoaderDisposed) {
+        bondPortraitErrors.value = {
+          ...bondPortraitErrors.value,
+          [characterName]: true,
+        };
+      }
+      return;
+    }
+    if (bondPortraitLoaderDisposed) return;
     bondPortraitUrls.value = {
       ...bondPortraitUrls.value,
       [characterName]: url,
@@ -4415,17 +4563,112 @@ const CHEST_BG_CLOSED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF
 const CHEST_BG_OPENED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF2.png`;
 const CHEST_BG_MIMIC = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF3.png`;
 const SHOP_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png`;
-const IDOL_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E7%A5%9E%E5%83%8F.png`;
-const idolBackgroundUrl = IDOL_BG_URL;
+const IDOL_BG_WHITE_URL = toResolveUrl('地牢/背景/白神像.jpg');
+const IDOL_BG_BLACK_URL = toResolveUrl('地牢/背景/黑神像.jpg');
+const idolBackgroundUrl = computed(() => (idolVariant.value === 'black' ? IDOL_BG_BLACK_URL : IDOL_BG_WHITE_URL));
 const shopBackgroundUrl = SHOP_BG_URL;
 const shopFrameUrl = toResolveUrl('地牢/素材库/主界面/商店描金边框-透明.png');
 const shopCompassUrl = toResolveUrl('地牢/素材库/主界面/商店罗盘-透明.png');
+const IDOL_SLOT_ASSET_URLS: Record<IdolSlotTarget, string> = {
+  maxHp: toResolveUrl('地牢/素材库/主界面/白神像槽位-生命.png'),
+  mp: toResolveUrl('地牢/素材库/主界面/白神像槽位-灵魂.png'),
+  gold: toResolveUrl('地牢/素材库/主界面/白神像槽位-思想.png'),
+  blackMp: toResolveUrl('地牢/素材库/主界面/黑神像槽位-法力.png'),
+  blackDice: toResolveUrl('地牢/素材库/主界面/黑神像槽位-骰子范围.png'),
+  blackGold: toResolveUrl('地牢/素材库/主界面/黑神像槽位-金币.png'),
+};
+const imagePreloadCache = new Map<string, Promise<void>>();
+const preloadImage = (url: string): Promise<void> => {
+  const cached = imagePreloadCache.get(url);
+  if (cached) return cached;
+  const task = new Promise<void>((resolve, reject) => {
+    const image = new Image();
+    let settled = false;
+    const resolveDecoded = () => {
+      if (settled) return;
+      settled = true;
+      if (typeof image.decode === 'function') {
+        try {
+          void image.decode().then(resolve, resolve);
+        } catch {
+          resolve();
+        }
+      } else {
+        resolve();
+      }
+    };
+    image.onload = resolveDecoded;
+    image.onerror = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`图床资源加载失败：${url}`));
+    };
+    image.src = url;
+    if (image.complete) {
+      if (image.naturalWidth > 0) {
+        resolveDecoded();
+      } else {
+        settled = true;
+        reject(new Error(`图床资源加载失败：${url}`));
+      }
+    }
+  });
+  imagePreloadCache.set(url, task);
+  void task.catch(() => imagePreloadCache.delete(url));
+  return task;
+};
+const preloadImages = (urls: readonly string[]) =>
+  Promise.all([...new Set(urls.filter(url => url.length > 0))].map(preloadImage)).then(() => undefined);
+const initializeMainImageAssets = async (): Promise<boolean> => {
+  appImageStartupLoading.value = true;
+  appImageStartupError.value = false;
+  appImageStartupText.value = '正在加载主界面图片...';
+  try {
+    await preloadImages([...MAIN_UI_IMAGE_URLS, bgImageUrl.value]);
+    if (bgImageUrl.value) bgImageDisplayedUrl.value = bgImageUrl.value;
+    mainImageAssetsReady.value = true;
+    await restoreOverlaySnapshot();
+    appImageStartupLoading.value = false;
+    return true;
+  } catch {
+    appImageStartupError.value = true;
+    appImageStartupText.value = '主界面图片加载失败，请检查网络后重试。';
+    return false;
+  }
+};
+const retryMainImageAssets = () => void initializeMainImageAssets();
+let bgImageRequestId = 0;
+watch(
+  bgImageUrl,
+  url => {
+    const requestId = ++bgImageRequestId;
+    if (!url) {
+      bgImageDisplayedUrl.value = '';
+      return;
+    }
+    const shouldBlockScene = mainImageAssetsReady.value;
+    if (shouldBlockScene) beginRoomAssetLoading('正在加载场景背景...');
+    void (async () => {
+      try {
+        await preloadImage(url);
+        if (requestId === bgImageRequestId) bgImageDisplayedUrl.value = url;
+      } catch {
+        if (requestId !== bgImageRequestId) return;
+        onBgError();
+        if (bgImageError.value) bgImageDisplayedUrl.value = '';
+      } finally {
+        if (shouldBlockScene) endRoomAssetLoading();
+      }
+    })();
+  },
+  { immediate: true, flush: 'sync' },
+);
 const chestBackgroundUrl = computed(() => {
   if (chestStage.value === 'opened') return CHEST_BG_OPENED;
   if (chestStage.value === 'mimic') return CHEST_BG_MIMIC;
   return CHEST_BG_CLOSED;
 });
-const IDOL_BLESSING_CONFIG: Record<IdolBlessingTarget, IdolBlessingConfig> = {
+const IDOL_BLESSING_CONFIG: Record<IdolSlotTarget, IdolBlessingConfig> = {
   maxHp: {
     target: 'maxHp',
     slotLabel: '生命上限',
@@ -4436,13 +4679,31 @@ const IDOL_BLESSING_CONFIG: Record<IdolBlessingTarget, IdolBlessingConfig> = {
     target: 'mp',
     slotLabel: '初始魔力',
     statueName: '魔力神像',
-    rewardText: dice => `魔量+${dice}`,
+    rewardText: dice => `初始魔量+${dice}`,
   },
   gold: {
     target: 'gold',
     slotLabel: '金币',
     statueName: '财富神像',
     rewardText: dice => `金币+${dice * 2}`,
+  },
+  blackMp: {
+    target: 'blackMp',
+    slotLabel: '法力与点数',
+    statueName: '黑神像·法力',
+    rewardText: dice => `献祭生命-${dice}，初始法力+${idolDiceMax.value}`,
+  },
+  blackDice: {
+    target: 'blackDice',
+    slotLabel: '骰子范围',
+    statueName: '黑神像·骰界',
+    rewardText: dice => `献祭生命上限-${dice}，最小点数+1，最大点数+1`,
+  },
+  blackGold: {
+    target: 'blackGold',
+    slotLabel: '金币',
+    statueName: '黑神像·金币',
+    rewardText: dice => `献祭生命-${dice}，金币+${dice * 3}`,
   },
 };
 const IDOL_SNAP_DISTANCE = 112;
@@ -6601,6 +6862,7 @@ type MapNodeView = {
   icon: string;
   label: string;
   roomType: string;
+  idolType?: '白神像' | '黑神像';
   areaName?: string;
   isLatest: boolean;
   isVisited: boolean;
@@ -6629,6 +6891,12 @@ const MAP_VIEWPORT_STORAGE_KEY = 'dungeon.map.viewport.v1';
 const MAP_SCROLL_STORAGE_KEY = 'dungeon.map.scroll.v1';
 const MAP_ICON_SPRITE_URL =
   'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E5%9C%B0%E5%9B%BE%E5%9B%BE%E6%A0%87.png';
+const MAIN_UI_IMAGE_URLS = [
+  'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E6%8C%89%E9%92%AE%E5%9B%BE%E6%A0%87.png?v=20261003-atlas16',
+  'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E8%8F%9C%E5%8D%95%E6%8C%89%E9%92%AE.png?v=20261008-menu-buttons',
+  'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E6%88%98%E6%96%97%E7%95%8C%E9%9D%A2/%E5%8D%A1%E7%89%8C%E8%BE%B9%E6%A1%86.png?v=20261003-six-frames',
+  MAP_ICON_SPRITE_URL,
+];
 const MAP_ROOM_VISUAL_BY_LABEL: Record<string, MapRoomVisual> = {
   战斗: { icon: '', spritePosition: '0% 0%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
   领主: { icon: '', spritePosition: '100% 100%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
@@ -6811,7 +7079,7 @@ const buildMapNodeView = (node: MapRoomNode, y: number, kind: MapNodeKind, areaN
     (kind === 'boss' && ((gameStore.statData._当前房间类型 as string) || '').trim() === '领主房') ||
     (kind === 'room' && y === mapCurrentY.value && isVisited);
   const isAvailable =
-    gameStore.hasLeave &&
+    (gameStore.hasLeave || idolRoomMapExitReady.value) &&
     !gameStore.isGenerating &&
     ((kind === 'room' && y === mapNextY.value && !mapIsFloorTransition.value && mapNextRoomEntries.value.some(candidate => candidate.x === node.x)) ||
       (kind === 'boss' && mapCurrentY.value >= MAP_HEIGHT && !mapIsFloorTransition.value) ||
@@ -6826,6 +7094,7 @@ const buildMapNodeView = (node: MapRoomNode, y: number, kind: MapNodeKind, areaN
     icon: visual.icon,
     label: kind === 'floor' ? areaName ?? '下一层' : kind === 'start' ? '起点宝箱' : kind === 'boss' ? '领主' : '',
     roomType: node.房间类型,
+    idolType: node.神像类型,
     areaName,
     isLatest,
     isVisited,
@@ -6881,7 +7150,7 @@ const mapNodes = computed<MapNodeView[]>(() => {
 
 const mapSelectionAvailable = computed(
   () =>
-    gameStore.hasLeave &&
+    (gameStore.hasLeave || idolRoomMapExitReady.value) &&
     ((mapIsFloorTransition.value && nextMapAreas.value.length > 0) ||
       mapNextRoomNodes.value.length > 0 ||
       (mapCurrentY.value >= MAP_HEIGHT && currentDungeonMap.value.length === MAP_ROUTE_COUNT)),
@@ -7717,19 +7986,73 @@ const mpPercent = computed(() => {
   const visualMax = 20;
   return Math.min((mp / visualMax) * 100, 100);
 });
-const idolRewardSummary = computed(() => {
-  const target = idolAssignedTarget.value;
-  if (!target) return null;
-  const config = IDOL_BLESSING_CONFIG[target];
-  const dice = idolDiceValue.value;
-  const amount = target === 'gold' ? dice * 2 : target === 'maxHp' ? Math.floor(dice * 1.5) : dice;
-  return {
-    target,
-    statueName: config.statueName,
-    amount,
-    rewardText: config.rewardText(dice),
-  };
+const getIdolDiceValue = (diceIndex: 0 | 1): number => (diceIndex === 0 ? idolDiceValue.value : idolDiceTwoValue.value);
+const getIdolAssignedTarget = (diceIndex: 0 | 1): IdolSlotTarget | null =>
+  diceIndex === 0 ? idolAssignedTarget.value : idolDiceTwoAssignedTarget.value;
+const getIdolPreviewTarget = (diceIndex: 0 | 1): IdolSlotTarget | null =>
+  diceIndex === 0 ? idolSnapPreviewTarget.value : idolDiceTwoSnapPreviewTarget.value;
+const setIdolAssignedTarget = (diceIndex: 0 | 1, target: IdolSlotTarget | null) => {
+  if (diceIndex === 0) {
+    idolAssignedTarget.value = target;
+  } else {
+    idolDiceTwoAssignedTarget.value = target;
+  }
+};
+const setIdolPreviewTarget = (diceIndex: 0 | 1, target: IdolSlotTarget | null) => {
+  if (diceIndex === 0) {
+    idolSnapPreviewTarget.value = target;
+  } else {
+    idolDiceTwoSnapPreviewTarget.value = target;
+  }
+};
+const idolSlotAssetUrl = (target: IdolSlotTarget): string => IDOL_SLOT_ASSET_URLS[target];
+const idolSlotIsPreview = (target: IdolSlotTarget): boolean =>
+  idolSnapPreviewTarget.value === target || idolDiceTwoSnapPreviewTarget.value === target;
+const idolSlotIsSelected = (target: IdolSlotTarget): boolean =>
+  idolAssignedTarget.value === target || idolDiceTwoAssignedTarget.value === target;
+
+const idolRewardEntries = computed(() => {
+  const entries: Array<{
+    diceIndex: 0 | 1;
+    dice: number;
+    target: IdolSlotTarget;
+    statueName: string;
+    amount: number;
+    rewardText: string;
+  }> = [];
+  const assignments: Array<[0 | 1, IdolSlotTarget | null]> = [
+    [0, idolAssignedTarget.value],
+    [1, idolVariant.value === 'black' ? idolDiceTwoAssignedTarget.value : null],
+  ];
+  for (const [diceIndex, target] of assignments) {
+    if (!target) continue;
+    const dice = getIdolDiceValue(diceIndex);
+    const config = IDOL_BLESSING_CONFIG[target];
+    const amount =
+      target === 'gold'
+        ? dice * 2
+        : target === 'maxHp'
+          ? Math.floor(dice * 1.5)
+          : target === 'mp'
+            ? dice
+            : target === 'blackGold'
+              ? dice * 3
+              : target === 'blackMp'
+                ? idolDiceMax.value
+                : 1;
+    entries.push({
+      diceIndex,
+      dice,
+      target,
+      statueName: config.statueName,
+      amount,
+      rewardText: config.rewardText(dice),
+    });
+  }
+  return entries;
 });
+const idolRewardSummary = computed(() => idolRewardEntries.value[0] ?? null);
+const idolHasAssignedDice = computed(() => idolRewardEntries.value.length > 0);
 
 // ── Actions ──
 const isInFinalArea = computed(() => ((gameStore.statData._当前区域 as string) || '').trim() === FINAL_AREA_NAME);
@@ -7873,6 +8196,7 @@ const resetTransientUiState = () => {
   closeShopView();
   closeChestView();
   closeIdolView();
+  idolRoomMapExitReady.value = false;
   pendingCombatNarrative.value = null;
   hideRelicTooltip();
   closeBondPortraitPreview();
@@ -8195,7 +8519,7 @@ const queueCombatMvuSync = (
   const hasFinalMaxHp = Number.isFinite(finalMaxHpRaw);
   const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
   const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
-  const goldReward = 2 + Math.floor(floor / 2);
+  const goldReward = 2 + Math.floor(floor / 4);
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
   const stomachMarkCount = getOwnedRelicCountById('bloodpool_stomach_mark');
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
@@ -8613,7 +8937,9 @@ const resetShopSession = () => {
   shopRobbing.value = false;
 };
 
-const openShopView = () => {
+const openShopView = async (): Promise<boolean> => {
+  if (gameStore.isGenerating) return false;
+  if (!(await preloadRoomImages('商店房', [SHOP_BG_URL, shopFrameUrl, shopCompassUrl]))) return false;
   hideRelicTooltip();
   resetShopProductConfirmation(false);
   clearShopRobTimer();
@@ -8638,6 +8964,7 @@ const openShopView = () => {
   }
   setShopDialogue();
   showShopView.value = true;
+  return true;
 };
 
 const closeShopView = () => {
@@ -8676,6 +9003,7 @@ const buyShopProduct = (item: ShopProduct) => {
   const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
   const currentGold = Math.max(0, baseGold - shopSpentGold.value);
   if (currentGold < item.finalPrice) {
+    showGameFeedback('金币不足，无法购买这件圣遗物。');
     return;
   }
 
@@ -8695,7 +9023,7 @@ const buyShopProduct = (item: ShopProduct) => {
 const exitShop = () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
   if (activeForcedCurseReplacement.value) {
-    toastr.warning('必须先完成诅咒替换。');
+    showGameFeedback('必须先完成诅咒替换。');
     return;
   }
   const purchasedStartIndex = Math.max(0, Math.min(shopEntryPurchasedCount.value, shopPurchasedItems.value.length));
@@ -8875,6 +9203,48 @@ const showHotSpringCleanseText = () => {
   }, 2600);
 };
 
+const clearGameFeedbackTimer = () => {
+  if (!gameFeedbackTimer) return;
+  clearTimeout(gameFeedbackTimer);
+  gameFeedbackTimer = null;
+};
+
+const showGameFeedback = (text: string, duration = 2600) => {
+  const messageId = ++gameFeedbackMessageId;
+  clearGameFeedbackTimer();
+  gameFeedbackMessage.value = { id: messageId, text };
+  gameFeedbackTimer = setTimeout(() => {
+    if (gameFeedbackMessage.value?.id === messageId) {
+      gameFeedbackMessage.value = null;
+    }
+    gameFeedbackTimer = null;
+  }, duration);
+};
+
+const beginRoomAssetLoading = (text: string) => {
+  roomAssetLoadCount += 1;
+  roomAssetLoading.value = true;
+  roomAssetLoadingText.value = text;
+};
+
+const endRoomAssetLoading = () => {
+  roomAssetLoadCount = Math.max(0, roomAssetLoadCount - 1);
+  if (roomAssetLoadCount === 0) roomAssetLoading.value = false;
+};
+
+const preloadRoomImages = async (roomLabel: string, urls: readonly string[]): Promise<boolean> => {
+  beginRoomAssetLoading(`正在加载${roomLabel}资源...`);
+  try {
+    await preloadImages(urls);
+    return true;
+  } catch {
+    showGameFeedback(`${roomLabel}资源加载失败，请检查网络后重试。`);
+    return false;
+  } finally {
+    endRoomAssetLoading();
+  }
+};
+
 const useHotSpringCleanse = async () => {
   showHotSpringCleanseText();
   const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态).filter((status: string) =>
@@ -8903,6 +9273,7 @@ onUnmounted(() => {
   clearChestCloseLongPressTimer();
   clearChestRewardConfirmTimer();
   clearHotSpringCleanseTimer();
+  clearGameFeedbackTimer();
   clearIdolRollTimer();
   closeOptionCompletionMenu();
   closeSettingsHelp();
@@ -8919,7 +9290,9 @@ const handleChestBgLoaded = () => {
   }
 };
 
-const openChestView = () => {
+const openChestView = async (): Promise<boolean> => {
+  if (gameStore.isGenerating) return false;
+  if (!(await preloadRoomImages('宝箱房', [CHEST_BG_CLOSED, CHEST_BG_OPENED, CHEST_BG_MIMIC]))) return false;
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
@@ -8936,11 +9309,12 @@ const openChestView = () => {
   chestForceMimicNextOpen.value = false;
   pendingChestRewardIndex.value = null;
   showChestView.value = true;
+  return true;
 };
 
 const closeChestView = () => {
   if (activeForcedCurseReplacement.value) {
-    toastr.warning('必须先完成诅咒替换。');
+    showGameFeedback('必须先完成诅咒替换。');
     return;
   }
   clearChestMimicTimer();
@@ -8971,15 +9345,73 @@ const rollIdolDiceValue = () => {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
-const getIdolSlotElement = (target: IdolBlessingTarget) => {
-  if (target === 'maxHp') return idolSlotMaxHpRef.value;
-  if (target === 'mp') return idolSlotMpRef.value;
+const getIdolSlotElement = (target: IdolSlotTarget) => {
+  if (target === 'maxHp' || target === 'blackDice') return idolSlotMaxHpRef.value;
+  if (target === 'mp' || target === 'blackMp') return idolSlotMpRef.value;
   return idolSlotGoldRef.value;
 };
 
-const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null => {
+const getIdolTargetList = (): IdolSlotTarget[] =>
+  idolVariant.value === 'black' ? ['blackMp', 'blackDice', 'blackGold'] : ['maxHp', 'mp', 'gold'];
+
+const getIdolDiceElement = (diceIndex: 0 | 1) => (diceIndex === 0 ? idolDiceRef.value : idolDiceTwoRef.value);
+const getIdolDicePosition = (diceIndex: 0 | 1) =>
+  diceIndex === 0 ? idolDicePosition.value : idolDiceTwoPosition.value;
+const setIdolDicePosition = (diceIndex: 0 | 1, position: { x: number; y: number }) => {
+  if (diceIndex === 0) {
+    idolDicePosition.value = position;
+  } else {
+    idolDiceTwoPosition.value = position;
+  }
+};
+
+const getIdolSacrificeTotals = (excludedDiceIndex: 0 | 1 | null = null) => {
+  let life = 0;
+  let maxHp = 0;
+  for (const diceIndex of [0, 1] as const) {
+    if (diceIndex === excludedDiceIndex) continue;
+    const target = getIdolAssignedTarget(diceIndex);
+    if (!target || idolVariant.value !== 'black') continue;
+    const dice = getIdolDiceValue(diceIndex);
+    if (target === 'blackMp' || target === 'blackGold') life += dice;
+    if (target === 'blackDice') maxHp += dice;
+  }
+  return { life, maxHp };
+};
+
+const canAssignIdolTarget = (target: IdolSlotTarget, diceIndex: 0 | 1): boolean => {
+  if (idolVariant.value !== 'black') return true;
+  const currentHp = toNonNegativeInt(gameStore.statData._血量, displayHp.value);
+  const currentMaxHp = toNonNegativeInt(gameStore.statData._血量上限, displayMaxHp.value);
+  const dice = getIdolDiceValue(diceIndex);
+  const previous = getIdolSacrificeTotals(diceIndex);
+  if (target === 'blackMp' || target === 'blackGold') {
+    return currentHp - previous.life - dice >= 1;
+  }
+  if (target === 'blackDice') {
+    const nextMaxHp = currentMaxHp - previous.maxHp - dice;
+    return nextMaxHp >= 1;
+  }
+  return true;
+};
+
+const getIdolPlacementWarning = (target: IdolSlotTarget | null, diceIndex: 0 | 1): string => {
+  if (!target) return '骰子没有放入有效的神像槽位。';
+  const otherIndex: 0 | 1 = diceIndex === 0 ? 1 : 0;
+  if (getIdolAssignedTarget(otherIndex) === target) return '这个神像槽位已经放置了另一枚骰子。';
+  if (target === 'blackMp' || target === 'blackGold') return '生命献祭后必须至少保留1点生命。';
+  if (target === 'blackDice') return '生命上限献祭后必须至少保留1点。';
+  return '骰子没有放入有效的神像槽位。';
+};
+
+const getIdolSnapCandidate = (
+  diceIndex: 0 | 1,
+  x: number,
+  y: number,
+  allowUnavailable = false,
+): IdolSnapCandidate | null => {
   const stageEl = idolDiceStageRef.value;
-  const diceEl = idolDiceRef.value;
+  const diceEl = getIdolDiceElement(diceIndex);
   if (!stageEl || !diceEl) return null;
 
   const scale = stageScale.value > 0 ? stageScale.value : 1;
@@ -8993,10 +9425,12 @@ const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null =>
   const maxY = Math.max(0, stageHeight - diceHeight);
   const diceCenterX = x + diceWidth / 2;
   const diceCenterY = y + diceHeight / 2;
+  const otherIndex: 0 | 1 = diceIndex === 0 ? 1 : 0;
 
   let best: IdolSnapCandidate | null = null;
-  const targets: IdolBlessingTarget[] = ['maxHp', 'mp', 'gold'];
-  for (const target of targets) {
+  for (const target of getIdolTargetList()) {
+    if (!allowUnavailable && getIdolAssignedTarget(otherIndex) === target) continue;
+    if (!allowUnavailable && !canAssignIdolTarget(target, diceIndex)) continue;
     const slotEl = getIdolSlotElement(target);
     if (!slotEl) continue;
     const slotRect = slotEl.getBoundingClientRect();
@@ -9007,19 +9441,17 @@ const getIdolSnapCandidate = (x: number, y: number): IdolSnapCandidate | null =>
     const distance = Math.hypot(slotCenterX - diceCenterX, slotCenterY - diceCenterY);
     const snapX = clampNumber(slotCenterX - diceWidth / 2, 0, maxX);
     const snapY = clampNumber(slotCenterY - diceHeight / 2, 0, maxY);
-    if (!best || distance < best.distance) {
-      best = { target, distance, snapX, snapY };
-    }
+    if (!best || distance < best.distance) best = { target, distance, snapX, snapY };
   }
 
   if (!best || best.distance > IDOL_SNAP_DISTANCE) return null;
   return best;
 };
 
-const placeIdolDiceAtStart = () => {
+const getIdolDiceStartPosition = (diceIndex: 0 | 1) => {
   const stageEl = idolDiceStageRef.value;
-  const diceEl = idolDiceRef.value;
-  if (!stageEl || !diceEl) return;
+  const diceEl = getIdolDiceElement(diceIndex);
+  if (!stageEl || !diceEl) return null;
   const scale = stageScale.value > 0 ? stageScale.value : 1;
   const stageRect = stageEl.getBoundingClientRect();
   const diceRect = diceEl.getBoundingClientRect();
@@ -9029,53 +9461,111 @@ const placeIdolDiceAtStart = () => {
   const diceHeight = diceRect.height / scale;
   const maxX = Math.max(0, stageWidth - diceWidth);
   const maxY = Math.max(0, stageHeight - diceHeight);
-  const x = Math.max(0, (stageWidth - diceWidth) / 2);
-  const y = clampNumber(stageHeight * 0.72, 0, maxY);
-  idolDicePosition.value = { x: clampNumber(x, 0, maxX), y };
-  idolSnapPreviewTarget.value = null;
+  const centerX = (stageWidth - diceWidth) / 2;
+  const offset = idolVariant.value === 'black' ? (diceIndex === 0 ? -diceWidth * 0.7 : diceWidth * 0.7) : 0;
+  return {
+    x: clampNumber(centerX + offset, 0, maxX),
+    y: clampNumber(stageHeight * 0.72, 0, maxY),
+  };
 };
 
-const openIdolView = () => {
-  if (gameStore.isGenerating) return;
-  clearIdolRollTimer();
-  idolAssignedTarget.value = null;
+const placeIdolDiceAtStart = () => {
+  const first = getIdolDiceStartPosition(0);
+  if (first) setIdolDicePosition(0, first);
+  if (idolVariant.value === 'black') {
+    const second = getIdolDiceStartPosition(1);
+    if (second) setIdolDicePosition(1, second);
+  }
   idolSnapPreviewTarget.value = null;
+  idolDiceTwoSnapPreviewTarget.value = null;
+};
+
+const chooseIdolVariant = (): IdolVariant => {
+  const lowHpThreshold = Math.max(1, Math.floor(displayMaxHp.value * 0.35));
+  if (displayHp.value <= lowHpThreshold) return 'white';
+  return Math.random() < 0.7 ? 'white' : 'black';
+};
+
+const getStoredIdolVariant = (): IdolVariant | null => {
+  const path = currentFloorPath.value;
+  const lastPathEntry = path[path.length - 1];
+  if (lastPathEntry?.房间类型 !== '神像房') return null;
+  const rowIndex = path.length - 1;
+  const mapNode = currentDungeonMap.value
+    .map(route => route[rowIndex])
+    .find(node => node?.x === lastPathEntry.x && node.房间类型 === '神像房');
+  if (mapNode?.神像类型 === '黑神像') return 'black';
+  if (mapNode?.神像类型 === '白神像') return 'white';
+  return null;
+};
+
+const openIdolView = async (): Promise<boolean> => {
+  if (gameStore.isGenerating) return false;
+  clearIdolRollTimer();
+  clearGameFeedbackTimer();
+  gameFeedbackMessage.value = null;
+  const variant = getStoredIdolVariant() ?? chooseIdolVariant();
+  const backgroundUrl = variant === 'black' ? IDOL_BG_BLACK_URL : IDOL_BG_WHITE_URL;
+  const slotUrls =
+    variant === 'black'
+      ? [IDOL_SLOT_ASSET_URLS.blackMp, IDOL_SLOT_ASSET_URLS.blackDice, IDOL_SLOT_ASSET_URLS.blackGold]
+      : [IDOL_SLOT_ASSET_URLS.maxHp, IDOL_SLOT_ASSET_URLS.mp, IDOL_SLOT_ASSET_URLS.gold];
+  if (!(await preloadRoomImages('神像房', [backgroundUrl, ...slotUrls]))) return false;
+  idolVariant.value = variant;
+  idolAssignedTarget.value = null;
+  idolDiceTwoAssignedTarget.value = null;
+  idolSnapPreviewTarget.value = null;
+  idolDiceTwoSnapPreviewTarget.value = null;
   idolDragPointerId.value = null;
+  idolDragDiceIndex.value = null;
   idolDiceValue.value = idolDiceMin.value;
+  idolDiceTwoValue.value = idolDiceMin.value;
   idolDiceRolling.value = true;
   showIdolView.value = true;
   idolRollTimer = setTimeout(() => {
     idolDiceValue.value = rollIdolDiceValue();
+    idolDiceTwoValue.value = rollIdolDiceValue();
     idolDiceRolling.value = false;
     idolRollTimer = null;
-    requestAnimationFrame(() => {
-      placeIdolDiceAtStart();
-    });
+    requestAnimationFrame(() => placeIdolDiceAtStart());
   }, 520);
+  return true;
 };
 
 const closeIdolView = () => {
   clearIdolRollTimer();
   idolDragPointerId.value = null;
+  idolDragDiceIndex.value = null;
   showIdolView.value = false;
 };
 
-const handleIdolDicePointerDown = (event: PointerEvent) => {
+const resetIdolDiceAfterInvalidDrop = (diceIndex: 0 | 1, target: IdolSlotTarget | null) => {
+  setIdolAssignedTarget(diceIndex, null);
+  setIdolPreviewTarget(diceIndex, null);
+  const start = getIdolDiceStartPosition(diceIndex);
+  if (start) setIdolDicePosition(diceIndex, start);
+  showGameFeedback(getIdolPlacementWarning(target, diceIndex));
+};
+
+const handleIdolDicePointerDown = (event: PointerEvent, diceIndex: 0 | 1) => {
   if (!showIdolView.value || idolDiceRolling.value) return;
-  const diceEl = idolDiceRef.value;
+  if (diceIndex === 1 && idolVariant.value !== 'black') return;
+  const diceEl = getIdolDiceElement(diceIndex);
   if (!diceEl) return;
-  idolAssignedTarget.value = null;
+  setIdolAssignedTarget(diceIndex, null);
+  setIdolPreviewTarget(diceIndex, null);
   idolDragPointerId.value = event.pointerId;
+  idolDragDiceIndex.value = diceIndex;
   idolDragStart.value = { x: event.clientX, y: event.clientY };
-  idolDragStartPos.value = { ...idolDicePosition.value };
+  idolDragStartPos.value = { ...getIdolDicePosition(diceIndex) };
   diceEl.setPointerCapture(event.pointerId);
 };
 
 const handleIdolDicePointerMove = (event: PointerEvent) => {
-  if (!showIdolView.value) return;
-  if (idolDragPointerId.value !== event.pointerId) return;
+  if (!showIdolView.value || idolDragPointerId.value !== event.pointerId || idolDragDiceIndex.value === null) return;
+  const diceIndex = idolDragDiceIndex.value;
   const stageEl = idolDiceStageRef.value;
-  const diceEl = idolDiceRef.value;
+  const diceEl = getIdolDiceElement(diceIndex);
   if (!stageEl || !diceEl) return;
 
   const scale = stageScale.value > 0 ? stageScale.value : 1;
@@ -9091,44 +9581,81 @@ const handleIdolDicePointerMove = (event: PointerEvent) => {
   const dy = (event.clientY - idolDragStart.value.y) / scale;
   const nextX = clampNumber(idolDragStartPos.value.x + dx, 0, maxX);
   const nextY = clampNumber(idolDragStartPos.value.y + dy, 0, maxY);
-  idolDicePosition.value = { x: nextX, y: nextY };
-  const candidate = getIdolSnapCandidate(nextX, nextY);
-  idolSnapPreviewTarget.value = candidate?.target ?? null;
+  setIdolDicePosition(diceIndex, { x: nextX, y: nextY });
+  const candidate = getIdolSnapCandidate(diceIndex, nextX, nextY);
+  setIdolPreviewTarget(diceIndex, candidate?.target ?? null);
 };
 
 const handleIdolDicePointerUp = (event: PointerEvent) => {
-  if (!showIdolView.value) return;
-  if (idolDragPointerId.value !== event.pointerId) return;
-  const diceEl = idolDiceRef.value;
-  if (diceEl) {
-    diceEl.releasePointerCapture(event.pointerId);
-  }
-  const candidate = getIdolSnapCandidate(idolDicePosition.value.x, idolDicePosition.value.y);
+  if (!showIdolView.value || idolDragPointerId.value !== event.pointerId || idolDragDiceIndex.value === null) return;
+  const diceIndex = idolDragDiceIndex.value;
+  const diceEl = getIdolDiceElement(diceIndex);
+  if (diceEl?.hasPointerCapture(event.pointerId)) diceEl.releasePointerCapture(event.pointerId);
+  const position = getIdolDicePosition(diceIndex);
+  const candidate = getIdolSnapCandidate(diceIndex, position.x, position.y);
   if (candidate) {
-    idolAssignedTarget.value = candidate.target;
-    idolSnapPreviewTarget.value = candidate.target;
-    idolDicePosition.value = { x: candidate.snapX, y: candidate.snapY };
+    setIdolAssignedTarget(diceIndex, candidate.target);
+    setIdolPreviewTarget(diceIndex, candidate.target);
+    setIdolDicePosition(diceIndex, { x: candidate.snapX, y: candidate.snapY });
   } else {
-    idolAssignedTarget.value = null;
-    idolSnapPreviewTarget.value = null;
+    const nearest = getIdolSnapCandidate(diceIndex, position.x, position.y, true);
+    resetIdolDiceAfterInvalidDrop(diceIndex, nearest?.target ?? null);
   }
   idolDragPointerId.value = null;
+  idolDragDiceIndex.value = null;
 };
 
 const buildIdolPendingFields = () => {
-  const reward = idolRewardSummary.value;
-  if (!reward) return null;
+  const rewards = idolRewardEntries.value;
+  if (rewards.length === 0) return null;
 
-  const currentMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
-  const currentMp = toNonNegativeInt(gameStore.statData.$魔量, 1);
-  const currentGold = toNonNegativeInt(gameStore.statData._金币, 0);
-  if (reward.target === 'maxHp') {
-    return { _血量上限: currentMaxHp + reward.amount };
+  let currentHp = toNonNegativeInt(gameStore.statData._血量, displayHp.value);
+  let currentMaxHp = toNonNegativeInt(gameStore.statData._血量上限, displayMaxHp.value);
+  let currentMp = toNonNegativeInt(gameStore.statData.$魔量, 1);
+  let currentInitialMp = toNonNegativeInt(gameStore.statData.$初始魔量, currentMp);
+  let currentGold = toNonNegativeInt(gameStore.statData._金币, 0);
+  let currentMinDice = toNonNegativeInt(gameStore.statData.$最小点数, 1);
+  let currentMaxDice = toNonNegativeInt(gameStore.statData.$最大点数, 6);
+
+  for (const reward of rewards) {
+    const { target, dice } = reward;
+    if (target === 'maxHp') currentMaxHp += Math.floor(dice * 1.5);
+    if (target === 'mp') {
+      currentInitialMp += dice;
+      currentMp = Math.max(currentMp, currentInitialMp);
+    }
+    if (target === 'gold') currentGold += dice * 2;
+    if (target === 'blackMp') {
+      currentHp -= dice;
+      currentInitialMp += idolDiceMax.value;
+      currentMp = Math.max(currentMp, currentInitialMp);
+    }
+    if (target === 'blackDice') {
+      currentMaxHp -= dice;
+      currentMinDice += 1;
+      currentMaxDice += 1;
+    }
+    if (target === 'blackGold') {
+      currentHp -= dice;
+      currentGold += dice * 3;
+    }
   }
-  if (reward.target === 'mp') {
-    return { $魔量: currentMp + reward.amount };
+
+  if (idolVariant.value === 'black' && rewards.some(reward => reward.target === 'blackDice')) {
+    currentHp = Math.max(1, Math.min(currentHp, currentMaxHp));
   }
-  return { _金币: currentGold + reward.amount };
+
+  const fields: Record<string, any> = {};
+  if (currentHp !== toNonNegativeInt(gameStore.statData._血量, displayHp.value)) fields._血量 = Math.max(1, currentHp);
+  if (currentMaxHp !== toNonNegativeInt(gameStore.statData._血量上限, displayMaxHp.value)) {
+    fields._血量上限 = Math.max(1, currentMaxHp);
+  }
+  if (currentMp !== toNonNegativeInt(gameStore.statData.$魔量, 1)) fields.$魔量 = Math.max(0, currentMp);
+  if (currentInitialMp !== toNonNegativeInt(gameStore.statData.$初始魔量, currentMp)) fields.$初始魔量 = Math.max(0, currentInitialMp);
+  if (currentGold !== toNonNegativeInt(gameStore.statData._金币, 0)) fields._金币 = Math.max(0, currentGold);
+  if (currentMinDice !== toNonNegativeInt(gameStore.statData.$最小点数, 1)) fields.$最小点数 = Math.max(1, currentMinDice);
+  if (currentMaxDice !== toNonNegativeInt(gameStore.statData.$最大点数, 6)) fields.$最大点数 = Math.max(currentMinDice, currentMaxDice);
+  return fields;
 };
 
 const rollChestRewardRarity = (): RelicData['rarity'] => {
@@ -9217,7 +9744,7 @@ const acceptMimicRelicDrop = () => {
   if (pendingCombatNarrative.value) {
     pendingCombatNarrative.value.text += `\n<user>宝箱怪额外掉落了圣遗物${relic.name}（${formatRarityLabel(relic.rarity)}），<user>选择将其带走。`;
   }
-  toastr.success(`获得圣遗物：${relic.name}（${formatRarityLabel(relic.rarity)}）`);
+  showGameFeedback(`获得圣遗物：${relic.name}（${formatRarityLabel(relic.rarity)}）`);
   finishMimicRelicDropFlow();
 };
 
@@ -9249,7 +9776,7 @@ const closeOpenedChestForRefresh = () => {
   if (chestStage.value !== 'opened' || chestRolling.value || chestCollecting.value) return;
   const hasCollectedAnyReward = chestRewardCollectedFlags.value.some(flag => flag);
   if (hasCollectedAnyReward) {
-    toastr.info('已领取过圣遗物，当前宝箱不能关闭刷新。');
+    showGameFeedback('已领取过圣遗物，当前宝箱不能关闭刷新。');
     return;
   }
   chestCloseCount.value += 1;
@@ -9372,31 +9899,35 @@ const startCombatFromSpecialOption = async (): Promise<boolean> => {
 };
 
 const handleSpecialOption = async () => {
-  if (isShopContext.value) {
-    openShopView();
-    return;
-  }
-  if (isTreasureRoomContext.value) {
+  if (gameStore.isGenerating || specialRoomOpening.value) return;
+  specialRoomOpening.value = true;
+  try {
+    if (isShopContext.value) {
+      await openShopView();
+      return;
+    }
+    if (isTreasureRoomContext.value) {
+      if (await openChestView()) markCurrentSpecialConsumed();
+      return;
+    }
+    if (isHotSpringRoomContext.value) {
+      markCurrentSpecialConsumed();
+      await useHotSpringCleanse();
+      return;
+    }
+    if (isIdolRoomContext.value) {
+      if (await openIdolView()) markCurrentSpecialConsumed();
+      return;
+    }
+    if (isCombatRoomContext.value) {
+      if (await startCombatFromSpecialOption()) markCurrentSpecialConsumed();
+      return;
+    }
     markCurrentSpecialConsumed();
-    openChestView();
-    return;
+    toastr.info('功能开发中...');
+  } finally {
+    specialRoomOpening.value = false;
   }
-  if (isHotSpringRoomContext.value) {
-    markCurrentSpecialConsumed();
-    await useHotSpringCleanse();
-    return;
-  }
-  if (isIdolRoomContext.value) {
-    markCurrentSpecialConsumed();
-    openIdolView();
-    return;
-  }
-  if (isCombatRoomContext.value) {
-    if (await startCombatFromSpecialOption()) markCurrentSpecialConsumed();
-    return;
-  }
-  markCurrentSpecialConsumed();
-  toastr.info('功能开发中...');
 };
 
 const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
@@ -9442,11 +9973,16 @@ const buildOverlaySnapshot = (): PersistedOverlaySnapshot | null => {
       version: 1,
       active: 'idol',
       idol: {
+        variant: idolVariant.value,
         diceValue: idolDiceValue.value,
+        diceTwoValue: idolDiceTwoValue.value,
         diceRolling: idolDiceRolling.value,
         assignedTarget: idolAssignedTarget.value,
+        diceTwoAssignedTarget: idolDiceTwoAssignedTarget.value,
         snapPreviewTarget: idolSnapPreviewTarget.value,
+        diceTwoSnapPreviewTarget: idolDiceTwoSnapPreviewTarget.value,
         dicePosition: { ...idolDicePosition.value },
+        diceTwoPosition: { ...idolDiceTwoPosition.value },
       },
     };
   }
@@ -9490,7 +10026,7 @@ const persistOverlaySnapshot = () => {
   }
 };
 
-const restoreOverlaySnapshot = () => {
+const restoreOverlaySnapshot = async () => {
   localStorage.removeItem(LEGACY_OVERLAY_STATE_KEY);
   const raw = localStorage.getItem(OVERLAY_STATE_KEY);
   if (!raw) return;
@@ -9510,6 +10046,7 @@ const restoreOverlaySnapshot = () => {
   isRestoringOverlayState.value = true;
   try {
     if (parsed.active === 'chest' && parsed.chest) {
+      await preloadImages([CHEST_BG_CLOSED, CHEST_BG_OPENED, CHEST_BG_MIMIC]);
       const relics = parsed.chest.rewardRelicIds
         .map(id => relicByIdMap.value.get(id) ?? getRelicById(id))
         .filter((relic): relic is RelicData => Boolean(relic));
@@ -9534,6 +10071,7 @@ const restoreOverlaySnapshot = () => {
     }
 
     if (parsed.active === 'shop' && parsed.shop) {
+      await preloadImages([SHOP_BG_URL, shopFrameUrl, shopCompassUrl]);
       const products: ShopProduct[] = [];
       for (const [idx, product] of parsed.shop.products.entries()) {
         const relic = relicByIdMap.value.get(product.relicId) ?? getRelicById(product.relicId);
@@ -9567,20 +10105,47 @@ const restoreOverlaySnapshot = () => {
     }
 
     if (parsed.active === 'idol' && parsed.idol) {
+      idolVariant.value = parsed.idol.variant === 'black' ? 'black' : 'white';
+      const backgroundUrl = idolVariant.value === 'black' ? IDOL_BG_BLACK_URL : IDOL_BG_WHITE_URL;
+      const slotUrls = idolVariant.value === 'black'
+        ? [IDOL_SLOT_ASSET_URLS.blackMp, IDOL_SLOT_ASSET_URLS.blackDice, IDOL_SLOT_ASSET_URLS.blackGold]
+        : [IDOL_SLOT_ASSET_URLS.maxHp, IDOL_SLOT_ASSET_URLS.mp, IDOL_SLOT_ASSET_URLS.gold];
+      await preloadImages([backgroundUrl, ...slotUrls]);
       showIdolView.value = true;
       idolDiceValue.value = clampNumber(
         toNonNegativeInt(parsed.idol.diceValue, idolDiceMin.value),
         idolDiceMin.value,
         idolDiceMax.value,
       );
+      idolDiceTwoValue.value = clampNumber(
+        toNonNegativeInt(parsed.idol.diceTwoValue, idolDiceMin.value),
+        idolDiceMin.value,
+        idolDiceMax.value,
+      );
       idolDiceRolling.value = false;
-      idolAssignedTarget.value = parsed.idol.assignedTarget;
-      idolSnapPreviewTarget.value = parsed.idol.snapPreviewTarget;
+      const validTargets = new Set<IdolSlotTarget>(getIdolTargetList());
+      idolAssignedTarget.value = validTargets.has(parsed.idol.assignedTarget as IdolSlotTarget)
+        ? parsed.idol.assignedTarget
+        : null;
+      idolDiceTwoAssignedTarget.value = validTargets.has(parsed.idol.diceTwoAssignedTarget as IdolSlotTarget)
+        ? parsed.idol.diceTwoAssignedTarget ?? null
+        : null;
+      idolSnapPreviewTarget.value = validTargets.has(parsed.idol.snapPreviewTarget as IdolSlotTarget)
+        ? parsed.idol.snapPreviewTarget
+        : null;
+      idolDiceTwoSnapPreviewTarget.value = validTargets.has(parsed.idol.diceTwoSnapPreviewTarget as IdolSlotTarget)
+        ? parsed.idol.diceTwoSnapPreviewTarget ?? null
+        : null;
       idolDicePosition.value = {
         x: Number.isFinite(parsed.idol.dicePosition?.x) ? parsed.idol.dicePosition.x : 0,
         y: Number.isFinite(parsed.idol.dicePosition?.y) ? parsed.idol.dicePosition.y : 0,
       };
+      idolDiceTwoPosition.value = {
+        x: Number.isFinite(parsed.idol.diceTwoPosition?.x) ? parsed.idol.diceTwoPosition.x : idolDicePosition.value.x,
+        y: Number.isFinite(parsed.idol.diceTwoPosition?.y) ? parsed.idol.diceTwoPosition.y : idolDicePosition.value.y,
+      };
       idolDragPointerId.value = null;
+      idolDragDiceIndex.value = null;
       return;
     }
 
@@ -9663,11 +10228,16 @@ watch(
     shopPurchasedItems,
     shopRobClickCount,
     shopRobbing,
+    idolVariant,
     idolDiceValue,
+    idolDiceTwoValue,
     idolDiceRolling,
     idolAssignedTarget,
+    idolDiceTwoAssignedTarget,
     idolSnapPreviewTarget,
+    idolDiceTwoSnapPreviewTarget,
     idolDicePosition,
+    idolDiceTwoPosition,
     victoryRewardStage,
     victoryRewardOptions,
     selectedVictoryRewardCard,
@@ -9682,6 +10252,48 @@ watch(
   { deep: true },
 );
 
+watch(
+  activeModal,
+  modal => {
+    if (!modal) return;
+    const panelLabels: Record<string, string> = {
+      statusDetails: '状态面板',
+      bonds: '羁绊面板',
+      magicBooks: '魔法书面板',
+    };
+    const label = panelLabels[modal];
+    if (!label) return;
+    beginRoomAssetLoading(`正在加载${label}资源...`);
+    void (async () => {
+      try {
+        let urls: string[] = [];
+        if (modal === 'statusDetails') {
+          if (!playerStatusPortraitUrl.value && !playerStatusPortraitError.value) {
+            await initPlayerPortraitPreviewUrl();
+          }
+          if (playerStatusPortraitUrl.value && !playerStatusPortraitError.value) {
+            urls = [playerStatusPortraitUrl.value];
+          }
+        } else if (modal === 'bonds') {
+          await Promise.all(bondRoleEntries.value.map(entry => ensureBondPortraitLoaded(entry.name)));
+          urls = bondEntries.value.filter(entry => !bondPortraitErrors.value[entry.name]).map(entry => entry.portraitUrl);
+        } else if (modal === 'magicBooks') {
+          urls = carryableMagicBookNames.value.map(getMagicBookCoverUrl);
+        }
+        if (urls.length > 0) {
+          await preloadImages(urls);
+        }
+      } catch {
+        showGameFeedback(`${label}资源加载失败，请检查网络后重试。`);
+        if (activeModal.value === modal) activeModal.value = null;
+      } finally {
+        endRoomAssetLoading();
+      }
+    })();
+  },
+  { flush: 'sync' },
+);
+
 const handleButtonCompletionOutsidePointerDown = (event: PointerEvent) => {
   if (!optionCompletionMenuOpen.value && !optionActionModeMenuOpen.value) return;
   const target = event.target;
@@ -9694,7 +10306,7 @@ const handleButtonCompletionOutsidePointerDown = (event: PointerEvent) => {
 };
 
 onMounted(() => {
-  restoreOverlaySnapshot();
+  void initializeMainImageAssets();
   void initPlayerPortraitPreviewUrl();
   nextTick(() => {
     updateViewportMetrics();
@@ -10031,6 +10643,29 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
   }
 
   const roomType = node.kind === 'boss' ? '领主房' : node.roomType;
+  const idolVariantAtEntry =
+    roomType === '神像房'
+      ? node.idolType === '黑神像'
+        ? 'black'
+        : node.idolType === '白神像'
+          ? 'white'
+          : chooseIdolVariant()
+      : null;
+  const idolTypeAtEntry =
+    idolVariantAtEntry === 'black' ? '黑神像' : idolVariantAtEntry === 'white' ? '白神像' : undefined;
+  const mapWithIdolVariant =
+    node.kind === 'room' && idolTypeAtEntry && currentDungeonMap.value.length === MAP_ROUTE_COUNT
+      ? currentDungeonMap.value.map(route => route.map(mapNode => ({ ...mapNode })))
+      : undefined;
+  if (mapWithIdolVariant && node.kind === 'room' && idolTypeAtEntry) {
+    const rowIndex = node.y - 1;
+    for (const route of mapWithIdolVariant) {
+      const mapNode = route[rowIndex];
+      if (mapNode?.x === node.x && mapNode.房间类型 === '神像房') {
+        mapNode.神像类型 = idolTypeAtEntry;
+      }
+    }
+  }
   const incrementKeys = ['当前层已过房间', '累计已过房间'];
   const statKey = ROOM_STAT_KEY[roomType];
   if (statKey) incrementKeys.push(statKey);
@@ -10058,10 +10693,13 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
     roomType,
     incrementKeys,
     pathEntry: node.kind === 'room' ? { x: node.x, 房间类型: roomType } : undefined,
+    ...(mapWithIdolVariant ? { map: mapWithIdolVariant } : {}),
     enemyName: encounterMonster ?? '',
   });
   const enterText =
-    (roomType === '战斗房' || roomType === '领主房') && encounterMonster
+    roomType === '神像房' && idolTypeAtEntry
+      ? `进入了神像房，本房间为${idolTypeAtEntry}`
+      : (roomType === '战斗房' || roomType === '领主房') && encounterMonster
       ? `进入了${roomType}并遭遇了${roomType === '领主房' && encounterMonster === '梦魔双子' ? '沉睡的梦魔双子' : encounterMonster}`
       : roomType === '陷阱房' && trapName
         ? `进入了${roomType}的房间，当前陷阱房为${trapName}`
@@ -10080,6 +10718,7 @@ const handleMapNodeClick = async (node: MapNodeView) => {
     return;
   }
   resetShopSession();
+  idolRoomMapExitReady.value = false;
   const action = buildQueuedMapAction(node);
   if (!action) return;
   activeModal.value = null;
@@ -10109,15 +10748,37 @@ const finishChestRoom = async () => {
 };
 
 const finishIdolRoom = async () => {
-  if (gameStore.isGenerating || !showIdolView.value || !idolAssignedTarget.value) return;
-  const reward = idolRewardSummary.value;
-  if (reward) gameStore.setPendingStatDataChanges(buildIdolPendingFields());
+  if (gameStore.isGenerating || !showIdolView.value || idolDiceRolling.value || !idolHasAssignedDice.value) return;
+  const rewards = idolRewardEntries.value;
+  const invalidReward = rewards.find(reward => !canAssignIdolTarget(reward.target, reward.diceIndex));
+  if (invalidReward) {
+    resetIdolDiceAfterInvalidDrop(invalidReward.diceIndex, invalidReward.target);
+    return;
+  }
+  const pendingFields = buildIdolPendingFields();
+  if (pendingFields) gameStore.setPendingStatDataChanges(pendingFields);
+  idolRoomMapExitReady.value = true;
   closeIdolView();
-  const rewardText = reward ? `选择膜拜了${reward.statueName}并获得了${reward.rewardText}` : '没有膜拜任何一座神像';
+  const rewardText = `选择膜拜了${idolVariant.value === 'black' ? '黑神像' : '白神像'}，${rewards
+    .map(reward => `${reward.statueName}（${reward.rewardText}）`)
+    .join('，')}`;
   await submitGameAction(
     appendInputToMapRebirthAction(`<user>${rewardText}，完成了当前房间的探索。`),
     '神像房',
     'idol',
+  );
+  await openMapAfterSpecialRoom();
+};
+
+const leaveIdolRoom = async () => {
+  if (gameStore.isGenerating || !showIdolView.value || idolDiceRolling.value) return;
+  idolRoomMapExitReady.value = true;
+  const statueName = idolVariant.value === 'black' ? '黑神像' : '白神像';
+  closeIdolView();
+  await submitGameAction(
+    appendInputToMapRebirthAction(`<user>进入了${statueName}房，但没有膜拜任何神像，直接离开并打开地图选择下一目的地。`),
+    '神像房',
+    'idol-leave',
   );
   await openMapAfterSpecialRoom();
 };
@@ -10337,7 +10998,7 @@ const handleCombatEnd = async (
     const ok = await gameStore.updateStatDataFields({ $是否已击败商人: true });
     if (ok) {
       shopRobbing.value = false;
-      showShopView.value = true;
+      await openShopView();
       applyMerchantDefeatedShopState();
     } else if (pendingCombatNarrative.value) {
       pendingCombatNarrative.value.context = 'normal';
@@ -10386,6 +11047,7 @@ onBeforeUnmount(() => {
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
   clearHotSpringCleanseTimer();
+  clearGameFeedbackTimer();
   clearIdolRollTimer();
 });
 </script>
@@ -14225,6 +14887,96 @@ onBeforeUnmount(() => {
   animation: spring-cleanse-float-up 2.6s ease-out forwards;
 }
 
+.game-feedback-float {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  z-index: 300;
+  max-width: min(88%, 52rem);
+  padding: 0.75rem 1.2rem;
+  border: 1px solid rgba(245, 208, 102, 0.68);
+  border-radius: 3px;
+  background: rgba(10, 8, 7, 0.88);
+  color: rgba(255, 242, 206, 0.98);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: 1.08rem;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 12px rgba(245, 208, 102, 0.28);
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: game-feedback-float 2.6s ease-out forwards;
+}
+
+.game-feedback-fade-enter-active,
+.game-feedback-fade-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.game-feedback-fade-enter-from,
+.game-feedback-fade-leave-to {
+  opacity: 0;
+}
+
+.room-asset-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: rgba(3, 3, 4, 0.94);
+  color: rgba(245, 225, 184, 0.96);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: 1.15rem;
+  text-align: center;
+  text-shadow: 0 1px 5px #000;
+  pointer-events: auto;
+}
+
+.room-asset-loading::before {
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 2px solid rgba(245, 208, 102, 0.22);
+  border-top-color: rgba(245, 208, 102, 0.95);
+  border-radius: 50%;
+  content: '';
+  animation: room-image-loading-spin 0.9s linear infinite;
+}
+
+.room-asset-loading.is-error::before {
+  animation-play-state: paused;
+  border-color: rgba(245, 208, 102, 0.7);
+}
+
+.room-asset-loading__retry {
+  min-height: 2.5rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid rgba(245, 208, 102, 0.62);
+  border-radius: 3px;
+  background: rgba(58, 39, 20, 0.75);
+  color: rgba(255, 242, 206, 0.98);
+  font-size: 0.92rem;
+}
+
+.room-asset-loading__retry:hover,
+.room-asset-loading__retry:focus-visible {
+  background: rgba(87, 59, 27, 0.92);
+}
+
+@keyframes room-image-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes game-feedback-float {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  12% { opacity: 1; transform: translate(-50%, 0); }
+  78% { opacity: 1; transform: translate(-50%, -5px); }
+  100% { opacity: 0; transform: translate(-50%, -18px); }
+}
+
 @keyframes spring-cleanse-float-up {
   0% {
     opacity: 0;
@@ -14258,6 +15010,10 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+.idol-slots-row--black .idol-slot-wrap {
+  filter: saturate(1.15) brightness(0.9);
+}
+
 .idol-slot {
   width: 7.4rem;
   aspect-ratio: 1;
@@ -14284,6 +15040,38 @@ onBeforeUnmount(() => {
     0 0 18px rgba(255, 255, 255, 0.12);
   transition: all 0.2s ease;
   position: relative;
+}
+
+.idol-slot-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  opacity: 0.82;
+  mix-blend-mode: screen;
+  filter: saturate(1.08) contrast(1.06);
+  animation: idolSlotArtPulse 4.8s ease-in-out infinite;
+}
+
+.idol-layout--black .idol-slot {
+  border-color: rgba(248, 113, 113, 0.78);
+  background:
+    linear-gradient(145deg, rgba(39, 18, 34, 0.62), rgba(5, 5, 12, 0.72)),
+    radial-gradient(circle at 50% 38%, rgba(190, 24, 93, 0.26), rgba(15, 23, 42, 0.12) 68%);
+  box-shadow:
+    inset 0 0 0 1px rgba(251, 113, 133, 0.18),
+    0 12px 30px rgba(0, 0, 0, 0.48),
+    0 0 24px rgba(168, 36, 93, 0.26);
+}
+
+.idol-layout--black .idol-slot-hint {
+  color: rgba(255, 220, 220, 0.96);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.86),
+    0 0 10px rgba(190, 24, 93, 0.48);
 }
 
 .idol-slot::before,
@@ -14315,6 +15103,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.68rem;
+  min-width: 0;
+  width: 100%;
   pointer-events: none;
 }
 
@@ -14352,10 +15142,14 @@ onBeforeUnmount(() => {
 
 .idol-slot-hint {
   position: relative;
+  width: min(100%, 14rem);
   color: rgba(240, 249, 255, 0.95);
   font-size: 1.08rem;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.28;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.7),
     0 0 8px rgba(148, 163, 184, 0.35);
@@ -14393,6 +15187,62 @@ onBeforeUnmount(() => {
   opacity: 0.88;
 }
 
+.idol-dice-draggable--second {
+  z-index: 2;
+}
+
+.idol-overlay-actions {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(1.6rem, 6vh, 4rem);
+  z-index: 98;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  width: min(92%, 34rem);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.idol-overlay-actions .map-overlay-finish-btn {
+  position: static;
+  min-width: 0;
+  transform: none;
+}
+
+.idol-overlay-actions .map-overlay-finish-btn:hover:not(:disabled),
+.idol-overlay-actions .map-overlay-finish-btn:focus-visible {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.idol-leave-btn {
+  min-width: 9.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 0.55rem;
+  background: rgba(6, 7, 12, 0.72);
+  color: rgba(255, 255, 255, 0.84);
+  padding: 0.7rem 1.05rem;
+  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 650;
+  line-height: 1.25;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.idol-leave-btn:hover:not(:disabled),
+.idol-leave-btn:focus-visible {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(24, 25, 34, 0.84);
+  transform: translateY(-2px);
+}
+
+.idol-leave-btn:disabled {
+  cursor: wait;
+  opacity: 0.56;
+}
+
 @keyframes idolHintFloat {
   0%,
   100% {
@@ -14408,6 +15258,18 @@ onBeforeUnmount(() => {
     text-shadow:
       0 1px 2px rgba(0, 0, 0, 0.72),
       0 0 14px rgba(226, 232, 240, 0.44);
+  }
+}
+
+@keyframes idolSlotArtPulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.985);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.015);
   }
 }
 
@@ -15966,6 +16828,18 @@ onBeforeUnmount(() => {
 
   .idol-slot-hint {
     font-size: 1rem;
+    width: min(100%, 11rem);
+  }
+
+  .idol-overlay-actions {
+    bottom: 1.2rem;
+    gap: 0.5rem;
+    width: min(94%, 28rem);
+  }
+
+  .idol-overlay-actions .map-overlay-finish-btn,
+  .idol-leave-btn {
+    min-width: min(13rem, 42vw);
   }
 
 }

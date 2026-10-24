@@ -252,6 +252,7 @@ const isVideoReady = ref(false);
 const updateCardButton = ref<HTMLButtonElement | null>(null);
 const updateCloseButton = ref<HTMLButtonElement | null>(null);
 const updateEntries: { date: string; content: string; milestone?: string }[] = [
+  { date: '10.24', content: '优化神像房UI，增加黑神像设定' },
   { date: '10.21', content: '更新神谕淫纹室' },
   { date: '10.20', content: '更新信息录入界面UI，商店UI' },
   { date: '10.17', content: '增加大量音效与特效' },

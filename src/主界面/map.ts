@@ -8,6 +8,7 @@ export type MapRoomType = (typeof MAP_ROOM_TYPES)[number];
 export interface MapRoomNode {
   x: number;
   房间类型: MapRoomType;
+  神像类型?: '白神像' | '黑神像';
 }
 
 export type DungeonMap = MapRoomNode[][];
@@ -161,7 +162,12 @@ export const normalizeDungeonMap = (value: unknown): DungeonMap => {
       const roomType = raw.房间类型;
       if (!Number.isInteger(x) || x < 1 || x > MAP_WIDTH || typeof roomType !== 'string') return [];
       if (!(MAP_ROOM_TYPES as readonly string[]).includes(roomType)) return [];
-      normalized.push({ x, 房间类型: roomType as MapRoomType });
+      const idolType = raw.神像类型 === '白神像' || raw.神像类型 === '黑神像' ? raw.神像类型 : undefined;
+      normalized.push({
+        x,
+        房间类型: roomType as MapRoomType,
+        ...(roomType === '神像房' && idolType ? { 神像类型: idolType } : {}),
+      });
     }
     routes.push(normalized);
   }
