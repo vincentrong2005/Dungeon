@@ -4151,7 +4151,7 @@ const 利维坦: EnemyDefinition = {
     maxHp: 700,
     mp: 0,
     minDice: 6,
-    maxDice: 16,
+    maxDice: 14,
     effects: [
       { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
       { type: EffectType.GENESIS, stacks: 1, polarity: 'buff' },
@@ -4627,7 +4627,7 @@ const 西格尔: EnemyDefinition = {
     hp: 650,
     maxHp: 650,
     mp: 8,
-    minDice: 8,
+    minDice: 6,
     maxDice: 14,
     effects: [
       { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
