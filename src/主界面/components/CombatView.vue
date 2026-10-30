@@ -3,7 +3,7 @@
     ref="combatRootEl"
     data-card-tooltip-boundary
     class="combat-root w-full h-full bg-[#1a1a22] text-dungeon-paper font-ui relative overflow-hidden select-none"
-    :class="[screenShake ? 'animate-shake' : '', impactShake ? 'animate-impact-shake' : '', { 'combat-root--scene-effects': sceneEffects.length > 0 }]"
+    :class="[screenShake ? 'animate-shake' : '', impactShake ? 'animate-impact-shake' : '', heavyDamageShake ? 'animate-heavy-impact-shake' : '', { 'combat-root--scene-effects': sceneEffects.length > 0 }]"
     :style="combatRootStyle"
     :aria-busy="!battleResourcesReady"
     @click.capture="blockWhileLoading"
@@ -331,7 +331,7 @@
                   v-for="popup in floatingNumbersFor('enemy', summon.id)"
                   :key="popup.id"
                   class="combat-float-number absolute text-lg font-extrabold tracking-wide"
-                  :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '']"
+                  :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '', popup.heavyDamage ? 'combat-float-number--heavy' : '']"
                   :style="{
                     left: `calc(50% + ${popup.leftOffset}px)`,
                     top: `${popup.topOffset}px`,
@@ -351,10 +351,15 @@
                   <span class="leviathan-summon-hp">{{ summon.stats.hp }}/{{ summon.stats.maxHp }}</span>
                 </div>
                 <div class="leviathan-summon-hpbar">
-                  <div
-                    class="leviathan-summon-hpbar-fill"
-                    :style="withTransition({ width: `${getLeviathanSummonHpPercent(summon)}%` }, 500)"
-                  ></div>
+                  <CombatHealthBar
+                    compact
+                    side="enemy"
+                    :hp="summon.stats.hp"
+                    :max-hp="summon.stats.maxHp"
+                    :armor="getLeviathanSummonArmor(summon)"
+                    :swarm-hp="getSwarmRecoverableHp(summon.stats)"
+                    :speed-multiplier="speedMultiplier"
+                  />
                 </div>
                 <div class="leviathan-summon-meta">
                   <span>MP {{ summon.stats.mp }}</span>
@@ -410,7 +415,7 @@
               v-for="popup in floatingNumbersFor('enemy', 'body')"
               :key="popup.id"
               class="combat-float-number absolute text-xl font-extrabold tracking-wide"
-              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '']"
+              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '', popup.heavyDamage ? 'combat-float-number--heavy' : '']"
               :style="{
                 left: `calc(50% + ${popup.leftOffset}px)`,
                 top: `${popup.topOffset}px`,
@@ -484,20 +489,17 @@
             </button>
           </TransitionGroup>
           <!-- HP Bar -->
-          <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-[10px] text-[#ff6666] font-bold w-6">HP</span>
-            <div class="relative flex-1 h-2.5 bg-[#1a0a0a] rounded-full overflow-hidden border border-red-900/20">
-              <div
-                class="absolute inset-y-0 left-0 z-10 bg-gradient-to-r from-[#cc2200] to-[#ee3311] rounded-full transition-all duration-500"
-                :style="withTransition({ width: `${enemyStats.maxHp > 0 ? (enemyStats.hp / enemyStats.maxHp) * 100 : 0}%` }, 500)"
-              ></div>
-              <div
-                class="absolute inset-y-0 left-0 z-20 bg-green-600/75 rounded-full transition-all duration-500 poison-wave-bar"
-                :style="withTransition({ width: `${enemyPoisonAmountPercent}%` }, 500)"
-              ></div>
-            </div>
-            <span class="text-[10px] text-white/70 w-14 text-right">{{ formatCombatHp(enemyStats.hp, infiniteHpDisplay.enemy.hp) }}/{{ formatCombatHp(enemyStats.maxHp, infiniteHpDisplay.enemy.maxHp) }}</span>
-          </div>
+          <CombatHealthBar
+            side="enemy"
+            :hp="enemyStats.hp"
+            :max-hp="enemyStats.maxHp"
+            :armor="enemyArmor"
+            :swarm-hp="enemySwarmHp"
+            :poison-amount="enemyPoisonAmount"
+            :impact-token="healthBarImpactTokens.enemy"
+            :speed-multiplier="speedMultiplier"
+            :value-text="`${formatCombatHp(enemyStats.hp, infiniteHpDisplay.enemy.hp)}/${formatCombatHp(enemyStats.maxHp, infiniteHpDisplay.enemy.maxHp)}`"
+          />
           <!-- MP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-[10px] text-[#55aaff] font-bold w-6">MP</span>
@@ -610,7 +612,7 @@
               v-for="popup in floatingNumbersFor('player')"
               :key="popup.id"
               class="combat-float-number absolute text-xl font-extrabold tracking-wide"
-              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '']"
+              :class="[popup.colorClass, popup.kind === 'heal' ? 'combat-float-number--heal' : '', popup.damageBeforeLimitText ? 'combat-float-number--limited' : '', popup.heavyDamage ? 'combat-float-number--heavy' : '']"
               :style="{
                 left: `calc(50% + ${popup.leftOffset}px)`,
                 top: `${popup.topOffset}px`,
@@ -684,20 +686,17 @@
             </button>
           </TransitionGroup>
           <!-- HP Bar -->
-          <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-[10px] text-[#ff6666] font-bold w-6">HP</span>
-            <div class="relative flex-1 h-2.5 bg-[#1a0a0a] rounded-full overflow-hidden border border-red-900/20">
-              <div
-                class="absolute inset-y-0 left-0 z-10 bg-gradient-to-r from-[#cc2200] to-[#ee3311] rounded-full transition-all duration-500"
-                :style="withTransition({ width: `${playerStats.maxHp > 0 ? (playerStats.hp / playerStats.maxHp) * 100 : 0}%` }, 500)"
-              ></div>
-              <div
-                class="absolute inset-y-0 left-0 z-20 bg-green-600/75 rounded-full transition-all duration-500 poison-wave-bar"
-                :style="withTransition({ width: `${playerPoisonAmountPercent}%` }, 500)"
-              ></div>
-            </div>
-            <span class="text-[10px] text-white/70 w-14 text-right">{{ formatCombatHp(playerStats.hp, infiniteHpDisplay.player.hp) }}/{{ formatCombatHp(playerStats.maxHp, infiniteHpDisplay.player.maxHp) }}</span>
-          </div>
+          <CombatHealthBar
+            side="player"
+            :hp="playerStats.hp"
+            :max-hp="playerStats.maxHp"
+            :armor="playerArmor"
+            :swarm-hp="playerSwarmHp"
+            :poison-amount="playerPoisonAmount"
+            :impact-token="healthBarImpactTokens.player"
+            :speed-multiplier="speedMultiplier"
+            :value-text="`${formatCombatHp(playerStats.hp, infiniteHpDisplay.player.hp)}/${formatCombatHp(playerStats.maxHp, infiniteHpDisplay.player.maxHp)}`"
+          />
           <!-- MP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-[10px] text-[#55aaff] font-bold w-6">MP</span>
@@ -1185,6 +1184,7 @@ import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type Car
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
+import CombatHealthBar from './CombatHealthBar.vue';
 import MainButtonSkin from './MainButtonSkin.vue';
 import BattleFxLayer from './BattleFxLayer.vue';
 import SoundSettings from './SoundSettings.vue';
@@ -1722,6 +1722,15 @@ const playerArmor = computed(() => {
 const enemyArmor = computed(() => {
   return getEffectStacks(enemyStats.value, ET.ARMOR);
 });
+const getSwarmRecoverableHp = (entity: EntityStats): number | null => {
+  const swarmStacks = getEffectStacks(entity, ET.SWARM);
+  const mirrorSwarmStacks = getEffectStacks(entity, ET.MIRROR_SWARM);
+  if (swarmStacks <= 0 && mirrorSwarmStacks <= 0) return null;
+  const reducedHp = Math.max(0, Math.floor(entity.maxHp) - Math.max(0, Math.floor(entity.swarmHealReduction ?? 0)));
+  return swarmStacks > 0 ? reducedHp : Math.max(1, reducedHp);
+};
+const playerSwarmHp = computed(() => getSwarmRecoverableHp(playerStats.value));
+const enemySwarmHp = computed(() => getSwarmRecoverableHp(enemyStats.value));
 const playerPoisonAmount = computed(() => {
   return getEffectStacks(playerStats.value, ET.POISON_AMOUNT);
 });
@@ -1733,14 +1742,6 @@ const playerTempMaxHp = computed(() => {
 });
 const enemyTempMaxHp = computed(() => {
   return getEffectStacks(enemyStats.value, ET.TEMP_MAX_HP);
-});
-const playerPoisonAmountPercent = computed(() => {
-  if (playerStats.value.maxHp <= 0) return 0;
-  return Math.max(0, Math.min((playerPoisonAmount.value / playerStats.value.maxHp) * 100, 100));
-});
-const enemyPoisonAmountPercent = computed(() => {
-  if (enemyStats.value.maxHp <= 0) return 0;
-  return Math.max(0, Math.min((enemyPoisonAmount.value / enemyStats.value.maxHp) * 100, 100));
 });
 const playerVisibleEffects = computed(() => playerStats.value.effects
   .filter(e => e.polarity !== 'scene' && e.type !== ET.ARMOR && e.type !== ET.POISON_AMOUNT && e.type !== ET.TEMP_MAX_HP)
@@ -1818,10 +1819,6 @@ const getLeviathanSummonVisibleEffects = (summon: LeviathanSummonRuntime) => sum
 
 const getLeviathanSummonArmor = (summon: LeviathanSummonRuntime): number => (
   Math.max(0, getEffectStacks(summon.stats, ET.ARMOR))
-);
-
-const getLeviathanSummonHpPercent = (summon: LeviathanSummonRuntime): number => (
-  summon.stats.maxHp > 0 ? Math.max(0, Math.min(100, (summon.stats.hp / summon.stats.maxHp) * 100)) : 0
 );
 
 const getLeviathanSummonById = (id: LeviathanTargetId): LeviathanSummonRuntime | null => (
@@ -2232,6 +2229,8 @@ const showClashAnimation = ref(false);
 const shatteringTarget = ref<'player' | 'enemy' | 'both' | null>(null);
 const screenShake = ref(false);
 const impactShake = ref(false);
+const heavyDamageShake = ref(false);
+let heavyDamageShakeToken = 0;
 const overlayOpen = ref<'deck' | 'discard' | null>(null);
 const settingsOpen = ref(false);
 const battleSpeedUp = ref(false);
@@ -2278,6 +2277,28 @@ interface ResolvedCardVisualOrigin {
 type HandCardAnimationKind = 'draw' | 'discard' | 'turn_end_in_hand';
 type TooltipAlign = 'center' | 'right';
 type CardPlayCheckResult = ReturnType<typeof canPlayCard>;
+
+const healthBarImpactTokens = reactive<Record<BattleSide, number>>({
+  player: 0,
+  enemy: 0,
+});
+
+const triggerHealthBarArmorImpact = (side: BattleSide, target: EntityStats) => {
+  const mainEntity = side === 'player' ? playerStats.value : enemyStats.value;
+  if (toRaw(target) !== toRaw(mainEntity)) return;
+  healthBarImpactTokens[side] += 1;
+};
+
+const triggerHeavyDamageShake = () => {
+  const token = ++heavyDamageShakeToken;
+  heavyDamageShake.value = false;
+  requestAnimationFrame(() => {
+    if (token === heavyDamageShakeToken) heavyDamageShake.value = true;
+  });
+  setTimeout(() => {
+    if (token === heavyDamageShakeToken) heavyDamageShake.value = false;
+  }, scaleDuration(420));
+};
 
 const playerManaBlockedShake = ref(false);
 const blockedEffectAnimation = ref<{ side: BattleSide; type: EffectType; token: number } | null>(null);
@@ -2347,6 +2368,7 @@ interface FloatingNumberEntry {
   targetId?: LeviathanTargetId;
   kind?: FloatingNumberKind;
   text: string;
+  heavyDamage?: boolean;
   damageBeforeLimitText?: string;
   colorClass: string;
   leftOffset: number;
@@ -3270,6 +3292,7 @@ const applyDamageToSideWithRelics = (
     }
   }
   const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
+  const targetMaxHpBeforeDamage = Math.max(0, Math.floor(target.maxHp));
   const armorBeforeDamage = getEffectStacks(target, ET.ARMOR);
   if (painScene) {
     adjusted = painIncomingDamage(painScene, side, adjusted, effectiveTrueDamage);
@@ -3283,7 +3306,15 @@ const applyDamageToSideWithRelics = (
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!damageOptions.card?.swarmAttack,
   });
-  if (getEffectStacks(target, ET.ARMOR) < armorBeforeDamage) presentEffect(target, 'armor');
+  if (result.actualDamage > targetMaxHpBeforeDamage * 0.35) {
+    triggerHeavyDamageShake();
+  }
+  const armorAfterDamage = getEffectStacks(target, ET.ARMOR);
+  const armorWasConsumed = armorAfterDamage < armorBeforeDamage;
+  if (armorWasConsumed) presentEffect(target, 'armor');
+  if (result.actualDamage <= 0 && armorWasConsumed) {
+    triggerHealthBarArmorImpact(side, target);
+  }
   if (damageOptions.feedbackEffect) {
     presentEffect(target, damageOptions.feedbackEffect, result.actualDamage > 0 ? 'proc' : 'blocked');
   }
@@ -6017,6 +6048,8 @@ const stopAllCardAnimations = () => {
   clearResolvedCardVisual();
   handCardAnimations.value = {};
   impactShake.value = false;
+  heavyDamageShakeToken += 1;
+  heavyDamageShake.value = false;
   showClashAnimation.value = false;
   shatteringTarget.value = null;
 };
@@ -7234,6 +7267,15 @@ const pushFloatingNumber = (
   const amount = Math.max(0, Math.floor(value));
   if (amount <= 0 && !options?.allowZero) return;
   const damageBeforeLimit = Math.max(0, Math.floor(options?.damageBeforeLimit ?? 0));
+  const floatingTargetEntity = options?.targetEntity ?? (
+    side === 'player'
+      ? playerStats.value
+      : (options?.targetId && isLeviathanBattle
+        ? (getLeviathanSummonById(options.targetId)?.stats ?? enemyStats.value)
+        : enemyStats.value)
+  );
+  const targetMaxHp = Math.max(0, Math.floor(floatingTargetEntity.maxHp));
+  const heavyDamage = sign === '-' && targetMaxHp > 0 && amount > targetMaxHp * 0.35;
 
   const id = ++floatingNumberId;
   const duration = kind === 'heal' ? 1800 : 1350;
@@ -7245,7 +7287,8 @@ const pushFloatingNumber = (
     side,
     targetId,
     kind,
-    text: `${sign}${amount}`,
+    text: heavyDamage ? `${amount}!` : `${sign}${amount}`,
+    heavyDamage,
     damageBeforeLimitText: sign === '-' && (kind === 'physical' || kind === 'magic') && damageBeforeLimit > amount
       ? `-${damageBeforeLimit}`
       : undefined,
@@ -13741,6 +13784,15 @@ watch(
   -webkit-text-stroke: 0.45px rgba(6, 78, 59, 0.9);
 }
 
+.combat-float-number--heavy {
+  color: #c084fc !important;
+  text-shadow:
+    0 0 10px rgba(192, 132, 252, 0.98),
+    0 0 24px rgba(168, 85, 247, 0.8);
+  -webkit-text-stroke: 0.55px rgba(59, 7, 100, 0.95);
+  animation-name: combat-float-heavy-up;
+}
+
 .player-played-card {
   width: 10rem;
   z-index: 56;
@@ -14042,6 +14094,27 @@ watch(
   }
 }
 
+@keyframes combat-float-heavy-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(1.7);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -3px) scale(2.05);
+  }
+  28% {
+    transform: translate(-50%, -1px) scale(1.8);
+  }
+  45% {
+    transform: translate(-50%, -12px) scale(2.05);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -42px) scale(2.1);
+  }
+}
+
 .combat-root :deep(.animate-float) {
   animation-duration: 6s;
 }
@@ -14060,6 +14133,10 @@ watch(
   animation: impact-nudge 0.2s ease-out;
 }
 
+.combat-root.animate-heavy-impact-shake {
+  animation: heavy-impact-nudge calc(0.42s / var(--combat-speed-multiplier, 1)) cubic-bezier(0.25, 0.8, 0.22, 1);
+}
+
 @keyframes impact-nudge {
   0% {
     transform: translate3d(0, 0, 0);
@@ -14075,6 +14152,27 @@ watch(
   }
   100% {
     transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes heavy-impact-nudge {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  14% {
+    transform: translate3d(-10px, 5px, 0) rotate(-0.25deg);
+  }
+  30% {
+    transform: translate3d(8px, -5px, 0) rotate(0.22deg);
+  }
+  48% {
+    transform: translate3d(-6px, 3px, 0) rotate(-0.16deg);
+  }
+  68% {
+    transform: translate3d(3px, -2px, 0) rotate(0.08deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
   }
 }
 
@@ -14815,12 +14913,6 @@ watch(
   overflow: hidden;
   border-radius: 999px;
   background: rgba(69, 10, 10, 0.85);
-}
-
-.leviathan-summon-hpbar-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgb(190, 36, 20), rgb(239, 68, 45));
 }
 
 .leviathan-summon-meta {
