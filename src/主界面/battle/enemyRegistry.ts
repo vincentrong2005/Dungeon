@@ -1,6 +1,6 @@
 import { CardType, EffectType, type CardData, type EnemyAIContext, type EnemyDefinition } from '../types';
-import { PAIN_CARD, SIGEL_CARD, getAllCards } from './cardRegistry';
 import { calculateFinalPoint } from './algorithms';
+import { PAIN_CARD, SIGEL_CARD, getAllCards } from './cardRegistry';
 import { ELEMENTAL_DEBUFF_TYPES, getEffectStacks } from './effects';
 
 function pickCardById(ctx: EnemyAIContext, id: string): CardData {
@@ -1710,26 +1710,27 @@ const 圣痕蝶: EnemyDefinition = {
       0,
       Math.floor(ctx.playerStats.effects.find(e => e.type === EffectType.STIGMATA)?.stacks ?? 0),
     );
-    const pool = playerStigmataStacks >= 2 && ctx.enemyStats.mp >= 4
-      ? [
-          { value: STIGMATA_BUTTERFLY_CARD.SWARM_DANCE, weight: 20 },
-          { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 20 },
-          { value: STIGMATA_BUTTERFLY_CARD.RESONANCE, weight: 35 },
-          { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 12 },
-          { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 13 },
-        ]
-      : playerStigmataStacks >= 2
+    const pool =
+      playerStigmataStacks >= 2 && ctx.enemyStats.mp >= 4
         ? [
-            { value: STIGMATA_BUTTERFLY_CARD.SWARM_DANCE, weight: 25 },
-            { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 45 },
-            { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 15 },
-            { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 15 },
+            { value: STIGMATA_BUTTERFLY_CARD.SWARM_DANCE, weight: 20 },
+            { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 20 },
+            { value: STIGMATA_BUTTERFLY_CARD.RESONANCE, weight: 35 },
+            { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 12 },
+            { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 13 },
           ]
-        : [
-            { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 50 },
-            { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 25 },
-            { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 25 },
-          ];
+        : playerStigmataStacks >= 2
+          ? [
+              { value: STIGMATA_BUTTERFLY_CARD.SWARM_DANCE, weight: 25 },
+              { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 45 },
+              { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 15 },
+              { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 15 },
+            ]
+          : [
+              { value: STIGMATA_BUTTERFLY_CARD.ENGRAVE, weight: 50 },
+              { value: STIGMATA_BUTTERFLY_CARD.FEATHER_FALL, weight: 25 },
+              { value: STIGMATA_BUTTERFLY_CARD.DESCENT, weight: 25 },
+            ];
     const chosen = weightedRandomWithoutImmediateRepeat(ctx, 'stigmataButterflyLastWeightedCardId', pool);
     return pickCardById(ctx, chosen);
   },
@@ -3909,15 +3910,15 @@ const isPlayerFirstCardUnplayableForOthello = (ctx: EnemyAIContext, card: CardDa
     if (ctx.playerStats.effects.some(e => e.type === EffectType.SILENCE && e.stacks > 0)) return true;
   }
   if (
-    ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0)
-    && (card.type === CardType.PHYSICAL || card.type === CardType.DODGE)
+    ctx.playerStats.effects.some(e => e.type === EffectType.BIND && e.stacks > 0) &&
+    (card.type === CardType.PHYSICAL || card.type === CardType.DODGE)
   ) {
     return true;
   }
   if (
-    ctx.playerStats.effects.some(e => e.type === EffectType.DEVOUR && e.stacks > 0)
-    && Math.max(0, Math.floor(ctx.playerBaseDice ?? 0)) <= 3
-    && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC || card.type === CardType.DODGE)
+    ctx.playerStats.effects.some(e => e.type === EffectType.DEVOUR && e.stacks > 0) &&
+    Math.max(0, Math.floor(ctx.playerBaseDice ?? 0)) <= 3 &&
+    (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC || card.type === CardType.DODGE)
   ) {
     return true;
   }
@@ -4194,7 +4195,7 @@ const 利维坦: EnemyDefinition = {
       const storedWeight = Number.isFinite(rawStoredWeight) ? Math.max(10, rawStoredWeight) : 10;
       const storedTurn = Number.isFinite(rawStoredTurn) ? Math.max(0, Math.floor(rawStoredTurn)) : turn;
       const elapsedTurns = Math.max(0, turn - storedTurn);
-      summonCardWeight = storedWeight * (1.28 ** elapsedTurns);
+      summonCardWeight = storedWeight * 1.28 ** elapsedTurns;
       ctx.flags.leviathanSummonCardWeight = summonCardWeight;
       ctx.flags.leviathanSummonCardWeightTurn = turn;
     }
@@ -4393,9 +4394,12 @@ const 奥赛罗: EnemyDefinition = {
       return card;
     };
     const pickPhysicalOrMagic = (): CardData => {
-      const candidates = [playableByType(CardType.PHYSICAL), playableByType(CardType.MAGIC)]
-        .filter((card): card is CardData => !!card);
-      return candidates[Math.floor(Math.random() * candidates.length)] ?? playableByType(CardType.PHYSICAL) ?? ctx.deck[0]!;
+      const candidates = [playableByType(CardType.PHYSICAL), playableByType(CardType.MAGIC)].filter(
+        (card): card is CardData => !!card,
+      );
+      return (
+        candidates[Math.floor(Math.random() * candidates.length)] ?? playableByType(CardType.PHYSICAL) ?? ctx.deck[0]!
+      );
     };
     const pickEvenlyByTypes = (types: CardType[]): CardData => {
       const candidates = types.map(type => playableByType(type)).filter((card): card is CardData => !!card);
@@ -4429,8 +4433,18 @@ const 奥赛罗: EnemyDefinition = {
     if (firstPlayerCard.type === CardType.PHYSICAL || firstPlayerCard.type === CardType.MAGIC) {
       const sameTypeCard = playableByType(firstPlayerCard.type);
       if (sameTypeCard) {
-        const enemyPoint = getOthelloFinalPoint(ctx, 'enemy', sameTypeCard, Math.max(0, Math.floor(ctx.enemyBaseDice ?? 0)));
-        const playerPoint = getOthelloFinalPoint(ctx, 'player', firstPlayerCard, Math.max(0, Math.floor(ctx.playerBaseDice ?? 0)));
+        const enemyPoint = getOthelloFinalPoint(
+          ctx,
+          'enemy',
+          sameTypeCard,
+          Math.max(0, Math.floor(ctx.enemyBaseDice ?? 0)),
+        );
+        const playerPoint = getOthelloFinalPoint(
+          ctx,
+          'player',
+          firstPlayerCard,
+          Math.max(0, Math.floor(ctx.playerBaseDice ?? 0)),
+        );
         if (enemyPoint >= playerPoint) {
           return pickWinningCardByPlayerAttackType(firstPlayerCard.type);
         }
@@ -4540,7 +4554,11 @@ const 晶体刺猬: EnemyDefinition = {
 const 佩恩: EnemyDefinition = {
   name: '佩恩',
   stats: {
-    hp: 600, maxHp: 700, mp: 8, minDice: 8, maxDice: 14,
+    hp: 600,
+    maxHp: 700,
+    mp: 8,
+    minDice: 8,
+    maxDice: 14,
     effects: [
       { type: EffectType.PHASE_TRANSITION, stacks: { maxHpRatio: 0.5 }, polarity: 'special' },
       { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
@@ -4549,8 +4567,15 @@ const 佩恩: EnemyDefinition = {
     ],
   },
   deck: buildDeckById([
-    PAIN_CARD.CHOOSE, PAIN_CARD.WHIP, PAIN_CARD.QUESTION, PAIN_CARD.SELF_HARM, PAIN_CARD.RETURN,
-    PAIN_CARD.CUT_ROBE, PAIN_CARD.EMBRACE, PAIN_CARD.RECEIVE, PAIN_CARD.REMEMBER,
+    PAIN_CARD.CHOOSE,
+    PAIN_CARD.WHIP,
+    PAIN_CARD.QUESTION,
+    PAIN_CARD.SELF_HARM,
+    PAIN_CARD.RETURN,
+    PAIN_CARD.CUT_ROBE,
+    PAIN_CARD.EMBRACE,
+    PAIN_CARD.RECEIVE,
+    PAIN_CARD.REMEMBER,
   ]),
   selectCard(ctx: EnemyAIContext) {
     const phaseTwo = ctx.flags.painPhaseTwo === true;
@@ -4606,17 +4631,18 @@ const 符文精灵: EnemyDefinition = {
     const regenerationStacks = ctx.enemyStats.effects
       .filter(effect => effect.type === EffectType.REGENERATION)
       .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
-    const cardId = regenerationStacks >= 5
-      ? 'enemy_rune_sprite_six_color'
-      : regenerationStacks === 4
-        ? 'enemy_rune_sprite_five_color'
-        : regenerationStacks === 3
-          ? 'enemy_rune_sprite_four_color'
-          : regenerationStacks === 2
-            ? 'enemy_rune_sprite_three_color'
-            : regenerationStacks === 1
-              ? 'enemy_rune_sprite_two_color'
-              : 'enemy_rune_sprite_gold';
+    const cardId =
+      regenerationStacks >= 5
+        ? 'enemy_rune_sprite_six_color'
+        : regenerationStacks === 4
+          ? 'enemy_rune_sprite_five_color'
+          : regenerationStacks === 3
+            ? 'enemy_rune_sprite_four_color'
+            : regenerationStacks === 2
+              ? 'enemy_rune_sprite_three_color'
+              : regenerationStacks === 1
+                ? 'enemy_rune_sprite_two_color'
+                : 'enemy_rune_sprite_gold';
     return pickCardById(ctx, cardId);
   },
 };
@@ -4656,13 +4682,7 @@ const 西格尔: EnemyDefinition = {
     if (ctx.enemyStats.mp < 3) {
       return pickCardById(ctx, SIGEL_CARD.REDRAW);
     }
-    const cycle = [
-      SIGEL_CARD.FRAGMENT,
-      SIGEL_CARD.FLAME,
-      SIGEL_CARD.FROST,
-      SIGEL_CARD.SHIFT,
-      SIGEL_CARD.DISORDER,
-    ];
+    const cycle = [SIGEL_CARD.FRAGMENT, SIGEL_CARD.FLAME, SIGEL_CARD.FROST, SIGEL_CARD.SHIFT, SIGEL_CARD.DISORDER];
     const index = Math.max(0, Math.floor(Number(ctx.flags.sigelCycle ?? 0))) % cycle.length;
     const id = cycle[index]!;
     if (id === SIGEL_CARD.DISORDER && ctx.enemyStats.mp < 5) {

@@ -2870,43 +2870,72 @@
               <div
                 v-if="chestRewardVisible && chestRewardRelics.length > 0"
                 class="chest-reward-anchor"
-                :class="{ 'is-multi': chestRewardRelics.length > 1 }"
+                :class="{
+                  'is-multi': chestRewardRelics.length > 1,
+                  'is-intro': chestRewardIntro,
+                }"
               >
-                <button
+                <div
                   v-for="(relic, i) in chestRewardRelics"
                   :key="`chest-reward-${relic.id}-${i}`"
-                  type="button"
-                  class="pointer-events-auto chest-reward-btn"
+                  class="chest-reward-slot"
                   :class="{
                     'is-collected': chestRewardCollectedFlags[i],
-                    'is-awaiting-confirm':
-                      isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i],
+                    'is-intro': chestRewardIntro,
+                    'is-common': relic.rarity === '普通',
+                    'is-rare': relic.rarity === '稀有',
+                    'is-legendary': relic.rarity === '传奇',
                   }"
-                  :disabled="chestCollecting || chestRewardCollectedFlags[i]"
-                  @click.stop="handleChestRewardClick($event, i)"
-                  @mouseenter="showChestRewardTooltip($event, i)"
-                  @mouseleave="hideRelicTooltip"
-                  @focus="showChestRewardTooltip($event, i)"
-                  @blur="hideRelicTooltip"
-                  @touchstart.stop.passive="handleChestRewardTouchStart($event, i)"
-                  @touchend.stop="handleRelicTouchEnd"
-                  @touchcancel.stop="handleRelicTouchEnd"
                 >
-                  <Box
-                    class="chest-reward-icon"
+                  <span class="chest-reward-pillar" aria-hidden="true"></span>
+                  <span class="chest-reward-ground-ring" aria-hidden="true"></span>
+                  <span class="chest-reward-dust-ring" aria-hidden="true"></span>
+                  <span
+                    v-for="particle in 7"
+                    :key="`chest-reward-particle-${particle}`"
+                    class="chest-reward-particle"
+                    :data-particle="particle"
+                    aria-hidden="true"
+                  ></span>
+                  <button
+                    type="button"
+                    class="pointer-events-auto chest-reward-btn"
+                    :aria-label="`${relic.name}，${formatRarityLabel(relic.rarity)}圣遗物`"
                     :class="{
+                      'is-collected': chestRewardCollectedFlags[i],
+                      'is-intro': chestRewardIntro,
                       'is-common': relic.rarity === '普通',
                       'is-rare': relic.rarity === '稀有',
                       'is-legendary': relic.rarity === '传奇',
+                      'is-awaiting-confirm':
+                        isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i],
                     }"
-                  />
-                  <span
-                    v-if="isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i]"
-                    class="chest-reward-confirm-hint"
+                    :disabled="chestCollecting || chestRewardCollectedFlags[i]"
+                    @click.stop="handleChestRewardClick($event, i)"
+                    @mouseenter="showChestRewardTooltip($event, i)"
+                    @mouseleave="hideRelicTooltip"
+                    @focus="showChestRewardTooltip($event, i)"
+                    @blur="hideRelicTooltip"
+                    @touchstart.stop.passive="handleChestRewardTouchStart($event, i)"
+                    @touchend.stop="handleRelicTouchEnd"
+                    @touchcancel.stop="handleRelicTouchEnd"
                   >
-                    再次点击获取
-                  </span>
-                </button>
+                    <Box
+                      class="chest-reward-icon"
+                      :class="{
+                        'is-common': relic.rarity === '普通',
+                        'is-rare': relic.rarity === '稀有',
+                        'is-legendary': relic.rarity === '传奇',
+                      }"
+                    />
+                    <span
+                      v-if="isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i]"
+                      class="chest-reward-confirm-hint"
+                    >
+                      再次点击获取
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <button
@@ -3834,6 +3863,7 @@ const chestRewardRelics = ref<RelicData[]>([]);
 const chestRewardCollectedFlags = ref<boolean[]>([]);
 const chestCollecting = ref(false);
 const chestRewardVisible = ref(false);
+const chestRewardIntro = ref(false);
 const chestOpenedBgReady = ref(false);
 const chestRewardCountFixed = ref<number | null>(null);
 const chestCloseCount = ref(0);
@@ -3922,6 +3952,7 @@ let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
 let chestCloseLongPressTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardConfirmTimer: ReturnType<typeof setTimeout> | null = null;
+let chestRewardIntroFrame: number | null = null;
 let shopProductConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
 let hotSpringCleanseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -5993,6 +6024,31 @@ const clearChestRewardConfirmTimer = () => {
   if (!chestRewardConfirmTimer) return;
   clearTimeout(chestRewardConfirmTimer);
   chestRewardConfirmTimer = null;
+};
+
+const clearChestRewardIntroFrame = () => {
+  if (chestRewardIntroFrame === null) return;
+  cancelAnimationFrame(chestRewardIntroFrame);
+  chestRewardIntroFrame = null;
+};
+
+const scheduleChestRewardIntro = () => {
+  clearChestRewardIntroFrame();
+  chestRewardIntro.value = false;
+  void nextTick(() => {
+    chestRewardIntroFrame = requestAnimationFrame(() => {
+      chestRewardIntroFrame = null;
+      if (
+        !isRestoringOverlayState.value &&
+        showChestView.value &&
+        chestStage.value === 'opened' &&
+        chestRewardVisible.value &&
+        chestRewardRelics.value.length > 0
+      ) {
+        chestRewardIntro.value = true;
+      }
+    });
+  });
 };
 
 const resetChestRewardConfirmation = (hideTooltip = true) => {
@@ -9272,6 +9328,7 @@ onUnmounted(() => {
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
   clearChestRewardConfirmTimer();
+  clearChestRewardIntroFrame();
   clearHotSpringCleanseTimer();
   clearGameFeedbackTimer();
   clearIdolRollTimer();
@@ -9287,6 +9344,7 @@ const handleChestBgLoaded = () => {
   const hasUncollectedReward = chestRewardRelics.value.some((_, idx) => !chestRewardCollectedFlags.value[idx]);
   if (hasUncollectedReward) {
     chestRewardVisible.value = true;
+    if (!isRestoringOverlayState.value) scheduleChestRewardIntro();
   }
 };
 
@@ -9297,12 +9355,15 @@ const openChestView = async (): Promise<boolean> => {
   clearChestRewardFadeTimer();
   clearChestCloseLongPressTimer();
   clearChestRewardConfirmTimer();
+  clearChestRewardIntroFrame();
   chestStage.value = 'closed';
   chestRolling.value = false;
   chestRewardRelics.value = [];
   chestRewardCollectedFlags.value = [];
   chestCollecting.value = false;
   chestRewardVisible.value = false;
+  chestRewardIntro.value = false;
+  clearChestRewardIntroFrame();
   chestOpenedBgReady.value = false;
   chestRewardCountFixed.value = null;
   chestCloseCount.value = 0;
@@ -9324,6 +9385,8 @@ const closeChestView = () => {
   showChestView.value = false;
   chestRolling.value = false;
   chestRewardVisible.value = false;
+  chestRewardIntro.value = false;
+  clearChestRewardIntroFrame();
   chestOpenedBgReady.value = false;
 };
 
@@ -9766,6 +9829,8 @@ const queueChestMimicCombatTransition = () => {
         showChestView.value = false;
         chestRolling.value = false;
         chestRewardVisible.value = false;
+        chestRewardIntro.value = false;
+        clearChestRewardIntroFrame();
       }
       chestMimicTimer = null;
     })();
@@ -9787,6 +9852,8 @@ const closeOpenedChestForRefresh = () => {
   chestRolling.value = false;
   chestCollecting.value = false;
   chestRewardVisible.value = false;
+  chestRewardIntro.value = false;
+  clearChestRewardIntroFrame();
   chestOpenedBgReady.value = false;
   chestRewardRelics.value = [];
   chestRewardCollectedFlags.value = [];
@@ -9855,6 +9922,8 @@ const handleChestCenterClick = async () => {
     chestStage.value = 'opened';
     chestOpenedBgReady.value = false;
     chestRewardVisible.value = false;
+    chestRewardIntro.value = false;
+    clearChestRewardIntroFrame();
     const rewardCount = chestRewardCountFixed.value ?? rollChestRewardCount();
     chestRewardCountFixed.value = rewardCount;
     const rewards = pickChestRewardRelics(rewardCount);
@@ -9867,6 +9936,7 @@ const handleChestCenterClick = async () => {
     chestCollecting.value = false;
     if (chestOpenedBgReady.value) {
       chestRewardVisible.value = true;
+      scheduleChestRewardIntro();
     }
     chestRolling.value = false;
     return;
@@ -9876,6 +9946,8 @@ const handleChestCenterClick = async () => {
   chestStage.value = 'mimic';
   chestCollecting.value = false;
   chestRewardVisible.value = false;
+  chestRewardIntro.value = false;
+  clearChestRewardIntroFrame();
   await gameStore.updateStatDataFields({ _对手名称: '宝箱怪' });
   queueChestMimicCombatTransition();
 };
@@ -10057,6 +10129,7 @@ const restoreOverlaySnapshot = async () => {
       chestRewardCollectedFlags.value = relics.map((_, idx) => Boolean(parsed.chest?.rewardCollectedFlags[idx]));
       chestCollecting.value = false;
       chestRewardVisible.value = Boolean(parsed.chest.rewardVisible);
+      chestRewardIntro.value = false;
       chestOpenedBgReady.value = Boolean(parsed.chest.openedBgReady);
       chestRewardCountFixed.value =
         parsed.chest.rewardCountFixed === null
@@ -13923,16 +13996,17 @@ onBeforeUnmount(() => {
 .chest-reward-anchor {
   position: absolute;
   left: 51%;
-  top: 45%;
+  top: 60%;
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.72rem;
+  z-index: 2;
 }
 
 .chest-reward-anchor.is-multi {
-  gap: 1.2rem;
+  gap: 4.6rem;
 }
 
 .map-overlay-finish-btn {
@@ -14000,6 +14074,8 @@ onBeforeUnmount(() => {
   filter: drop-shadow(0 0 14px var(--chest-reward-glow-medium))
     drop-shadow(0 0 28px var(--chest-reward-glow-soft))
     drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
+  position: relative;
+  z-index: 3;
 }
 
 .chest-reward-icon.is-common {
@@ -14023,20 +14099,208 @@ onBeforeUnmount(() => {
   --chest-reward-glow-soft: rgba(245, 158, 11, 0.55);
 }
 
+.chest-reward-slot {
+  --pillar-height: 14rem;
+  --launch-x: 0rem;
+  --launch-mid-x: 0rem;
+  --launch-apex-x: 0rem;
+  --chest-reward-color: rgba(96, 165, 250, 0.98);
+  --chest-reward-glow-strong: rgba(96, 165, 250, 0.95);
+  --chest-reward-glow-medium: rgba(59, 130, 246, 0.72);
+  --chest-reward-glow-soft: rgba(37, 99, 235, 0.4);
+  width: 8.1rem;
+  height: 8.9rem;
+  flex: 0 0 8.1rem;
+  position: relative;
+}
+
 .chest-reward-btn {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
   border: 0;
   border-radius: 9999px;
   background: transparent;
   padding: 0.25rem;
-  position: relative;
-  animation: chest-reward-float 4.2s ease-in-out infinite;
+  overflow: visible;
+  animation: chest-reward-float 3.6s ease-in-out infinite;
   transition:
     transform 0.2s ease,
     opacity 0.2s ease;
 }
 
-.chest-reward-btn:nth-child(2) {
-  animation-delay: -2.1s;
+.chest-reward-slot.is-rare {
+  --pillar-height: 19.6rem;
+  --chest-reward-color: rgba(192, 132, 252, 0.98);
+  --chest-reward-glow-strong: rgba(216, 180, 254, 0.95);
+  --chest-reward-glow-medium: rgba(168, 85, 247, 0.72);
+  --chest-reward-glow-soft: rgba(126, 34, 206, 0.42);
+}
+
+.chest-reward-slot.is-legendary {
+  --pillar-height: 36.4rem;
+  --chest-reward-color: rgba(252, 211, 77, 0.98);
+  --chest-reward-glow-strong: rgba(254, 240, 138, 0.95);
+  --chest-reward-glow-medium: rgba(251, 191, 36, 0.8);
+  --chest-reward-glow-soft: rgba(245, 158, 11, 0.55);
+}
+
+.chest-reward-pillar,
+.chest-reward-ground-ring,
+.chest-reward-dust-ring,
+.chest-reward-particle {
+  position: absolute;
+  pointer-events: none;
+}
+
+.chest-reward-pillar {
+  left: 50%;
+  bottom: 1.1rem;
+  width: 1.35rem;
+  height: var(--pillar-height);
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  background:
+    linear-gradient(90deg, transparent 0%, var(--chest-reward-glow-medium) 22%, var(--chest-reward-glow-strong) 50%, var(--chest-reward-glow-medium) 78%, transparent 100%),
+    linear-gradient(180deg, transparent 0%, var(--chest-reward-color) 68%, var(--chest-reward-glow-strong) 100%);
+  border-radius: 9999px;
+  filter: blur(0.08rem) drop-shadow(0 0 0.85rem var(--chest-reward-glow-medium));
+  opacity: 0.72;
+  z-index: 0;
+  animation: chest-reward-pillar-pulse 2.4s ease-in-out infinite;
+}
+
+.chest-reward-slot.is-intro .chest-reward-pillar {
+  opacity: 0;
+  animation:
+    chest-reward-pillar-rise 360ms cubic-bezier(0.22, 0.8, 0.28, 1) 450ms both,
+    chest-reward-pillar-pulse 2.4s ease-in-out 810ms infinite;
+}
+
+.chest-reward-ground-ring {
+  left: 50%;
+  bottom: 0.22rem;
+  width: 6.7rem;
+  height: 1.25rem;
+  transform: translateX(-50%);
+  border: 2px solid var(--chest-reward-color);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0.45rem var(--chest-reward-glow-strong),
+    0 0 1.25rem var(--chest-reward-glow-medium),
+    inset 0 0 0.5rem var(--chest-reward-glow-soft);
+  opacity: 0.92;
+  z-index: 1;
+}
+
+.chest-reward-slot.is-intro .chest-reward-ground-ring {
+  opacity: 0;
+  animation: chest-reward-ground-ring-reveal 260ms ease-out 450ms both;
+}
+
+.chest-reward-dust-ring {
+  left: 50%;
+  bottom: 0.05rem;
+  width: 4.1rem;
+  height: 0.92rem;
+  transform: translate(-50%, 0) scale(0.32);
+  border: 2px solid rgba(201, 201, 193, 0.72);
+  border-radius: 50%;
+  box-shadow: 0 0 0.75rem rgba(193, 193, 181, 0.32);
+  opacity: 0;
+  z-index: 2;
+}
+
+.chest-reward-particle {
+  left: 50%;
+  bottom: 2.2rem;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: var(--chest-reward-glow-strong);
+  box-shadow: 0 0 0.45rem var(--chest-reward-glow-strong);
+  --particle-delay: 0s;
+  opacity: 0;
+  z-index: 2;
+  animation: chest-reward-particle-rise 2.2s ease-in-out infinite;
+}
+
+.chest-reward-particle[data-particle='1'] {
+  --particle-x: -1.8rem;
+  --particle-rise: -7rem;
+  --particle-delay: -0.2s;
+}
+
+.chest-reward-particle[data-particle='2'] {
+  --particle-x: 1.6rem;
+  --particle-rise: -9rem;
+  --particle-delay: -0.9s;
+}
+
+.chest-reward-particle[data-particle='3'] {
+  --particle-x: -0.8rem;
+  --particle-rise: -11rem;
+  --particle-delay: -1.45s;
+}
+
+.chest-reward-particle[data-particle='4'] {
+  --particle-x: 2.3rem;
+  --particle-rise: -5.6rem;
+  --particle-delay: -0.55s;
+}
+
+.chest-reward-particle[data-particle='5'] {
+  --particle-x: -2.5rem;
+  --particle-rise: -4.8rem;
+  --particle-delay: -1.85s;
+}
+
+.chest-reward-particle[data-particle='6'] {
+  --particle-x: 0.55rem;
+  --particle-rise: -13rem;
+  --particle-delay: -1.15s;
+}
+
+.chest-reward-particle[data-particle='7'] {
+  --particle-x: -1.2rem;
+  --particle-rise: -8.2rem;
+  --particle-delay: -1.7s;
+}
+
+.chest-reward-slot:not(.is-intro) .chest-reward-particle {
+  opacity: 0.72;
+  animation-delay: var(--particle-delay);
+}
+
+.chest-reward-btn.is-intro {
+  animation:
+    chest-reward-entry 1170ms linear both,
+    chest-reward-float 3.6s ease-in-out 1170ms infinite;
+}
+
+.chest-reward-anchor.is-multi .chest-reward-slot:first-child {
+  --launch-x: 5.1rem;
+  --launch-mid-x: 3.876rem;
+  --launch-apex-x: 1.785rem;
+}
+
+.chest-reward-anchor.is-multi .chest-reward-slot:nth-child(2) {
+  --launch-x: -5.1rem;
+  --launch-mid-x: -3.876rem;
+  --launch-apex-x: -1.785rem;
+}
+
+.chest-reward-slot.is-intro .chest-reward-dust-ring {
+  animation: chest-reward-dust 520ms ease-out 450ms both;
+}
+
+.chest-reward-slot.is-intro .chest-reward-particle {
+  animation-delay: calc(810ms + var(--particle-delay));
+  animation-fill-mode: both;
 }
 
 @keyframes chest-reward-float {
@@ -14046,7 +14310,117 @@ onBeforeUnmount(() => {
   }
 
   50% {
-    transform: translateY(-0.25rem);
+    transform: translateY(-0.5rem);
+  }
+}
+
+@keyframes chest-reward-entry {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--launch-x), -8rem, 0) rotate(-11deg) scale(0.72);
+  }
+
+  7.7% {
+    opacity: 1;
+    transform: translate3d(var(--launch-mid-x), -6rem, 0) rotate(-8deg) scale(0.9);
+  }
+
+  18.5% {
+    opacity: 1;
+    transform: translate3d(var(--launch-apex-x), -15rem, 0) rotate(7deg) scale(1.02);
+  }
+
+  29.2% {
+    transform: translate3d(0, -4rem, 0) rotate(-3deg) scale(1.04);
+  }
+
+  38.5% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg) scaleX(1.15) scaleY(0.85);
+  }
+
+  52% {
+    transform: translate3d(0, -2.3rem, 0) scaleX(0.92) scaleY(1.06);
+  }
+
+  66.8% {
+    transform: translate3d(0, 0, 0) scaleX(1) scaleY(0.94);
+  }
+
+  77.3% {
+    transform: translate3d(0, -0.78rem, 0) scaleX(0.97) scaleY(1.02);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes chest-reward-dust {
+  0% {
+    opacity: 0.82;
+    transform: translate(-50%, 0) scale(0.32);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -0.3rem) scale(2.5);
+  }
+}
+
+@keyframes chest-reward-pillar-rise {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(0);
+  }
+
+  100% {
+    opacity: 0.72;
+    transform: translateX(-50%) scaleY(1);
+  }
+}
+
+@keyframes chest-reward-ground-ring-reveal {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.46);
+  }
+
+  100% {
+    opacity: 0.92;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@keyframes chest-reward-pillar-pulse {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+
+  50% {
+    opacity: 0.86;
+  }
+}
+
+@keyframes chest-reward-particle-rise {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.4);
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  72% {
+    opacity: 0.64;
+  }
+
+  88% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--particle-x)), var(--particle-rise)) scale(0.22);
   }
 }
 
@@ -14082,6 +14456,13 @@ onBeforeUnmount(() => {
 
 .chest-reward-btn.is-collected {
   opacity: 1;
+}
+
+.chest-reward-slot.is-collected .chest-reward-pillar,
+.chest-reward-slot.is-collected .chest-reward-ground-ring,
+.chest-reward-slot.is-collected .chest-reward-particle,
+.chest-reward-slot.is-collected .chest-reward-dust-ring {
+  opacity: 0;
 }
 
 .chest-reward-btn.is-collected .chest-reward-icon {
@@ -16813,7 +17194,11 @@ onBeforeUnmount(() => {
 
   .chest-reward-anchor {
     left: 46%;
-    top: 46%;
+    top: 60%;
+  }
+
+  .chest-reward-anchor.is-multi {
+    gap: 2.2rem;
   }
 
   .idol-slots-row {
