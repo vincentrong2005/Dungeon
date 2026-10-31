@@ -382,10 +382,14 @@ export function parseResponse(text: string, options?: ResponseParserOptions): Pa
 
   // 提取各标签
   const mainBlock = extractMainTagByPriority(cleanText, ['maintext', 'maintxt', 'content', '正文']);
-  let mainText = removeHtmlComments(mainBlock?.content ?? '');
-  mainText = mergeExternalTucaoBlocks(mainText, cleanText, mainBlock);
+  let mainText = mainBlock ? removeHtmlComments(mainBlock.content) : cleanText;
+  if (mainBlock) {
+    mainText = mergeExternalTucaoBlocks(mainText, cleanText, mainBlock);
+  }
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
-  mainText = appendExternalDisplayBlocks(mainText, cleanText);
+  if (mainBlock) {
+    mainText = appendExternalDisplayBlocks(mainText, cleanText);
+  }
   const optionRaw = extractTag(cleanText, 'option');
   const summary = extractTag(cleanText, 'sum');
 
@@ -438,11 +442,21 @@ export function extractSummary(messageText: string, options?: ResponseParserOpti
 export function extractMainText(messageText: string, options?: ResponseParserOptions): string {
   const clean = getParserSourceText(messageText, options);
   const mainBlock = extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']);
-  let mainText = removeHtmlComments(mainBlock?.content ?? '');
-  mainText = mergeExternalTucaoBlocks(mainText, clean, mainBlock);
+  let mainText = mainBlock ? removeHtmlComments(mainBlock.content) : clean;
+  if (mainBlock) {
+    mainText = mergeExternalTucaoBlocks(mainText, clean, mainBlock);
+  }
   // <image>/<img> 标签内容始终显示，追加正文外的 image 块
-  mainText = appendExternalDisplayBlocks(mainText, clean);
+  if (mainBlock) {
+    mainText = appendExternalDisplayBlocks(mainText, clean);
+  }
   return mainText;
+}
+
+/** Detect whether a message contains a usable main-text tag for the display fallback notice. */
+export function hasMainTextTag(messageText: string, options?: ResponseParserOptions): boolean {
+  const clean = getParserSourceText(messageText, options);
+  return extractMainTagByPriority(clean, ['maintext', 'maintxt', 'content', '正文']) !== null;
 }
 
 /**

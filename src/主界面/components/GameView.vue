@@ -151,6 +151,10 @@
                 消息楼层 第 {{ currentTavernFloorNumber }} 层
               </div>
 
+              <div v-if="showMissingMainTextTagNotice" class="story-main-text-warning" role="status">
+                未检测到正文标签，当前显示原始文本。
+              </div>
+
               <!-- Loading Indicator -->
               <div v-if="gameStore.isGenerating" class="flex items-center gap-3 mb-4">
                 <div class="flex gap-1">
@@ -3555,7 +3559,7 @@ import {
   type MapRoomNode,
 } from '../map';
 import type { OpeningInfoSubmission } from '../openingProfile';
-import { extractMainTextOnly } from '../responseParser';
+import { extractMainText, extractMainTextOnly, hasMainTextTag } from '../responseParser';
 import { CardType, EffectType, type ActiveSkillData, type CardData, type EffectInstance, type EntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import CombatView from './CombatView.vue';
@@ -3739,6 +3743,27 @@ const showLandscapeHint = computed(
     !isCompactPortraitLayout.value &&
     !landscapeHintDismissed.value,
 );
+const showMissingMainTextTagNotice = computed(() => {
+  void gameStore.mainText;
+  void gameStore.messageListRevision;
+  void gameStore.forbidMatchingXmlInsideThink;
+  if (gameStore.isGenerating) return false;
+
+  const lastMessageId = Number(getLastMessageId());
+  if (!Number.isFinite(lastMessageId) || lastMessageId < 0) return false;
+
+  const messages = getChatMessages(`0-${Math.floor(lastMessageId)}`, { hide_state: 'all' });
+  const latestAssistantMessage = messages.reduce<typeof messages[number] | null>((latest, message) => {
+    if (message.role !== 'assistant') return latest;
+    if (!latest) return message;
+    return Number(message.message_id) > Number(latest.message_id) ? message : latest;
+  }, null);
+  if (!latestAssistantMessage) return false;
+
+  return !hasMainTextTag(String(latestAssistantMessage.message ?? ''), {
+    forbidMatchingXmlInsideThink: gameStore.forbidMatchingXmlInsideThink,
+  });
+});
 const renderOpeningEntryAsViewportOverlay = computed(
   () => props.showOpeningEntry && isTouchViewport.value && viewportHeight.value > viewportWidth.value,
 );
@@ -6814,7 +6839,7 @@ const markStoryUserLines = (text: string): string =>
     .join('\n');
 
 const storyDisplaySourceText = computed<string>(() => {
-  const latestText = gameStore.mainText || '未能检测到正文标签，推测为空回/截断，请查看控制台输出';
+  const latestText = gameStore.mainText;
   if (textSettings.singleLayerDisplay) return latestText;
 
   // 只影响正文框显示：选项、变量、总结和生成流程仍全部读取最新楼层的 store 状态。
@@ -6845,10 +6870,13 @@ const storyDisplaySourceText = computed<string>(() => {
         }
         if (message.role !== 'assistant') return '';
 
+        const assistantText = String(message.message ?? '');
         const mainText =
           messageId === latestAssistantMessageId
             ? latestText.trim()
-            : extractMainTextOnly(String(message.message ?? ''), parserOptions).trim();
+            : hasMainTextTag(assistantText, parserOptions)
+              ? extractMainTextOnly(assistantText, parserOptions).trim()
+              : extractMainText(assistantText, parserOptions).trim();
         if (!mainText) return '';
         const dividerMarker =
           messageId === latestAssistantMessageId ? STORY_MULTI_CURRENT_DIVIDER_MARKER : STORY_MULTI_DIVIDER_MARKER;
@@ -12023,6 +12051,17 @@ onBeforeUnmount(() => {
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0.08em;
+}
+
+.story-main-text-warning {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(245, 158, 11, 0.46);
+  border-radius: 0.35rem;
+  background: rgba(120, 53, 15, 0.2);
+  color: rgba(253, 230, 138, 0.92);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .landscape-hint-overlay {
