@@ -7,6 +7,36 @@
 import { CardType, EffectType, type CardData } from '../types';
 import { EFFECT_REGISTRY } from './effects';
 
+export const UMBILICAL_TENTACLE_CARD = {
+  PULL: 'enemy_umbilical_tentacle_pull',
+  GRASP: 'enemy_umbilical_tentacle_deep_grasp',
+  WHIP: 'enemy_umbilical_tentacle_whip',
+  BACKFLOW: 'enemy_umbilical_tentacle_backflow',
+  STRUGGLE: 'umbilical_tentacle_struggle',
+} as const;
+
+/** 第1～2回合调整±2，第3～4回合调整±3，之后每两回合增加1。 */
+export function getUmbilicalPullLimit(turn: number): number {
+  return 2 + Math.floor(Math.max(0, Math.floor(turn) - 1) / 2);
+}
+
+export function getUmbilicalPullFinalPoint(point: number, opposingPoint: number | null, turn: number): number {
+  const ownPoint = Math.max(0, Math.floor(point));
+  if (opposingPoint === null) return ownPoint;
+  const difference = Math.max(0, Math.floor(opposingPoint)) - ownPoint;
+  const limit = getUmbilicalPullLimit(turn);
+  return ownPoint + Math.max(-limit, Math.min(limit, difference));
+}
+
+export function getUmbilicalPullDescription(turn: number): string {
+  return `调整自身点数，最多±${getUmbilicalPullLimit(turn)}；调整后若双方点数相同，施加99层束缚。`;
+}
+
+export function getUmbilicalWhipHitCount(opposingHand: readonly CardData[]): number {
+  const dodgeCount = opposingHand.filter(card => card.type === CardType.DODGE).length;
+  return Math.min(5, 2 + dodgeCount);
+}
+
 /**
  * =====================================================================
  * 卡牌编写条件（请在新增/修改卡牌时严格对照）
@@ -10421,6 +10451,109 @@ const 符文精灵_连锁共鸣: CardData = {
   description: '重掷对手；下回合开始施加1层紊乱；回复自身1倍点数法力。',
 };
 
+const 脐带触手_牵引入巢: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.PULL,
+  name: '牵引入巢',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '调整自身点数，最多±2；调整后若双方点数相同，施加99层束缚。',
+};
+
+const 脐带触手_挣脱: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.STRUGGLE,
+  name: '挣脱',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    {
+      kind: 'cleanse',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      cleanseTypes: [EffectType.BIND],
+    },
+  ],
+  description: '移除自身所有束缚。移除。',
+};
+
+const 脐带触手_深层缠握: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.GRASP,
+  name: '深层缠握',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+3，造成1倍最终点数伤害，施加1倍最终点数电击。',
+};
+
+const 脐带触手_脐带连鞭: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.WHIP,
+  name: '脐带连鞭',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5 },
+  hitCount: 2,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*2，造成0.5倍最终点数伤害，2连击；对方当前手牌中每有1张闪避牌，额外攻击1次，最多5连击。',
+};
+
+const 脐带触手_脐流回灌: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.BACKFLOW,
+  name: '脐流回灌',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 4.0,
+    },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.ARMOR,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 2.0,
+    },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.VULNERABLE,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '回复自身4倍最终点数生命，获得2倍最终点数护甲与1层敏感。',
+};
+
 export const PAIN_OATH_CARDS: CardData[] = [
   佩恩_一鞭为我,
   佩恩_握住刑柱,
@@ -11178,6 +11311,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [符文精灵_双色符.name, 符文精灵_双色符],
   [符文精灵_金符.name, 符文精灵_金符],
   [符文精灵_连锁共鸣.name, 符文精灵_连锁共鸣],
+  [脐带触手_牵引入巢.name, 脐带触手_牵引入巢],
+  [脐带触手_挣脱.name, 脐带触手_挣脱],
+  [脐带触手_深层缠握.name, 脐带触手_深层缠握],
+  [脐带触手_脐带连鞭.name, 脐带触手_脐带连鞭],
+  [脐带触手_脐流回灌.name, 脐带触手_脐流回灌],
   [冰锥.name, 冰锥],
   [佩恩_请你选择.name, 佩恩_请你选择],
   [佩恩_刑柱鞭痕.name, 佩恩_刑柱鞭痕],

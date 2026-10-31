@@ -643,6 +643,8 @@ export interface EnemyDefinition {
   name: string;
   /** 基础属性 */
   stats: InitialEntityStats;
+  /** 开战时将骰子区间替换为玩家当前区间，仅复制一次。 */
+  copyPlayerDiceRangeOnStart?: boolean;
   /** 敌人的牌组 */
   deck: CardData[];
   /** 战败负面状态：若玩家败于该敌人，则在战斗结束后写入对应 $负面状态 */

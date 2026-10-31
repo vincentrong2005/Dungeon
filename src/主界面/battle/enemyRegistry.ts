@@ -1,6 +1,6 @@
 import { CardType, EffectType, type CardData, type EnemyAIContext, type EnemyDefinition } from '../types';
 import { calculateFinalPoint } from './algorithms';
-import { PAIN_CARD, SIGEL_CARD, getAllCards } from './cardRegistry';
+import { PAIN_CARD, SIGEL_CARD, UMBILICAL_TENTACLE_CARD, getAllCards } from './cardRegistry';
 import { ELEMENTAL_DEBUFF_TYPES, getEffectStacks } from './effects';
 
 function pickCardById(ctx: EnemyAIContext, id: string): CardData {
@@ -4647,6 +4647,44 @@ const 符文精灵: EnemyDefinition = {
   },
 };
 
+const 脐带触手: EnemyDefinition = {
+  name: '脐带触手',
+  stats: {
+    hp: 320,
+    maxHp: 320,
+    mp: 0,
+    minDice: 3,
+    maxDice: 10,
+    effects: [{ type: EffectType.REGEN, stacks: 5, polarity: 'buff' }],
+  },
+  deck: buildDeckById([
+    UMBILICAL_TENTACLE_CARD.PULL,
+    UMBILICAL_TENTACLE_CARD.GRASP,
+    UMBILICAL_TENTACLE_CARD.WHIP,
+    UMBILICAL_TENTACLE_CARD.BACKFLOW,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (getEffectStacks(ctx.enemyStats, EffectType.BIND) > 0) {
+      return pickCardById(ctx, UMBILICAL_TENTACLE_CARD.STRUGGLE);
+    }
+    if (getEffectStacks(ctx.playerStats, EffectType.BIND) > 0) {
+      const id = weightedRandomWithoutImmediateRepeat(ctx, 'umbilicalTentacleLastCardId', [
+        { value: UMBILICAL_TENTACLE_CARD.WHIP, weight: 1 },
+        { value: UMBILICAL_TENTACLE_CARD.GRASP, weight: 1 },
+        { value: UMBILICAL_TENTACLE_CARD.BACKFLOW, weight: 1 },
+      ]);
+      return pickCardById(ctx, id);
+    }
+
+    const cycle = [UMBILICAL_TENTACLE_CARD.PULL, UMBILICAL_TENTACLE_CARD.PULL, UMBILICAL_TENTACLE_CARD.BACKFLOW];
+    const index = Math.max(0, Math.floor(Number(ctx.flags.umbilicalTentacleCycle ?? 0))) % cycle.length;
+    const id = cycle[index]!;
+    ctx.flags.umbilicalTentacleCycle = (index + 1) % cycle.length;
+    ctx.flags.umbilicalTentacleLastCardId = id;
+    return pickCardById(ctx, id);
+  },
+};
+
 const 西格尔: EnemyDefinition = {
   name: '西格尔',
   stats: {
@@ -4781,6 +4819,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [书魔.name, 书魔],
   [晶体刺猬.name, 晶体刺猬],
   [符文精灵.name, 符文精灵],
+  [脐带触手.name, 脐带触手],
 ]);
 
 const ENEMY_NAME_ORDER: readonly string[] = [沐芯兰名称, 宝箱怪名称, ...STATIC_ENEMY_REGISTRY.keys()];

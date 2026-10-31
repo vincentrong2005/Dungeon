@@ -59,6 +59,7 @@
 <script setup lang="ts">
 import { CircleHelp, Footprints, RefreshCcw, Skull, Sparkles, Sword, Zap } from 'lucide-vue-next';
 import { type CardData, CardType } from '../types';
+import { UMBILICAL_TENTACLE_CARD, getUmbilicalPullDescription } from '../battle/cardRegistry';
 import CardRulesPanel from './CardRulesPanel.vue';
 import CardFrameSkin, { type CardFrameType } from './CardFrameSkin.vue';
 
@@ -71,6 +72,7 @@ const props = withDefaults(
     isEnemy?: boolean;
     className?: string;
     maskLevel?: 'none' | 'partial' | 'full' | 'void';
+    currentTurn?: number;
   }>(),
   {
     disabled: false,
@@ -79,6 +81,7 @@ const props = withDefaults(
     isEnemy: false,
     className: '',
     maskLevel: 'none',
+    currentTurn: undefined,
   },
 );
 
@@ -127,7 +130,13 @@ const typeIcon = computed(() => {
 });
 
 const displayName = computed(() => (props.maskLevel === 'none' ? props.card.name : '???'));
-const displayDescription = computed(() => (props.maskLevel === 'none' ? props.card.description : '???'));
+const displayDescription = computed(() => {
+  if (props.maskLevel !== 'none') return '???';
+  if (props.card.id === UMBILICAL_TENTACLE_CARD.PULL && props.currentTurn !== undefined) {
+    return getUmbilicalPullDescription(props.currentTurn);
+  }
+  return props.card.description;
+});
 const showManaBadge = computed(
   () =>
     props.maskLevel === 'none' &&

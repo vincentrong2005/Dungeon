@@ -66,6 +66,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 
 const RATIO_EPSILON = 0.0001;
+// 血条反馈使用固定时长，不随战斗流程加速。
 const DAMAGE_HOLD_MS = 350;
 const DAMAGE_FOLLOW_MS = 450;
 const HIT_SHAKE_MS = 270;
@@ -84,7 +85,6 @@ const props = withDefaults(defineProps<{
   poisonAmount?: number;
   valueText?: string;
   impactToken?: number;
-  speedMultiplier?: number;
   compact?: boolean;
 }>(), {
   armor: 0,
@@ -92,7 +92,6 @@ const props = withDefaults(defineProps<{
   poisonAmount: 0,
   valueText: '',
   impactToken: 0,
-  speedMultiplier: 1,
   compact: false,
 });
 
@@ -100,11 +99,6 @@ const clampRatio = (value: number): number => Math.max(0, Math.min(1, Number.isF
 const hpRatio = (hp: number, maxHp: number): number => (
   maxHp > 0 ? clampRatio(hp / maxHp) : 0
 );
-const scaledDuration = (duration: number): number => {
-  const multiplier = Math.max(1, props.speedMultiplier || 1);
-  return Math.max(60, Math.floor(duration / multiplier));
-};
-
 const reducedMotion = typeof matchMedia !== 'undefined'
   && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -162,15 +156,15 @@ const triggerImpact = (heavy = false) => {
     impactActive.value = true;
     heavyImpactActive.value = heavy;
     flashActive.value = true;
+    impactTimer = setTimeout(() => {
+      if (token !== impactAnimationToken) return;
+      impactActive.value = false;
+      heavyImpactActive.value = false;
+    }, heavy ? HEAVY_HIT_SHAKE_MS : HIT_SHAKE_MS);
+    flashTimer = setTimeout(() => {
+      if (token === impactAnimationToken) flashActive.value = false;
+    }, HIT_FLASH_MS);
   });
-  impactTimer = setTimeout(() => {
-    if (token !== impactAnimationToken) return;
-    impactActive.value = false;
-    heavyImpactActive.value = false;
-  }, scaledDuration(heavy ? HEAVY_HIT_SHAKE_MS : HIT_SHAKE_MS));
-  flashTimer = setTimeout(() => {
-    if (token === impactAnimationToken) flashActive.value = false;
-  }, scaledDuration(HIT_FLASH_MS));
 };
 
 const resetVisualState = (nextHp: number, nextMaxHp: number) => {
@@ -189,10 +183,10 @@ const settleDamage = (token: number, nextRatio: number) => {
     damageTrailRatio.value = null;
     damageTrailVisible.value = false;
     damageTrailSettling.value = false;
-  }, scaledDuration(DAMAGE_FOLLOW_MS) + 20);
+  }, DAMAGE_FOLLOW_MS + 20);
 };
 
-const animateDamage = (previousRatio: number, nextRatio: number) => {
+const animateDamage = (previousRatio: number, nextRatio: number, heavy: boolean) => {
   animationToken += 1;
   const token = animationToken;
   clearHealAnimation();
@@ -203,13 +197,13 @@ const animateDamage = (previousRatio: number, nextRatio: number) => {
   displayHpRatio.value = nextRatio;
   damageTrailRatio.value = trailStart > nextRatio + RATIO_EPSILON ? trailStart : null;
   damageTrailVisible.value = damageTrailRatio.value !== null;
-  triggerImpact(previousRatio - nextRatio > 0.35 + RATIO_EPSILON);
+  triggerImpact(heavy);
   if (!damageTrailVisible.value) return;
   if (reducedMotion) {
     clearDamageAnimation();
     return;
   }
-  damageHoldTimer = setTimeout(() => settleDamage(token, nextRatio), scaledDuration(DAMAGE_HOLD_MS));
+  damageHoldTimer = setTimeout(() => settleDamage(token, nextRatio), DAMAGE_HOLD_MS);
 };
 
 const animateHeal = (nextRatio: number) => {
@@ -239,7 +233,7 @@ const animateHeal = (nextRatio: number) => {
     healLeadVisible.value = false;
     healLeadSettling.value = false;
     hpTransitioning.value = false;
-  }, scaledDuration(DAMAGE_FOLLOW_MS) + 20);
+  }, DAMAGE_FOLLOW_MS + 20);
 };
 
 watch(
@@ -252,7 +246,7 @@ watch(
     const previousRatio = hpRatio(previousHp, previousMaxHp);
     const nextRatio = hpRatio(nextHp, nextMaxHp);
     if (nextRatio < previousRatio - RATIO_EPSILON) {
-      animateDamage(previousRatio, nextRatio);
+      animateDamage(previousRatio, nextRatio, previousHp - nextHp > nextMaxHp * 0.25);
     } else if (nextRatio > previousRatio + RATIO_EPSILON) {
       animateHeal(nextRatio);
     }
@@ -275,37 +269,37 @@ const armorWidthRatio = computed(() => Math.min(armorRatio.value, Math.max(0, 1 
 const poisonRatio = computed(() => (
   props.maxHp > 0 ? clampRatio(Math.max(0, props.poisonAmount) / props.maxHp) : 0
 ));
-const transitionDuration = computed(() => `${scaledDuration(DAMAGE_FOLLOW_MS)}ms`);
-const armorTransitionDuration = computed(() => `${scaledDuration(ARMOR_TRANSITION_MS)}ms`);
-const swarmTransitionDuration = computed(() => `${scaledDuration(SWARM_TRANSITION_MS)}ms`);
-const poisonTransitionDuration = computed(() => `${scaledDuration(POISON_TRANSITION_MS)}ms`);
+const transitionDuration = `${DAMAGE_FOLLOW_MS}ms`;
+const armorTransitionDuration = `${ARMOR_TRANSITION_MS}ms`;
+const swarmTransitionDuration = `${SWARM_TRANSITION_MS}ms`;
+const poisonTransitionDuration = `${POISON_TRANSITION_MS}ms`;
 
 const fillStyle = computed(() => ({
   width: `${displayHpRatio.value * 100}%`,
-  transitionDuration: hpTransitioning.value ? transitionDuration.value : '0ms',
+  transitionDuration: hpTransitioning.value ? transitionDuration : '0ms',
 }));
 const damageTrailStyle = computed(() => ({
   left: `${displayHpRatio.value * 100}%`,
   width: `${Math.max(0, damageTrailRatio.value! - displayHpRatio.value) * 100}%`,
-  transitionDuration: damageTrailSettling.value ? transitionDuration.value : '0ms',
+  transitionDuration: damageTrailSettling.value ? transitionDuration : '0ms',
 }));
 const healLeadStyle = computed(() => ({
   left: `${healLeadStartRatio.value * 100}%`,
   width: `${Math.max(0, healLeadRatio.value! - healLeadStartRatio.value) * 100}%`,
-  transitionDuration: healLeadSettling.value ? transitionDuration.value : '0ms',
+  transitionDuration: healLeadSettling.value ? transitionDuration : '0ms',
 }));
 const armorStyle = computed(() => ({
   left: `${armorStartRatio.value * 100}%`,
   width: `${armorWidthRatio.value * 100}%`,
-  transitionDuration: reducedMotion ? '0ms' : armorTransitionDuration.value,
+  transitionDuration: reducedMotion ? '0ms' : armorTransitionDuration,
 }));
 const swarmStyle = computed(() => ({
   width: `${swarmWidthRatio.value * 100}%`,
-  transitionDuration: reducedMotion ? '0ms' : swarmTransitionDuration.value,
+  transitionDuration: reducedMotion ? '0ms' : swarmTransitionDuration,
 }));
 const poisonStyle = computed(() => ({
   width: `${poisonRatio.value * 100}%`,
-  transitionDuration: reducedMotion ? '0ms' : poisonTransitionDuration.value,
+  transitionDuration: reducedMotion ? '0ms' : poisonTransitionDuration,
 }));
 const ariaMax = computed(() => Math.max(0, Math.floor(props.maxHp)));
 const ariaNow = computed(() => Math.max(0, Math.min(ariaMax.value, Math.floor(props.hp))));
@@ -473,7 +467,7 @@ onUnmounted(() => {
 }
 
 .combat-health-bar__track--heavy-impact {
-  animation: combat-health-heavy-shake calc(0.42s / var(--combat-speed-multiplier, 1)) cubic-bezier(0.26, 0.8, 0.22, 1) both;
+  animation: combat-health-heavy-shake 0.42s cubic-bezier(0.26, 0.8, 0.22, 1) both;
 }
 
 @keyframes combat-health-heavy-shake {

@@ -119,7 +119,7 @@
                   <div class="entry-meta">
                     {{
                       encounteredEnemyNames.has(enemy.name)
-                        ? `HP ${enemy.stats.hp}/${enemy.stats.maxHp} · MP ${enemy.stats.mp} · 骰子 ${enemy.stats.minDice}~${enemy.stats.maxDice}`
+                        ? `HP ${enemy.stats.hp}/${enemy.stats.maxHp} · MP ${enemy.stats.mp} · 骰子 ${enemy.diceLabel}`
                         : 'HP ??? · MP ??? · 骰子 ???'
                     }}
                   </div>
@@ -483,6 +483,7 @@ const allEnemyEntries = computed(() => (
       floorLabel: isSpecialEnemy ? '特殊' : (floor > 0 ? String(floor) : '未知'),
       areaLabel,
       fallbackPortraitUrl: `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E7%89%A9/${encodeURIComponent(name)}.png`,
+      diceLabel: def?.copyPlayerDiceRangeOnStart ? '开战时复制玩家' : `${stats.minDice}~${stats.maxDice}`,
       stats: {
         hp: stats.hp,
         maxHp: stats.maxHp,

@@ -180,7 +180,7 @@
         <div class="pain-oath-dialog__title">请你选择</div>
         <div class="pain-oath-options">
           <button v-for="type in pendingPainOaths" :key="type" type="button" class="pain-oath-option" @click="confirmPainOath(type)">
-            <DungeonCard :card="getPainOathCard(type)" disabled />
+            <DungeonCard :card="getPainOathCard(type)" :current-turn="combatState.turn" disabled />
           </button>
         </div>
       </div>
@@ -219,6 +219,7 @@
               <DungeonCard
                 :card="entry.card"
                 :mask-level="enemyIntentMaskLevel"
+                :current-turn="combatState.turn"
                 is-enemy
                 disabled
               />
@@ -302,6 +303,7 @@
                 <DungeonCard
                   :card="summon.intentCard"
                   :mask-level="enemyIntentMaskLevel"
+                  :current-turn="combatState.turn"
                   is-enemy
                   disabled
                 />
@@ -765,7 +767,7 @@
       >
         <div :class="playerPlayedCardVisual.entered ? 'player-played-card-bob' : ''">
           <div class="combat-card-visual-scale">
-            <DungeonCard :card="playerPlayedCardVisual.card" disabled />
+            <DungeonCard :card="playerPlayedCardVisual.card" :current-turn="combatState.turn" disabled />
           </div>
         </div>
       </div>
@@ -779,7 +781,7 @@
       >
         <div class="resolved-card-visual-inner" :class="resolvedCardVisualInnerClass(visual)">
           <div class="combat-card-visual-scale">
-            <DungeonCard :card="visual.card" disabled />
+            <DungeonCard :card="visual.card" :current-turn="combatState.turn" disabled />
           </div>
         </div>
       </div>
@@ -874,6 +876,7 @@
             <DungeonCard
               :card="getDisplayHandCard(card)"
               :mask-level="getPlayerHandMaskLevel(idx, card)"
+              :current-turn="combatState.turn"
               :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT && combatState.playerSelectedCard !== card"
               @click="handleCardSelect(card, idx)"
             />
@@ -944,7 +947,7 @@
               class="rounded border border-dungeon-brown/50 bg-black/20 p-2 transition-colors hover:border-dungeon-gold/70"
               @click="confirmAlchemyGrandSynthesis(entry.card)"
             >
-              <DungeonCard :card="entry.card" disabled />
+              <DungeonCard :card="entry.card" :current-turn="combatState.turn" disabled />
             </button>
           </div>
         </div>
@@ -1057,7 +1060,7 @@
           v-if="effectTooltip.previewCard"
           class="effect-tooltip-card-preview"
         >
-          <DungeonCard :card="effectTooltip.previewCard" disabled />
+          <DungeonCard :card="effectTooltip.previewCard" :current-turn="combatState.turn" disabled />
         </div>
         <div class="effect-tooltip-desc">{{ effectTooltip.description }}</div>
         <div v-if="effectTooltip.stacks > 1" class="effect-tooltip-stacks">层数: {{ effectTooltip.stacks }}</div>
@@ -1088,7 +1091,7 @@
             :key="i"
             class="scale-75 origin-top-left"
           >
-            <DungeonCard :card="getDisplayPileCard(card)" disabled />
+            <DungeonCard :card="getDisplayPileCard(card)" :current-turn="combatState.turn" disabled />
           </div>
         </div>
       </div>
@@ -1140,7 +1143,7 @@ import {
     getPainOath, painHealingAmount, painIncomingDamage, painOutgoingDamage, painPointBonus,
     painThornsOnPlayerCard, recordPainHpLoss, updatePainPhase,
 } from '../battle/algorithms';
-import { PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, SIGEL_CARD, getAllCards, getCardByName, type PainOath } from '../battle/cardRegistry';
+import { PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, SIGEL_CARD, UMBILICAL_TENTACLE_CARD, getAllCards, getCardByName, getUmbilicalPullFinalPoint, getUmbilicalPullLimit, getUmbilicalWhipHitCount, type PainOath } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, beginRuneClash, canPlayCard, consumeRuneFinisherEnergy, findEffect, getEffectDisplayOrder, getEffectStacks, isRuneProtectionActive, processOnTurnEnd, processOnTurnStart as processEntityTurnStart, reduceEffectStacks, removeEffect, resolveRuneClashEnergy, startRuneTurn } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import { resolveInitialEntityStats } from '../battle/initialStats';
@@ -1504,6 +1507,10 @@ const buildEnemyInitialStats = (): EntityStats => {
     : { hp: 1, maxHp: 1, mp: 0, minDice: 1, maxDice: 1, effects: [] as EffectInstance[] };
   if (isMirrorCloneBattle) {
     baseStats.mp = Math.max(0, Math.floor(props.initialPlayerStats.mp));
+    baseStats.minDice = Math.max(0, Math.floor(props.initialPlayerStats.minDice));
+    baseStats.maxDice = Math.max(baseStats.minDice, Math.floor(props.initialPlayerStats.maxDice));
+  }
+  if (enemyDef?.copyPlayerDiceRangeOnStart) {
     baseStats.minDice = Math.max(0, Math.floor(props.initialPlayerStats.minDice));
     baseStats.maxDice = Math.max(baseStats.minDice, Math.floor(props.initialPlayerStats.maxDice));
   }
@@ -4530,6 +4537,42 @@ const applyInsertTrait = (source: BattleSide, card: CardData) => {
   }
 };
 
+const applyUmbilicalPullOnUse = (
+  source: BattleSide,
+  card: CardData,
+  finalPoint: number,
+  opposingPoint: number | null,
+): boolean => {
+  const label = source === 'player' ? '我方' : '敌方';
+  const insertStruggleOnFirstEffect = () => {
+    if (markBattleCardFirstUse(source, card.id)) {
+      applyInsertTrait(source, {
+        ...card,
+        traits: { ...card.traits, insertCardsToEnemyDeck: ['挣脱'] },
+      });
+      return true;
+    }
+    return false;
+  };
+  if (opposingPoint === null) {
+    log(`<span class="text-gray-400">${label}【${card.name}】对方跳过，未施加束缚。</span>`);
+    return false;
+  }
+  if (finalPoint !== opposingPoint) {
+    log(`<span class="text-gray-400">${label}【${card.name}】未达成相同点数，未施加束缚。</span>`);
+    return false;
+  }
+  const targetSide: BattleSide = source === 'player' ? 'enemy' : 'player';
+  const applied = applyStatusEffectWithRelics(targetSide, ET.BIND, 99, {
+    source: card.id,
+    lockDecayThisTurn: true,
+  });
+  if (!applied) return false;
+  log(`<span class="text-fuchsia-300">${label}【${card.name}】双方点数均为${finalPoint}，施加99层束缚。</span>`);
+  insertStruggleOnFirstEffect();
+  return true;
+};
+
 const insertFallenPersonalityMirrorForSide = (side: BattleSide, sourceText: string) => {
   const cardName = '堕落的人格镜像';
   const card = getCardByName(cardName);
@@ -5807,6 +5850,10 @@ const countBattleCardsForSide = (
 };
 
 const getAlchemyGoldenFlashHitCount = (source: BattleSide, card: CardData): number => {
+  if (card.id === UMBILICAL_TENTACLE_CARD.WHIP) {
+    const opposingHand = source === 'enemy' ? combatState.value.playerHand : [];
+    return getUmbilicalWhipHitCount(opposingHand);
+  }
   if (card.id !== 'alchemy_golden_flash') return Math.max(1, Math.floor(card.hitCount ?? 1));
   const hand = source === 'player' ? combatState.value.playerHand : [];
   const rareInHand = hand.filter(entry => entry.rarity === '稀有').length + (card.rarity === '稀有' ? 1 : 0);
@@ -6174,12 +6221,28 @@ const processRuneShiftTurnEnd = () => {
   pendingRuneShiftCards.clear();
 };
 
+const getUmbilicalOpposingPoint = (source: BattleSide, isPreview: boolean): number | null => {
+  const opposing = getOpposingCardForPointComparison(source);
+  const opposingCard = source === 'enemy' && isPreview
+    ? getPlayerCardContextForEnemyPointPreview()
+    : opposing.card;
+  if (!opposingCard || opposingCard.id === PASS_CARD.id) return null;
+  return getCardFinalPoint(
+    opposing.side,
+    opposingCard,
+    opposing.baseDice,
+    true,
+    opposingCard.id === UMBILICAL_TENTACLE_CARD.PULL,
+  );
+};
+
 const getCardFinalPoint = (
   source: 'player' | 'enemy',
   card: CardData,
   baseDice: number,
   isPreview: boolean = false,
   suppressComparisonSpecials: boolean = false,
+  opposingPointOverride?: number | null,
 ) => {
   const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
   const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
@@ -6447,6 +6510,14 @@ const getCardFinalPoint = (
       const sourceLabel = source === 'player' ? '我方' : '敌方';
       log(`<span class="text-fuchsia-300">${holderLabel}[怜悯] ${sourceLabel}打出被标记的【${card.type}】牌，点数 x0.5（${formatPointValue(beforeMercy)}→${formatPointValue(finalPoint)}）。</span>`);
     }
+  }
+
+  if (card.id === UMBILICAL_TENTACLE_CARD.PULL && !suppressComparisonSpecials) {
+    finalPoint = getUmbilicalPullFinalPoint(
+      finalPoint,
+      opposingPointOverride === undefined ? getUmbilicalOpposingPoint(source, isPreview) : opposingPointOverride,
+      combatState.value.turn,
+    );
   }
 
   return Math.max(0, Math.floor(finalPoint));
@@ -6863,6 +6934,14 @@ const buildCardPreviewLines = (
   if (getMercyEffectAgainstCard(source, card)) {
     finalPoint *= 0.5;
     lines.push(`怜悯 x0.5 => ${formatPointValue(finalPoint)}`);
+  }
+
+  if (card.id === UMBILICAL_TENTACLE_CARD.PULL) {
+    const opposingPoint = getUmbilicalOpposingPoint(source, true);
+    const before = Math.max(0, Math.floor(finalPoint));
+    finalPoint = getUmbilicalPullFinalPoint(before, opposingPoint, combatState.value.turn);
+    const delta = finalPoint - before;
+    lines.push(`牵引入巢（调整上限±${getUmbilicalPullLimit(combatState.value.turn)}）${delta >= 0 ? '+' : ''}${delta} => ${finalPoint}`);
   }
 
   const finalLine = `最终：${Math.max(0, Math.floor(finalPoint))}`;
@@ -10043,8 +10122,13 @@ const resolveCombat = async (
     executionerPuppetPointModifier.value = null;
   }
 
-  const pClashPoint = getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice);
-  const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
+  let pClashPoint = getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice);
+  const eClashPoint = resolvedEnemyCard.id === UMBILICAL_TENTACLE_CARD.PULL
+    ? getCardFinalPoint('enemy', resolvedEnemyCard, resolvedEnemyDice, true, false, playerSkippedTurn ? null : pClashPoint)
+    : getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
+  if (resolvedPlayerCard.id === UMBILICAL_TENTACLE_CARD.PULL) {
+    pClashPoint = getCardFinalPoint('player', resolvedPlayerCard, resolvedPlayerDice, true, false, enemySkippedTurn ? null : eClashPoint);
+  }
   if (!isEnemyComboPrelude) {
     previousPlayerLastCardType.value = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard.type;
     previousPlayerFinalPoint.value = resolvedPlayerCard.id === PASS_CARD.id ? resolvedPlayerDice : pClashPoint;
@@ -10439,7 +10523,9 @@ const resolveCombat = async (
 
     // Calculate final point for this card
     prepareRuneCardOnPlay(source, card);
-    const finalPoint = getCardFinalPoint(source, card, baseDice);
+    const finalPoint = card.id === UMBILICAL_TENTACLE_CARD.PULL
+      ? (source === 'player' ? pClashPoint : eClashPoint)
+      : getCardFinalPoint(source, card, baseDice);
     queueNextTurnStartCardEffects(source, card, finalPoint, attacker);
     let extraAttributesApplied = false;
     const applyCardExtraAttributes = () => {
@@ -11298,6 +11384,15 @@ const resolveCombat = async (
     }
 
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
+      if (card.id === UMBILICAL_TENTACLE_CARD.PULL) {
+        syncCurrentPointForUi();
+        const opposingPoint = opponentSkippedTurn
+          ? null
+          : source === 'player' ? eClashPoint : pClashPoint;
+        applyUmbilicalPullOnUse(source, card, finalPoint, opposingPoint);
+        finalizeAndTrack();
+        return;
+      }
       if (painScene && (card.id.startsWith('enemy_pain_') || card.id.startsWith('pain_curse_')) && card.selfDamage) {
         applyCardExtraAttributes();
         if (attacker.hp <= 0) {
