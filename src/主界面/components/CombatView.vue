@@ -360,7 +360,6 @@
                     :max-hp="summon.stats.maxHp"
                     :armor="getLeviathanSummonArmor(summon)"
                     :swarm-hp="getSwarmRecoverableHp(summon.stats)"
-                    :speed-multiplier="speedMultiplier"
                   />
                 </div>
                 <div class="leviathan-summon-meta">
@@ -499,7 +498,6 @@
             :swarm-hp="enemySwarmHp"
             :poison-amount="enemyPoisonAmount"
             :impact-token="healthBarImpactTokens.enemy"
-            :speed-multiplier="speedMultiplier"
             :value-text="`${formatCombatHp(enemyStats.hp, infiniteHpDisplay.enemy.hp)}/${formatCombatHp(enemyStats.maxHp, infiniteHpDisplay.enemy.maxHp)}`"
           />
           <!-- MP Bar -->
@@ -696,7 +694,6 @@
             :swarm-hp="playerSwarmHp"
             :poison-amount="playerPoisonAmount"
             :impact-token="healthBarImpactTokens.player"
-            :speed-multiplier="speedMultiplier"
             :value-text="`${formatCombatHp(playerStats.hp, infiniteHpDisplay.player.hp)}/${formatCombatHp(playerStats.maxHp, infiniteHpDisplay.player.maxHp)}`"
           />
           <!-- MP Bar -->
@@ -2300,11 +2297,12 @@ const triggerHeavyDamageShake = () => {
   const token = ++heavyDamageShakeToken;
   heavyDamageShake.value = false;
   requestAnimationFrame(() => {
-    if (token === heavyDamageShakeToken) heavyDamageShake.value = true;
+    if (token !== heavyDamageShakeToken) return;
+    heavyDamageShake.value = true;
+    setTimeout(() => {
+      if (token === heavyDamageShakeToken) heavyDamageShake.value = false;
+    }, 420);
   });
-  setTimeout(() => {
-    if (token === heavyDamageShakeToken) heavyDamageShake.value = false;
-  }, scaleDuration(420));
 };
 
 const playerManaBlockedShake = ref(false);
@@ -3313,7 +3311,7 @@ const applyDamageToSideWithRelics = (
     disableRevive: shouldDisableReviveForSide(side),
     swarmAttack: !!damageOptions.card?.swarmAttack,
   });
-  if (result.actualDamage > targetMaxHpBeforeDamage * 0.35) {
+  if (result.actualDamage > targetMaxHpBeforeDamage * 0.25) {
     triggerHeavyDamageShake();
   }
   const armorAfterDamage = getEffectStacks(target, ET.ARMOR);
@@ -7354,7 +7352,7 @@ const pushFloatingNumber = (
         : enemyStats.value)
   );
   const targetMaxHp = Math.max(0, Math.floor(floatingTargetEntity.maxHp));
-  const heavyDamage = sign === '-' && targetMaxHp > 0 && amount > targetMaxHp * 0.35;
+  const heavyDamage = sign === '-' && targetMaxHp > 0 && amount > targetMaxHp * 0.25;
 
   const id = ++floatingNumberId;
   const duration = kind === 'heal' ? 1800 : 1350;
@@ -14229,7 +14227,7 @@ watch(
 }
 
 .combat-root.animate-heavy-impact-shake {
-  animation: heavy-impact-nudge calc(0.42s / var(--combat-speed-multiplier, 1)) cubic-bezier(0.25, 0.8, 0.22, 1);
+  animation: heavy-impact-nudge 0.42s cubic-bezier(0.25, 0.8, 0.22, 1);
 }
 
 @keyframes impact-nudge {
