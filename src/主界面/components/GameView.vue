@@ -2211,6 +2211,46 @@
                   </div>
                 </div>
 
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>大总结流式输出</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('bigSummaryStreaming')"
+                      @mouseleave="closeSettingsHelp('bigSummaryStreaming')"
+                      @focus="openSettingsHelp('bigSummaryStreaming')"
+                      @blur="closeSettingsHelp('bigSummaryStreaming')"
+                      @touchstart.passive="startSettingsHelpTouch('bigSummaryStreaming')"
+                      @touchend="endSettingsHelpTouch('bigSummaryStreaming')"
+                      @touchcancel="endSettingsHelpTouch('bigSummaryStreaming')"
+                      @click.stop.prevent="toggleSettingsHelp('bigSummaryStreaming')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'bigSummaryStreaming'" class="settings-help-popover">
+                        {{ settingsHelpText.bigSummaryStreaming }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isBigSummaryStreamingEnabled }"
+                    aria-label="大总结流式输出"
+                    :aria-checked="isBigSummaryStreamingEnabled"
+                    role="switch"
+                    @click="isBigSummaryStreamingEnabled = !isBigSummaryStreamingEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+
                 <div class="space-y-2">
                   <div class="flex items-center justify-between gap-3">
                     <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
@@ -2245,12 +2285,88 @@
                       <span>恢复默认</span>
                     </button>
                   </div>
-                  <textarea
-                    v-model="bigSummaryPromptTemplateValue"
-                    class="settings-big-summary-prompt"
-                    rows="13"
-                    spellcheck="false"
-                  ></textarea>
+                  <div class="settings-prompt-group-editor">
+                    <div class="settings-prompt-group-toolbar">
+                      <span class="settings-prompt-group-count">提示词段（{{ bigSummaryPromptSegments.length }}）</span>
+                      <button
+                        type="button"
+                        class="settings-prompt-add-btn"
+                        @click="addBigSummaryPromptSegment(0)"
+                      >
+                        <Plus class="size-4" aria-hidden="true" />
+                        <span>在最上方插入</span>
+                      </button>
+                    </div>
+
+                    <div v-if="bigSummaryPromptSegments.length === 0" class="settings-prompt-group-empty">
+                      暂无提示词段，点击上方按钮添加。
+                    </div>
+
+                    <div
+                      v-for="(segment, segmentIndex) in bigSummaryPromptSegments"
+                      :key="segment.id"
+                      class="settings-prompt-group"
+                    >
+                      <div class="settings-prompt-group-head">
+                        <span class="settings-prompt-group-index">#{{ segmentIndex + 1 }}</span>
+                        <select
+                          v-model="segment.role"
+                          class="settings-prompt-role-select"
+                          aria-label="提示词段角色"
+                          @change="persistBigSummaryPromptEditor"
+                        >
+                          <option v-for="role in bigSummaryPromptRoleOptions" :key="role.value" :value="role.value">
+                            {{ role.label }}
+                          </option>
+                        </select>
+                        <div class="settings-prompt-group-actions">
+                          <button
+                            type="button"
+                            class="settings-prompt-icon-btn"
+                            :disabled="segmentIndex === 0"
+                            :aria-label="`上移第 ${segmentIndex + 1} 段`"
+                            title="上移"
+                            @click="moveBigSummaryPromptSegment(segmentIndex, -1)"
+                          >
+                            <ArrowUp class="size-4" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            class="settings-prompt-icon-btn"
+                            :disabled="segmentIndex === bigSummaryPromptSegments.length - 1"
+                            :aria-label="`下移第 ${segmentIndex + 1} 段`"
+                            title="下移"
+                            @click="moveBigSummaryPromptSegment(segmentIndex, 1)"
+                          >
+                            <ArrowDown class="size-4" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            class="settings-prompt-icon-btn settings-prompt-icon-btn--danger"
+                            :disabled="bigSummaryPromptSegments.length <= 1"
+                            :aria-label="`删除第 ${segmentIndex + 1} 段`"
+                            title="删除"
+                            @click="removeBigSummaryPromptSegment(segmentIndex)"
+                          >
+                            <Trash2 class="size-4" aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                      <textarea
+                        v-model="segment.content"
+                        class="settings-big-summary-prompt"
+                        rows="7"
+                        spellcheck="false"
+                        :aria-label="`${segment.role} 提示词段 ${segmentIndex + 1}`"
+                        @input="persistBigSummaryPromptEditor"
+                      ></textarea>
+                    </div>
+
+                    <button type="button" class="settings-prompt-add-secondary-btn" @click="addBigSummaryPromptSegment()">
+                      <Plus class="size-4" aria-hidden="true" />
+                      <span>添加提示词段</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="space-y-2">
@@ -3496,6 +3612,8 @@
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowDown,
+  ArrowUp,
   Box,
   ChevronDown,
   ChevronLeft,
@@ -3509,6 +3627,7 @@ import {
   Maximize2,
   Map as MapIcon,
   NotebookText,
+  Plus,
   Replace,
   RotateCcw,
   Scroll,
@@ -3518,6 +3637,7 @@ import {
   Sparkles,
   Swords,
   Type,
+  Trash2,
   Upload,
   Users,
   Volume2,
@@ -3547,7 +3667,7 @@ import {
 } from '../difficulty';
 import { FINAL_AREA_NAME, FINAL_FLOOR_NAME, FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
-import { useGameStore } from '../gameStore';
+import { useGameStore, type BigSummaryPromptRole, type BigSummaryPromptSegment } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import {
   MAP_HEIGHT,
@@ -6245,6 +6365,7 @@ type SettingsHelpKey =
   | 'manualSummary'
   | 'bigSummaryRange'
   | 'bigSummaryWords'
+  | 'bigSummaryStreaming'
   | 'bigSummaryPrompt'
   | 'bigSummaryEntries';
 
@@ -6408,6 +6529,11 @@ const isStreamingEnabled = computed<boolean>({
   set: value => gameStore.setUseStreaming(value),
 });
 
+const isBigSummaryStreamingEnabled = computed<boolean>({
+  get: () => gameStore.bigSummaryStreamingEnabled,
+  set: value => gameStore.setBigSummaryStreamingEnabled(value),
+});
+
 const isForbidMatchingXmlInsideThinkEnabled = computed<boolean>({
   get: () => gameStore.forbidMatchingXmlInsideThink,
   set: value => gameStore.setForbidMatchingXmlInsideThink(value),
@@ -6449,13 +6575,52 @@ const summaryVisibleWindowValue = computed<number>({
   },
 });
 
-const bigSummaryPromptTemplateValue = computed<string>({
-  get: () => gameStore.bigSummaryPromptTemplate,
-  set: value => gameStore.setBigSummaryPromptTemplate(value),
+const bigSummaryPromptSegments = computed<BigSummaryPromptSegment[]>(() => gameStore.bigSummaryPromptSegments);
+const bigSummaryPromptRoleOptions: Array<{ value: BigSummaryPromptRole; label: string }> = [
+  { value: 'system', label: 'SYSTEM' },
+  { value: 'assistant', label: 'ASSISTANT' },
+  { value: 'user', label: 'USER' },
+];
+
+const persistBigSummaryPromptEditor = () => {
+  gameStore.persistBigSummaryPromptSegments();
+};
+
+const createEditorBigSummaryPromptSegment = (
+  role: BigSummaryPromptRole = 'user',
+  content = '',
+): BigSummaryPromptSegment => ({
+  id: `big-summary-prompt-editor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  role,
+  content,
 });
 
+const addBigSummaryPromptSegment = (index?: number) => {
+  const segments = [...gameStore.bigSummaryPromptSegments];
+  const insertionIndex = index === undefined ? segments.length : Math.max(0, Math.min(index, segments.length));
+  segments.splice(insertionIndex, 0, createEditorBigSummaryPromptSegment());
+  gameStore.setBigSummaryPromptSegments(segments);
+};
+
+const moveBigSummaryPromptSegment = (index: number, offset: -1 | 1) => {
+  const nextIndex = index + offset;
+  const segments = [...gameStore.bigSummaryPromptSegments];
+  if (index < 0 || index >= segments.length || nextIndex < 0 || nextIndex >= segments.length) return;
+  const [segment] = segments.splice(index, 1);
+  if (!segment) return;
+  segments.splice(nextIndex, 0, segment);
+  gameStore.setBigSummaryPromptSegments(segments);
+};
+
+const removeBigSummaryPromptSegment = (index: number) => {
+  const segments = [...gameStore.bigSummaryPromptSegments];
+  if (segments.length <= 1 || index < 0 || index >= segments.length) return;
+  segments.splice(index, 1);
+  gameStore.setBigSummaryPromptSegments(segments);
+};
+
 const restoreDefaultBigSummaryPrompt = () => {
-  gameStore.resetBigSummaryPromptTemplate();
+  gameStore.resetBigSummaryPromptSegments();
   toastr.success('大总结提示词已恢复默认。');
 };
 
@@ -6597,8 +6762,9 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
     '点击后自动补全当前存档的总结至总结条目，用于切换存档或世界书更新后使用（注意！会覆盖大总结内容且不可逆！没事别点。）。',
   bigSummaryRange: '决定本次会抽取哪些小总结条目来合并。起始和结束编号都会包含在内，建议每次总结条目在50以内',
   bigSummaryWords: '用于约束大总结的目标篇幅。',
+  bigSummaryStreaming: '开启后，大总结请求会使用流式传输；关闭后等待AI生成完成后一次性取得结果。',
   bigSummaryPrompt:
-    '这里的内容会作为大总结提示词直接发送给AI，并自动保存在当前浏览器。可使用 {{minWords}}、{{maxWords}} 和 {{summaries}} 占位符；若省略 {{summaries}}，阶段小结仍会自动附加在提示词末尾。',
+    '这里可以把大总结提示词拆成多个区块，逐段选择 system、assistant 或 user 角色，并用上下箭头调整发送顺序。内容会自动保存在当前浏览器；可使用 {{minWords}}、{{maxWords}} 和 {{summaries}} 占位符。',
   bigSummaryEntries:
     '这里展示自动总结条目中当前可用于合并的所有小总结，并高亮你选中范围内的条目，方便确认本次大总结到底会覆盖哪些内容。',
 };
@@ -16249,7 +16415,7 @@ onBeforeUnmount(() => {
 
 .settings-big-summary-prompt {
   width: 100%;
-  min-height: 16rem;
+  min-height: 9rem;
   resize: vertical;
   border-radius: 0.58rem;
   border: 1px solid rgba(120, 85, 56, 0.72);
@@ -16265,6 +16431,176 @@ onBeforeUnmount(() => {
   outline: none;
   border-color: rgba(245, 158, 11, 0.76);
   box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.26);
+}
+
+.settings-prompt-group-editor {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.settings-prompt-group-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.settings-prompt-group-count {
+  color: rgba(214, 211, 209, 0.66);
+  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+  font-size: 0.74rem;
+}
+
+.settings-prompt-add-btn,
+.settings-prompt-add-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(120, 85, 56, 0.74);
+  border-radius: 0.5rem;
+  background: rgba(26, 15, 8, 0.78);
+  color: rgba(237, 226, 205, 0.9);
+  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+  font-size: 0.74rem;
+  padding: 0.4rem 0.68rem;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.settings-prompt-add-btn:hover,
+.settings-prompt-add-btn:focus-visible,
+.settings-prompt-add-secondary-btn:hover,
+.settings-prompt-add-secondary-btn:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.76);
+  background: rgba(120, 53, 15, 0.42);
+  color: rgba(255, 237, 213, 0.98);
+}
+
+.settings-prompt-add-secondary-btn {
+  width: 100%;
+  border-style: dashed;
+  background: rgba(26, 15, 8, 0.42);
+}
+
+.settings-prompt-group-empty {
+  border: 1px dashed rgba(120, 85, 56, 0.62);
+  border-radius: 0.58rem;
+  color: rgba(214, 211, 209, 0.62);
+  font-size: 0.78rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.settings-prompt-group {
+  display: grid;
+  gap: 0.48rem;
+  padding: 0.62rem;
+  border: 1px solid rgba(120, 85, 56, 0.54);
+  border-radius: 0.68rem;
+  background: rgba(10, 7, 6, 0.62);
+}
+
+.settings-prompt-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.48rem;
+}
+
+.settings-prompt-group-index {
+  min-width: 2rem;
+  color: rgba(214, 211, 209, 0.52);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.settings-prompt-role-select {
+  min-width: 7.8rem;
+  border: 1px solid rgba(120, 85, 56, 0.72);
+  border-radius: 0.5rem;
+  background: rgba(39, 45, 51, 0.92);
+  color: rgba(237, 226, 205, 0.95);
+  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+  font-size: 0.74rem;
+  padding: 0.4rem 0.56rem;
+}
+
+.settings-prompt-role-select:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.76);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.22);
+}
+
+.settings-prompt-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-left: auto;
+}
+
+.settings-prompt-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(120, 85, 56, 0.46);
+  border-radius: 0.46rem;
+  background: rgba(39, 45, 51, 0.72);
+  color: rgba(214, 211, 209, 0.72);
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.settings-prompt-icon-btn:hover:not(:disabled),
+.settings-prompt-icon-btn:focus-visible {
+  outline: none;
+  border-color: rgba(245, 158, 11, 0.72);
+  background: rgba(120, 53, 15, 0.42);
+  color: rgba(255, 237, 213, 0.98);
+}
+
+.settings-prompt-icon-btn--danger:hover:not(:disabled),
+.settings-prompt-icon-btn--danger:focus-visible {
+  border-color: rgba(248, 113, 113, 0.72);
+  background: rgba(127, 29, 29, 0.38);
+  color: rgba(254, 202, 202, 0.98);
+}
+
+.settings-prompt-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+@media (max-width: 560px) {
+  .settings-prompt-group-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-prompt-add-btn {
+    width: 100%;
+  }
+
+  .settings-prompt-group-head {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .settings-prompt-role-select {
+    flex: 1 1 8rem;
+  }
+
+  .settings-prompt-group-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 .settings-prompt-reset-btn {
