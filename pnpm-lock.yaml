@@ -6894,10 +6894,13 @@ snapshots:
   lower-case@2.0.2:
     dependencies:
       tslib: 2.9.1
+<<<<<<< HEAD
 
   lucide-vue-next@0.564.0(vue@3.5.45(typescript@6.0.3)):
     dependencies:
       vue: 3.5.45(typescript@6.0.3)
+=======
+>>>>>>> f1453c36c93c0f091171be522b45a09fe280a2bc
 
   magic-string-ast@1.0.3:
     dependencies:
