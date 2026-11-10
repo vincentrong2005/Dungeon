@@ -1,6 +1,6 @@
 import { CardType, EffectType, type CardData, type EnemyAIContext, type EnemyDefinition } from '../types';
 import { calculateFinalPoint } from './algorithms';
-import { PAIN_CARD, SIGEL_CARD, UMBILICAL_TENTACLE_CARD, getAllCards } from './cardRegistry';
+import { GAIA_CARD, PAIN_CARD, SIGEL_CARD, UMBILICAL_TENTACLE_CARD, getAllCards } from './cardRegistry';
 import { ELEMENTAL_DEBUFF_TYPES, getEffectStacks } from './effects';
 
 function pickCardById(ctx: EnemyAIContext, id: string): CardData {
@@ -4148,8 +4148,8 @@ const 圣水精灵: EnemyDefinition = {
 const 利维坦: EnemyDefinition = {
   name: '利维坦',
   stats: {
-    hp: 700,
-    maxHp: 700,
+    hp: 600,
+    maxHp: 600,
     mp: 0,
     minDice: 6,
     maxDice: 14,
@@ -4731,7 +4731,54 @@ const 西格尔: EnemyDefinition = {
   },
 };
 
+const 盖亚: EnemyDefinition = {
+  name: '盖亚',
+  stats: {
+    hp: 700,
+    maxHp: 700,
+    mp: 4,
+    minDice: 6,
+    maxDice: 16,
+    effects: [
+      { type: EffectType.MANA_SPRING, stacks: 1, polarity: 'buff' },
+      { type: EffectType.GAIA_MOTHER, stacks: 1, polarity: 'trait' },
+    ],
+  },
+  deck: buildDeckById([
+    GAIA_CARD.CRADLE,
+    GAIA_CARD.MEMBRANE,
+    GAIA_CARD.BED,
+    GAIA_CARD.REFLOW,
+    GAIA_CARD.PRESSURE,
+    GAIA_CARD.ACCEPTANCE,
+    GAIA_CARD.STAY,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const connection = getEffectStacks(ctx.playerStats, EffectType.NURTURE_CONNECTION);
+    const pressure = ctx.flags.gaiaPressureAction === true;
+    ctx.flags.gaiaPressureAction = !pressure;
+    let id: string;
+    if (!pressure) {
+      if (connection <= 2) {
+        id = ctx.flags.gaiaNextLowDefenseIsBed === true ? GAIA_CARD.BED : GAIA_CARD.MEMBRANE;
+        ctx.flags.gaiaNextLowDefenseIsBed = id === GAIA_CARD.MEMBRANE;
+      } else {
+        id = GAIA_CARD.REFLOW;
+      }
+    } else if (connection <= 2) {
+      id = ctx.enemyStats.mp >= 2 ? GAIA_CARD.ACCEPTANCE : GAIA_CARD.BED;
+    } else if (connection >= 6) {
+      id = ctx.flags.gaiaNextFullConnectionIsStay === true ? GAIA_CARD.STAY : GAIA_CARD.PRESSURE;
+      ctx.flags.gaiaNextFullConnectionIsStay = id === GAIA_CARD.PRESSURE;
+    } else {
+      id = GAIA_CARD.PRESSURE;
+    }
+    return pickCardById(ctx, id);
+  },
+};
+
 const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<string, EnemyDefinition>([
+  [盖亚.name, 盖亚],
   [西格尔.name, 西格尔],
   [佩恩.name, 佩恩],
   [游荡粘液球.name, 游荡粘液球],

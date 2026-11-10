@@ -1140,7 +1140,7 @@ import {
     getPainOath, painHealingAmount, painIncomingDamage, painOutgoingDamage, painPointBonus,
     painThornsOnPlayerCard, recordPainHpLoss, updatePainPhase,
 } from '../battle/algorithms';
-import { PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, SIGEL_CARD, UMBILICAL_TENTACLE_CARD, getAllCards, getCardByName, getUmbilicalPullFinalPoint, getUmbilicalPullLimit, getUmbilicalWhipHitCount, type PainOath } from '../battle/cardRegistry';
+import { GAIA_CARD, PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, SIGEL_CARD, UMBILICAL_TENTACLE_CARD, getAllCards, getCardByName, getUmbilicalPullFinalPoint, getUmbilicalPullLimit, getUmbilicalWhipHitCount, type PainOath } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, beginRuneClash, canPlayCard, consumeRuneFinisherEnergy, findEffect, getEffectDisplayOrder, getEffectStacks, isRuneProtectionActive, processOnTurnEnd, processOnTurnStart as processEntityTurnStart, reduceEffectStacks, removeEffect, resolveRuneClashEnergy, startRuneTurn } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import { resolveInitialEntityStats } from '../battle/initialStats';
@@ -1534,6 +1534,8 @@ const enemyStats = ref<EntityStats>(
   buildEnemyInitialStats(),
 );
 const painScene = isPainBattle ? reactive(createPainScene(playerStats.value, enemyStats.value)) : null;
+const gaiaState = props.enemyName === '盖亚' ? reactive(createGaiaBattleState()) : null;
+if (gaiaState) syncGaiaConnectionEffects(gaiaState, playerStats.value, enemyStats.value);
 const sceneEffects = computed(() => painScene?.effects ?? []);
 const sceneEffectPulse = reactive<Record<string, number>>({});
 const pulseSceneEffect = (type: EffectType) => {
@@ -2680,7 +2682,7 @@ const dicePreviewPanels = computed<DicePreviewPanel[]>(() => {
   if (previewPlayerDice.value !== null && !isPlayerDiceObscured.value && playerDicePreviewLines.value.length > 0) {
     panels.push({
       key: 'player',
-      title: `我方 · ${shouldHidePlayerPreviewCardName.value ? '点数预览' : (playerDicePreviewCardName.value || '点数预览')}`, 
+      title: `我方 · ${shouldHidePlayerPreviewCardName.value ? '点数预览' : (playerDicePreviewCardName.value || '点数预览')}`,
       finalPoint: previewPlayerDice.value,
       lines: playerDicePreviewLines.value,
     });
@@ -3207,6 +3209,7 @@ const applyDamageToSideWithRelics = (
     card?: CardData;
     dreamControlKind?: 'direct' | 'status';
     feedbackEffect?: BattleEffectName;
+    gaiaShared?: boolean;
   },
 ): ReturnType<typeof applyDamageToEntity> => {
   const damageOptions = options ?? {};
@@ -3226,10 +3229,10 @@ const applyDamageToSideWithRelics = (
   if (damageOptions.isDirectDamage && damageOptions.card?.swarmAttack && isTwinEntity(target)) {
     effectiveIncoming = Math.max(0, Math.floor(effectiveIncoming * 2));
   }
-  let adjusted = side === 'player' && !painScene
+  let adjusted = side === 'player' && !painScene && !damageOptions.gaiaShared
     ? applyPlayerHemostaticValveDamageCap(effectiveIncoming, reason)
     : effectiveIncoming;
-  if (side === 'player' && !painScene) {
+  if (side === 'player' && !painScene && !damageOptions.gaiaShared) {
     adjusted = applyPlayerLiverMarkDamageReduction(adjusted, reason);
   }
   if (
@@ -3307,10 +3310,31 @@ const applyDamageToSideWithRelics = (
   if (phaseTransitionFloor > 0 && target.hp > phaseTransitionFloor) {
     adjusted = Math.min(adjusted, Math.max(0, target.hp - phaseTransitionFloor));
   }
-  const result = applyDamageToEntity(target, adjusted, effectiveTrueDamage, {
-    disableRevive: shouldDisableReviveForSide(side),
-    swarmAttack: !!damageOptions.card?.swarmAttack,
-  });
+  if (gaiaState && side === 'enemy' && !effectiveTrueDamage && adjusted > 0) {
+    const membrane = findEffect(target, ET.FETAL_MEMBRANE);
+    if (membrane && membrane.stacks > 0 && gaiaState.membraneTurn === combatState.value.turn) {
+      reduceEffectStacks(target, ET.FETAL_MEMBRANE, 1);
+      adjusted = Math.floor(adjusted * 0.3);
+      gaiaState.membraneConnections += Math.max(0, changeGaiaLinks(1, '胎膜接入'));
+      log('<span class="text-emerald-300">[胎膜] 本次非真实伤害降低70%。</span>');
+    }
+  }
+  const gaiaPlayerProtected = !!gaiaState && side === 'player' && (
+    damageOptions.gaiaShared || damageOptions.sourceSide === 'enemy'
+  );
+  const minimumHp = gaiaState && ((side === 'enemy' && gaiaState.connection > 0) || gaiaPlayerProtected) ? 1 : 0;
+  const result: ReturnType<typeof applyDamageToEntity> = damageOptions.gaiaShared
+    ? applyGaiaSharedHpLoss(target, adjusted, minimumHp)
+    : applyDamageToEntity(target, adjusted, effectiveTrueDamage, {
+      disableRevive: shouldDisableReviveForSide(side),
+      swarmAttack: !!damageOptions.card?.swarmAttack,
+      minimumHp,
+    });
+  if (gaiaState && side === 'enemy') gaiaState.damageTakenThisTurn += result.actualDamage;
+  if (result.preventedLethal) processGaiaLethalProtection(side);
+  if (gaiaState && !effectiveTrueDamage && !damageOptions.gaiaShared && result.actualDamage > 0) {
+    shareGaiaDamage(side, result.actualDamage);
+  }
   if (result.actualDamage > targetMaxHpBeforeDamage * 0.25) {
     triggerHeavyDamageShake();
   }
@@ -3453,8 +3477,16 @@ const applyDirectHpLossWithRelics = (
     return 0;
   }
   const before = target.hp;
-  target.hp = Math.max(0, target.hp - adjusted);
+  const gaiaMinimumHp = gaiaState && target.maxHp > 0 && (
+    (side === 'enemy' && gaiaState.connection > 0)
+    || (side === 'player' && damageOptions.sourceSide === 'enemy')
+  ) ? Math.min(1, before) : 0;
+  target.hp = Math.max(gaiaMinimumHp, target.hp - adjusted);
   const actualDamage = Math.max(0, before - target.hp);
+  if (gaiaMinimumHp > 0 && adjusted >= before) processGaiaLethalProtection(side);
+  if (gaiaState && side === 'enemy' && !reason.includes('自伤')) {
+    gaiaState.damageTakenThisTurn += actualDamage;
+  }
   if (damageOptions.isDirectDamage) presentCardHit(target, damageOptions.card, actualDamage);
   recordBattlePainLoss(side, actualDamage, true, true);
   processPleasureDamageFeedback(side, target, 0, actualDamage, reason);
@@ -3608,13 +3640,13 @@ const restoreManaForSide = (side: RelicSide, amount: number): number => {
 const healForSide = (
   side: RelicSide,
   amount: number,
-  options?: { overflowToArmor?: boolean; sourceSide?: RelicSide; reason?: string },
+  options?: { overflowToArmor?: boolean; sourceSide?: RelicSide; reason?: string; gaiaShared?: boolean },
 ): { healed: number; overflow: number; convertedDamage: number } => {
   const baseValue = Math.max(0, Math.floor(amount));
   if (baseValue <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
 
   let value = baseValue;
-  if (side === 'player') {
+  if (side === 'player' && !options?.gaiaShared) {
     const healAmpCount = getActiveRelicCount('bloodpool_crimson_plasma');
     if (healAmpCount > 0) {
       value = Math.max(0, Math.floor(value * (1 + 0.25 * healAmpCount)));
@@ -3625,10 +3657,11 @@ const healForSide = (
     }
   }
   const target = getEntityBySide(side);
-  if (isTwinEntity(target)) {
+  if (gaiaState && target.hp <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
+  if (isTwinEntity(target) && !options?.gaiaShared) {
     value = Math.max(0, Math.floor(value * 2));
   }
-  if (painScene) value = painHealingAmount(painScene, side, value);
+  if (painScene && !options?.gaiaShared) value = painHealingAmount(painScene, side, value);
   if (value <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
   const sourceSide = options?.sourceSide ?? side;
   if (sourceSide !== side && getEffectStacks(target, ET.BLOODLINE) > 0) {
@@ -3662,6 +3695,18 @@ const healForSide = (
     if (side === 'player') {
       triggerLeviathanMirrorSeaOathRecovery(healed);
     }
+    if (gaiaState && !options?.gaiaShared) {
+      const shared = getGaiaSharedAmount(gaiaState.connection, healed, 'heal');
+      if (shared > 0) {
+        const recipient = oppositeSide(side);
+        const result = healForSide(recipient, shared, {
+          sourceSide: side,
+          reason: '供养连接共享治疗',
+          gaiaShared: true,
+        });
+        log(`<span class="text-emerald-300">[供养连接] ${recipient === 'player' ? '我方' : '盖亚'}共享 ${result.healed} 点治疗。</span>`);
+      }
+    }
   }
   if (options?.overflowToArmor && overflowRaw > 0) {
     addArmorForSide(side, overflowRaw);
@@ -3691,6 +3736,220 @@ const healForSide = (
     }
   }
   return { healed, overflow: overflowRaw, convertedDamage: 0 };
+};
+
+interface GaiaBattleState {
+  connection: number;
+  blockedTurn: number;
+  membraneTurn: number;
+  membraneConnections: number;
+  bedTurn: number;
+  damageTakenThisTurn: number;
+  criticalCorrosionTurn: number;
+  turnEndProcessed: number;
+  openingApplied: boolean;
+}
+
+function createGaiaBattleState(): GaiaBattleState {
+  return {
+    connection: 2,
+    blockedTurn: -1,
+    membraneTurn: -1,
+    membraneConnections: 0,
+    bedTurn: -1,
+    damageTakenThisTurn: 0,
+    criticalCorrosionTurn: -1,
+    turnEndProcessed: -1,
+    openingApplied: false,
+  };
+}
+
+function changeGaiaConnection(state: GaiaBattleState, delta: number, turn: number): number {
+  if (delta > 0 && state.blockedTurn === turn) return 0;
+  const previous = state.connection;
+  state.connection = Math.max(0, Math.min(6, previous + Math.trunc(delta)));
+  return state.connection - previous;
+}
+
+function syncGaiaConnectionEffects(state: GaiaBattleState, player: EntityStats, enemy: EntityStats): void {
+  for (const entity of [player, enemy]) {
+    entity.effects = entity.effects.filter(effect => effect.type !== ET.NURTURE_CONNECTION);
+    if (state.connection > 0) {
+      entity.effects.push({
+        type: ET.NURTURE_CONNECTION,
+        stacks: state.connection,
+        polarity: 'special',
+        source: 'battle:gaia',
+      });
+    }
+  }
+}
+
+function getGaiaSharedAmount(connection: number, actualAmount: number, kind: 'damage' | 'heal'): number {
+  const percentPerStack = kind === 'damage' ? 10 : 12;
+  return Math.floor(Math.max(0, actualAmount) * Math.max(0, Math.min(6, connection)) * percentPerStack / 100);
+}
+
+/** 共享量已经结算完成，直接扣除生命，避免集群、限伤等再次修改传递比例。 */
+function applyGaiaSharedHpLoss(target: EntityStats, damage: number, minimumHp: number) {
+  const before = Math.max(0, target.hp);
+  const floor = target.maxHp > 0 ? Math.min(before, Math.max(0, minimumHp)) : 0;
+  const actualDamage = Math.min(Math.max(0, Math.floor(damage)), Math.max(0, before - floor));
+  target.hp = before - actualDamage;
+  return {
+    actualDamage,
+    logs: [`受到${actualDamage}点共享真实伤害(HP: ${target.hp}/${target.maxHp})。`],
+    limitOverflow: 0,
+    preventedLethal: floor > 0 && damage >= before,
+  };
+}
+
+function getGaiaConnectionCardCount(connection: number): number {
+  return connection >= 2 ? 1 : 0;
+}
+
+function getGaiaBedArmor(connection: number, finalPoint: number): number {
+  const stacks = Math.max(0, Math.min(6, connection));
+  return Math.floor((5 - Math.ceil(stacks / 2)) * Math.max(0, finalPoint));
+}
+
+function getGaiaOpeningMaxHpGain(maxHp: number): number {
+  return Math.max(0, 80 - Math.max(0, Math.floor(maxHp)));
+}
+
+const syncGaiaSeverCards = (insertMissing = false) => {
+  if (!gaiaState) return;
+  const expected = getGaiaConnectionCardCount(gaiaState.connection);
+  let kept = 0;
+  let hand = combatState.value.playerHand.filter(card => (
+    card.id !== GAIA_CARD.SEVER || ++kept <= expected
+  ));
+  // 连接卡由连接层数维护，不进入普通抽牌循环。
+  combatState.value.playerDeck = combatState.value.playerDeck.filter(card => card.id !== GAIA_CARD.SEVER);
+  combatState.value.discardPile = combatState.value.discardPile.filter(card => card.id !== GAIA_CARD.SEVER);
+  if (insertMissing) {
+    const sever = getCardByName('切断连接');
+    const existing = hand.filter(card => card.id === GAIA_CARD.SEVER).length;
+    if (sever && existing < expected) {
+      const missing = expected - existing;
+      while (hand.length + missing > PLAYER_HAND_SLOT_COUNT) {
+        const index = hand.findLastIndex(card => card.id !== GAIA_CARD.SEVER);
+        if (index < 0) break;
+        const [returned] = hand.splice(index, 1);
+        combatState.value.playerDeck.unshift(returned!);
+        log(`<span class="text-zinc-300">[供养连接] 【${returned!.name}】暂回抽牌堆，为连接卡保留位置。</span>`);
+      }
+      const inserted = Array.from({ length: missing }, () => cloneCardForBattle(sever));
+      hand = mergePlayerHandWithDrawnCards(hand, inserted);
+      combatState.value.playerHand = hand;
+      applyOnDrawCardEffects(inserted);
+    }
+  }
+  combatState.value.playerHand = mergePlayerHandWithDrawnCards(hand, []);
+};
+
+const changeGaiaLinks = (delta: number, reason: string): number => {
+  if (!gaiaState) return 0;
+  const changed = changeGaiaConnection(gaiaState, delta, combatState.value.turn);
+  syncGaiaConnectionEffects(gaiaState, playerStats.value, enemyStats.value);
+  syncGaiaSeverCards();
+  if (changed !== 0) {
+    log(`<span class="text-emerald-300">[供养连接] ${reason}，连接${changed > 0 ? '+' : ''}${changed}，当前${gaiaState.connection}层。</span>`);
+  } else if (delta > 0 && gaiaState.blockedTurn === combatState.value.turn) {
+    log('<span class="text-zinc-300">[切断连接] 本回合阻止重新接入。</span>');
+  }
+  return changed;
+};
+
+const processGaiaLethalProtection = (side: BattleSide) => {
+  if (!gaiaState) return;
+  if (side === 'enemy') {
+    log('<span class="text-emerald-300">[万物之母] 连接尚未断开，盖亚保留1点生命。</span>');
+  } else if (gaiaState.criticalCorrosionTurn !== combatState.value.turn) {
+    gaiaState.criticalCorrosionTurn = combatState.value.turn;
+    applyStatusEffectWithRelics('player', ET.CORROSION, 3, { source: 'battle:gaia:critical' });
+    log('<span class="text-fuchsia-300">[万物之母] 维持濒死生命，侵蚀+3；本回合不再因此增加侵蚀。</span>');
+  }
+};
+
+const shareGaiaDamage = (side: BattleSide, actualDamage: number) => {
+  if (!gaiaState) return;
+  const shared = getGaiaSharedAmount(gaiaState.connection, actualDamage, 'damage');
+  if (shared <= 0) return;
+  const recipient = oppositeSide(side);
+  const target = getEntityBySide(recipient);
+  if (target.hp <= 0) return;
+  const result = applyDamageToSideWithRelics(recipient, target, shared, true, '供养连接共享伤害', {
+    sourceSide: side,
+    gaiaShared: true,
+  });
+  if (result.actualDamage > 0) pushFloatingNumber(recipient, result.actualDamage, 'true', '-');
+  log(`<span class="text-fuchsia-300">[供养连接] ${recipient === 'player' ? '我方' : '盖亚'}承受 ${result.actualDamage} 点共享真实伤害。</span>`);
+};
+
+const initializeGaiaBattle = () => {
+  if (!gaiaState || gaiaState.openingApplied) return;
+  gaiaState.openingApplied = true;
+  const gain = getGaiaOpeningMaxHpGain(playerStats.value.maxHp);
+  if (gain > 0) {
+    applyStatusEffectWithRelics('player', ET.TEMP_MAX_HP, gain, { source: GAIA_CARD.CRADLE });
+  }
+  log(`<span class="text-emerald-300">盖亚使用【容生之囊】，我方临时生命上限+${gain}；建立2层供养连接。</span>`);
+};
+
+const applyGaiaCard = (source: BattleSide, card: CardData, finalPoint: number): boolean => {
+  if (!gaiaState) return false;
+  if (source === 'player' && card.id === GAIA_CARD.SEVER) {
+    gaiaState.blockedTurn = combatState.value.turn;
+    changeGaiaLinks(-2, '切断连接');
+    return true;
+  }
+  if (source !== 'enemy') return false;
+  if (card.id === GAIA_CARD.CRADLE) {
+    initializeGaiaBattle();
+  } else if (card.id === GAIA_CARD.MEMBRANE) {
+    gaiaState.membraneTurn = combatState.value.turn;
+    gaiaState.membraneConnections = 0;
+    removeEffect(enemyStats.value, ET.FETAL_MEMBRANE);
+    applyStatusEffectWithRelics('enemy', ET.FETAL_MEMBRANE, 2, { source: card.id });
+  } else if (card.id === GAIA_CARD.BED) {
+    gaiaState.bedTurn = combatState.value.turn;
+    const armor = getGaiaBedArmor(gaiaState.connection, finalPoint);
+    applyStatusEffectWithRelics('enemy', ET.ARMOR, armor, { source: card.id });
+    log(`<span class="text-cyan-300">[温床合拢] 获得${armor}点护甲。</span>`);
+  } else if (card.id === GAIA_CARD.REFLOW) {
+    const loss = Math.min(Math.max(0, enemyStats.value.hp - 1), Math.floor(finalPoint * 3));
+    const actualLoss = applyDirectHpLossWithRelics('enemy', enemyStats.value, loss, '生命回流自伤');
+    if (actualLoss > 0) pushFloatingNumber('enemy', actualLoss, 'true', '-');
+    healForSide('enemy', finalPoint * (3 + gaiaState.connection));
+    applyStatusEffectWithRelics('enemy', ET.VULNERABLE, 2, { source: card.id });
+  } else if (card.id === GAIA_CARD.STAY) {
+    changeGaiaLinks(1, '请留在这里');
+    healForSide('enemy', finalPoint * 3);
+    applyStatusEffectWithRelics('enemy', ET.VULNERABLE, 2, { source: card.id });
+  } else {
+    return false;
+  }
+  return true;
+};
+
+const processGaiaTurnEnd = () => {
+  if (!gaiaState || gaiaState.turnEndProcessed === combatState.value.turn) return;
+  gaiaState.turnEndProcessed = combatState.value.turn;
+  if (playerStats.value.hp > 0 && enemyStats.value.hp > 0) {
+    if (gaiaState.membraneTurn === combatState.value.turn && gaiaState.membraneConnections <= 0) {
+      changeGaiaLinks(2, '胎膜完成接入');
+    }
+    if (gaiaState.bedTurn === combatState.value.turn && gaiaState.damageTakenThisTurn <= 0) {
+      changeGaiaLinks(1, '温床未受伤');
+    }
+    const corrosion = Math.floor(gaiaState.connection / 2);
+    if (corrosion > 0) {
+      applyStatusEffectWithRelics('player', ET.CORROSION, corrosion, { source: 'battle:gaia:connection' });
+      log(`<span class="text-fuchsia-300">[供养连接] 回合结束，侵蚀+${corrosion}。</span>`);
+    }
+  }
+  removeEffect(enemyStats.value, ET.FETAL_MEMBRANE);
 };
 
 const reduceTargetMaxDiceByVoidTaint = (
@@ -9010,6 +9269,8 @@ const resolveEnemyComboPreludeIfNeeded = async (initialCard: CardData): Promise<
 // --- Phase Management ---
 
 const startTurn = () => {
+  initializeGaiaBattle();
+  if (gaiaState) gaiaState.damageTakenThisTurn = 0;
   if (endCombatPending.value) return;
   log(`<span class="text-slate-300">——第${combatState.value.turn}回合——</span>`);
   if (combatState.value.turn === 1 && props.tutorialInitialRerollCharges > 0) {
@@ -9567,6 +9828,7 @@ watch(
       drawPhasePreparing.value = true;
       void (async () => {
         try {
+          syncGaiaSeverCards(true);
           const drawCount = getOpenPlayerHandSlotCount(combatState.value.playerHand);
           const { drawn, newDeck, newDiscard } = drawCards(drawCount, combatState.value.playerDeck, combatState.value.discardPile);
           applyOnDrawCardEffects(drawn);
@@ -11382,6 +11644,11 @@ const resolveCombat = async (
     }
 
     if (card.type === CardType.FUNCTION || card.type === CardType.CURSE) {
+      if (applyGaiaCard(source, card, finalPoint)) {
+        syncCurrentPointForUi();
+        finalizeAndTrack();
+        return;
+      }
       if (card.id === UMBILICAL_TENTACLE_CARD.PULL) {
         syncCurrentPointForUi();
         const opposingPoint = opponentSkippedTurn
@@ -13592,6 +13859,7 @@ const resolveCombat = async (
   }
 
   processRuneShiftTurnEnd();
+  processGaiaTurnEnd();
 
   // Cleanup
   const handBeforeCleanup = [...combatState.value.playerHand];
@@ -13665,7 +13933,9 @@ const runEndCombatSequence = async (outcome: CombatOutcome) => {
   await wait(RESULT_BANNER_STAY_MS);
   if (token !== endCombatSequenceToken) return;
   const finalPlayerStats = cloneEntityStats(playerStats.value);
-  finalPlayerStats.effects = finalPlayerStats.effects.filter(effect => effect.polarity !== 'scene' && effect.source !== 'scene:corridor');
+  finalPlayerStats.effects = finalPlayerStats.effects.filter(effect => (
+    effect.polarity !== 'scene' && effect.source !== 'scene:corridor' && effect.source !== 'battle:gaia'
+  ));
   if (getEffectStacks(finalPlayerStats, ET.TEMP_MAX_HP) > 0) {
     removeEffect(finalPlayerStats, ET.TEMP_MAX_HP);
   }

@@ -1002,6 +1002,33 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 1,
     description: '选择时将玩家当前全部流血转移给佩恩；此后玩家受到的治疗量减半。',
   },
+  [EffectType.GAIA_MOTHER]: {
+    type: EffectType.GAIA_MOTHER,
+    name: '万物之母',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: false,
+    maxStacks: 1,
+    description: '连接未断时自身锁血1点；对方受到自身或连接的致命伤害时保留1点生命，每回合首次侵蚀+3。',
+  },
+  [EffectType.NURTURE_CONNECTION]: {
+    type: EffectType.NURTURE_CONNECTION,
+    name: '供养连接',
+    polarity: 'special',
+    timings: ['passive', 'onTurnEnd'],
+    stackable: true,
+    maxStacks: 6,
+    description: '每层双向共享10%非真实伤害、12%治疗，伤害转为真实伤害。回合末玩家侵蚀+⌊层数/2⌋。',
+  },
+  [EffectType.FETAL_MEMBRANE]: {
+    type: EffectType.FETAL_MEMBRANE,
+    name: '胎膜',
+    polarity: 'buff',
+    timings: ['onBeforeDamage'],
+    stackable: true,
+    maxStacks: 2,
+    description: '每层使一次非真实伤害降低70%，触发后对方获得1层供养连接。',
+  },
 };
 
 const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
@@ -1021,6 +1048,9 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.MERCY,
   EffectType.STIGMATA,
   EffectType.GENESIS,
+  EffectType.NURTURE_CONNECTION,
+  EffectType.GAIA_MOTHER,
+  EffectType.FETAL_MEMBRANE,
   EffectType.RUNE_PROTECTION,
   EffectType.RUNE_ENERGY,
   EffectType.RESONANCE_LOCK,
@@ -1992,6 +2022,11 @@ export function canPlayCard(
   baseRawDice: number,
   options?: { controlledExpectedType?: CardType | null; ignoreMana?: boolean; previousCardType?: CardType | null },
 ): CanPlayCardResult {
+  if (card.id === 'gaia_sever_connection') {
+    return getEffectStacks(entity, EffectType.NURTURE_CONNECTION) >= 2
+      ? { allowed: true }
+      : { allowed: false, reason: '供养连接不足2层。', blockerKind: 'card' };
+  }
   // 无法打出
   if (card.traits.unplayable) {
     return { allowed: false, reason: '该卡牌当前无法打出。', blockerKind: 'card' };

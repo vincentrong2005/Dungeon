@@ -430,6 +430,9 @@ export enum EffectType {
   PAIN_OATH_OINTMENT = '借来的圣膏',
   PAIN_OATH_CUP = '空杯告解',
   PAIN_OATH_SHARE = '分给她的伤',
+  GAIA_MOTHER = '万物之母',
+  NURTURE_CONNECTION = '供养连接',
+  FETAL_MEMBRANE = '胎膜',
 }
 
 /** 效果极性分类 */

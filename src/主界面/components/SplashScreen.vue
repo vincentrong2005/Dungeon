@@ -105,7 +105,7 @@
         />
         <span class="splash-update-card__copy">
           <span>新的区域已解锁</span>
-          <strong>神谕淫纹室·「西格尔」</strong>
+          <strong>女神的产房·「盖亚」</strong>
         </span>
         <span class="splash-update-card__arrow" aria-hidden="true">›</span>
       </button>
@@ -252,6 +252,7 @@ const isVideoReady = ref(false);
 const updateCardButton = ref<HTMLButtonElement | null>(null);
 const updateCloseButton = ref<HTMLButtonElement | null>(null);
 const updateEntries: { date: string; content: string; milestone?: string }[] = [
+  { date: '11.11', content: '更新女神的产房', milestone: '全角色战斗系统更新完毕' },
   { date: '10.24', content: '优化神像房UI，增加黑神像设定' },
   { date: '10.21', content: '更新神谕淫纹室' },
   { date: '10.20', content: '更新信息录入界面UI，商店UI' },

@@ -353,8 +353,8 @@ export function applyDamageToEntity(
   target: EntityStats,
   damage: number,
   isTrueDamage: boolean,
-  options?: { disableRevive?: boolean; swarmAttack?: boolean },
-): { actualDamage: number; logs: string[]; limitOverflow: number; damageBeforeLimit?: number } {
+  options?: { disableRevive?: boolean; swarmAttack?: boolean; minimumHp?: number },
+): { actualDamage: number; logs: string[]; limitOverflow: number; damageBeforeLimit?: number; preventedLethal?: boolean } {
   const logs: string[] = [];
   let limitOverflow = 0;
   let damageBeforeLimit: number | undefined;
@@ -404,7 +404,11 @@ export function applyDamageToEntity(
       logs.push(`[护甲] 消耗${c}，剩余伤害${damage}。`);
     }
   }
-  const actual = Math.min(damage, target.hp);
+  const minimumHp = target.hp > 0 && target.maxHp > 0
+    ? Math.min(target.hp, Math.max(0, Math.floor(options?.minimumHp ?? 0)))
+    : 0;
+  const preventedLethal = minimumHp > 0 && damage >= target.hp;
+  const actual = Math.min(damage, Math.max(0, target.hp - minimumHp));
   target.hp -= actual;
   logs.push(`受到${actual}点伤害(HP: ${target.hp}/${target.maxHp})。`);
   if (options?.swarmAttack && actual > 0) {
@@ -415,7 +419,7 @@ export function applyDamageToEntity(
     disableRevive: options?.disableRevive,
   });
   logs.push(...reviveResult.logs);
-  return { actualDamage: actual, logs, limitOverflow, damageBeforeLimit };
+  return { actualDamage: actual, logs, limitOverflow, damageBeforeLimit, preventedLethal };
 }
 
 // ═══════════════════════════════════════════════════════════════

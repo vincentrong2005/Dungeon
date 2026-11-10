@@ -30,7 +30,7 @@
         aria-hidden="true"
       ></div>
       <div
-        v-if="armorWidthRatio > RATIO_EPSILON"
+        v-if="armorWidthRatio > 0"
         class="combat-health-bar__layer combat-health-bar__armor"
         :style="armorStyle"
         aria-hidden="true"
@@ -261,11 +261,13 @@ watch(() => props.impactToken, (next, previous) => {
 const armorRatio = computed(() => (
   props.maxHp > 0 ? Math.max(0, props.armor) / props.maxHp : 0
 ));
+// 生命和护甲超出整条时按同一比例缩放，满血也为护甲保留对应长度。
+const barScaleRatio = computed(() => 1 / Math.max(1, displayHpRatio.value + armorRatio.value));
 const swarmWidthRatio = computed(() => (
   props.maxHp > 0 ? clampRatio(Math.max(0, props.swarmHp ?? 0) / props.maxHp) : 0
 ));
-const armorStartRatio = computed(() => displayHpRatio.value);
-const armorWidthRatio = computed(() => Math.min(armorRatio.value, Math.max(0, 1 - armorStartRatio.value)));
+const armorStartRatio = computed(() => displayHpRatio.value * barScaleRatio.value);
+const armorWidthRatio = computed(() => armorRatio.value * barScaleRatio.value);
 const poisonRatio = computed(() => (
   props.maxHp > 0 ? clampRatio(Math.max(0, props.poisonAmount) / props.maxHp) : 0
 ));
@@ -275,17 +277,17 @@ const swarmTransitionDuration = `${SWARM_TRANSITION_MS}ms`;
 const poisonTransitionDuration = `${POISON_TRANSITION_MS}ms`;
 
 const fillStyle = computed(() => ({
-  width: `${displayHpRatio.value * 100}%`,
+  width: `${displayHpRatio.value * barScaleRatio.value * 100}%`,
   transitionDuration: hpTransitioning.value ? transitionDuration : '0ms',
 }));
 const damageTrailStyle = computed(() => ({
-  left: `${displayHpRatio.value * 100}%`,
-  width: `${Math.max(0, damageTrailRatio.value! - displayHpRatio.value) * 100}%`,
+  left: `${displayHpRatio.value * barScaleRatio.value * 100}%`,
+  width: `${Math.max(0, damageTrailRatio.value! - displayHpRatio.value) * barScaleRatio.value * 100}%`,
   transitionDuration: damageTrailSettling.value ? transitionDuration : '0ms',
 }));
 const healLeadStyle = computed(() => ({
-  left: `${healLeadStartRatio.value * 100}%`,
-  width: `${Math.max(0, healLeadRatio.value! - healLeadStartRatio.value) * 100}%`,
+  left: `${healLeadStartRatio.value * barScaleRatio.value * 100}%`,
+  width: `${Math.max(0, healLeadRatio.value! - healLeadStartRatio.value) * barScaleRatio.value * 100}%`,
   transitionDuration: healLeadSettling.value ? transitionDuration : '0ms',
 }));
 const armorStyle = computed(() => ({
@@ -294,11 +296,11 @@ const armorStyle = computed(() => ({
   transitionDuration: reducedMotion ? '0ms' : armorTransitionDuration,
 }));
 const swarmStyle = computed(() => ({
-  width: `${swarmWidthRatio.value * 100}%`,
+  width: `${swarmWidthRatio.value * barScaleRatio.value * 100}%`,
   transitionDuration: reducedMotion ? '0ms' : swarmTransitionDuration,
 }));
 const poisonStyle = computed(() => ({
-  width: `${poisonRatio.value * 100}%`,
+  width: `${poisonRatio.value * barScaleRatio.value * 100}%`,
   transitionDuration: reducedMotion ? '0ms' : poisonTransitionDuration,
 }));
 const ariaMax = computed(() => Math.max(0, Math.floor(props.maxHp)));
