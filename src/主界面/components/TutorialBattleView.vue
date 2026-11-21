@@ -43,12 +43,26 @@
             class="tutorial-lesson-shade absolute"
             :style="segment"
           ></div>
-          <div class="tutorial-lesson-focus absolute" :style="focusStyle" aria-hidden="true"></div>
+          <div
+            class="tutorial-lesson-focus absolute"
+            :class="{ 'is-locked': !actionReady }"
+            :style="focusStyle"
+            aria-hidden="true"
+          ></div>
         </template>
         <div v-else class="tutorial-lesson-shade absolute inset-0"></div>
 
         <section class="tutorial-lesson-callout absolute" :style="calloutStyle">
-          <div class="tutorial-lesson-progress">训练战 · {{ stepIndex + 1 }} / {{ steps.length }}</div>
+          <header class="tutorial-lesson-head">
+            <span class="tutorial-lesson-progress">训练战 · {{ stepIndex + 1 }} / {{ steps.length }}</span>
+            <span class="tutorial-lesson-dots" aria-hidden="true">
+              <i
+                v-for="(entry, i) in steps"
+                :key="entry.id"
+                :class="{ 'is-on': i === stepIndex, 'is-done': i < stepIndex }"
+              ></i>
+            </span>
+          </header>
           <h2>{{ currentStep.title }}</h2>
           <p v-for="line in currentStep.body" :key="line">{{ line }}</p>
           <p v-if="actionReady" class="tutorial-lesson-action-hint">{{ actionHint }}</p>
@@ -148,7 +162,20 @@ const tutorialDiceScript = [
   { player: 4, enemy: 2 },
 ] as const;
 
-type LessonId = 'overview' | 'physical' | 'magic' | 'dodge' | 'function' | 'reroll' | 'active-skill' | 'complete';
+type LessonId =
+  | 'welcome'
+  | 'intent'
+  | 'dice'
+  | 'status'
+  | 'hand'
+  | 'panels'
+  | 'physical'
+  | 'magic'
+  | 'dodge'
+  | 'function'
+  | 'reroll'
+  | 'active-skill'
+  | 'complete';
 type LessonStep = {
   id: LessonId;
   title: string;
@@ -162,14 +189,63 @@ type LessonStep = {
 
 const steps: LessonStep[] = [
   {
-    id: 'overview',
-    title: '先认识战场',
+    id: 'welcome',
+    title: '训练战开始',
     body: [
-      '上方的牌是敌方意图：训练人偶准备在本回合使用的牌。',
-      '左右两枚骰子分别属于敌人和你；两侧状态栏显示 HP、MP、护甲与骰子范围。',
-      '底部是手牌区：每回合抽 3 张牌，只能打出 1 张。左下角是主动技能，右上角可以查看日志与牌堆。',
+      '这是一场独立的训练战，不会读取或修改你的正式存档。',
+      '先花一分钟认识战场的几个区域，再逐一试出四种卡牌、重掷与主动技能。',
     ],
-    button: '知道了',
+    button: '开始',
+  },
+  {
+    id: 'intent',
+    title: '敌方意图',
+    body: [
+      '上方这张牌，是训练人偶本回合准备打出的牌。',
+      '每回合出牌前先看它：对方要攻击、施法还是闪避，决定了你该出什么。',
+    ],
+    button: '下一步',
+    target: '.enemy-intent-anchor',
+  },
+  {
+    id: 'dice',
+    title: '双方的骰子',
+    body: [
+      '左边是你的骰子，右边是敌人的骰子；拼点时比较的就是这两个点数。',
+      '骰子每回合重新掷出，点数范围写在各自的状态栏上。',
+    ],
+    button: '下一步',
+    target: '.player-dice-anchor, .enemy-dice-anchor',
+  },
+  {
+    id: 'status',
+    title: '状态栏',
+    body: [
+      '红条是 HP，蓝条是 MP，盾形数字是护甲。',
+      'HP 归零即战斗失败；MP 用来支付法术牌与主动技能。',
+    ],
+    button: '下一步',
+    target: '.combat-status-bar--player, .combat-status-bar--enemy',
+  },
+  {
+    id: 'hand',
+    title: '手牌区',
+    body: [
+      '每回合抽 3 张牌，只能打出其中 1 张。',
+      '颜色代表类型：红色攻击、蓝色法术、绿色闪避、黄色行动。接下来逐一试一遍。',
+    ],
+    button: '下一步',
+    target: '.combat-hand-anchor',
+  },
+  {
+    id: 'panels',
+    title: '日志与牌堆',
+    body: [
+      '右上角可以展开战斗日志，回看每回合发生了什么；也能查看牌库与弃牌堆。',
+      '训练中随时可以点「文字参考」查看完整的规则说明。',
+    ],
+    button: '开始实战',
+    target: '.combat-top-right-panel',
   },
   {
     id: 'physical',
@@ -295,9 +371,9 @@ const stageStyle = computed(() => ({
   transform: `translate(-50%, -50%) scale(${stageScale.value})`,
 }));
 
+// 讲解阶段就高亮目标（此时高亮框会拦截点击，避免提前出牌）；确认后才允许点击
 const targetSelector = computed(() => {
   const step = currentStep.value;
-  if (step.action && !actionReady.value) return '';
   if (step.cardId) return `[data-tutorial-card-id="${step.cardId}"]`;
   return step.target ?? '';
 });
@@ -315,20 +391,33 @@ const refreshSpotlight = () => {
     spotlightRect.value = null;
     return;
   }
-  const target = stage.querySelector<HTMLElement>(targetSelector.value);
-  if (!target) {
+  // 选择器可用逗号列出多个区域（如双方骰子），高亮取并集
+  const targets = Array.from(stage.querySelectorAll<HTMLElement>(targetSelector.value)).filter(
+    el => el.getClientRects().length > 0,
+  );
+  if (targets.length === 0) {
     spotlightRect.value = null;
     return;
   }
   const stageBounds = stage.getBoundingClientRect();
-  const targetBounds = target.getBoundingClientRect();
   const scale = stageScale.value || 1;
   const padding = 12;
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const target of targets) {
+    const b = target.getBoundingClientRect();
+    left = Math.min(left, b.left);
+    top = Math.min(top, b.top);
+    right = Math.max(right, b.right);
+    bottom = Math.max(bottom, b.bottom);
+  }
   spotlightRect.value = {
-    left: Math.max(0, (targetBounds.left - stageBounds.left) / scale - padding),
-    top: Math.max(0, (targetBounds.top - stageBounds.top) / scale - padding),
-    right: Math.min(1920, (targetBounds.right - stageBounds.left) / scale + padding),
-    bottom: Math.min(1080, (targetBounds.bottom - stageBounds.top) / scale + padding),
+    left: Math.max(0, (left - stageBounds.left) / scale - padding),
+    top: Math.max(0, (top - stageBounds.top) / scale - padding),
+    right: Math.min(1920, (right - stageBounds.left) / scale + padding),
+    bottom: Math.min(1080, (bottom - stageBounds.top) / scale + padding),
   };
 };
 
@@ -354,8 +443,8 @@ const calloutStyle = computed(() => {
   const rect = spotlightRect.value;
   if (!rect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
 
-  const width = 470;
-  const height = 330;
+  const width = 500;
+  const height = 360;
   const rightPosition = rect.right + 28;
   const left = rightPosition + width <= 1920 - 26
     ? rightPosition
@@ -464,19 +553,32 @@ onUnmounted(() => {
 .tutorial-battle-topbar { pointer-events: none; }
 .tutorial-battle-topbar button { pointer-events: auto; }
 .tutorial-battle-reference,
-.tutorial-battle-exit { border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 0.35rem; background: rgba(32, 21, 12, 0.88); padding: 0.55rem 0.8rem; color: #fde68a; font-size: 0.75rem; backdrop-filter: blur(10px); transition: background 160ms ease, border-color 160ms ease; }
-.tutorial-battle-reference:hover, .tutorial-battle-exit:hover { border-color: rgba(251, 191, 36, 0.85); background: rgba(85, 50, 16, 0.94); }
-.tutorial-battle-exit { border-color: rgba(248, 113, 113, 0.45); background: rgba(69, 10, 10, 0.86); color: #fecaca; }
+.tutorial-battle-exit { border: 1px solid rgba(201, 161, 96, 0.5); background: rgba(10, 7, 9, 0.82); padding: 0.6rem 1.1rem; color: var(--dg-text, #e8dcc4); font-family: var(--dg-font-title, serif); font-size: 0.9rem; letter-spacing: 0.14em; transition: border-color 160ms ease, color 160ms ease; }
+.tutorial-battle-reference:hover, .tutorial-battle-exit:hover { border-color: rgba(232, 190, 110, 0.9); color: var(--dg-gold-bright, #f6d89a); }
+.tutorial-battle-exit { border-color: rgba(200, 70, 60, 0.6); color: #f3c2b6; }
+.tutorial-battle-exit:hover { border-color: rgba(255, 120, 100, 0.9); color: #ffd9cf; }
 .tutorial-lesson-layer { pointer-events: none; }
 .tutorial-lesson-shade { pointer-events: auto; background: rgba(4, 5, 10, 0.72); }
-.tutorial-lesson-focus { pointer-events: none; border: 2px solid rgba(253, 224, 71, 0.95); border-radius: 0.5rem; box-shadow: 0 0 0 2px rgba(253, 224, 71, 0.16), 0 0 30px rgba(250, 204, 21, 0.6); animation: tutorial-focus-pulse 1.8s ease-in-out infinite; }
-.tutorial-lesson-callout { pointer-events: auto; width: 470px; border: 1px solid rgba(253, 224, 71, 0.7); border-radius: 0.45rem; background: rgba(15, 12, 10, 0.95); padding: 1.2rem 1.35rem 1.1rem; color: #fff7d6; box-shadow: 0 14px 42px rgba(0, 0, 0, 0.65), 0 0 26px rgba(245, 158, 11, 0.18); }
-.tutorial-lesson-progress { color: rgba(253, 224, 71, 0.72); font-size: 0.8125rem; letter-spacing: 0.13em; text-transform: uppercase; }
-.tutorial-lesson-callout h2 { margin: 0.45rem 0 0.6rem; color: #fde68a; font-family: Georgia, serif; font-size: 1.6875rem; }
-.tutorial-lesson-callout p { margin: 0.35rem 0; color: rgba(255, 247, 214, 0.86); font-size: 1.025rem; line-height: 1.65; }
-.tutorial-lesson-callout .tutorial-lesson-action-hint { margin-top: 0.7rem; color: #facc15; font-size: 0.975rem; }
-.tutorial-lesson-button { display: block; margin: 1rem 0 0 auto; border: 1px solid rgba(253, 224, 71, 0.72); border-radius: 0.3rem; background: rgba(120, 74, 16, 0.35); padding: 0.6rem 1rem; color: #fef3c7; font-size: 0.975rem; transition: background 160ms ease, transform 160ms ease; }
-.tutorial-lesson-button:hover { background: rgba(161, 98, 20, 0.58); transform: translateY(-1px); }
+/* 高亮框：讲解阶段拦截点击（is-locked），确认后放行 */
+.tutorial-lesson-focus { pointer-events: none; border: 1px solid rgba(255, 214, 140, 0.95); border-radius: 8px; box-shadow: 0 0 0 3px rgba(20, 12, 8, 0.65), 0 0 22px rgba(232, 170, 70, 0.6), inset 0 0 16px rgba(232, 170, 70, 0.25); transition: all 0.35s cubic-bezier(0.2, 0.8, 0.3, 1); animation: tutorial-focus-pulse 2.2s ease-in-out infinite; }
+.tutorial-lesson-focus.is-locked { pointer-events: auto; cursor: default; }
+.tutorial-lesson-shade { transition: all 0.35s cubic-bezier(0.2, 0.8, 0.3, 1); }
+/* 指引卡：与主界面新手指引同一套魔典框 */
+.tutorial-lesson-callout { pointer-events: auto; width: 500px; background: var(--dg-bg-panel, #120c0a); padding: 1.8rem 2rem 1.5rem; color: var(--dg-text, #e8dcc4); box-shadow: 0 18px 46px rgba(0, 0, 0, 0.65); transition: left 0.35s cubic-bezier(0.2, 0.8, 0.3, 1), top 0.35s cubic-bezier(0.2, 0.8, 0.3, 1); }
+/* 魔典框外扩覆盖，内缘压在底色边上，避免框与底色之间的缝隙 */
+.tutorial-lesson-callout::before { position: absolute; z-index: 1; inset: -10px; border-style: solid; border-width: 36px; border-image-source: var(--dg-img-frame); border-image-slice: 120; border-image-repeat: stretch; pointer-events: none; content: ''; }
+.tutorial-lesson-head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding-bottom: 0.6rem; border-bottom: 1px solid rgba(201, 161, 96, 0.3); }
+.tutorial-lesson-progress { color: rgba(201, 161, 96, 0.85); font-family: var(--dg-font-title, serif); font-size: 0.85rem; letter-spacing: 0.2em; }
+.tutorial-lesson-dots { display: flex; gap: 6px; }
+.tutorial-lesson-dots i { width: 7px; height: 7px; border: 1px solid rgba(201, 161, 96, 0.7); transform: rotate(45deg); transition: background 0.25s ease; }
+.tutorial-lesson-dots i.is-done { background: rgba(201, 161, 96, 0.55); }
+.tutorial-lesson-dots i.is-on { border-color: #ffb08a; background: #b3191c; box-shadow: 0 0 6px rgba(255, 60, 40, 0.7); }
+.tutorial-lesson-callout h2 { margin: 0.85rem 0 0.65rem; color: var(--dg-gold-bright, #f6d89a); font-family: var(--dg-font-title, serif); font-size: 1.75rem; font-weight: 600; letter-spacing: 0.08em; }
+.tutorial-lesson-callout p { margin: 0.35rem 0; color: var(--dg-text, #e8dcc4); font-family: var(--dg-font-serif, serif); font-size: 1.08rem; line-height: 1.7; }
+.tutorial-lesson-callout .tutorial-lesson-action-hint { position: relative; margin-top: 0.85rem; padding: 0.6rem 0.8rem 0.6rem 1.9rem; border-left: 2px solid #c0392b; background: rgba(120, 14, 18, 0.22); color: #ffd2b8; font-size: 1rem; }
+.tutorial-lesson-callout .tutorial-lesson-action-hint::before { position: absolute; left: 0.75rem; top: 1.05rem; width: 7px; height: 7px; background: #e0392c; box-shadow: 0 0 6px rgba(255, 60, 40, 0.8); transform: rotate(45deg); content: ''; }
+.tutorial-lesson-button { display: block; min-width: 9rem; margin: 1.1rem 0 0 auto; border-style: solid; border-width: 0 22px; border-image-source: var(--dg-img-button); border-image-slice: 0 80 fill; border-image-repeat: stretch; background: none; padding: 0.75rem 0.6rem; color: var(--dg-gold-bright, #f6d89a); font-family: var(--dg-font-title, serif); font-size: 1.02rem; letter-spacing: 0.16em; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85); transition: filter 160ms ease; }
+.tutorial-lesson-button:hover { filter: brightness(1.15) drop-shadow(0 0 6px rgba(232, 170, 70, 0.35)); }
 .tutorial-battle-result { pointer-events: auto; }
 .tutorial-battle-result-panel { width: min(100%, 27rem); border: 1px solid rgba(245,158,11,0.42); background: rgba(22, 13, 10, 0.96); padding: 1.4rem; text-align: center; box-shadow: 0 24px 70px rgba(0,0,0,0.65); }
 .tutorial-battle-result-mark { display: inline-flex; min-width: 5.5rem; justify-content: center; border: 1px solid currentColor; padding: 0.35rem 0.7rem; font-family: Georgia, serif; font-size: 1.1rem; letter-spacing: 0.18em; }
@@ -496,7 +598,7 @@ onUnmounted(() => {
 .tutorial-battle-list-row--stacked { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
 .tutorial-battle-list-row small { color: rgba(255,244,214,0.5); }
 .tutorial-battle-list-row em { color: rgba(255,244,214,0.7); font-size: 0.72rem; font-style: normal; }
-@keyframes tutorial-focus-pulse { 0%, 100% { opacity: 0.78; } 50% { opacity: 1; } }
-@media (max-width: 700px) { .tutorial-lesson-callout { width: 420px; max-width: calc(100vw - 36px); } }
+@keyframes tutorial-focus-pulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+@media (max-width: 700px) { .tutorial-lesson-callout { width: 440px; max-width: calc(100vw - 36px); } }
 @media (prefers-reduced-motion: reduce) { .tutorial-lesson-focus { animation: none; } }
 </style>

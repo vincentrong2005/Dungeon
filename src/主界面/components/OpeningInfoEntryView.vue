@@ -623,8 +623,8 @@ const handleSubmit = () => {
   isolation: isolate;
   width: min(100%, 1440px);
   overflow: hidden;
-  border: 1px solid rgba(168, 128, 61, 0.75);
-  border-radius: 6px;
+  border: 0;
+  border-radius: 2px;
   background:
     radial-gradient(ellipse at 15% 0%, rgba(118, 91, 52, 0.1), transparent 32%),
     repeating-linear-gradient(135deg, transparent 0 18px, rgba(201, 174, 119, 0.012) 18px 19px),
@@ -637,39 +637,16 @@ const handleSubmit = () => {
 }
 
 .archive-panel__frame {
+  /* 与游戏内弹窗同一套九宫格金角框（theme/tokens.css → --dg-img-frame） */
   position: absolute;
-  z-index: 0;
-  inset: 8px;
-  border: 1px solid rgba(173, 139, 80, 0.2);
+  z-index: 3;
+  inset: 0;
+  border-style: solid;
+  border-width: 56px;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
   pointer-events: none;
-  background-image:
-    linear-gradient(90deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68)),
-    linear-gradient(180deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68)),
-    linear-gradient(270deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68)),
-    linear-gradient(180deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68)),
-    linear-gradient(90deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68)),
-    linear-gradient(0deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68)),
-    linear-gradient(270deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68)),
-    linear-gradient(0deg, rgba(202, 166, 97, 0.68), rgba(202, 166, 97, 0.68));
-  background-repeat: no-repeat;
-  background-position:
-    left top,
-    left top,
-    right top,
-    right top,
-    left bottom,
-    left bottom,
-    right bottom,
-    right bottom;
-  background-size:
-    19px 1px,
-    1px 19px,
-    19px 1px,
-    1px 19px,
-    19px 1px,
-    1px 19px,
-    19px 1px,
-    1px 19px;
 }
 
 .archive-header,

@@ -171,7 +171,7 @@ export class BattleStateMachine {
       return { success: false, reason: '本回合行动次数已用完。' };
     }
 
-    // 消耗法力（仅魔法卡有费用）
+    // 消耗魔力（仅魔法卡有费用）
     if (card.type === '魔法' && card.manaCost > 0) {
       this.playerStats.mp -= card.manaCost;
     }

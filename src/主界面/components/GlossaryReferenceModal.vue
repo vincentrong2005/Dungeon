@@ -580,7 +580,7 @@ const uniqGlossaryEntries = (entries: CardGlossaryEntry[]): CardGlossaryEntry[] 
 };
 
 const termEntries = computed(() =>
-  uniqGlossaryEntries([...allTraitEntries(), ...getCardKeywordGlossaryEntries('负面效果 法力汲取 群攻 逃离 自伤')]),
+  uniqGlossaryEntries([...allTraitEntries(), ...getCardKeywordGlossaryEntries('负面效果 魔力汲取 群攻 逃离 自伤')]),
 );
 
 const codex = ref(loadCodexState());
@@ -670,46 +670,39 @@ watch(
 .glossary-reference-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  border: 1px solid rgba(251, 191, 36, 0.18);
-  border-radius: 0.5rem;
-  background: rgba(0, 0, 0, 0.18);
-  padding: 0.4rem;
+  gap: 0;
+  border-bottom: 1px solid var(--dg-line-strong);
 }
 
 .glossary-reference-tab {
   min-height: 2.1rem;
-  border: 1px solid transparent;
-  border-radius: 0.42rem;
+  border: 0;
   padding: 0 0.9rem;
-  color: rgba(253, 230, 138, 0.68);
-  font-size: 0.78rem;
-  transition:
-    color 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease,
-    transform 0.18s ease;
+  color: var(--dg-text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  transition: color 0.18s ease, background 0.18s ease;
 }
 
 .glossary-reference-tab:hover {
-  color: rgba(254, 243, 199, 0.95);
-  border-color: rgba(251, 191, 36, 0.24);
-  background: rgba(251, 191, 36, 0.08);
+  background: rgba(201, 161, 96, 0.05);
+  color: var(--dg-text);
 }
 
 .glossary-reference-tab.active {
-  border-color: rgba(251, 191, 36, 0.42);
-  background: linear-gradient(145deg, rgba(146, 64, 14, 0.42), rgba(69, 26, 3, 0.38));
-  color: rgba(255, 247, 237, 0.98);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, transparent 40%, rgba(201, 161, 96, 0.1));
+  color: var(--dg-gold-bright);
+  box-shadow: inset 0 -2px 0 var(--dg-gold);
 }
 
+/* 分区：皮革内衬 + 金色细边 */
 .glossary-reference-section {
-  border: 1px solid rgba(251, 191, 36, 0.2);
-  border-radius: 0.5rem;
+  border: 1px solid rgba(201, 161, 96, 0.22);
+  border-radius: 2px;
   background:
-    linear-gradient(145deg, rgba(16, 12, 10, 0.86), rgba(35, 24, 15, 0.58)),
-    radial-gradient(circle at 12% 0%, rgba(251, 191, 36, 0.14), transparent 40%);
+    radial-gradient(ellipse 60% 50% at 0% 0%, rgba(201, 161, 96, 0.1), transparent 70%),
+    rgba(20, 14, 10, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.05);
   padding: 1rem;
 }
 
@@ -722,25 +715,30 @@ watch(
 }
 
 .glossary-reference-title {
-  color: #e4dfd3;
-  font-family: var(--font-heading);
-  font-size: 14px;
-  letter-spacing: 0;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
 }
 
 .glossary-reference-subtitle {
-  margin-top: 0.12rem;
-  color: rgba(253, 230, 138, 0.56);
+  margin-top: 0.15rem;
+  color: var(--dg-text-muted);
   font-size: 0.75rem;
 }
 
-.glossary-reference-count {
+/* 计数：金线小铭牌 */
+.glossary-reference-count,
+.glossary-reference-status-group-count {
   min-width: 2rem;
-  border: 1px solid rgba(251, 191, 36, 0.34);
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.24);
-  color: rgba(253, 230, 138, 0.9);
-  font-size: 0.75rem;
+  padding: 0 0.45rem;
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2a1f18, #15100c);
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-data);
+  font-size: 0.72rem;
   line-height: 1.35rem;
   text-align: center;
 }
@@ -755,24 +753,21 @@ watch(
 
 .glossary-reference-layout-btn {
   min-height: 2rem;
-  border: 1px solid rgba(251, 191, 36, 0.28);
-  border-radius: 0.42rem;
-  background: rgba(0, 0, 0, 0.24);
-  color: rgba(253, 230, 138, 0.76);
+  border: 1px solid rgba(201, 161, 96, 0.4);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2f241c, #1a1310);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.1);
+  color: var(--dg-text);
   font-size: 0.74rem;
   line-height: 1;
-  padding: 0 0.68rem;
-  transition:
-    color 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
+  padding: 0 0.7rem;
+  transition: color 0.18s ease, border-color 0.18s ease;
 }
 
 .glossary-reference-layout-btn:hover,
 .glossary-reference-layout-btn.active {
-  border-color: rgba(251, 191, 36, 0.5);
-  background: rgba(146, 64, 14, 0.3);
-  color: rgba(255, 247, 237, 0.96);
+  border-color: var(--dg-gold-bright);
+  color: var(--dg-gold-bright);
 }
 
 .glossary-reference-grid {
@@ -786,14 +781,15 @@ watch(
   gap: 0.72rem;
 }
 
+/* 词条卡：左侧语义色边（增益/减益/混合/特殊/场景/特性） */
 .glossary-reference-card {
   min-height: 5.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(201, 161, 96, 0.18);
   border-left-width: 3px;
-  border-radius: 0.5rem;
-  background: rgba(0, 0, 0, 0.24);
-  padding: 0.72rem 0.78rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(255, 220, 160, 0.03), transparent 40%), var(--dg-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.04);
+  padding: 0.72rem 0.8rem;
   scroll-margin-top: 0.75rem;
 }
 
@@ -802,63 +798,52 @@ watch(
   padding: 0.88rem 0.95rem;
 }
 
-.glossary-reference-card--buff {
-  border-left-color: rgba(74, 222, 128, 0.82);
-}
-
-.glossary-reference-card--debuff {
-  border-left-color: rgba(248, 113, 113, 0.82);
-}
-
-.glossary-reference-card--mixed {
-  border-left-color: rgba(168, 85, 247, 0.82);
-}
-
-.glossary-reference-card--special {
-  border-left-color: rgba(56, 189, 248, 0.82);
-}
-
-.glossary-reference-card--scene {
-  border-left-color: #79b9ae;
-}
-
-.glossary-reference-card--trait {
-  border-left-color: rgba(251, 191, 36, 0.82);
-}
+.glossary-reference-card--buff { border-left-color: var(--dg-success); }
+.glossary-reference-card--debuff { border-left-color: var(--dg-danger); }
+.glossary-reference-card--mixed { border-left-color: var(--dg-arcane); }
+.glossary-reference-card--special { border-left-color: var(--dg-mp); }
+.glossary-reference-card--scene { border-left-color: #79b9ae; }
+.glossary-reference-card--trait { border-left-color: var(--dg-gold); }
 
 .glossary-reference-card-title,
 .glossary-reference-effect-title {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  color: rgba(255, 247, 237, 0.95);
-  font-size: 0.88rem;
-  font-weight: 700;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.98rem;
+  letter-spacing: 0.06em;
 }
 
 .glossary-reference-grid.is-readable .glossary-reference-card-title,
 .glossary-reference-grid.is-readable .glossary-reference-effect-title {
-  font-size: 1.02rem;
+  font-size: 1.1rem;
+}
+
+.glossary-reference-effect-icon,
+.glossary-reference-status-index-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(201, 161, 96, 0.4);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a2c22, #16100c 70%);
+  color: var(--dg-gold-bright);
 }
 
 .glossary-reference-effect-icon {
-  display: inline-flex;
   width: 1.45rem;
   height: 1.45rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(251, 191, 36, 0.22);
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.26);
-  color: rgba(253, 230, 138, 0.9);
   font-size: 0.72rem;
 }
 
 .glossary-reference-card-desc {
   margin-top: 0.42rem;
-  color: rgba(255, 237, 213, 0.72);
-  font-size: 0.76rem;
-  line-height: 1.55;
+  color: var(--dg-text);
+  font-size: 0.78rem;
+  line-height: 1.6;
 }
 
 .glossary-reference-grid.is-readable .glossary-reference-card-desc {
@@ -873,10 +858,10 @@ watch(
 }
 
 .glossary-reference-status-group {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(201, 161, 96, 0.16);
   border-left-width: 3px;
-  border-radius: 0.5rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 34%), rgba(0, 0, 0, 0.14);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(255, 220, 160, 0.03), transparent 34%), rgba(0, 0, 0, 0.18);
   padding: 0.72rem;
 }
 
@@ -889,28 +874,22 @@ watch(
 }
 
 .glossary-reference-status-group-title {
-  color: rgba(255, 247, 237, 0.96);
-  font-size: 0.86rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.98rem;
+  letter-spacing: 0.08em;
 }
 
 .glossary-reference-status-group-desc {
-  margin-top: 0.12rem;
-  color: rgba(253, 230, 138, 0.58);
-  font-size: 0.7rem;
+  margin-top: 0.15rem;
+  color: var(--dg-text-muted);
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
 .glossary-reference-status-group-count {
   min-width: 1.65rem;
-  border: 1px solid rgba(251, 191, 36, 0.24);
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.24);
-  color: rgba(253, 230, 138, 0.86);
-  font-size: 0.68rem;
   line-height: 1.18rem;
-  text-align: center;
 }
 
 .glossary-reference-status-index {
@@ -918,22 +897,24 @@ watch(
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 0.88rem;
-  border: 1px solid rgba(251, 191, 36, 0.16);
-  border-radius: 0.5rem;
-  background: rgba(0, 0, 0, 0.16);
-  padding: 0.58rem;
+  border: 1px solid rgba(201, 161, 96, 0.18);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  padding: 0.6rem;
 }
 
 .glossary-reference-status-index-group {
-  border-left: 3px solid rgba(251, 191, 36, 0.72);
-  padding-left: 0.52rem;
+  border-left: 2px solid var(--dg-gold);
+  padding-left: 0.55rem;
 }
 
 .glossary-reference-status-index-label {
   margin-bottom: 0.34rem;
-  color: rgba(254, 243, 199, 0.9);
-  font-size: 0.72rem;
-  font-weight: 800;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
 }
 
 .glossary-reference-status-index-list {
@@ -947,38 +928,27 @@ watch(
   min-height: 2rem;
   align-items: center;
   gap: 0.35rem;
-  border: 1px solid rgba(251, 191, 36, 0.2);
-  border-radius: 0.42rem;
-  background: rgba(0, 0, 0, 0.2);
-  color: rgba(255, 237, 213, 0.78);
+  border: 1px solid rgba(201, 161, 96, 0.28);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2a2019, #18120e);
+  color: var(--dg-text);
   font-size: 0.74rem;
-  padding: 0 0.58rem;
-  transition:
-    color 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
+  padding: 0 0.6rem;
+  transition: color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .glossary-reference-status-index-btn:hover,
 .glossary-reference-status-index-btn:focus-visible {
   outline: none;
-  border-color: rgba(251, 191, 36, 0.48);
-  background: rgba(251, 191, 36, 0.1);
-  color: rgba(255, 247, 237, 0.96);
+  border-color: var(--dg-gold-bright);
+  box-shadow: 0 0 8px rgba(232, 170, 70, 0.2);
+  color: var(--dg-text-strong);
 }
 
 .glossary-reference-status-index-icon {
-  display: inline-flex;
   width: 1.25rem;
   height: 1.25rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(251, 191, 36, 0.2);
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.22);
-  color: rgba(253, 230, 138, 0.9);
   font-size: 0.66rem;
-  flex-shrink: 0;
 }
 
 @media (max-width: 640px) {
@@ -1012,10 +982,12 @@ watch(
 }
 
 .glossary-reference-empty {
-  border: 1px dashed rgba(251, 191, 36, 0.26);
-  border-radius: 0.5rem;
+  border: 1px dashed rgba(201, 161, 96, 0.3);
+  border-radius: 2px;
   padding: 1.6rem;
-  color: rgba(253, 230, 138, 0.62);
+  color: var(--dg-text-faint);
+  font-family: var(--dg-font-serif);
+  font-style: italic;
   text-align: center;
 }
 
@@ -1027,10 +999,10 @@ watch(
 }
 
 .battle-tutorial-nav span {
-  border: 1px solid rgba(251, 191, 36, 0.18);
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.18);
-  color: rgba(253, 230, 138, 0.7);
+  border: 1px solid rgba(201, 161, 96, 0.35);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2a1f18, #15100c);
+  color: var(--dg-gold);
   padding: 0.18rem 0.58rem;
   font-size: 0.68rem;
 }
@@ -1046,8 +1018,8 @@ watch(
 .battle-tutorial-board {
   min-height: 32rem;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border: 1px solid rgba(201, 161, 96, 0.3);
+  border-radius: 2px;
   background:
     linear-gradient(180deg, rgba(17, 17, 26, 0.88), rgba(3, 6, 13, 0.94)),
     radial-gradient(circle at 54% 10%, rgba(107, 33, 168, 0.28), transparent 28%),
@@ -1198,39 +1170,21 @@ watch(
   transform: translateX(-50%);
 }
 
-.battle-tutorial-enemy,
-.battle-tutorial-player,
-.battle-tutorial-center {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.75rem;
-}
-
 .tutorial-status-panel {
   width: 11.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.58rem;
-  background: rgba(24, 20, 30, 0.9);
+  border: 1px solid rgba(201, 161, 96, 0.55);
+  border-radius: 2px;
+  background: var(--dg-bg-panel);
   padding: 0.55rem;
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.tutorial-status-panel--enemy {
-  border-color: rgba(248, 113, 113, 0.2);
-}
-
-.tutorial-status-panel--player {
-  border-color: rgba(96, 165, 250, 0.2);
+  box-shadow: inset 0 0 0 2px rgba(17, 12, 9, 0.85), inset 0 0 0 3px rgba(201, 161, 96, 0.22), 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 
 .tutorial-status-name {
   margin-bottom: 0.42rem;
-  color: rgba(255, 247, 237, 0.92);
-  font-size: 0.74rem;
-  font-weight: 800;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
 }
 
 .tutorial-armor-line {
@@ -1345,20 +1299,7 @@ watch(
   background: linear-gradient(145deg, rgba(16, 185, 129, 0.72), rgba(15, 23, 42, 0.82));
 }
 
-.battle-tutorial-enemy {
-  align-items: flex-start;
-}
-
-.battle-tutorial-player {
-  align-items: flex-end;
-}
-
-.battle-tutorial-center {
-  align-items: center;
-}
-
-.battle-tutorial-intent-card,
-.tutorial-card-preview {
+.battle-tutorial-intent-card {
   width: 8.5rem;
   border: 1px solid rgba(251, 191, 36, 0.32);
   border-radius: 0.5rem;
@@ -1384,8 +1325,7 @@ watch(
   font-weight: 700;
 }
 
-.mock-card-name,
-.tutorial-card-title {
+.mock-card-name {
   margin-top: 0.35rem;
   color: rgba(254, 243, 199, 0.98);
   font-size: 0.78rem;
@@ -1401,43 +1341,10 @@ watch(
     repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 7px);
 }
 
-.mock-card-desc,
-.tutorial-card-desc {
+.mock-card-desc {
   color: rgba(255, 237, 213, 0.68);
   font-size: 0.66rem;
   line-height: 1.4;
-}
-
-.battle-tutorial-status-bar {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.38rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.32);
-  padding: 0.28rem 0.55rem;
-  color: rgba(255, 237, 213, 0.72);
-  font-size: 0.68rem;
-}
-
-.battle-tutorial-status-bar strong {
-  color: rgba(254, 243, 199, 0.98);
-}
-
-.status-dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 9999px;
-}
-
-.status-dot--hp {
-  background: rgb(239, 68, 68);
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
-}
-
-.status-dot--mp {
-  background: rgb(96, 165, 250);
-  box-shadow: 0 0 10px rgba(96, 165, 250, 0.55);
 }
 
 .mock-dice {
@@ -1477,15 +1384,7 @@ watch(
   transform: rotate(-45deg);
 }
 
-.mock-versus {
-  color: rgba(253, 230, 138, 0.76);
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-}
-
-.battle-tutorial-hand,
-.combo-demo {
+.battle-tutorial-hand {
   display: flex;
   gap: 0.4rem;
   align-items: center;
@@ -1522,14 +1421,6 @@ watch(
   z-index: 2;
   margin-top: 0.8rem;
   font-size: 0.6rem;
-}
-
-.mock-mini-card--attack {
-  color: #ffd2c9;
-}
-
-.mock-mini-card--magic {
-  color: #c7e2ff;
 }
 
 .mock-mini-card--skill {
@@ -1616,8 +1507,7 @@ watch(
   flex-wrap: wrap;
 }
 
-.flow-arrow,
-.plus-sign {
+.flow-arrow {
   color: rgba(253, 230, 138, 0.68);
   font-weight: 900;
 }
@@ -1648,29 +1538,6 @@ watch(
 .flow-chip--red {
   border-color: rgba(248, 113, 113, 0.42);
   color: rgba(254, 202, 202, 0.96);
-}
-
-.tutorial-card-preview {
-  width: 7.6rem;
-}
-
-.tutorial-card-top {
-  display: flex;
-  justify-content: space-between;
-  color: rgba(253, 230, 138, 0.72);
-  font-size: 0.62rem;
-}
-
-.tutorial-card-art {
-  display: flex;
-  height: 3.7rem;
-  align-items: center;
-  justify-content: center;
-  margin: 0.45rem 0;
-  border-radius: 0.35rem;
-  background: radial-gradient(circle, rgba(251, 191, 36, 0.22), rgba(59, 130, 246, 0.12), transparent 72%);
-  color: rgba(251, 191, 36, 0.95);
-  font-size: 1.4rem;
 }
 
 .tutorial-effect-chip {
@@ -1992,12 +1859,6 @@ watch(
   line-height: 1.35;
 }
 
-.tutorial-effect-chip--small {
-  min-width: 0;
-  padding: 0.16rem 0.38rem;
-  font-size: 0.6rem;
-}
-
 @media (max-width: 760px) {
   .battle-tutorial-hero,
   .battle-tutorial-grid,
@@ -2013,11 +1874,6 @@ watch(
   .battle-tutorial-board {
     min-height: 51rem;
     aspect-ratio: auto;
-  }
-
-  .battle-tutorial-enemy,
-  .battle-tutorial-player {
-    align-items: center;
   }
 
   .clash-board {
@@ -2080,8 +1936,5 @@ watch(
     width: calc(100% - 2rem);
   }
 
-  .tutorial-right-actions {
-    display: none;
-  }
 }
 </style>

@@ -1,4 +1,5 @@
-export const FEEDBACK_ASSET_ROOT = 'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/restored_assets/';
+/** 反馈素材根目录：特效在 `素材库/战斗界面/特效/`，音效在 `音效库/特效音效/` */
+export const FEEDBACK_ASSET_ROOT = 'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/';
 
 export const feedbackAssetUrl = (relativePath: string) => (
   FEEDBACK_ASSET_ROOT + relativePath.split('/').map(encodeURIComponent).join('/')

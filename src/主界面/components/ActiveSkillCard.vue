@@ -82,14 +82,15 @@ const footerToneClass = computed(() => {
 }
 
 .active-skill-frame {
-  transform: scale(1.1);
   transform-origin: center;
 }
 
 .active-face {
   position: absolute;
   z-index: auto;
-  inset: 17% 21% 19%;
+  /* 与 DungeonCard 一致：底板略微伸入卡框 v2 下方，避免露出缝隙；底部留出徽记的位置 */
+  inset: 7% 10.8% 7.8%;
+  padding-bottom: 6%;
   display: flex;
   min-height: 0;
   flex-direction: column;
@@ -104,13 +105,14 @@ const footerToneClass = computed(() => {
   min-height: 42px;
   align-items: center;
   justify-content: center;
-  padding: 10px 2px 2px;
+  padding: 12px 2px 2px;
   border-bottom: 1px solid rgba(199, 216, 244, 0.35);
 }
 
 .active-gem-cost {
   position: absolute;
-  top: 8%;
+  /* 对准卡框 v2 顶部宝石的中心 */
+  top: 4.5%;
   left: 50%;
   z-index: 5;
   display: grid;
@@ -171,12 +173,13 @@ const footerToneClass = computed(() => {
 .active-face-rules :deep(.active-face-rules-surface) {
   height: 100%;
   max-height: none;
-  padding: 2px 3px;
+  /* 描述文字与卡面边缘留出呼吸空间 */
+  padding: 5px 7px;
   border-radius: 0;
   background: rgba(0, 0, 0, 0.28);
   color: #e3e9f4;
-  font-size: 9px;
-  line-height: 1.25;
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .active-face-rules :deep(.active-face-rules-surface > div) {
@@ -214,12 +217,12 @@ const footerToneClass = computed(() => {
   color: #aab5c9;
 }
 
-.active-skill-card--compact .active-face-heading { min-height: 32px; padding: 7px 1px 2px; }
+.active-skill-card--compact .active-face-heading { min-height: 33px; padding: 9px 1px 2px; }
 .active-skill-card--compact .active-face-name { font-size: 9px; max-height: 23px; }
 .active-skill-card--compact .active-face-emblem { height: 17px; flex-basis: 17px; }
 .active-skill-card--compact .active-face-icon { width: 14px; height: 14px; }
 .active-skill-card--compact .active-gem-cost__value { font-size: 18px; }
 .active-skill-card--compact .active-face-footer { min-height: 13px; font-size: 8px; }
-.active-skill-card--compact .active-face-rules :deep(.active-face-rules-surface) { font-size: 8px; padding: 1px; }
+.active-skill-card--compact .active-face-rules :deep(.active-face-rules-surface) { font-size: 9px; padding: 3px 4px; }
 
 </style>

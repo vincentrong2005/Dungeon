@@ -123,7 +123,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart', 'onClash'],
     stackable: true,
     maxStacks: 0,
-    description: '每回合减少等量层数的生命。己方拼点成功时消失',
+    description: '每回合减少等量层数的生命。己方拼点成功或对方跳过回合时消失',
   },
   [EffectType.BLEED]: {
     type: EffectType.BLEED,
@@ -408,12 +408,12 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
   },
   [EffectType.MANA_DRAIN]: {
     type: EffectType.MANA_DRAIN,
-    name: '法力枯竭',
+    name: '魔力枯竭',
     polarity: 'debuff',
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '每回合开始时强制将当前法力值清零。每回合-1',
+    description: '每回合开始时强制将当前魔力值清零。每回合-1',
   },
   [EffectType.MANA_SPRING]: {
     type: EffectType.MANA_SPRING,
@@ -685,7 +685,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: true,
     maxStacks: 0,
-    description: '每次法力减少时，受到等同层数的生命损失，随后层数减半',
+    description: '每次魔力减少时，受到等同层数的生命损失，随后层数减半',
   },
   [EffectType.FLAME_ATTACH]: {
     type: EffectType.FLAME_ATTACH,
@@ -991,7 +991,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: false,
     maxStacks: 1,
-    description: '回复4点法力，仅一次；此后每经过2回合，在回合开始获得2点法力和1层虚弱。',
+    description: '回复4点魔力，仅一次；此后每经过2回合，在回合开始获得2点魔力和1层虚弱。',
   },
   [EffectType.PAIN_OATH_SHARE]: {
     type: EffectType.PAIN_OATH_SHARE,
@@ -1530,7 +1530,7 @@ export interface TurnStartResult {
 
 /**
  * 处理回合开始时所有效果触发
- * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 性兴奋 → 元素适应体 → 元素皮层 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 法力枯竭(最后清零)
+ * 调用顺序：中毒 → 燃烧 → 流血(-1) → 生命回复 → 性兴奋 → 元素适应体 → 元素皮层 → 实体化 → 白浊 → 施加燃烧 → 眩晕检查 → 魔力源泉 → 魔力枯竭(最后清零)
  */
 export function processOnTurnStart(entity: EntityStats, options?: { runeTurnAlreadyStarted?: boolean }): TurnStartResult {
   const result: TurnStartResult = {
@@ -1774,13 +1774,13 @@ export function processOnTurnStart(entity: EntityStats, options?: { runeTurnAlre
     result.logs.push(`[魔力源泉] 魔力 +${manaSpringStacks}。`);
   }
 
-  // 法力枯竭（在回合开始的其它法力变动后结算）
+  // 魔力枯竭（在回合开始的其它魔力变动后结算）
   if (hasEffect(entity, EffectType.MANA_DRAIN)) {
     const projectedMp = Math.max(0, entity.mp + result.mpChange);
     if (projectedMp > 0) {
       result.mpChange -= projectedMp;
     }
-    result.logs.push(`[法力枯竭] 法力值被清零。`);
+    result.logs.push(`[魔力枯竭] 魔力值被清零。`);
     reduceEffectStacks(entity, EffectType.MANA_DRAIN);
   }
 
@@ -1813,7 +1813,16 @@ export function processOnTurnStart(entity: EntityStats, options?: { runeTurnAlre
  * 处理回合结束时所有效果触发
  * 调用顺序：束缚(-1) → 护甲(减半) → 禁言(-1) → 被操控(-1) → 共鸣锁(-1) → 眩晕(-1) → 紊乱(-1)
  */
-export function processOnTurnEnd(entity: EntityStats): string[] {
+export interface TurnEndProcessOptions {
+  /** 本回合中毒结算受敏感影响：每层敏感使本次增加的中毒量+1 */
+  poisonAffectedByVulnerable?: boolean;
+  /** 本回合中毒结算倍率（向下取整） */
+  poisonMultiplier?: number;
+  /** 本回合不触发中毒：中毒层数不衰减，也不增加中毒量 */
+  skipPoison?: boolean;
+}
+
+export function processOnTurnEnd(entity: EntityStats, options: TurnEndProcessOptions = {}): string[] {
   const logs: string[] = [];
   const runeState = entity.runeState;
   if (runeState && !runeState.turnEnded) {
@@ -1826,10 +1835,18 @@ export function processOnTurnEnd(entity: EntityStats): string[] {
 
   // 中毒：转化为中毒量，然后中毒-1
   const poisonStacks = getEffectStacks(entity, EffectType.POISON);
-  if (poisonStacks > 0) {
-    applyEffect(entity, EffectType.POISON_AMOUNT, poisonStacks);
+  if (poisonStacks > 0 && options.skipPoison) {
+    logs.push('[中毒] 本回合不触发：中毒层数不衰减，也不增加中毒量。');
+  } else if (poisonStacks > 0) {
+    const multiplier = Math.max(0, options.poisonMultiplier ?? 1);
+    let poisonGain = Math.floor(poisonStacks * multiplier);
+    const vulnerableBonus = options.poisonAffectedByVulnerable
+      ? Math.max(0, getEffectStacks(entity, EffectType.VULNERABLE))
+      : 0;
+    poisonGain += vulnerableBonus;
+    applyEffect(entity, EffectType.POISON_AMOUNT, poisonGain);
     reduceEffectStacks(entity, EffectType.POISON, 1);
-    logs.push(`[中毒] 本回合中毒量 +${poisonStacks}，中毒层数衰减 1。`);
+    logs.push(`[中毒] 本回合中毒量 +${poisonGain}${vulnerableBonus > 0 ? `（含敏感 +${vulnerableBonus}）` : ''}，中毒层数衰减 1。`);
   }
 
   // 束缚
@@ -2057,9 +2074,9 @@ export function canPlayCard(
     }
   }
 
-  // 法力不足（仅魔法卡有费用）
+  // 魔力不足（仅魔法卡有费用）
   if (!options?.ignoreMana && card.type === ('魔法' as CardType) && card.manaCost > entity.mp) {
-    return { allowed: false, reason: `法力不足（需要${card.manaCost}，当前${entity.mp}）。`, blockerKind: 'mana' };
+    return { allowed: false, reason: `魔力不足（需要${card.manaCost}，当前${entity.mp}）。`, blockerKind: 'mana' };
   }
 
   // 禁言：禁用魔法

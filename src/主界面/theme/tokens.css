@@ -1,0 +1,86 @@
+/*
+  欲望地牢 · 统一设计变量（P0）
+  ------------------------------------------------------------
+  三个材质层级：
+    器物级  标题页、魔法书、地图 —— 整张美术素材
+    典籍级  所有弹窗 —— 暗铁外框 + 皮革底，阅读内容用羊皮纸内衬
+    随身级  侧边栏、状态、输入栏 —— 与侧边栏徽章同一套金属语言
+  新增样式一律引用这里的变量，不再写零散色值。
+  侧边栏的蓝色只表示“法力 / 系统”，通用强调色使用金色，激活/选中使用奥术紫。
+*/
+:root {
+  /* ---------- 底色 ---------- */
+  --dg-ink: #110c09;
+  --dg-iron: #1b1716;
+  --dg-iron-raised: #241e1b;
+  --dg-leather: #2a1a12;
+  --dg-leather-raised: #362319;
+
+  /* ---------- 金属 ---------- */
+  --dg-gold-deep: #9a6a2a;
+  --dg-gold: #c9a160;
+  --dg-gold-bright: #f0d08a;
+  --dg-bronze: #6e4a22;
+
+  /* ---------- 纸与墨 ---------- */
+  --dg-parchment: #e9d2a6;
+  --dg-parchment-shade: #cfae7a;
+  --dg-ink-text: #3a2110;
+  --dg-ink-soft: #5c3a1e;
+  --dg-rubric: #7c2216;
+
+  /* ---------- 深色底上的文字 ---------- */
+  --dg-text: #e8dcc4;
+  --dg-text-strong: #f6ead2;
+  --dg-text-muted: #a8977c;
+  --dg-text-faint: #7a6b57;
+
+  /* ---------- 语义色 ---------- */
+  --dg-hp: #c4372f;
+  --dg-mp: #4f8fe0;
+  --dg-coin: #e2b04a;
+  --dg-dice: #efe6d2;
+  --dg-arcane: #9a5cf0;
+  --dg-arcane-glow: rgba(176, 110, 255, 0.55);
+  --dg-success: #7fb36a;
+  --dg-danger: #c0503f;
+
+  /* ---------- 线条与面 ---------- */
+  --dg-line: rgba(201, 161, 96, 0.18);
+  --dg-line-strong: rgba(201, 161, 96, 0.45);
+  --dg-surface: rgba(42, 26, 18, 0.62);
+  --dg-surface-hover: rgba(62, 40, 26, 0.72);
+  --dg-surface-active: rgba(84, 52, 26, 0.55);
+  --dg-shadow-deep: 0 1.5rem 4rem rgba(0, 0, 0, 0.65);
+
+  /* ---------- 字体（三个角色） ---------- */
+  /* 标题统一使用 Cinzel，中文落到思源宋体；书法体（江湖琅琊体）仅保留给魔法书内页 */
+  --dg-font-title: 'Cinzel', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', serif;
+  --dg-font-serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
+  --dg-font-data: 'Cinzel', 'Noto Serif SC', serif;
+  --dg-font-ui: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
+
+  /* ---------- 素材（图床：地牢/素材库/通用UI） ---------- */
+  --dg-asset-base: 'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI';
+  /* 九宫格源图 320×320，切片 120；四角为金饰包角，边为黑铁金线 */
+  --dg-img-frame: url('https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI/%E9%AD%94%E5%85%B8%E5%BC%B9%E7%AA%97%E6%A1%86.webp');
+  /* 标题铭牌三段切片源图 194×89：左端 67、右端 66，中段拉伸 */
+  --dg-img-plate: url('https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI/%E6%A0%87%E9%A2%98%E9%93%AD%E7%89%8C.webp');
+  --dg-img-crest: url('https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI/%E6%A0%87%E9%A2%98%E5%86%A0%E9%A5%B0.webp');
+  --dg-img-divider: url('https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI/%E8%8A%B1%E9%A5%B0%E5%88%86%E9%9A%94%E7%BA%BF.webp');
+  /* 主要按钮框 612×264：两端宝石约占 13%，中段拉伸 */
+  --dg-img-button: url('https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI/%E4%B8%BB%E8%A6%81%E6%8C%89%E9%92%AE%E6%A1%86.webp');
+  --dg-tex-iron: url('https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI/%E9%BB%91%E9%93%81%E7%9A%AE%E9%9D%A9%E7%BA%B9%E7%90%86.webp');
+  --dg-tex-parchment: url('https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E9%80%9A%E7%94%A8UI/%E7%BE%8A%E7%9A%AE%E7%BA%B8%E7%BA%B9%E7%90%86.webp');
+
+  /* ---------- 材质组合 ---------- */
+  --dg-bg-panel:
+    radial-gradient(ellipse 120% 70% at 50% 0%, rgba(120, 76, 36, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(17, 12, 9, 0.55), rgba(17, 12, 9, 0.78)),
+    var(--dg-tex-iron) center / 512px repeat,
+    var(--dg-iron);
+  --dg-bg-parchment:
+    radial-gradient(ellipse 85% 75% at 50% 50%, transparent 55%, rgba(150, 102, 52, 0.28) 100%),
+    var(--dg-tex-parchment) center / 512px repeat,
+    var(--dg-parchment);
+}

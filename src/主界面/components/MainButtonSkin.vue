@@ -37,8 +37,9 @@ type MainButtonSkinName = SkinName | MenuSkinName;
 
 const props = defineProps<{ skin: MainButtonSkinName }>();
 
+// v2：细古金圆环 + 紫晶点缀（与魔典框四角的紫宝石呼应），同一 4×4 网格与顺序；旧版 按钮图标.png 保留在素材库
 const atlasUrl =
-  'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E6%8C%89%E9%92%AE%E5%9B%BE%E6%A0%87.png?v=20261003-atlas16';
+  'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E6%8C%89%E9%92%AE%E5%9B%BE%E6%A0%87-v2.webp';
 
 const cells: Record<SkinName, readonly [number, number]> = {
   settings: [0, 0],

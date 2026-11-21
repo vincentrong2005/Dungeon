@@ -17,6 +17,7 @@ const buffers = new Map<string, AudioBuffer>();
 const pending = new Map<string, Promise<AudioBuffer | null>>();
 const groups = new Set<{ owner: object | undefined; priority: number; nodes: AudioBufferSourceNode[]; stop: () => void }>();
 const recent = new Map<string, number>();
+const recentStarts: number[] = [];
 let gestureSound: UiSound | 'none' | null = null;
 let gestureActive = false;
 let gestureSilent = false;
@@ -50,7 +51,19 @@ function ensureContext() {
   context = new AudioContext();
   output = context.createGain();
   output.gain.value = gainValue();
-  output.connect(context.destination);
+  // 总线压缩：压住突发的大音量与多层叠加，避免冷不丁吓人
+  if (typeof context.createDynamicsCompressor === 'function') {
+    const compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -20;
+    compressor.knee.value = 8;
+    compressor.ratio.value = 6;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.25;
+    output.connect(compressor);
+    compressor.connect(context.destination);
+  } else {
+    output.connect(context.destination);
+  }
   return context;
 }
 
@@ -116,6 +129,10 @@ export function playSfx(
     recent.set(options.key, now);
     if (recent.size > 64) recent.delete(recent.keys().next().value!);
   }
+  // 同一时刻（120ms 内）已有其它音效开始播放时，后到的逐个减弱
+  while (recentStarts.length && now - recentStarts[0]! > 120) recentStarts.shift();
+  const crowding = Math.pow(0.6, recentStarts.length);
+  recentStarts.push(now);
   const group = { owner: options.owner, priority, nodes: [] as AudioBufferSourceNode[], stop: () => {} };
   const gainNodes: GainNode[] = [];
   let remaining = sounds.length;
@@ -136,9 +153,10 @@ export function playSfx(
     group.nodes.push(node);
     const start = audio.currentTime + 0.005 + (sound.start ?? 0);
     const duration = Math.min(node.buffer.duration / sound.rate, (sound.end ?? Infinity) - (sound.start ?? 0));
-    gain.gain.setValueAtTime(sound.volume, start);
+    const volume = sound.volume * crowding;
+    gain.gain.setValueAtTime(volume, start);
     if (Number.isFinite(duration)) {
-      gain.gain.setValueAtTime(sound.volume, start + Math.max(0, duration - 0.02));
+      gain.gain.setValueAtTime(volume, start + Math.max(0, duration - 0.02));
       gain.gain.linearRampToValueAtTime(0, start + duration);
     }
     node.onended = () => { if (--remaining === 0) group.stop(); };

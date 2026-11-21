@@ -6,6 +6,7 @@
 
 import { CardType, EffectType, type CardData } from '../types';
 import { EFFECT_REGISTRY } from './effects';
+import { EVENT_CARDS } from './eventCards';
 
 export const UMBILICAL_TENTACLE_CARD = {
   PULL: 'enemy_umbilical_tentacle_pull',
@@ -288,7 +289,7 @@ const 存在消除: CardData = {
 /** 吐纳法：闪避，若闪避成功则回复1倍点数的生命值 */
 const 吐纳法: CardData = {
   id: 'basic_breathing_technique',
-  name: '吐纳法',
+  name: '疗愈步法',
   type: CardType.DODGE,
   category: '基础',
   rarity: '普通',
@@ -311,7 +312,7 @@ const 吐纳法: CardData = {
 /** 虚实步法：重掷，闪避 */
 const 虚实步法: CardData = {
   id: 'basic_void_step',
-  name: '虚实步法',
+  name: '幻影步',
   type: CardType.DODGE,
   category: '基础',
   rarity: '普通',
@@ -321,6 +322,399 @@ const 虚实步法: CardData = {
   traits: { combo: false, reroll: 'self', draw: false },
   cardEffects: [],
   description: '重掷，闪避',
+};
+
+/** 空白：连击，过牌 */
+const 空白: CardData = {
+  id: 'basic_blank',
+  name: '空白',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [],
+  description: '连击，过牌',
+};
+
+/** 魔力涌动：回复1倍点数的魔力，获得2层坚固 */
+const 魔力涌动: CardData = {
+  id: 'basic_mana_surge',
+  name: '魔力涌动',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.STURDY,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 2,
+      durationTurns: 1,
+    },
+  ],
+  description: '回复1倍点数的魔力，获得2层坚固（持续1回合）',
+};
+
+/** 蓄力：点数+1，获得1倍点数的蓄力 */
+const 蓄力: CardData = {
+  id: 'basic_charge',
+  name: '蓄力',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+1，获得1倍点数的蓄力',
+};
+
+/** 守护：获得1倍点数护甲，本轮护甲不触发减半 */
+const 守护: CardData = {
+  id: 'basic_guard',
+  name: '守护',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1倍点数护甲，本回合结束时护甲不会减半',
+};
+
+/** 魔力扩容：点数-1，本场战斗最大骰子点数+1，获得1倍点数护甲 */
+const 魔力扩容: CardData = {
+  id: 'basic_mana_expand',
+  name: '魔力扩容',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: 1 },
+  ],
+  description: '点数-1，本场战斗最大骰子点数+1，获得1倍点数护甲',
+};
+
+/** 驱散：回复2点生命，清除自身元素负面状态 */
+const 驱散: CardData = {
+  id: 'basic_dispel',
+  name: '驱散',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    {
+      kind: 'cleanse',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 0,
+      cleanseTypes: [EffectType.COLD, EffectType.BURN, EffectType.POISON, EffectType.BLEED, EffectType.SHOCK],
+    },
+  ],
+  description: '回复2点生命，清除自身元素负面状态',
+};
+
+/** 元素攻击：造成1点伤害，施加1倍点数的随机元素负面状态 */
+const 元素攻击: CardData = {
+  id: 'basic_element_attack',
+  name: '元素攻击',
+  type: CardType.MAGIC,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1点伤害，施加1倍点数的随机元素负面状态',
+};
+
+/** 闪光术：造成1倍点数伤害，无视闪避，群攻 */
+const 闪光术: CardData = {
+  id: 'basic_flash_spell',
+  name: '闪光术',
+  type: CardType.MAGIC,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，无视闪避，群攻',
+  ignoreDodge: true,
+  swarmAttack: true,
+};
+
+/** 尖锐攻击：若自身为卡组中仅有的物理卡牌，则点数+3。造成1倍点数伤害。 */
+const 尖锐攻击: CardData = {
+  id: 'basic_sharp_attack',
+  name: '尖锐攻击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若自身为卡组中仅有的物理卡牌，则点数+3。造成1倍点数伤害。',
+};
+
+/** 锯齿攻击：造成1倍点数伤害，每次使用后锯齿攻击在本场战斗的点数+2，上限+4 */
+const 锯齿攻击: CardData = {
+  id: 'basic_jagged_attack',
+  name: '锯齿攻击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，每次使用后锯齿攻击在本场战斗的点数+2，上限+4',
+};
+
+/** 袭击：若这是本场战斗首次使用该卡牌，则点数+4。造成1倍点数伤害。 */
+const 袭击: CardData = {
+  id: 'basic_raid_attack',
+  name: '袭击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若这是本场战斗首次使用该卡牌，则点数+4。造成1倍点数伤害。',
+};
+
+/** 柔劲：点数-10后再*-1，造成1倍点数伤害 */
+const 柔劲: CardData = {
+  id: 'basic_soft_force',
+  name: '逆势打击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: -1, addition: 10 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-10后再*-1，造成1倍点数伤害',
+};
+
+/** 针对性斩击：若对方为领主，则点数+4。造成1倍点数伤害。 */
+const 针对性斩击: CardData = {
+  id: 'basic_targeted_slash',
+  name: '讨伐斩击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若对方为领主，则点数+4。造成1倍点数伤害。',
+};
+
+/** 潜行：若手牌中没有物理或魔法卡牌，则点数-3。闪避。 */
+const 潜行: CardData = {
+  id: 'basic_stealth',
+  name: '潜行',
+  type: CardType.DODGE,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若手牌中没有物理或魔法卡牌，则点数-3。闪避。',
+};
+
+/** 虚弱魔法：点数-1，根据我方点数减少对方等量点数，连击 */
+const 虚弱魔法: CardData = {
+  id: 'basic_weak_magic',
+  name: '虚弱魔法',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，根据我方点数减少对方等量点数，连击',
+};
+
+/** 瞬发盾：获得1倍点数护甲，连击，重掷 */
+const 瞬发盾: CardData = {
+  id: 'basic_instant_shield',
+  name: '瞬发盾',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'self', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1倍点数护甲，连击，重掷',
+};
+
+/** 浓缩精华：获得1倍点数蓄力，连击，重掷 */
+const 浓缩精华: CardData = {
+  id: 'basic_condensed_essence',
+  name: '浓缩精华',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'self', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '获得1倍点数蓄力，连击，重掷',
+};
+
+/** 空白的空白：点数+1，连击，过牌。本回合内每出1张牌，点数+1 */
+const 空白的空白: CardData = {
+  id: 'basic_blank_of_blank',
+  name: '空白的空白',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [],
+  description: '点数+1，连击，过牌。本回合内每出1张牌，点数+1',
+};
+
+/** 巨石魔法：点数*2.5，造成0.6倍点数伤害，群攻 */
+const 巨石魔法: CardData = {
+  id: 'basic_boulder_magic',
+  name: '巨石魔法',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 2.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*2.5，造成0.6倍点数伤害，群攻',
+  swarmAttack: true,
+};
+
+/** 粘液斩击：增加点数直至超过对方最终点数，造成1倍点数伤害 */
+const 粘液斩击: CardData = {
+  id: 'basic_slime_axe',
+  name: '粘液斩击',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '增加点数直至超过对方最终点数，造成1倍点数伤害',
+};
+
+/** 生死决断：若投掷点数为4，则点数*4，造成1倍点数伤害 */
+const 生死决断: CardData = {
+  id: 'basic_life_death_judgement',
+  name: '生死决断',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若投掷点数为4，则点数*4，造成1倍点数伤害',
+};
+
+/** 猩红镰刀：本场战斗中第一次使用时，点数*2。造成1倍点数伤害，施加4层流血 */
+const 猩红镰刀: CardData = {
+  id: 'basic_scarlet_scythe',
+  name: '猩红镰刀',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '本场战斗中第一次使用时，点数*2。造成1倍点数伤害，施加4层流血',
+};
+
+/** 认知互换：首次使用时，将自身所有负面状态转移给对方。点数+3，获得1倍点数护甲。 */
+const 认知互换: CardData = {
+  id: 'basic_cognitive_swap',
+  name: '认知互换',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '本场战斗中第一次使用时，将自身所有负面状态转移给对方。点数+3，获得1倍点数护甲。',
 };
 
 // ── 魔导体系卡牌 ────────────────────────────────────────────────
@@ -421,7 +815,7 @@ const 导路采样: CardData = {
 /** 织式备份：1MP，1倍伤害；在手牌中时使手牌内魔法牌费用-1（结算逻辑在 CombatView） */
 const 织式备份: CardData = {
   id: 'modao_weave_backup',
-  name: '织式备份',
+  name: '复写咒纹',
   type: CardType.MAGIC,
   category: '魔导',
   rarity: '普通',
@@ -531,10 +925,10 @@ const 魔导序曲: CardData = {
   description: '点数*1.5，造成1.5倍点数伤害；每次抽到该牌时该牌费用-1',
 };
 
-/** 法环坍缩：1.5倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
+/** 坠雷术（原名：法环坍缩）：1.5倍伤害；额外消耗自身至多20MP，每消耗4MP追加1次伤害（结算逻辑在 CombatView） */
 const 法环坍缩: CardData = {
   id: 'modao_ring_collapse',
-  name: '法环坍缩',
+  name: '坠雷术',
   type: CardType.MAGIC,
   category: '魔导',
   rarity: '普通',
@@ -610,24 +1004,6 @@ const 涌流: CardData = {
     { kind: 'apply_buff', effectType: EffectType.COLD, target: 'self', valueMode: 'fixed', fixedValue: 1 },
   ],
   description: '自身增加2点魔力与1层寒冷，连击',
-};
-
-/** 透支魔力：大量回魔并叠加法力枯竭，连击 */
-const 透支魔力: CardData = {
-  id: 'modao_overdraw',
-  name: '透支魔力',
-  type: CardType.FUNCTION,
-  category: '魔导',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 10 },
-    { kind: 'apply_buff', effectType: EffectType.MANA_DRAIN, target: 'self', valueMode: 'fixed', fixedValue: 3 },
-  ],
-  description: '自身增加10点魔力与3层法力枯竭，连击',
 };
 
 /** 魔甲：获得等同当前魔力值的护甲（结算逻辑在 CombatView） */
@@ -1831,6 +2207,1083 @@ const 肮脏: CardData = {
     },
   ],
   description: '获得15%最大生命值的中毒，然后移除自身',
+};
+
+// ── 财富 / 腐化 / 暗影 / 破坏体系卡牌定义 ─────────────────────────
+// 依赖战斗上下文的效果在 CombatView 中按卡牌 ID 补充。
+
+const 彩虹油漆: CardData = {
+  id: 'system_wealth_彩虹油漆',
+  name: '彩虹油漆',
+  type: CardType.FUNCTION,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1 },
+    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1 },
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1 },
+  ],
+  description: '点数×0.5，回复1倍点数的生命、魔力与护甲。',
+};
+
+const 彩玉蛇: CardData = {
+  id: 'system_wealth_彩玉蛇',
+  name: '彩玉蛇',
+  type: CardType.DODGE,
+  category: '财富',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.ARMOR,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 2,
+    },
+  ],
+  description: '闪避；拼点失败时获得2倍点数护甲。',
+};
+
+const 地震: CardData = {
+  id: 'system_wealth_地震',
+  name: '地震',
+  type: CardType.MAGIC,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1 },
+  ],
+  description: '点数+2，造成1倍点数物理伤害；移除敌方等量护甲并获得等量护甲。',
+};
+
+const 镐击: CardData = {
+  id: 'system_wealth_镐击',
+  name: '镐击',
+  type: CardType.PHYSICAL,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1 },
+  ],
+  description: '造成1倍点数物理伤害，获得1倍点数护甲。',
+};
+
+const 黄金镐: CardData = {
+  id: 'system_wealth_黄金镐',
+  name: '黄金镐',
+  type: CardType.PHYSICAL,
+  category: '财富',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '每5金币点数+1，造成1倍点数物理伤害，获得5临时金币。',
+};
+
+const 黄金木板: CardData = {
+  id: 'system_wealth_黄金木板',
+  name: '黄金木板',
+  type: CardType.FUNCTION,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '获得1倍点数临时金币；每3金币获得1点护甲。',
+};
+
+const 金币巧克力: CardData = {
+  id: 'system_wealth_金币巧克力',
+  name: '蜜金糖',
+  type: CardType.FUNCTION,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '获得1点护甲与1枚临时金币；连击，抽牌。',
+};
+
+const 榴莲: CardData = {
+  id: 'system_wealth_榴莲',
+  name: '荆棘甲壳',
+  type: CardType.FUNCTION,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1 },
+  ],
+  description: '获得1倍点数护甲；本回合被伤害牌命中时，使对方受到1倍本牌点数的物理伤害。',
+};
+
+const 路边的石子: CardData = {
+  id: 'system_wealth_路边的石子',
+  name: '路边的石子',
+  type: CardType.DODGE,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.ARMOR,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 0.7,
+    },
+  ],
+  description: '闪避；拼点失败时获得0.7倍点数护甲。',
+};
+
+const 煤精灵: CardData = {
+  id: 'system_wealth_煤精灵',
+  name: '煤精灵',
+  type: CardType.FUNCTION,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '获得0.5倍点数护甲与1层蓄力。',
+};
+
+const 石壁: CardData = {
+  id: 'system_wealth_石壁',
+  name: '石壁',
+  type: CardType.FUNCTION,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1 },
+    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: -2 },
+  ],
+  description: '点数×2，获得1倍点数护甲，失去2点魔力。',
+};
+
+const 石巨人: CardData = {
+  id: 'system_wealth_石巨人',
+  name: '石巨人',
+  type: CardType.MAGIC,
+  category: '财富',
+  rarity: '稀有',
+  manaCost: 12,
+  calculation: { multiplier: 2, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '每有1点护甲魔力消耗降低1；点数×2，造成1倍点数物理伤害并获得0.5倍点数护甲。',
+};
+
+const 水晶之锤: CardData = {
+  id: 'system_wealth_水晶之锤',
+  name: '水晶之锤',
+  type: CardType.PHYSICAL,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '每4点护甲点数+1，造成1倍点数物理伤害。',
+};
+
+const 水晶之镰: CardData = {
+  id: 'system_wealth_水晶之镰',
+  name: '水晶之镰',
+  type: CardType.PHYSICAL,
+  category: '财富',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害；每有1点护甲，伤害+1。',
+};
+
+const 心之容器: CardData = {
+  id: 'system_wealth_心之容器',
+  name: '心之容器',
+  type: CardType.FUNCTION,
+  category: '财富',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.TEMP_MAX_HP, target: 'self', valueMode: 'point_scale', scale: 1 },
+    { kind: 'heal', target: 'self', valueMode: 'point_scale', scale: 1 },
+  ],
+  description: '点数+2，获得1倍点数临时生命上限并回复等量生命；本场战斗每使用一次，本牌点数-2。',
+};
+
+const 酒里藏毒: CardData = {
+  id: 'system_corruption_酒里藏毒',
+  name: '酒里藏毒',
+  type: CardType.FUNCTION,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+1，使敌人回复2倍点数生命，每实际回复2点生命对其施加1层中毒；连击。',
+};
+
+const 剧毒匕首: CardData = {
+  id: 'system_corruption_剧毒匕首',
+  name: '剧毒匕首',
+  type: CardType.PHYSICAL,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '造成1倍点数物理伤害，施加2层中毒。',
+};
+
+const 杀虫剂: CardData = {
+  id: 'system_corruption_杀虫剂',
+  name: '毒粉散布',
+  type: CardType.DODGE,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.POISON,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 2,
+    },
+  ],
+  description: '闪避；闪避成功后对敌人施加2层中毒。',
+};
+
+const 酸梅糖: CardData = {
+  id: 'system_corruption_酸梅糖',
+  name: '毒蜜糖',
+  type: CardType.FUNCTION,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数-1，施加1层中毒；连击，抽牌。',
+};
+
+const 酸蚀液: CardData = {
+  id: 'system_corruption_酸蚀液',
+  name: '酸蚀液',
+  type: CardType.MAGIC,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1, addition: 1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+1，施加0.5倍点数中毒。',
+};
+
+const 铁蒺藜: CardData = {
+  id: 'system_corruption_铁蒺藜',
+  name: '铁蒺藜',
+  type: CardType.DODGE,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'damage',
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1,
+      isDirectDamage: true,
+    },
+  ],
+  description: '闪避；闪避成功后使敌人受到1倍点数物理伤害。',
+};
+
+const 污染之路: CardData = {
+  id: 'system_corruption_污染之路',
+  name: '污染之路',
+  type: CardType.DODGE,
+  category: '腐化',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数+2，闪避；闪避成功后使敌方中毒翻倍。',
+};
+
+const 腐化暗影: CardData = {
+  id: 'system_corruption_腐化（暗影）',
+  name: '腐蚀之印',
+  type: CardType.FUNCTION,
+  category: '腐化',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.VULNERABLE,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+      durationTurns: 1,
+    },
+  ],
+  description: '施加2层中毒与1层敏感；本回合结束时敌方中毒结算受敏感影响。连击。',
+};
+
+const 蚀骨之刺: CardData = {
+  id: 'system_corruption_蚀骨之刺',
+  name: '蚀骨之刺',
+  type: CardType.PHYSICAL,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数物理伤害；敌方每有1层敏感，额外施加1层中毒量。',
+};
+
+const 腐蚀涂层: CardData = {
+  id: 'system_corruption_腐蚀涂层',
+  name: '腐蚀涂层',
+  type: CardType.MAGIC,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '施加0.5倍点数中毒与2层腐蚀。',
+};
+
+const 毒绽: CardData = {
+  id: 'system_corruption_毒绽',
+  name: '毒绽',
+  type: CardType.MAGIC,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '施加等同敌方一半中毒量的生命上限削减。',
+};
+
+const 瘴气帷幕: CardData = {
+  id: 'system_corruption_瘴气帷幕',
+  name: '瘴气帷幕',
+  type: CardType.DODGE,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避；闪避成功后立即触发一次敌方的中毒。',
+};
+
+const 毒素催化: CardData = {
+  id: 'system_corruption_毒素催化',
+  name: '毒素催化',
+  type: CardType.MAGIC,
+  category: '腐化',
+  rarity: '稀有',
+  manaCost: 4,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '施加0.5倍点数中毒；敌方每有2层中毒量，额外施加1层中毒量。',
+};
+
+const 暗器连发: CardData = {
+  id: 'system_shadow_暗器连发',
+  name: '飞刃连掷',
+  type: CardType.PHYSICAL,
+  category: '暗影',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数×0.5，造成1倍点数物理伤害；牌组每有一张闪避牌额外攻击一次（最多额外4次）。',
+};
+
+const 背刺: CardData = {
+  id: 'system_shadow_背刺',
+  name: '背刺',
+  type: CardType.PHYSICAL,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数物理伤害；敌人满生命时伤害翻倍。',
+};
+
+const 刺击: CardData = {
+  id: 'system_shadow_刺击',
+  name: '刺击',
+  type: CardType.PHYSICAL,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: -3 },
+  damageLogic: { mode: 'relative', scale: 1, scaleAddition: 6 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-3，造成1倍点数+6的物理伤害。',
+};
+
+const 雾中人: CardData = {
+  id: 'system_shadow_雾中人',
+  name: '雾中人',
+  type: CardType.FUNCTION,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: -2 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.POISON, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '点数-2，使敌方点数降低等量；施加2层中毒与1层敏感。',
+};
+
+const 夜猫视野: CardData = {
+  id: 'system_shadow_夜猫视野',
+  name: '夜猫视野',
+  type: CardType.DODGE,
+  category: '暗影',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: -3 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-3，闪避；在手牌中时攻击牌与法术牌无视闪避。',
+};
+
+const 影魔: CardData = {
+  id: 'system_shadow_影魔',
+  name: '影魔',
+  type: CardType.MAGIC,
+  category: '暗影',
+  rarity: '稀有',
+  manaCost: 5,
+  calculation: { multiplier: 1, addition: 1 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  ignoreDodge: true,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+  ],
+  description: '点数+1，无视闪避，造成1倍点数魔法伤害并施加0.5倍点数敏感。',
+};
+
+const 影之手: CardData = {
+  id: 'system_shadow_影之手',
+  name: '影之手',
+  type: CardType.MAGIC,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  ignoreDodge: true,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '无视闪避；对方使用闪避或功能牌时点数×2，造成1倍点数魔法伤害。',
+};
+
+const 影之眼: CardData = {
+  id: 'system_shadow_影之眼',
+  name: '影之眼',
+  type: CardType.MAGIC,
+  category: '暗影',
+  rarity: '稀有',
+  manaCost: 3,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 1 },
+  hitCount: 1,
+  ignoreDodge: true,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '本牌对增伤与敏感的效果×3，造成1点魔法伤害并施加1层敏感。',
+};
+
+const 影遁: CardData = {
+  id: 'system_shadow_影遁',
+  name: '影遁',
+  type: CardType.DODGE,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success'],
+      kind: 'apply_buff',
+      effectType: EffectType.IGNORE_DODGE,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '闪避；闪避成功后获得1层无视闪避。',
+};
+
+const 镜影: CardData = {
+  id: 'system_shadow_镜影',
+  name: '镜影',
+  type: CardType.DODGE,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避；平点也视为闪避成功，且平点时额外施加2层敏感。',
+};
+
+const 鬼影步: CardData = {
+  id: 'system_shadow_鬼影步',
+  name: '鬼影步',
+  type: CardType.DODGE,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数-1，闪避；闪避成功后下一张攻击牌（物理或魔法）点数+3。',
+};
+
+const 融入暗影: CardData = {
+  id: 'system_shadow_融入暗影',
+  name: '融入暗影',
+  type: CardType.DODGE,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避；你的生命低于30%时，无论本牌身处何处，回到手牌最左侧。',
+};
+
+const 处决: CardData = {
+  id: 'system_shadow_处决',
+  name: '处决',
+  type: CardType.PHYSICAL,
+  category: '暗影',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 2, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数×2，造成0.5倍点数物理伤害，并额外造成敌方已损生命值20%的真实伤害。',
+};
+
+const 壁炉: CardData = {
+  id: 'system_destruction_壁炉',
+  name: '壁炉',
+  type: CardType.FUNCTION,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: -1 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1 },
+  ],
+  description: '点数-1，获得1倍点数护甲与蓄力。',
+};
+
+const 齿轮盾: CardData = {
+  id: 'system_destruction_齿轮盾',
+  name: '齿轮盾',
+  type: CardType.FUNCTION,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1 },
+  ],
+  description: '获得1层坚固与1倍点数蓄力。',
+};
+
+const 地雷: CardData = {
+  id: 'system_destruction_地雷',
+  name: '爆裂法阵',
+  type: CardType.DODGE,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'damage',
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1,
+      isTrueDamage: true,
+      isDirectDamage: true,
+    },
+  ],
+  description: '闪避；拼点失败时使对方受到1倍点数真实伤害。',
+};
+
+const 腐蚀钢钉: CardData = {
+  id: 'system_destruction_腐蚀钢钉',
+  name: '腐蚀钢钉',
+  type: CardType.MAGIC,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 6 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成6点真实伤害。',
+};
+
+const 滑行床: CardData = {
+  id: 'system_destruction_滑行床',
+  name: '滑轨冲车',
+  type: CardType.PHYSICAL,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.ARMOR,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1,
+    },
+  ],
+  description: '造成1倍点数物理伤害；拼点失败时获得1倍点数护甲。',
+};
+
+const 酒瓶: CardData = {
+  id: 'system_destruction_酒瓶',
+  name: '酒瓶',
+  type: CardType.MAGIC,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash'],
+      kind: 'apply_buff',
+      effectType: EffectType.BURN,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1,
+    },
+  ],
+  description: '造成1倍点数魔法伤害；拼点后使对方获得1倍点数燃烧。',
+};
+
+const 偏折: CardData = {
+  id: 'system_destruction_偏折',
+  name: '偏折',
+  type: CardType.DODGE,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '闪避；若点数达到骰子最大值，获得1层本回合结界。',
+};
+
+const 前方高能: CardData = {
+  id: 'system_destruction_前方高能',
+  name: '过载预警',
+  type: CardType.FUNCTION,
+  category: '破坏',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.5 },
+  ],
+  description: '获得1.5倍点数蓄力；本牌在手牌中时受到伤害-4。',
+};
+
+const 铁拳: CardData = {
+  id: 'system_destruction_铁拳',
+  name: '铁拳',
+  type: CardType.PHYSICAL,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '若上回合拼点失败则点数×2，造成1倍点数物理伤害。',
+};
+
+const 反冲: CardData = {
+  id: 'system_destruction_反冲',
+  name: '反冲',
+  type: CardType.PHYSICAL,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '拼点时使对方受到1倍对方点数的物理伤害；若拼点失败，本回合受到的伤害减半。',
+};
+
+const 压缩饼干: CardData = {
+  id: 'system_destruction_压缩饼干',
+  name: '硬面包',
+  type: CardType.FUNCTION,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: true, reroll: 'none', draw: true },
+  cardEffects: [],
+  description: '本回合受到伤害-1；连击，抽牌。',
+};
+
+const 液压机: CardData = {
+  id: 'system_destruction_液压机',
+  name: '重压机关',
+  type: CardType.PHYSICAL,
+  category: '破坏',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数×1.5，造成1倍点数物理伤害，可与行动牌拼点。',
+};
+
+const 引爆: CardData = {
+  id: 'system_destruction_引爆',
+  name: '大爆破',
+  type: CardType.MAGIC,
+  category: '破坏',
+  rarity: '稀有',
+  manaCost: 4,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  swarmAttack: true,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '本场战斗每次拼点失败点数+3；群攻，造成1倍点数魔法伤害。',
+};
+
+const 引爆2: CardData = {
+  id: 'system_destruction_引爆2',
+  name: '爆破',
+  type: CardType.MAGIC,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '本场战斗每次拼点失败点数+3；造成1倍点数魔法伤害，使用后重置加成。',
+};
+
+const 坠落之塔: CardData = {
+  id: 'system_destruction_坠落之塔',
+  name: '坠落之塔',
+  type: CardType.PHYSICAL,
+  category: '破坏',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'apply_buff',
+      effectType: EffectType.BARRIER,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 3,
+      durationTurns: 1,
+      temporary: true,
+    },
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'damage',
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1.5,
+      isDirectDamage: true,
+    },
+  ],
+  description: '拼点失败时获得3层本回合结界，并使对方受到1.5倍对方点数物理伤害。',
+};
+
+const 自我安慰: CardData = {
+  id: 'system_destruction_自我安慰',
+  name: '自我安慰',
+  type: CardType.FUNCTION,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '上回合拼点失败时回复6点生命并获得本回合结界，否则获得1倍点数护甲。',
+};
+
+// ── 原作补充移植卡牌 ─────────────────────────────────────────────
+// 需要战斗上下文的效果在 CombatView 中按 PORTED_CARD 的 ID 补充。
+
+export const PORTED_CARD = {
+  MUD_BOMB: 'basic_mud_bomb',
+  PROPHECY: 'basic_prophecy',
+  TRACKING_MISSILE: 'modao_tracking_missile',
+  SPELL_RECITAL: 'modao_spell_recital',
+  FROST_FIRE_FLOWER: 'burn_frost_fire_flower',
+} as const;
+
+const 炸裂泥弹: CardData = {
+  id: PORTED_CARD.MUD_BOMB,
+  name: '炸裂泥弹',
+  type: CardType.PHYSICAL,
+  category: '基础',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_clash_fail'],
+      kind: 'damage',
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 1,
+      isTrueDamage: true,
+      isDirectDamage: true,
+    },
+  ],
+  description: '造成1倍点数物理伤害；拼点失败时使对方受到1倍点数真实伤害。',
+};
+
+const 预言: CardData = {
+  id: PORTED_CARD.PROPHECY,
+  name: '预言',
+  type: CardType.FUNCTION,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '从本场战斗的牌组中选择一张尚未预言过的卡牌进行临时复制，打出后复原为预言。',
+};
+
+const 追踪魔弹: CardData = {
+  id: PORTED_CARD.TRACKING_MISSILE,
+  name: '追踪魔弹',
+  type: CardType.MAGIC,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 4,
+  calculation: { multiplier: 0.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数×0.5，随机造成3~6次1倍点数的魔法伤害。',
+};
+
+const 咒文复诵: CardData = {
+  id: PORTED_CARD.SPELL_RECITAL,
+  name: '咒文复诵',
+  type: CardType.MAGIC,
+  category: '魔导',
+  rarity: '稀有',
+  manaCost: 4,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '本次出牌改为结算你本场战斗上一张打出的魔法牌的效果；若本场尚未打出过魔法牌，则造成1倍点数魔法伤害。',
+};
+
+const 冰与火之花: CardData = {
+  id: PORTED_CARD.FROST_FIRE_FLOWER,
+  name: '冰与火之花',
+  type: CardType.MAGIC,
+  category: '燃烧',
+  requiredCategories: ['燃烧', '严寒'],
+  rarity: '稀有',
+  manaCost: 4,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description:
+    '使敌方燃烧与寒冷中较少的一方增加至与较多的一方相等，并随机施加0.5倍点数的燃烧或寒冷。',
 };
 
 // ── 敌人卡牌定义 ────────────────────────────────────────────────
@@ -3091,7 +4544,7 @@ const SELINA_SPACE_FOLD: CardData = {
   description: '消耗一半魔力并增加等量点数，造成固定5点伤害，对方骰子最小值-1',
 };
 
-/** 挽留：消耗自身所有魔力，点数*2，回复对方等同于消耗魔力的生命值，并施加等量法力枯竭 */
+/** 挽留：消耗自身所有魔力，点数*2，回复对方等同于消耗魔力的生命值，并施加等量魔力枯竭 */
 const SELINA_DETAIN: CardData = {
   id: 'enemy_selina_detain',
   name: '挽留',
@@ -3103,7 +4556,7 @@ const SELINA_DETAIN: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗自身所有魔力，点数*2，回复对方等同于消耗魔力的生命值，并施加等量法力枯竭',
+  description: '消耗自身所有魔力，点数*2，回复对方等同于消耗魔力的生命值，并施加等量魔力枯竭',
 };
 
 /** 待客：消耗1，回复对方10点生命值，为对方施加3回合的视野模糊与敌意隐藏 */
@@ -3581,7 +5034,7 @@ const NIGHTMARE_MOTH_SCALE_POWDER_HYPNOSIS: CardData = {
   description: '施加4点侵蚀，施加1层鳞粉，并附带负面状态[鳞粉]',
 };
 
-/** 群体编梦：消耗3，点数+群集数，法力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀（额外效果在 CombatView） */
+/** 群体编梦：消耗3，点数+群集数，魔力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀（额外效果在 CombatView） */
 const NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE: CardData = {
   id: 'enemy_nightmare_moth_collective_dreamweave',
   name: '群体编梦',
@@ -3596,7 +5049,7 @@ const NIGHTMARE_MOTH_COLLECTIVE_DREAMWEAVE: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CORROSION, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   manaDrain: 3,
-  description: '点数+群集数，法力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀',
+  description: '点数+群集数，魔力汲取3，施加1倍点数侵蚀；对方每有1层鳞粉额外施加2层侵蚀',
 };
 
 /** 鳞粉爆散：消耗2，自伤30，点数+4，施加1倍点数侵蚀与1层虚弱，拼点失败则施加1层鳞粉 */
@@ -4379,7 +5832,7 @@ const THORN_CRAWLER_NEURAL_PIERCE: CardData = {
   description: '造成0.5倍点数伤害，并施加0.5倍点数的电击；若目标已有束缚，额外施加1倍点数电击与疲劳',
 };
 
-/** 毒素脉冲：点数*1.5，法力汲取1，施加1倍点数电击；若目标已有束缚，额外施加1层束缚（额外效果在 CombatView） */
+/** 毒素脉冲：点数*1.5，魔力汲取1，施加1倍点数电击；若目标已有束缚，额外施加1层束缚（额外效果在 CombatView） */
 const THORN_CRAWLER_TOXIN_PULSE: CardData = {
   id: 'enemy_thorncrawler_toxin_pulse',
   name: '毒素脉冲',
@@ -4395,7 +5848,7 @@ const THORN_CRAWLER_TOXIN_PULSE: CardData = {
     { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   manaDrain: 3,
-  description: '点数*1.5，法力汲取3，施加1倍点数电击；若目标已有束缚，额外施加1层束缚',
+  description: '点数*1.5，魔力汲取3，施加1倍点数电击；若目标已有束缚，额外施加1层束缚',
 };
 
 /** 入侵：物理，无直接伤害，施加1倍点数的侵蚀 */
@@ -4651,7 +6104,7 @@ const 凝血成兵: CardData = {
   description: '点数*1.5，自伤5，造成0.4倍点数伤害，3连击，并为自身施加1层增伤',
 };
 
-/** 蝙蝠突袭：法力汲取6 */
+/** 蝙蝠突袭：魔力汲取6 */
 const 蝙蝠突袭: CardData = {
   id: 'enemy_elizabeth_bat_raid',
   name: '蝙蝠突袭',
@@ -4665,7 +6118,7 @@ const 蝙蝠突袭: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   manaDrain: 6,
   cardEffects: [],
-  description: '法力汲取6',
+  description: '魔力汲取6',
 };
 
 /** 沸血律动：消耗4MP，点数+2，造成1倍点数真实伤害并施加0.5倍点数流血（真实伤害逻辑在 CombatView） */
@@ -5676,7 +7129,7 @@ const 禁忌知识: CardData = {
   description: '点数*3，施加1倍点数的侵蚀',
 };
 
-/** 被动增敏：法力汲取6 */
+/** 被动增敏：魔力汲取6 */
 const 被动增敏: CardData = {
   id: 'enemy_whisper_ghost_passive_sensitization',
   name: '被动增敏',
@@ -5689,7 +7142,7 @@ const 被动增敏: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   manaDrain: 6,
-  description: '法力汲取6',
+  description: '魔力汲取6',
 };
 
 /** 行间诱惑：消耗4MP，点数+2，造成0.4倍伤害并施加1倍点数的侵蚀 */
@@ -6329,7 +7782,7 @@ const 面具侍从_卸下面具: CardData = {
   description: '施加2层性兴奋',
 };
 
-/** 无面·深吻：点数+1，造成1倍点数伤害，施加1倍点数疲劳，法力汲取2 */
+/** 无面·深吻：点数+1，造成1倍点数伤害，施加1倍点数疲劳，魔力汲取2 */
 const 面具侍从_无面深吻: CardData = {
   id: 'enemy_mask_attendant_faceless_deep_kiss',
   name: '无面·深吻',
@@ -6345,7 +7798,7 @@ const 面具侍从_无面深吻: CardData = {
     { kind: 'apply_buff', effectType: EffectType.FATIGUE, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   manaDrain: 2,
-  description: '点数+1，造成1倍点数伤害，施加1倍点数疲劳，法力汲取2',
+  description: '点数+1，造成1倍点数伤害，施加1倍点数疲劳，魔力汲取2',
 };
 
 /** 无面·束缚：点数+2，无视闪避，造成1倍点数伤害；若对方拥有性兴奋，则额外施加1层眩晕（条件逻辑在 CombatView） */
@@ -6383,7 +7836,7 @@ const STITCHED_SPIDER_PACK_HUNT: CardData = {
   description: '点数+自身群集数，造成1倍点数伤害并施加自身群集数层束缚，自身群集+1',
 };
 
-/** 精密注射：施加1倍点数电击，法力汲取1 */
+/** 精密注射：施加1倍点数电击，魔力汲取1 */
 const STITCHED_SPIDER_PRECISE_INJECTION: CardData = {
   id: 'enemy_stitched_spider_precise_injection',
   name: '精密注射',
@@ -6399,7 +7852,7 @@ const STITCHED_SPIDER_PRECISE_INJECTION: CardData = {
     { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
   ],
   manaDrain: 1,
-  description: '造成1倍点数电击，法力汲取1',
+  description: '造成1倍点数电击，魔力汲取1',
 };
 
 /** 召集：为自身增加等同自身群集层数的蓄力（结算逻辑在 CombatView） */
@@ -6565,7 +8018,7 @@ const 多重鞭腿: CardData = {
   description: '造成0.5倍点数伤害，3连击',
 };
 
-/** 柔和缠绕：法力汲取5，施加1层束缚 */
+/** 柔和缠绕：魔力汲取5，施加1层束缚 */
 const 柔和缠绕: CardData = {
   id: 'enemy_kraken_gentle_entangle',
   name: '柔和缠绕',
@@ -6581,7 +8034,7 @@ const 柔和缠绕: CardData = {
     { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
   ],
   manaDrain: 5,
-  description: '法力汲取5，施加1层束缚',
+  description: '魔力汲取5，施加1层束缚',
 };
 
 /** 三重鞭打：造成0.5倍点数伤害，3连击 */
@@ -6671,7 +8124,7 @@ const 水牢禁锢: CardData = {
   description: '点数*3，造成0.4倍点数伤害，施加1倍点数寒冷与1层禁言',
 };
 
-/** 丝线侵蚀：法力汲取3，拼点失败后施加3层侵蚀（额外效果在 CombatView） */
+/** 丝线侵蚀：魔力汲取3，拼点失败后施加3层侵蚀（额外效果在 CombatView） */
 const 丝线侵蚀: CardData = {
   id: 'enemy_doll_silk_corrosion',
   name: '丝线侵蚀',
@@ -6694,7 +8147,7 @@ const 丝线侵蚀: CardData = {
     },
   ],
   manaDrain: 3,
-  description: '法力汲取3，拼点失败后施加3层侵蚀',
+  description: '魔力汲取3，拼点失败后施加3层侵蚀',
 };
 
 /** 丝线接管：消耗4，点数*1.5，施加5层侵蚀与2层虚弱；目标每有8层侵蚀则额外施加1层被操控（额外效果在 CombatView） */
@@ -7088,9 +8541,7 @@ const 原液增生: CardData = {
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, minDiceDelta: 1 },
-  ],
+  cardEffects: [{ kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, minDiceDelta: 1 }],
   description: '提升自身1点最小点数',
 };
 
@@ -7603,7 +9054,8 @@ const 不稳定试剂: CardData = {
   hitCount: 3,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*1.5，造成0.1倍最终点数伤害，3连击；每次命中随机附加1层元素debuff。可额外消耗最多20魔力，每消耗2点连击+1',
+  description:
+    '点数*1.5，造成0.1倍最终点数伤害，3连击；每次命中随机附加1层元素debuff。可额外消耗最多20魔力，每消耗2点连击+1',
 };
 
 /** 液态火：施加0.6倍点数寒冷，然后将对方所有寒冷按1:1转化为燃烧（结算逻辑在 CombatView） */
@@ -7666,7 +9118,7 @@ const 溢价护盾: CardData = {
   description: '增加自身1层共损与x点魔力，x为对方魔力值',
 };
 
-/** 设下埋伏：点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加一层法力枯竭；若对方使用闪避，则施加1层敏感 */
+/** 设下埋伏：点数*0.5，闪避。若闪避成功或对方跳过回合，则为对方施加一层魔力枯竭；若对方使用闪避，则施加1层敏感 */
 const 设下埋伏: CardData = {
   id: 'enemy_muxinlan_set_ambush',
   name: '设下埋伏',
@@ -7687,7 +9139,7 @@ const 设下埋伏: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '点数*0.5，闪避。闪避成功或对方跳过回合，则施加1层法力枯竭；若对方使用闪避，则施加1层敏感',
+  description: '点数*0.5，闪避。闪避成功或对方跳过回合，则施加1层魔力枯竭；若对方使用闪避，则施加1层敏感',
 };
 
 /** 腐蚀液：清空对方护甲，施加1层腐蚀（结算逻辑在 CombatView） */
@@ -7737,405 +9189,920 @@ const 升华: CardData = {
   description: '移除对方所有诅咒牌，每移除1张回复自身10%最大生命值',
 };
 
-// ── 卡牌注册表 ──────────────────────────────────────────────────
+// 需要依赖战斗上下文的效果（金币、牌库闪避数量、上一回合结果等）在 CombatView 中按卡牌 ID 补充。
 
-/**
- * 全部卡牌以 name 为键存储。
- * 后续新增卡牌只需在此处添加并注册即可。
- */
-/** 空白：连击，过牌 */
-const 空白: CardData = {
-  id: 'basic_blank',
-  name: '空白',
+export const PAIN_CARD = {
+  CHOOSE: 'enemy_pain_choose',
+  WHIP: 'enemy_pain_whip',
+  QUESTION: 'enemy_pain_question',
+  SELF_HARM: 'enemy_pain_self_harm',
+  RETURN: 'enemy_pain_return',
+  CUT_ROBE: 'enemy_pain_cut_robe',
+  EMBRACE: 'enemy_pain_embrace',
+  RECEIVE: 'enemy_pain_receive',
+  REMEMBER: 'enemy_pain_remember',
+  AGAIN: 'pain_curse_again',
+  SILK: 'pain_curse_silk',
+  CRYSTAL: 'pain_curse_crystal',
+  SCAR: 'pain_curse_scar',
+} as const;
+
+export const PAIN_OATHS = [
+  EffectType.PAIN_OATH_WHIP,
+  EffectType.PAIN_OATH_PILLAR,
+  EffectType.PAIN_OATH_OINTMENT,
+  EffectType.PAIN_OATH_CUP,
+  EffectType.PAIN_OATH_SHARE,
+] as const;
+export type PainOath = (typeof PAIN_OATHS)[number];
+
+/** 请你选择：无视拼点，选择一张整场战斗生效的场景诅咒 */
+const 佩恩_请你选择: CardData = {
+  id: PAIN_CARD.CHOOSE,
+  name: '请你选择',
   type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '普通',
+  category: '敌人',
+  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'none', draw: true },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '连击，过牌',
+  ignoreClash: true,
+  description: '强制目标从至多3张有尚未选择的诅咒中选择1张。无视拼点。',
 };
 
-/** 法力涌动：回复1倍点数的魔力，获得2层坚固 */
-const 法力涌动: CardData = {
-  id: 'basic_mana_surge',
-  name: '法力涌动',
+/** 刑柱鞭痕：物理攻击，为对方施加流血 */
+const 佩恩_刑柱鞭痕: CardData = {
+  id: PAIN_CARD.WHIP,
+  name: '刑柱鞭痕',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.2, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '点数*1.2，造成1倍点数伤害，为对方施加3层流血。',
+};
+
+/** 同痛之问：魔法攻击，双方各获得流血 */
+const 佩恩_同痛之问: CardData = {
+  id: PAIN_CARD.QUESTION,
+  name: '同痛之问',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '点数*1.5，造成1倍点数伤害，双方各获得4层流血。',
+};
+
+/** 自选之痛：自伤，获得流血与蓄力 */
+const 佩恩_自选之痛: CardData = {
+  id: PAIN_CARD.SELF_HARM,
+  name: '自选之痛',
   type: CardType.FUNCTION,
-  category: '基础',
+  category: '敌人',
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  selfDamage: { mode: 'percent', value: 3, target: 'hp' },
+  description: '自伤3%最大生命，获得2层流血和4层蓄力。',
+};
+
+/** 归还真痛：消耗最多4层痛忆，增加物理攻击点数 */
+const 佩恩_归还真痛: CardData = {
+  id: PAIN_CARD.RETURN,
+  name: '归还真痛',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.3, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.7 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.3，打出时消耗最多4层痛忆，每消耗1层点数+2，造成0.7倍最终点数伤害。',
+};
+
+/** 割开圣袍：自伤，增加荆棘并插入诅咒 */
+const 佩恩_割开圣袍: CardData = {
+  id: PAIN_CARD.CUT_ROBE,
+  name: '割开圣袍',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  selfDamage: { mode: 'percent', value: 4, target: 'hp' },
+  description: '自伤4%最大生命，获得4层流血、3层荆棘，向对方抽牌堆插入1张佩恩诅咒。',
+};
+
+/** 刺晶拥抱：物理攻击，为对方施加流血 */
+const 佩恩_刺晶拥抱: CardData = {
+  id: PAIN_CARD.EMBRACE,
+  name: '刺晶拥抱',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.3, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '点数*1.3，造成1倍点数伤害，为对方施加3层流血。',
+};
+
+/** 接住伤口：承接流血，治疗对方并插入诅咒 */
+const 佩恩_接住伤口: CardData = {
+  id: PAIN_CARD.RECEIVE,
+  name: '接住伤口',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [{ kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 0.5 }],
+  description: '将对方最多4层流血转移给自己，为对方回复0.5倍点数生命，向对方抽牌堆插入2张佩恩诅咒。',
+};
+
+/** 记得每一道伤：消耗全部痛忆，增加魔法攻击点数 */
+const 佩恩_记得每一道伤: CardData = {
+  id: PAIN_CARD.REMEMBER,
+  name: '记得每一道伤',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 4,
+  calculation: { multiplier: 1.4, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.7 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*1.4，打出时消耗全部痛忆，每消耗1层点数+2，造成0.7倍最终点数伤害。',
+};
+
+/** 再来一鞭：自伤，增加骰子点数 */
+const 佩恩_再来一鞭: CardData = {
+  id: PAIN_CARD.AGAIN,
+  name: '再来一鞭',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 4 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [],
+  selfDamage: { mode: 'percent', value: 15, target: 'hp' },
+  description: '自伤15%最大生命，当前骰子点数+4。连击，移除。',
+};
+
+/** 扯断晶丝：自伤，回复魔力 */
+const 佩恩_扯断晶丝: CardData = {
+  id: PAIN_CARD.SILK,
+  name: '扯断晶丝',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [{ kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 3 }],
+  selfDamage: { mode: 'percent', value: 12, target: 'hp' },
+  description: '自伤12%最大生命，回复3点魔力。连击，移除。',
+};
+
+/** 握住刺晶：获得流血，削减佩恩荆棘 */
+const 佩恩_握住刺晶: CardData = {
+  id: PAIN_CARD.CRYSTAL,
+  name: '握住刺晶',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 5 },
+  ],
+  description: '自身获得5层流血，使佩恩荆棘减少4层。连击，移除。',
+};
+
+/** 留下一道疤：回复生命，禁用本回合护甲并增加佩恩荆棘 */
+const 佩恩_留下一道疤: CardData = {
+  id: PAIN_CARD.SCAR,
+  name: '留下一道疤',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
+  cardEffects: [{ kind: 'heal', target: 'self', valueMode: 'max_hp_percent', scale: 0.1 }],
+  description: '回复10%最大生命，本回合无法获得护甲，使佩恩荆棘增加2层。连击，移除。',
+};
+
+/** 一鞭为我：下回合伤害翻倍，此后每回合承受真实伤害 */
+const 佩恩_一鞭为我: CardData = {
+  id: 'pain_oath_0',
+  name: '一鞭为我',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_WHIP].description,
+};
+
+/** 握住刑柱：同类型攻击拼点增强，此后每回合获得流血 */
+const 佩恩_握住刑柱: CardData = {
+  id: 'pain_oath_1',
+  name: '握住刑柱',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_PILLAR].description,
+};
+
+/** 借来的圣膏：回复生命，此后受到的真实伤害增加 */
+const 佩恩_借来的圣膏: CardData = {
+  id: 'pain_oath_2',
+  name: '借来的圣膏',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_OINTMENT].description,
+};
+
+/** 空杯告解：回复魔力，此后每两回合获得魔力与虚弱 */
+const 佩恩_空杯告解: CardData = {
+  id: 'pain_oath_3',
+  name: '空杯告解',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_CUP].description,
+};
+
+/** 分给她的伤：转移流血，此后受到的治疗量减半 */
+const 佩恩_分给她的伤: CardData = {
+  id: 'pain_oath_4',
+  name: '分给她的伤',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_SHARE].description,
+};
+
+/** 符文精灵：按自身再生层数逐级降低符文颜色，施加对应元素与控制效果。 */
+const 符文精灵_六色符: CardData = {
+  id: 'enemy_rune_sprite_six_color',
+  name: '六色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 6.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 6 },
+  ],
+  description: '点数*6，施加1层性兴奋、1层敏感、1层被操控、1层腐蚀、1层束缚、6层燃烧。',
+};
+
+const 符文精灵_五色符: CardData = {
+  id: 'enemy_rune_sprite_five_color',
+  name: '五色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '稀有',
+  manaCost: 6,
+  calculation: { multiplier: 5.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
+  ],
+  description: '点数*5，施加1层敏感、1层被操控、1层腐蚀、1层束缚、5层燃烧。',
+};
+
+const 符文精灵_四色符: CardData = {
+  id: 'enemy_rune_sprite_four_color',
+  name: '四色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 4.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
+  ],
+  description: '点数*4，施加1层被操控、1层腐蚀、1层束缚、4层燃烧。',
+};
+
+const 符文精灵_三色符: CardData = {
+  id: 'enemy_rune_sprite_three_color',
+  name: '三色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 3.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
+  ],
+  description: '点数*3，施加1层腐蚀、1层束缚、3层燃烧。',
+};
+
+const 符文精灵_双色符: CardData = {
+  id: 'enemy_rune_sprite_two_color',
+  name: '双色符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '点数*2，施加1层束缚、2层燃烧。',
+};
+
+const 符文精灵_金符: CardData = {
+  id: 'enemy_rune_sprite_gold',
+  name: '金符',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 6,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '施加1层燃烧。',
+};
+
+const 符文精灵_连锁共鸣: CardData = {
+  id: 'enemy_rune_sprite_chain_resonance',
+  name: '连锁共鸣',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'enemy', draw: false },
+  cardEffects: [
     {
+      triggers: ['on_next_turn_start'],
       kind: 'apply_buff',
-      effectType: EffectType.STURDY,
-      target: 'self',
+      effectType: EffectType.DISORIENTATION,
+      target: 'enemy',
       valueMode: 'fixed',
-      fixedValue: 2,
-      durationTurns: 1,
+      fixedValue: 1,
     },
+    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
   ],
-  description: '回复1倍点数的魔力，获得2层坚固（持续1回合）',
+  description: '重掷对手；下回合开始施加1层紊乱；回复自身1倍点数魔力。',
 };
 
-/** 蓄力：点数+1，获得1倍点数的蓄力 */
-const 蓄力: CardData = {
-  id: 'basic_charge',
-  name: '蓄力',
+const 脐带触手_牵引入巢: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.PULL,
+  name: '牵引入巢',
   type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 1 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
-  ],
-  description: '点数+1，获得1倍点数的蓄力',
-};
-
-/** 守护：获得1倍点数护甲，本轮护甲不触发减半 */
-const 守护: CardData = {
-  id: 'basic_guard',
-  name: '守护',
-  type: CardType.FUNCTION,
-  category: '基础',
+  category: '敌人',
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
-    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: 1 },
-  ],
-  description: '获得1倍点数护甲，本轮护甲不触发减半',
+  cardEffects: [],
+  description: '调整自身点数，最多±2；调整后若双方点数相同，施加99层束缚。',
 };
 
-/** 魔力扩容：点数-1，本场战斗最大骰子点数+1，获得1倍点数护甲 */
-const 魔力扩容: CardData = {
-  id: 'basic_mana_expand',
-  name: '魔力扩容',
+const 脐带触手_挣脱: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.STRUGGLE,
+  name: '挣脱',
   type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: -1 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
-    { kind: 'modify_dice', target: 'self', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: 1 },
-  ],
-  description: '点数-1，本场战斗最大骰子点数+1，获得1倍点数护甲',
-};
-
-/** 驱散：回复2点生命，清除自身元素负面状态 */
-const 驱散: CardData = {
-  id: 'basic_dispel',
-  name: '驱散',
-  type: CardType.FUNCTION,
-  category: '基础',
+  category: '敌人',
   rarity: '普通',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
+  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
   cardEffects: [
-    { kind: 'heal', target: 'self', valueMode: 'fixed', fixedValue: 2 },
     {
       kind: 'cleanse',
       target: 'self',
       valueMode: 'fixed',
       fixedValue: 0,
-      cleanseTypes: [EffectType.COLD, EffectType.BURN, EffectType.POISON, EffectType.BLEED, EffectType.SHOCK],
+      cleanseTypes: [EffectType.BIND],
     },
   ],
-  description: '回复2点生命，清除自身元素负面状态',
+  description: '移除自身所有束缚。移除。',
 };
 
-/** 元素攻击：造成1点伤害，施加1倍点数的随机元素负面状态 */
-const 元素攻击: CardData = {
-  id: 'basic_element_attack',
-  name: '元素攻击',
-  type: CardType.MAGIC,
-  category: '基础',
+const 脐带触手_深层缠握: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.GRASP,
+  name: '深层缠握',
+  type: CardType.PHYSICAL,
+  category: '敌人',
   rarity: '普通',
-  manaCost: 4,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 1 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '造成1点伤害，施加1倍点数的随机元素负面状态',
-};
-
-/** 闪光术：造成1倍点数伤害，无视闪避，群攻 */
-const 闪光术: CardData = {
-  id: 'basic_flash_spell',
-  name: '闪光术',
-  type: CardType.MAGIC,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 2,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '造成1倍点数伤害，无视闪避，群攻',
-  ignoreDodge: true,
-  swarmAttack: true,
-};
-
-/** 尖锐攻击：若自身为卡组中仅有的物理卡牌，则点数+3。造成1倍点数伤害。 */
-const 尖锐攻击: CardData = {
-  id: 'basic_sharp_attack',
-  name: '尖锐攻击',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '若自身为卡组中仅有的物理卡牌，则点数+3。造成1倍点数伤害。',
-};
-
-/** 锯齿攻击：造成1倍点数伤害，每次使用后锯齿攻击在本场战斗的点数+2，上限+4 */
-const 锯齿攻击: CardData = {
-  id: 'basic_jagged_attack',
-  name: '锯齿攻击',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '造成1倍点数伤害，每次使用后锯齿攻击在本场战斗的点数+2，上限+4',
-};
-
-/** 袭击：若这是本场战斗首次使用该卡牌，则点数+4。造成1倍点数伤害。 */
-const 袭击: CardData = {
-  id: 'basic_raid_attack',
-  name: '袭击',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '若这是本场战斗首次使用该卡牌，则点数+4。造成1倍点数伤害。',
-};
-
-/** 柔劲：点数-10后再*-1，造成1倍点数伤害 */
-const 柔劲: CardData = {
-  id: 'basic_soft_force',
-  name: '柔劲',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: -1, addition: 10 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '点数-10后再*-1，造成1倍点数伤害',
-};
-
-/** 针对性斩击：若对方为领主，则点数+4。造成1倍点数伤害。 */
-const 针对性斩击: CardData = {
-  id: 'basic_targeted_slash',
-  name: '针对性斩击',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '若对方为领主，则点数+4。造成1倍点数伤害。',
-};
-
-/** 潜行：若手牌中没有物理或魔法卡牌，则点数-3。闪避。 */
-const 潜行: CardData = {
-  id: 'basic_stealth',
-  name: '潜行',
-  type: CardType.DODGE,
-  category: '基础',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '若手牌中没有物理或魔法卡牌，则点数-3。闪避。',
-};
-
-/** 虚弱魔法：点数-1，根据我方点数减少对方等量点数，连击 */
-const 虚弱魔法: CardData = {
-  id: 'basic_weak_magic',
-  name: '虚弱魔法',
-  type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: -1 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '点数-1，根据我方点数减少对方等量点数，连击',
-};
-
-/** 瞬发盾：获得1倍点数护甲，连击，重掷 */
-const 瞬发盾: CardData = {
-  id: 'basic_instant_shield',
-  name: '瞬发盾',
-  type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'self', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
-  ],
-  description: '获得1倍点数护甲，连击，重掷',
-};
-
-/** 浓缩精华：获得1倍点数蓄力，连击，重掷 */
-const 浓缩精华: CardData = {
-  id: 'basic_condensed_essence',
-  name: '浓缩精华',
-  type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'self', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
-  ],
-  description: '获得1倍点数蓄力，连击，重掷',
-};
-
-/** 空白的空白：点数+1，连击，过牌。本回合内每出1张牌，点数+1 */
-const 空白的空白: CardData = {
-  id: 'basic_blank_of_blank',
-  name: '空白的空白',
-  type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 1 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: true, reroll: 'none', draw: true },
-  cardEffects: [],
-  description: '点数+1，连击，过牌。本回合内每出1张牌，点数+1',
-};
-
-/** 巨石魔法：点数*2.5，造成0.6倍点数伤害，群攻 */
-const 巨石魔法: CardData = {
-  id: 'basic_boulder_magic',
-  name: '巨石魔法',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 2.5, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.6, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '点数*2.5，造成0.6倍点数伤害，群攻',
-  swarmAttack: true,
-};
-
-/** 粘液斩击：增加点数直至超过对方最终点数，造成1倍点数伤害 */
-const 粘液斩击: CardData = {
-  id: 'basic_slime_axe',
-  name: '粘液斩击',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '增加点数直至超过对方最终点数，造成1倍点数伤害',
-};
-
-/** 生死决断：若投掷点数为4，则点数*4，造成1倍点数伤害 */
-const 生死决断: CardData = {
-  id: 'basic_life_death_judgement',
-  name: '生死决断',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '若投掷点数为4，则点数*4，造成1倍点数伤害',
-};
-
-/** 猩红镰刀：本场战斗中第一次使用时，点数*2。造成1倍点数伤害，施加4层流血 */
-const 猩红镰刀: CardData = {
-  id: 'basic_scarlet_scythe',
-  name: '猩红镰刀',
-  type: CardType.PHYSICAL,
-  category: '基础',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
-  ],
-  description: '本场战斗中第一次使用时，点数*2。造成1倍点数伤害，施加4层流血',
-};
-
-/** 认知互换：首次使用时，将自身所有负面状态转移给对方。点数+3，获得1倍点数护甲。 */
-const 认知互换: CardData = {
-  id: 'basic_cognitive_swap',
-  name: '认知互换',
-  type: CardType.FUNCTION,
-  category: '基础',
-  rarity: '稀有',
   manaCost: 0,
   calculation: { multiplier: 1.0, addition: 3 },
+  damageLogic: { mode: 'relative', scale: 1.0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
+  ],
+  description: '点数+3，造成1倍最终点数伤害，施加1倍最终点数电击。',
+};
+
+const 脐带触手_脐带连鞭: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.WHIP,
+  name: '脐带连鞭',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.5 },
+  hitCount: 2,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '点数*2，造成0.5倍最终点数伤害，2连击；对方当前手牌中每有1张闪避牌，额外攻击1次，最多5连击。',
+};
+
+const 脐带触手_脐流回灌: CardData = {
+  id: UMBILICAL_TENTACLE_CARD.BACKFLOW,
+  name: '脐流回灌',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ARMOR, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    {
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 4.0,
+    },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.ARMOR,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 2.0,
+    },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.VULNERABLE,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
   ],
-  description: '本场战斗中第一次使用时，将自身所有负面状态转移给对方。点数+3，获得1倍点数护甲。',
+  description: '回复自身4倍最终点数生命，获得2倍最终点数护甲与1层敏感。',
 };
+
+export const PAIN_OATH_CARDS: CardData[] = [
+  佩恩_一鞭为我,
+  佩恩_握住刑柱,
+  佩恩_借来的圣膏,
+  佩恩_空杯告解,
+  佩恩_分给她的伤,
+];
+
+export const PAIN_CARDS: CardData[] = [
+  佩恩_请你选择,
+  佩恩_刑柱鞭痕,
+  佩恩_同痛之问,
+  佩恩_自选之痛,
+  佩恩_归还真痛,
+  佩恩_割开圣袍,
+  佩恩_刺晶拥抱,
+  佩恩_接住伤口,
+  佩恩_记得每一道伤,
+  佩恩_再来一鞭,
+  佩恩_扯断晶丝,
+  佩恩_握住刺晶,
+  佩恩_留下一道疤,
+];
+
+export const PAIN_CURSES = PAIN_CARDS.filter(card => card.type === CardType.CURSE);
+
+export const SIGEL_CARD = {
+  FRAGMENT: 'enemy_sigel_fragment',
+  FLAME: 'enemy_sigel_flame',
+  FROST: 'enemy_sigel_frost',
+  SHIFT: 'enemy_sigel_shift',
+  REDRAW: 'enemy_sigel_redraw',
+  DISORDER: 'enemy_sigel_disorder',
+  WEAKEN: 'enemy_sigel_weaken',
+  FINALE: 'enemy_sigel_finale',
+} as const;
+
+export const GAIA_CARD = {
+  CRADLE: 'enemy_gaia_cradle',
+  MEMBRANE: 'enemy_gaia_membrane',
+  BED: 'enemy_gaia_bed',
+  REFLOW: 'enemy_gaia_reflow',
+  PRESSURE: 'enemy_gaia_pressure',
+  ACCEPTANCE: 'enemy_gaia_acceptance',
+  STAY: 'enemy_gaia_stay',
+  SEVER: 'gaia_sever_connection',
+} as const;
+
+export const GAIA_CARDS: CardData[] = [
+  {
+    id: GAIA_CARD.CRADLE,
+    name: '容生之囊',
+    type: CardType.FUNCTION,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '开场以临时生命上限将对方上限补足至80，不回血。',
+  },
+  {
+    id: GAIA_CARD.MEMBRANE,
+    name: '重织胎膜',
+    type: CardType.FUNCTION,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '获得2层本回合胎膜；本卡未增加连接时，回合末施加2层供养连接。',
+  },
+  {
+    id: GAIA_CARD.BED,
+    name: '温床合拢',
+    type: CardType.FUNCTION,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '获得（5－⌈供养连接层数÷2⌉）倍点数护甲；本回合未受伤时，回合末施加1层供养连接。',
+  },
+  {
+    id: GAIA_CARD.REFLOW,
+    name: '生命回流',
+    type: CardType.FUNCTION,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '自伤3倍点数生命，回复（3＋供养连接层数）倍点数生命，自身获得2层敏感。',
+  },
+  {
+    id: GAIA_CARD.PRESSURE,
+    name: '脐索压迫',
+    type: CardType.PHYSICAL,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 3, addition: 0 },
+    damageLogic: { mode: 'relative', scale: 1.0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '点数×3，造成1倍点数伤害。',
+  },
+  {
+    id: GAIA_CARD.ACCEPTANCE,
+    name: '组织接纳',
+    type: CardType.MAGIC,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 2,
+    calculation: { multiplier: 2, addition: 0 },
+    damageLogic: { mode: 'relative', scale: 1.5 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+    ],
+    description: '点数×2，造成1.5倍点数伤害，施加1层束缚。',
+  },
+  {
+    id: GAIA_CARD.STAY,
+    name: '请留在这里',
+    type: CardType.FUNCTION,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '施加1层供养连接，回复自身3倍点数生命，自身获得2层敏感。',
+  },
+  {
+    id: GAIA_CARD.SEVER,
+    name: '切断连接',
+    type: CardType.CURSE,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false, retain: true, purgeOnUse: true },
+    cardEffects: [],
+    description: '移除2层供养连接，本回合不再增加。保留，移除。',
+  },
+];
+
+export const SIGEL_CARDS: CardData[] = [
+  {
+    id: SIGEL_CARD.FRAGMENT,
+    name: '断章符',
+    type: CardType.PHYSICAL,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 2 },
+    damageLogic: { mode: 'relative', scale: 1 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [],
+    description: '点数+2，造成1倍点数伤害。',
+  },
+  {
+    id: SIGEL_CARD.FLAME,
+    name: '赤炎刻印',
+    type: CardType.MAGIC,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 3,
+    calculation: { multiplier: 1.2, addition: 0 },
+    damageLogic: { mode: 'relative', scale: 1 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      {
+        kind: 'apply_buff',
+        effectType: EffectType.BURN,
+        target: 'enemy',
+        valueMode: 'point_scale',
+        scale: 0.3,
+      },
+    ],
+    description: '点数*1.2，造成1倍点数伤害，命中施加0.3倍点数燃烧。',
+  },
+  {
+    id: SIGEL_CARD.FROST,
+    name: '寒霜刻印',
+    type: CardType.MAGIC,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 3,
+    calculation: { multiplier: 1.2, addition: 0 },
+    damageLogic: { mode: 'relative', scale: 1 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      {
+        kind: 'apply_buff',
+        effectType: EffectType.COLD,
+        target: 'enemy',
+        valueMode: 'point_scale',
+        scale: 0.6,
+      },
+    ],
+    description: '点数*1.2，造成1倍点数伤害，命中施加0.6倍点数寒冷。',
+  },
+  {
+    id: SIGEL_CARD.SHIFT,
+    name: '易位符',
+    type: CardType.DODGE,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 0.5, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      {
+        triggers: ['on_no_damage_taken_this_turn'],
+        kind: 'modify_dice',
+        target: 'self',
+        valueMode: 'fixed',
+        minDiceDelta: 1,
+      },
+    ],
+    description: '点数*0.5，若本回合自身没有受到伤害，则回合结束时自身最小点数+1。',
+  },
+  {
+    id: SIGEL_CARD.REDRAW,
+    name: '重绘符阵',
+    type: CardType.FUNCTION,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      {
+        kind: 'restore_mana',
+        target: 'self',
+        valueMode: 'point_scale',
+        scale: 1,
+      },
+      {
+        kind: 'modify_dice',
+        target: 'self',
+        valueMode: 'fixed',
+        maxDiceDelta: 1,
+      },
+    ],
+    description: '回复1倍点数魔力，自身最大点数+1。',
+  },
+  {
+    id: SIGEL_CARD.DISORDER,
+    name: '扰序符',
+    type: CardType.MAGIC,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 5,
+    calculation: { multiplier: 1.4, addition: 0 },
+    damageLogic: { mode: 'relative', scale: 0.8 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      {
+        triggers: ['on_next_turn_start'],
+        kind: 'apply_buff',
+        effectType: EffectType.SILENCE,
+        target: 'enemy',
+        valueMode: 'fixed',
+        fixedValue: 1,
+      },
+    ],
+    description: '点数*1.4，造成0.8倍点数伤害；命中后，下回合开始对对方施加1层禁言。',
+  },
+  {
+    id: SIGEL_CARD.WEAKEN,
+    name: '削弱符',
+    type: CardType.FUNCTION,
+    category: '敌人',
+    rarity: '普通',
+    manaCost: 0,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'fixed', value: 0 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      {
+        triggers: ['on_next_turn_start'],
+        kind: 'suppress_point_modifiers',
+        target: 'enemy',
+        valueMode: 'fixed',
+      },
+      {
+        triggers: ['on_use'],
+        kind: 'apply_buff',
+        effectType: EffectType.CONTROLLED,
+        target: 'enemy',
+        valueMode: 'fixed',
+        fixedValue: 1,
+      },
+    ],
+    description: '移除对方下回合所有点数修正；本回合对对方施加1层被操控。',
+  },
+  {
+    id: SIGEL_CARD.FINALE,
+    name: '终式·万象归一',
+    type: CardType.MAGIC,
+    category: '敌人',
+    rarity: '稀有',
+    manaCost: 8,
+    calculation: { multiplier: 1, addition: 0 },
+    damageLogic: { mode: 'relative', scale: 1 },
+    traits: { combo: false, reroll: 'none', draw: false },
+    cardEffects: [
+      {
+        kind: 'apply_buff',
+        effectType: EffectType.STIGMATA,
+        target: 'enemy',
+        valueMode: 'fixed',
+        fixedValue: 2,
+      },
+    ],
+    ignoreDodge: true,
+    description:
+      '消耗全部符能，每层点数+2，造成1倍最终点数伤害，施加2层圣痕；无视闪避；打出时撤去之后3回合的符文防护。',
+  },
+];
 
 /** 杖击：最终点数不会低于原始点数，造成1倍点数伤害，回复2点魔力 */
 const 杖击: CardData = {
@@ -8185,10 +10152,10 @@ const 魔力球: CardData = {
   description: '点数*2，造成1倍点数伤害。若拼点成功则返还6点魔力',
 };
 
-/** 法力汲取：法力汲取1倍点数 */
-const 法力汲取: CardData = {
+/** 魔力汲取：魔力汲取1倍点数 */
+const 魔力汲取: CardData = {
   id: 'modao_mana_drain',
-  name: '法力汲取',
+  name: '魔力汲取',
   type: CardType.FUNCTION,
   category: '魔导',
   rarity: '普通',
@@ -8198,7 +10165,7 @@ const 法力汲取: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   manaDrain: { mode: 'point_scale', scale: 1.0 },
-  description: '法力汲取1倍点数',
+  description: '魔力汲取1倍点数',
 };
 
 /** 魔力亲和：获得0.5倍点数护甲，1层增伤与1层魔力源泉 */
@@ -8282,10 +10249,10 @@ const 大狂风: CardData = {
   description: '点数*0.5，造成（7-点数）伤害，额外消耗自身至多16MP，每消耗2MP追加1次伤害',
 };
 
-/** 大毁灭魔法：消耗12MP，点数*3，增伤具有五倍效果，造成1倍点数伤害，群攻 */
+/** 紫霆坠（原名：大毁灭魔法）：消耗12MP，点数*3，增伤具有五倍效果，造成1倍点数伤害，群攻 */
 const 大毁灭魔法: CardData = {
   id: 'modao_big_destruction',
-  name: '大毁灭魔法',
+  name: '紫霆坠',
   type: CardType.MAGIC,
   category: '魔导',
   rarity: '稀有',
@@ -8431,7 +10398,7 @@ const 米拉_碎镜嘉年华: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
   manaDrain: 6,
-  description: '点数*1.5，造成0.3倍点数的伤害，3连击，法力汲取6',
+  description: '点数*1.5，造成0.3倍点数的伤害，3连击，魔力汲取6',
 };
 
 const 米拉_邀舞: CardData = {
@@ -9140,7 +11107,13 @@ const 圣水精灵_精神回响: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.RESONANCE_LOCK, target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
+    {
+      kind: 'apply_buff',
+      effectType: EffectType.RESONANCE_LOCK,
+      target: 'enemy',
+      valueMode: 'point_scale',
+      scale: 0.5,
+    },
   ],
   description: '点数*1.5，施加0.5倍点数的共鸣锁。',
 };
@@ -9193,9 +11166,7 @@ const 圣水精灵_往昔的挽歌: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
-  ],
+  cardEffects: [{ kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 1.0 }],
   description: '为对方回复1倍点数生命；若对方拥有圣痕，则额外施加4层共鸣锁。',
 };
 
@@ -9343,7 +11314,8 @@ const 利维坦_归墟: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '点数*5。消耗所有创世（至少保留1层），对敌方造成等同于“消耗层数×我方场上召唤物数量”的真实伤害，然后为所有友方单位恢复等同于总伤害量的生命值。',
+  description:
+    '点数*5。消耗所有创世（至少保留1层），对敌方造成等同于“消耗层数×我方场上召唤物数量”的真实伤害，然后为所有友方单位恢复等同于总伤害量的生命值。',
 };
 
 /** 天使铁钳：点数+2，造成1倍点数伤害，施加1层束缚 */
@@ -9413,9 +11385,7 @@ const 忏悔天使_淫纹刻写: CardData = {
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'modify_dice', target: 'enemy', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: -1 },
-  ],
+  cardEffects: [{ kind: 'modify_dice', target: 'enemy', valueMode: 'fixed', fixedValue: 0, maxDiceDelta: -1 }],
   negativeEffect: '[淫纹]',
   description: '点数*2，减少对方1层圣痕，减少对方最大点数1点，造成1倍点数伤害，附带负面状态[淫纹]',
 };
@@ -9533,7 +11503,7 @@ const 祭司傀儡_构造体展开: CardData = {
     { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'point_scale', scale: 1.0 },
   ],
   manaDrain: 1,
-  description: '为自身施加1层结界，1倍点数的蓄力，法力汲取1',
+  description: '为自身施加1层结界，1倍点数的蓄力，魔力汲取1',
 };
 
 /** 温热丝绸：施加1层性兴奋与腐蚀，移除对方护甲（护甲逻辑在 CombatView） */
@@ -9567,9 +11537,7 @@ const 神恩触手_神力灌注: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
-  ],
+  cardEffects: [{ kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 1.0 }],
   manaDrain: { mode: 'point_scale', scale: 1.0 },
   description: '为对方回复1倍点数生命，能量汲取1倍点数',
 };
@@ -9968,931 +11936,73 @@ const 苦修幽灵_体内异物: CardData = {
   ],
   description: '不可打出；回合结束仍在手牌时，自身获得3层侵蚀。',
 };
-
-// 佩恩：双阶段卡组与场景诅咒选项。
-export const PAIN_CARD = {
-  CHOOSE: 'enemy_pain_choose',
-  WHIP: 'enemy_pain_whip',
-  QUESTION: 'enemy_pain_question',
-  SELF_HARM: 'enemy_pain_self_harm',
-  RETURN: 'enemy_pain_return',
-  CUT_ROBE: 'enemy_pain_cut_robe',
-  EMBRACE: 'enemy_pain_embrace',
-  RECEIVE: 'enemy_pain_receive',
-  REMEMBER: 'enemy_pain_remember',
-  AGAIN: 'pain_curse_again',
-  SILK: 'pain_curse_silk',
-  CRYSTAL: 'pain_curse_crystal',
-  SCAR: 'pain_curse_scar',
-} as const;
-
-export const PAIN_OATHS = [
-  EffectType.PAIN_OATH_WHIP,
-  EffectType.PAIN_OATH_PILLAR,
-  EffectType.PAIN_OATH_OINTMENT,
-  EffectType.PAIN_OATH_CUP,
-  EffectType.PAIN_OATH_SHARE,
-] as const;
-export type PainOath = typeof PAIN_OATHS[number];
-
-/** 请你选择：无视拼点，选择一张整场战斗生效的场景诅咒 */
-const 佩恩_请你选择: CardData = {
-  id: PAIN_CARD.CHOOSE,
-  name: '请你选择',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '稀有',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  ignoreClash: true,
-  description: '强制目标从至多3张有尚未选择的诅咒中选择1张。无视拼点。',
-};
-
-/** 刑柱鞭痕：物理攻击，为对方施加流血 */
-const 佩恩_刑柱鞭痕: CardData = {
-  id: PAIN_CARD.WHIP,
-  name: '刑柱鞭痕',
-  type: CardType.PHYSICAL,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.2, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
-  ],
-  description: '点数*1.2，造成1倍点数伤害，为对方施加3层流血。',
-};
-
-/** 同痛之问：魔法攻击，双方各获得流血 */
-const 佩恩_同痛之问: CardData = {
-  id: PAIN_CARD.QUESTION,
-  name: '同痛之问',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 3,
-  calculation: { multiplier: 1.5, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
-  ],
-  description: '点数*1.5，造成1倍点数伤害，双方各获得4层流血。',
-};
-
-/** 自选之痛：自伤，获得流血与蓄力 */
-const 佩恩_自选之痛: CardData = {
-  id: PAIN_CARD.SELF_HARM,
-  name: '自选之痛',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
-    { kind: 'apply_buff', effectType: EffectType.CHARGE, target: 'self', valueMode: 'fixed', fixedValue: 4 },
-  ],
-  selfDamage: { mode: 'percent', value: 3, target: 'hp' },
-  description: '自伤3%最大生命，获得2层流血和4层蓄力。',
-};
-
-/** 归还真痛：消耗最多4层痛忆，增加物理攻击点数 */
-const 佩恩_归还真痛: CardData = {
-  id: PAIN_CARD.RETURN,
-  name: '归还真痛',
-  type: CardType.PHYSICAL,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.3, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.7 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '点数*1.3，打出时消耗最多4层痛忆，每消耗1层点数+2，造成0.7倍最终点数伤害。',
-};
-
-/** 割开圣袍：自伤，增加荆棘并插入诅咒 */
-const 佩恩_割开圣袍: CardData = {
-  id: PAIN_CARD.CUT_ROBE,
-  name: '割开圣袍',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 4 },
-  ],
-  selfDamage: { mode: 'percent', value: 4, target: 'hp' },
-  description: '自伤4%最大生命，获得4层流血、3层荆棘，向对方抽牌堆插入1张佩恩诅咒。',
-};
-
-/** 刺晶拥抱：物理攻击，为对方施加流血 */
-const 佩恩_刺晶拥抱: CardData = {
-  id: PAIN_CARD.EMBRACE,
-  name: '刺晶拥抱',
-  type: CardType.PHYSICAL,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.3, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 1.0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
-  ],
-  description: '点数*1.3，造成1倍点数伤害，为对方施加3层流血。',
-};
-
-/** 接住伤口：承接流血，治疗对方并插入诅咒 */
-const 佩恩_接住伤口: CardData = {
-  id: PAIN_CARD.RECEIVE,
-  name: '接住伤口',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'heal', target: 'enemy', valueMode: 'point_scale', scale: 0.5 },
-  ],
-  description: '将对方最多4层流血转移给自己，为对方回复0.5倍点数生命，向对方抽牌堆插入2张佩恩诅咒。',
-};
-
-/** 记得每一道伤：消耗全部痛忆，增加魔法攻击点数 */
-const 佩恩_记得每一道伤: CardData = {
-  id: PAIN_CARD.REMEMBER,
-  name: '记得每一道伤',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '稀有',
-  manaCost: 4,
-  calculation: { multiplier: 1.4, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.7 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '点数*1.4，打出时消耗全部痛忆，每消耗1层点数+2，造成0.7倍最终点数伤害。',
-};
-
-/** 再来一鞭：自伤，增加骰子点数 */
-const 佩恩_再来一鞭: CardData = {
-  id: PAIN_CARD.AGAIN,
-  name: '再来一鞭',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 4 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
-  cardEffects: [],
-  selfDamage: { mode: 'percent', value: 15, target: 'hp' },
-  description: '自伤15%最大生命，当前骰子点数+4。连击，移除。',
-};
-
-/** 扯断晶丝：自伤，回复法力 */
-const 佩恩_扯断晶丝: CardData = {
-  id: PAIN_CARD.SILK,
-  name: '扯断晶丝',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
-  cardEffects: [
-    { kind: 'restore_mana', target: 'self', valueMode: 'fixed', fixedValue: 3 },
-  ],
-  selfDamage: { mode: 'percent', value: 12, target: 'hp' },
-  description: '自伤12%最大生命，回复3点法力。连击，移除。',
-};
-
-/** 握住刺晶：获得流血，削减佩恩荆棘 */
-const 佩恩_握住刺晶: CardData = {
-  id: PAIN_CARD.CRYSTAL,
-  name: '握住刺晶',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 5 },
-  ],
-  description: '自身获得5层流血，使佩恩荆棘减少4层。连击，移除。',
-};
-
-/** 留下一道疤：回复生命，禁用本回合护甲并增加佩恩荆棘 */
-const 佩恩_留下一道疤: CardData = {
-  id: PAIN_CARD.SCAR,
-  name: '留下一道疤',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: true, reroll: 'none', draw: false, purgeOnUse: true },
-  cardEffects: [
-    { kind: 'heal', target: 'self', valueMode: 'max_hp_percent', scale: 0.1 },
-  ],
-  description: '回复10%最大生命，本回合无法获得护甲，使佩恩荆棘增加2层。连击，移除。',
-};
-
-/** 一鞭为我：下回合伤害翻倍，此后每回合承受真实伤害 */
-const 佩恩_一鞭为我: CardData = {
-  id: 'pain_oath_0',
-  name: '一鞭为我',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_WHIP].description,
-};
-
-/** 握住刑柱：同类型攻击拼点增强，此后每回合获得流血 */
-const 佩恩_握住刑柱: CardData = {
-  id: 'pain_oath_1',
-  name: '握住刑柱',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_PILLAR].description,
-};
-
-/** 借来的圣膏：回复生命，此后受到的真实伤害增加 */
-const 佩恩_借来的圣膏: CardData = {
-  id: 'pain_oath_2',
-  name: '借来的圣膏',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_OINTMENT].description,
-};
-
-/** 空杯告解：回复法力，此后每两回合获得法力与虚弱 */
-const 佩恩_空杯告解: CardData = {
-  id: 'pain_oath_3',
-  name: '空杯告解',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_CUP].description,
-};
-
-/** 分给她的伤：转移流血，此后受到的治疗量减半 */
-const 佩恩_分给她的伤: CardData = {
-  id: 'pain_oath_4',
-  name: '分给她的伤',
-  type: CardType.CURSE,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: EFFECT_REGISTRY[EffectType.PAIN_OATH_SHARE].description,
-};
-
-/** 符文精灵：按自身再生层数逐级降低符文颜色，施加对应元素与控制效果。 */
-const 符文精灵_六色符: CardData = {
-  id: 'enemy_rune_sprite_six_color',
-  name: '六色符',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '稀有',
-  manaCost: 6,
-  calculation: { multiplier: 6.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.ORGASM, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 6 },
-  ],
-  description: '点数*6，施加1层性兴奋、1层敏感、1层被操控、1层腐蚀、1层束缚、6层燃烧。',
-};
-
-const 符文精灵_五色符: CardData = {
-  id: 'enemy_rune_sprite_five_color',
-  name: '五色符',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '稀有',
-  manaCost: 6,
-  calculation: { multiplier: 5.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
-  ],
-  description: '点数*5，施加1层敏感、1层被操控、1层腐蚀、1层束缚、5层燃烧。',
-};
-
-const 符文精灵_四色符: CardData = {
-  id: 'enemy_rune_sprite_four_color',
-  name: '四色符',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 6,
-  calculation: { multiplier: 4.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.CONTROLLED, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 4 },
-  ],
-  description: '点数*4，施加1层被操控、1层腐蚀、1层束缚、4层燃烧。',
-};
-
-const 符文精灵_三色符: CardData = {
-  id: 'enemy_rune_sprite_three_color',
-  name: '三色符',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 6,
-  calculation: { multiplier: 3.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.CORRODE, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 3 },
-  ],
-  description: '点数*3，施加1层腐蚀、1层束缚、3层燃烧。',
-};
-
-const 符文精灵_双色符: CardData = {
-  id: 'enemy_rune_sprite_two_color',
-  name: '双色符',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 6,
-  calculation: { multiplier: 2.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
-  ],
-  description: '点数*2，施加1层束缚、2层燃烧。',
-};
-
-const 符文精灵_金符: CardData = {
-  id: 'enemy_rune_sprite_gold',
-  name: '金符',
-  type: CardType.MAGIC,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 6,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BURN, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-  ],
-  description: '施加1层燃烧。',
-};
-
-const 符文精灵_连锁共鸣: CardData = {
-  id: 'enemy_rune_sprite_chain_resonance',
-  name: '连锁共鸣',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'enemy', draw: false },
-  cardEffects: [
-    {
-      triggers: ['on_next_turn_start'],
-      kind: 'apply_buff',
-      effectType: EffectType.DISORIENTATION,
-      target: 'enemy',
-      valueMode: 'fixed',
-      fixedValue: 1,
-    },
-    { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
-  ],
-  description: '重掷对手；下回合开始施加1层紊乱；回复自身1倍点数法力。',
-};
-
-const 脐带触手_牵引入巢: CardData = {
-  id: UMBILICAL_TENTACLE_CARD.PULL,
-  name: '牵引入巢',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '调整自身点数，最多±2；调整后若双方点数相同，施加99层束缚。',
-};
-
-const 脐带触手_挣脱: CardData = {
-  id: UMBILICAL_TENTACLE_CARD.STRUGGLE,
-  name: '挣脱',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false, purgeOnUse: true },
-  cardEffects: [
-    {
-      kind: 'cleanse',
-      target: 'self',
-      valueMode: 'fixed',
-      fixedValue: 0,
-      cleanseTypes: [EffectType.BIND],
-    },
-  ],
-  description: '移除自身所有束缚。移除。',
-};
-
-const 脐带触手_深层缠握: CardData = {
-  id: UMBILICAL_TENTACLE_CARD.GRASP,
-  name: '深层缠握',
-  type: CardType.PHYSICAL,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 3 },
-  damageLogic: { mode: 'relative', scale: 1.0 },
-  hitCount: 1,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.SHOCK, target: 'enemy', valueMode: 'point_scale', scale: 1.0 },
-  ],
-  description: '点数+3，造成1倍最终点数伤害，施加1倍最终点数电击。',
-};
-
-const 脐带触手_脐带连鞭: CardData = {
-  id: UMBILICAL_TENTACLE_CARD.WHIP,
-  name: '脐带连鞭',
-  type: CardType.PHYSICAL,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 2.0, addition: 0 },
-  damageLogic: { mode: 'relative', scale: 0.5 },
-  hitCount: 2,
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [],
-  description: '点数*2，造成0.5倍最终点数伤害，2连击；对方当前手牌中每有1张闪避牌，额外攻击1次，最多5连击。',
-};
-
-const 脐带触手_脐流回灌: CardData = {
-  id: UMBILICAL_TENTACLE_CARD.BACKFLOW,
-  name: '脐流回灌',
-  type: CardType.FUNCTION,
-  category: '敌人',
-  rarity: '普通',
-  manaCost: 0,
-  calculation: { multiplier: 1.0, addition: 0 },
-  damageLogic: { mode: 'fixed', value: 0 },
-  traits: { combo: false, reroll: 'none', draw: false },
-  cardEffects: [
-    {
-      kind: 'heal',
-      target: 'self',
-      valueMode: 'point_scale',
-      scale: 4.0,
-    },
-    {
-      kind: 'apply_buff',
-      effectType: EffectType.ARMOR,
-      target: 'self',
-      valueMode: 'point_scale',
-      scale: 2.0,
-    },
-    {
-      kind: 'apply_buff',
-      effectType: EffectType.VULNERABLE,
-      target: 'self',
-      valueMode: 'fixed',
-      fixedValue: 1,
-    },
-  ],
-  description: '回复自身4倍最终点数生命，获得2倍最终点数护甲与1层敏感。',
-};
-
-export const PAIN_OATH_CARDS: CardData[] = [
-  佩恩_一鞭为我,
-  佩恩_握住刑柱,
-  佩恩_借来的圣膏,
-  佩恩_空杯告解,
-  佩恩_分给她的伤,
-];
-
-export const PAIN_CARDS: CardData[] = [
-  佩恩_请你选择,
-  佩恩_刑柱鞭痕,
-  佩恩_同痛之问,
-  佩恩_自选之痛,
-  佩恩_归还真痛,
-  佩恩_割开圣袍,
-  佩恩_刺晶拥抱,
-  佩恩_接住伤口,
-  佩恩_记得每一道伤,
-  佩恩_再来一鞭,
-  佩恩_扯断晶丝,
-  佩恩_握住刺晶,
-  佩恩_留下一道疤,
-];
-
-export const PAIN_CURSES = PAIN_CARDS.filter(card => card.type === CardType.CURSE);
-
-export const SIGEL_CARD = {
-  FRAGMENT: 'enemy_sigel_fragment',
-  FLAME: 'enemy_sigel_flame',
-  FROST: 'enemy_sigel_frost',
-  SHIFT: 'enemy_sigel_shift',
-  REDRAW: 'enemy_sigel_redraw',
-  DISORDER: 'enemy_sigel_disorder',
-  WEAKEN: 'enemy_sigel_weaken',
-  FINALE: 'enemy_sigel_finale',
-} as const;
-
-export const GAIA_CARD = {
-  CRADLE: 'enemy_gaia_cradle',
-  MEMBRANE: 'enemy_gaia_membrane',
-  BED: 'enemy_gaia_bed',
-  REFLOW: 'enemy_gaia_reflow',
-  PRESSURE: 'enemy_gaia_pressure',
-  ACCEPTANCE: 'enemy_gaia_acceptance',
-  STAY: 'enemy_gaia_stay',
-  SEVER: 'gaia_sever_connection',
-} as const;
-
-export const GAIA_CARDS: CardData[] = [
-  {
-    id: GAIA_CARD.CRADLE,
-    name: '容生之囊',
-    type: CardType.FUNCTION,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [],
-    description: '开场以临时生命上限将对方上限补足至80，不回血。',
-  },
-  {
-    id: GAIA_CARD.MEMBRANE,
-    name: '重织胎膜',
-    type: CardType.FUNCTION,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [],
-    description: '获得2层本回合胎膜；本卡未增加连接时，回合末施加2层供养连接。',
-  },
-  {
-    id: GAIA_CARD.BED,
-    name: '温床合拢',
-    type: CardType.FUNCTION,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [],
-    description: '获得（5－⌈供养连接层数÷2⌉）倍点数护甲；本回合未受伤时，回合末施加1层供养连接。',
-  },
-  {
-    id: GAIA_CARD.REFLOW,
-    name: '生命回流',
-    type: CardType.FUNCTION,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [],
-    description: '自伤3倍点数生命，回复（3＋供养连接层数）倍点数生命，自身获得2层敏感。',
-  },
-  {
-    id: GAIA_CARD.PRESSURE,
-    name: '脐索压迫',
-    type: CardType.PHYSICAL,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 3, addition: 0 },
-    damageLogic: { mode: 'relative', scale: 1.0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [],
-    description: '点数×3，造成1倍点数伤害。',
-  },
-  {
-    id: GAIA_CARD.ACCEPTANCE,
-    name: '组织接纳',
-    type: CardType.MAGIC,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 2,
-    calculation: { multiplier: 2, addition: 0 },
-    damageLogic: { mode: 'relative', scale: 1.5 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      { kind: 'apply_buff', effectType: EffectType.BIND, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
-    ],
-    description: '点数×2，造成1.5倍点数伤害，施加1层束缚。',
-  },
-  {
-    id: GAIA_CARD.STAY,
-    name: '请留在这里',
-    type: CardType.FUNCTION,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [],
-    description: '施加1层供养连接，回复自身3倍点数生命，自身获得2层敏感。',
-  },
-  {
-    id: GAIA_CARD.SEVER,
-    name: '切断连接',
-    type: CardType.CURSE,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false, retain: true, purgeOnUse: true },
-    cardEffects: [],
-    description: '移除2层供养连接，本回合不再增加。保留，移除。',
-  },
-];
-
-export const SIGEL_CARDS: CardData[] = [
-  {
-    id: SIGEL_CARD.FRAGMENT,
-    name: '断章符',
-    type: CardType.PHYSICAL,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 2 },
-    damageLogic: { mode: 'relative', scale: 1 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [],
-    description: '点数+2，造成1倍点数伤害。',
-  },
-  {
-    id: SIGEL_CARD.FLAME,
-    name: '赤炎刻印',
-    type: CardType.MAGIC,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 3,
-    calculation: { multiplier: 1.2, addition: 0 },
-    damageLogic: { mode: 'relative', scale: 1 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      {
-        kind: 'apply_buff',
-        effectType: EffectType.BURN,
-        target: 'enemy',
-        valueMode: 'point_scale',
-        scale: 0.3,
-      },
-    ],
-    description: '点数*1.2，造成1倍点数伤害，命中施加0.3倍点数燃烧。',
-  },
-  {
-    id: SIGEL_CARD.FROST,
-    name: '寒霜刻印',
-    type: CardType.MAGIC,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 3,
-    calculation: { multiplier: 1.2, addition: 0 },
-    damageLogic: { mode: 'relative', scale: 1 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      {
-        kind: 'apply_buff',
-        effectType: EffectType.COLD,
-        target: 'enemy',
-        valueMode: 'point_scale',
-        scale: 0.6,
-      },
-    ],
-    description: '点数*1.2，造成1倍点数伤害，命中施加0.6倍点数寒冷。',
-  },
-  {
-    id: SIGEL_CARD.SHIFT,
-    name: '易位符',
-    type: CardType.DODGE,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 0.5, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      {
-        triggers: ['on_no_damage_taken_this_turn'],
-        kind: 'modify_dice',
-        target: 'self',
-        valueMode: 'fixed',
-        minDiceDelta: 1,
-      },
-    ],
-    description: '点数*0.5，若本回合自身没有受到伤害，则回合结束时自身最小点数+1。',
-  },
-  {
-    id: SIGEL_CARD.REDRAW,
-    name: '重绘符阵',
-    type: CardType.FUNCTION,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      {
-        kind: 'restore_mana',
-        target: 'self',
-        valueMode: 'point_scale',
-        scale: 1,
-      },
-      {
-        kind: 'modify_dice',
-        target: 'self',
-        valueMode: 'fixed',
-        maxDiceDelta: 1,
-      },
-    ],
-    description: '回复1倍点数法力，自身最大点数+1。',
-  },
-  {
-    id: SIGEL_CARD.DISORDER,
-    name: '扰序符',
-    type: CardType.MAGIC,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 5,
-    calculation: { multiplier: 1.4, addition: 0 },
-    damageLogic: { mode: 'relative', scale: 0.8 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      {
-        triggers: ['on_next_turn_start'],
-        kind: 'apply_buff',
-        effectType: EffectType.SILENCE,
-        target: 'enemy',
-        valueMode: 'fixed',
-        fixedValue: 1,
-      },
-    ],
-    description: '点数*1.4，造成0.8倍点数伤害；命中后，下回合开始对对方施加1层禁言。',
-  },
-  {
-    id: SIGEL_CARD.WEAKEN,
-    name: '削弱符',
-    type: CardType.FUNCTION,
-    category: '敌人',
-    rarity: '普通',
-    manaCost: 0,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'fixed', value: 0 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      {
-        triggers: ['on_next_turn_start'],
-        kind: 'suppress_point_modifiers',
-        target: 'enemy',
-        valueMode: 'fixed',
-      },
-      {
-        triggers: ['on_use'],
-        kind: 'apply_buff',
-        effectType: EffectType.CONTROLLED,
-        target: 'enemy',
-        valueMode: 'fixed',
-        fixedValue: 1,
-      },
-    ],
-    description: '移除对方下回合所有点数修正；本回合对对方施加1层被操控。',
-  },
-  {
-    id: SIGEL_CARD.FINALE,
-    name: '终式·万象归一',
-    type: CardType.MAGIC,
-    category: '敌人',
-    rarity: '稀有',
-    manaCost: 8,
-    calculation: { multiplier: 1, addition: 0 },
-    damageLogic: { mode: 'relative', scale: 1 },
-    traits: { combo: false, reroll: 'none', draw: false },
-    cardEffects: [
-      {
-        kind: 'apply_buff',
-        effectType: EffectType.STIGMATA,
-        target: 'enemy',
-        valueMode: 'fixed',
-        fixedValue: 2,
-      },
-    ],
-    ignoreDodge: true,
-    description: '消耗全部符能，每层点数+2，造成1倍最终点数伤害，施加2层圣痕；无视闪避；打出时撤去之后3回合的符文防护。',
-  },
-];
-
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
+  [彩虹油漆.name, 彩虹油漆],
+  [彩玉蛇.name, 彩玉蛇],
+  [地震.name, 地震],
+  [镐击.name, 镐击],
+  [黄金镐.name, 黄金镐],
+  [黄金木板.name, 黄金木板],
+  [金币巧克力.name, 金币巧克力],
+  [榴莲.name, 榴莲],
+  [路边的石子.name, 路边的石子],
+  [煤精灵.name, 煤精灵],
+  [石壁.name, 石壁],
+  [石巨人.name, 石巨人],
+  [水晶之锤.name, 水晶之锤],
+  [水晶之镰.name, 水晶之镰],
+  [心之容器.name, 心之容器],
+  [酒里藏毒.name, 酒里藏毒],
+  [剧毒匕首.name, 剧毒匕首],
+  [杀虫剂.name, 杀虫剂],
+  [酸梅糖.name, 酸梅糖],
+  [酸蚀液.name, 酸蚀液],
+  [铁蒺藜.name, 铁蒺藜],
+  [污染之路.name, 污染之路],
+  [腐化暗影.name, 腐化暗影],
+  [蚀骨之刺.name, 蚀骨之刺],
+  [腐蚀涂层.name, 腐蚀涂层],
+  [毒绽.name, 毒绽],
+  [瘴气帷幕.name, 瘴气帷幕],
+  [毒素催化.name, 毒素催化],
+  [暗器连发.name, 暗器连发],
+  [背刺.name, 背刺],
+  [刺击.name, 刺击],
+  [雾中人.name, 雾中人],
+  [夜猫视野.name, 夜猫视野],
+  [影魔.name, 影魔],
+  [影之手.name, 影之手],
+  [影之眼.name, 影之眼],
+  [影遁.name, 影遁],
+  [镜影.name, 镜影],
+  [鬼影步.name, 鬼影步],
+  [融入暗影.name, 融入暗影],
+  [处决.name, 处决],
+  [壁炉.name, 壁炉],
+  [齿轮盾.name, 齿轮盾],
+  [地雷.name, 地雷],
+  [腐蚀钢钉.name, 腐蚀钢钉],
+  [滑行床.name, 滑行床],
+  [酒瓶.name, 酒瓶],
+  [偏折.name, 偏折],
+  [前方高能.name, 前方高能],
+  [铁拳.name, 铁拳],
+  [反冲.name, 反冲],
+  [压缩饼干.name, 压缩饼干],
+  [液压机.name, 液压机],
+  [引爆.name, 引爆],
+  [引爆2.name, 引爆2],
+  [坠落之塔.name, 坠落之塔],
+  [自我安慰.name, 自我安慰],
+  [炸裂泥弹.name, 炸裂泥弹],
+  [预言.name, 预言],
+  [追踪魔弹.name, 追踪魔弹],
+  [咒文复诵.name, 咒文复诵],
+  [冰与火之花.name, 冰与火之花],
   ...GAIA_CARDS.map(card => [card.name, card] as [string, CardData]),
   ...SIGEL_CARDS.map(card => [card.name, card] as [string, CardData]),
   [空白.name, 空白],
-  [法力涌动.name, 法力涌动],
+  [魔力涌动.name, 魔力涌动],
   [蓄力.name, 蓄力],
   [守护.name, 守护],
   [魔力扩容.name, 魔力扩容],
@@ -10917,7 +12027,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [杖击.name, 杖击],
   [魔差.name, 魔差],
   [魔力球.name, 魔力球],
-  [法力汲取.name, 法力汲取],
+  [魔力汲取.name, 魔力汲取],
   [魔力亲和.name, 魔力亲和],
   [注能.name, 注能],
   [风筝.name, 风筝],
@@ -10958,7 +12068,6 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [导能屏障.name, 导能屏障],
   [魔力轰炸.name, 魔力轰炸],
   [涌流.name, 涌流],
-  [透支魔力.name, 透支魔力],
   [魔甲.name, 魔甲],
   [魔力增强.name, 魔力增强],
   [火花烙印.name, 火花烙印],
@@ -11456,13 +12565,40 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [佩恩_借来的圣膏.name, 佩恩_借来的圣膏],
   [佩恩_空杯告解.name, 佩恩_空杯告解],
   [佩恩_分给她的伤.name, 佩恩_分给她的伤],
+  ...EVENT_CARDS.map(card => [card.name, card] as const),
 ]);
 
 // ── 公共 API ────────────────────────────────────────────────────
 
 /** 根据卡名查找卡牌数据，不存在则返回 undefined */
+/** 已改名卡牌的旧名 → 新名（用于兼容旧存档与旧数据中的卡名） */
+export const CARD_NAME_ALIASES: ReadonlyMap<string, string> = new Map<string, string>([
+  ['魔力涌动', '魔力涌动'],
+  ['魔力汲取', '魔力汲取'],
+  ['柔劲', '逆势打击'],
+  ['针对性斩击', '讨伐斩击'],
+  ['吐纳法', '疗愈步法'],
+  ['虚实步法', '幻影步'],
+  ['织式备份', '复写咒纹'],
+  ['金币巧克力', '蜜金糖'],
+  ['榴莲', '荆棘甲壳'],
+  ['杀虫剂', '毒粉散布'],
+  ['酸梅糖', '毒蜜糖'],
+  ['腐化（暗影）', '腐蚀之印'],
+  ['暗器连发', '飞刃连掷'],
+  ['地雷', '爆裂法阵'],
+  ['法环坍缩', '坠雷术'],
+  ['大毁灭魔法', '紫霆坠'],
+  ['滑行床', '滑轨冲车'],
+  ['液压机', '重压机关'],
+  ['前方高能', '过载预警'],
+  ['压缩饼干', '硬面包'],
+  ['引爆', '大爆破'],
+  ['引爆2', '爆破'],
+]);
+
 export function getCardByName(name: string): CardData | undefined {
-  return CARD_REGISTRY.get(name);
+  return CARD_REGISTRY.get(name) ?? CARD_REGISTRY.get(CARD_NAME_ALIASES.get(name) ?? '');
 }
 
 /** 批量将卡名数组转换为 CardData 数组（跳过未找到的卡名） */

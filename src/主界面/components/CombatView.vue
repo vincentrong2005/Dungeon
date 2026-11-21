@@ -3,6 +3,7 @@
     ref="combatRootEl"
     data-card-tooltip-boundary
     class="combat-root w-full h-full bg-[#1a1a22] text-dungeon-paper font-ui relative overflow-hidden select-none"
+    data-sfx-scope="battle"
     :class="[screenShake ? 'animate-shake' : '', impactShake ? 'animate-impact-shake' : '', heavyDamageShake ? 'animate-heavy-impact-shake' : '', { 'combat-root--scene-effects': sceneEffects.length > 0 }]"
     :style="combatRootStyle"
     :aria-busy="!battleResourcesReady"
@@ -93,8 +94,8 @@
     <!-- Top Center: Turn Counter -->
     <div class="combat-turn-anchor absolute z-40 pointer-events-none">
       <div class="flex flex-col items-center">
-        <span class="text-xs text-white/60 tracking-widest">回合</span>
-        <span class="text-lg font-heading font-bold text-white/90">{{ combatState.turn }}</span>
+        <span class="combat-turn-label">回合</span>
+        <span class="combat-turn-value">{{ combatState.turn }}</span>
         <div
           v-if="isTwinBattle"
           class="mt-2 w-44 relative pointer-events-auto"
@@ -124,7 +125,7 @@
         </div>
         <div
           v-if="dicePreviewPanels.length > 0"
-          class="mt-2 w-80 space-y-1"
+          class="combat-dice-preview mt-2 w-80 space-y-1"
         >
           <div
             v-for="panel in dicePreviewPanels"
@@ -206,9 +207,6 @@
               class="relative"
               :class="visibleEnemyIntentCards.length > 1 ? (entry.slot === 1 ? '-translate-x-3' : 'translate-x-3') : ''"
             >
-            <div class="absolute -top-5 left-0 text-amber-200/80 text-[10px] px-2 py-0.5 rounded">
-              敌方意图
-            </div>
             <div
               class="scale-[1.4] origin-top-left"
               :class="[
@@ -407,8 +405,9 @@
         </div>
 
         <!-- Enemy Status Bar -->
-        <div class="combat-status-bar combat-status-bar--enemy relative mb-6 overflow-visible w-full max-w-[22rem] origin-bottom bg-[#18141e]/90 border border-white/8 p-3 rounded-xl shadow-lg backdrop-blur-sm z-20 pointer-events-auto">
-          <div class="flex justify-between text-sm text-white/90 font-bold mb-1.5">
+        <div class="combat-status-bar combat-status-bar--enemy relative mb-6 overflow-visible w-full max-w-[22rem] origin-bottom p-3 z-20 pointer-events-auto">
+          <span class="combat-status-bar__border" aria-hidden="true"></span>
+          <div class="combat-status-name">
             <span>{{ enemyDisplayName }}</span>
           </div>
           <div class="pointer-events-none absolute inset-0 z-30 overflow-visible">
@@ -502,19 +501,19 @@
           />
           <!-- MP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-[10px] text-[#55aaff] font-bold w-6">MP</span>
-            <div class="flex-1 h-2 bg-[#0a0a1a] rounded-full overflow-hidden border border-blue-900/20">
+            <span class="combat-stat-label combat-stat-label--mp w-6">MP</span>
+            <div class="combat-mp-track flex-1">
               <div
-                class="h-full bg-gradient-to-r from-[#0066cc] to-[#0088ee] rounded-full transition-all duration-500"
+                class="combat-mp-fill h-full transition-all duration-500"
                 :style="withTransition({ width: `${Math.min((enemyStats.mp / 20) * 100, 100)}%` }, 500)"
               ></div>
             </div>
-            <span class="text-[10px] text-white/60 w-14 text-right">{{ enemyStats.mp }}</span>
+            <span class="combat-stat-value w-14 text-right">{{ enemyStats.mp }}</span>
           </div>
           <!-- Dice Range -->
           <div class="flex items-center gap-2 mb-1">
-            <span class="text-[10px] text-gray-400 font-bold w-6">🎲</span>
-            <span class="text-[10px] text-red-300">{{ effectiveEnemyMinDice }} ~ {{ effectiveEnemyMaxDice }}</span>
+            <img class="combat-dice-icon" :src="COMBAT_DICE_ICON_URL" alt="骰子" />
+            <span class="combat-stat-value combat-stat-value--enemy-dice">{{ effectiveEnemyMinDice }} ~ {{ effectiveEnemyMaxDice }}</span>
           </div>
           <!-- Buffs/Debuffs -->
           <TransitionGroup
@@ -579,8 +578,8 @@
           </div>
           <div
             v-if="playerDiceRerollCharges > 0"
-            class="absolute left-1/2 top-[8.9rem] -translate-x-1/2 rounded-md border border-amber-300/35 bg-black/60 px-2 py-1 text-[10px] whitespace-nowrap"
-            :class="canPlayerRerollDice ? 'text-amber-200' : 'text-amber-200/70'"
+            class="combat-reroll-chip absolute left-1/2 top-[8.9rem] -translate-x-1/2 whitespace-nowrap"
+            :class="{ 'is-dim': !canPlayerRerollDice }"
           >
             重掷次数：{{ playerDiceRerollCharges }}
           </div>
@@ -603,8 +602,9 @@
         </div>
 
         <!-- Player Status Bar -->
-        <div class="combat-status-bar combat-status-bar--player relative overflow-visible mt-2 w-60 origin-bottom bg-[#18141e]/90 border border-white/8 p-2.5 rounded-xl shadow-xl backdrop-blur-sm z-10 pointer-events-auto">
-          <div class="flex justify-between text-xs text-white/80 font-bold mb-1.5">
+        <div class="combat-status-bar combat-status-bar--player relative overflow-visible mt-2 w-60 origin-bottom p-2.5 z-10 pointer-events-auto">
+          <span class="combat-status-bar__border" aria-hidden="true"></span>
+          <div class="combat-status-name combat-status-name--player">
               <span>冒险者</span>
           </div>
           <div class="pointer-events-none absolute inset-0 z-30 overflow-visible">
@@ -628,11 +628,46 @@
           </div>
           <!-- Armor Shield -->
           <TransitionGroup
-            v-if="playerArmor > 0 || playerPoisonAmount > 0 || playerTempMaxHp > 0"
             tag="div"
             name="status-effect"
-            class="status-value-list flex items-center gap-3 mb-1"
+            class="status-value-list flex flex-wrap items-center gap-x-3 gap-y-1 mb-1"
           >
+            <button
+              key="player-gold"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`金币: ${playerGoldDisplay}. ${GOLD_TOOLTIP.description}`"
+              @mouseenter="showEffectTooltip($event, GOLD_TOOLTIP_SOURCE(playerGoldDisplay), 'right')"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, GOLD_TOOLTIP_SOURCE(playerGoldDisplay), 'right')"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, GOLD_TOOLTIP_SOURCE(playerGoldDisplay), 'right')"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
+              <Coins class="size-3 text-amber-400" aria-hidden="true" />
+              <span :key="`player-gold-count-${playerGoldDisplay}`" class="status-value-count text-[10px] text-amber-300 font-bold">{{ playerGoldDisplay }}</span>
+            </button>
+            <button
+              v-if="playerTempGoldDisplay > 0"
+              key="player-temp-gold"
+              type="button"
+              class="status-effect-value-btn flex items-center gap-1"
+              :aria-label="`临时金币: ${playerTempGoldDisplay}. ${TEMP_GOLD_TOOLTIP.description}`"
+              @mouseenter="showEffectTooltip($event, TEMP_GOLD_TOOLTIP_SOURCE(playerTempGoldDisplay), 'right')"
+              @mouseleave="hideEffectTooltip"
+              @focus="showEffectTooltip($event, TEMP_GOLD_TOOLTIP_SOURCE(playerTempGoldDisplay), 'right')"
+              @blur="hideEffectTooltip"
+              @touchstart.passive="handleEffectTouchStart($event, TEMP_GOLD_TOOLTIP_SOURCE(playerTempGoldDisplay), 'right')"
+              @touchend="handleEffectTouchEnd"
+              @touchcancel="handleEffectTouchEnd"
+            >
+              <span class="temp-gold-icon" aria-hidden="true">
+                <Coins class="size-3 text-sky-300" />
+                <Hourglass class="temp-gold-icon__badge text-sky-100" />
+              </span>
+              <span :key="`player-temp-gold-count-${playerTempGoldDisplay}`" class="status-value-count text-[10px] text-sky-200 font-bold">{{ playerTempGoldDisplay }}</span>
+            </button>
             <button
               v-if="playerArmor > 0"
               key="player-armor"
@@ -698,22 +733,22 @@
           />
           <!-- MP Bar -->
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="text-[10px] text-[#55aaff] font-bold w-6">MP</span>
+            <span class="combat-stat-label combat-stat-label--mp w-6">MP</span>
             <div
-              class="flex-1 h-2 bg-[#0a0a1a] rounded-full overflow-hidden border border-blue-900/20"
+              class="combat-mp-track flex-1"
               :class="{ 'mana-bar-blocked-shake': playerManaBlockedShake }"
             >
               <div
-                class="h-full bg-gradient-to-r from-[#0066cc] to-[#0088ee] rounded-full transition-all duration-500"
+                class="combat-mp-fill h-full transition-all duration-500"
                 :style="withTransition({ width: `${Math.min((playerStats.mp / 20) * 100, 100)}%` }, 500)"
               ></div>
             </div>
-            <span class="text-[10px] text-white/60 w-14 text-right">{{ playerStats.mp }}</span>
+            <span class="combat-stat-value w-14 text-right">{{ playerStats.mp }}</span>
           </div>
           <!-- Dice Range -->
           <div class="flex items-center gap-2 mb-1">
-            <span class="text-[10px] text-gray-400 font-bold w-6">🎲</span>
-            <span class="text-[10px] text-dungeon-gold">{{ playerStats.minDice }} ~ {{ playerStats.maxDice }}</span>
+            <img class="combat-dice-icon" :src="COMBAT_DICE_ICON_URL" alt="骰子" />
+            <span class="combat-stat-value combat-stat-value--player-dice">{{ playerStats.minDice }} ~ {{ playerStats.maxDice }}</span>
           </div>
           <!-- Buffs/Debuffs -->
           <TransitionGroup
@@ -883,7 +918,7 @@
         <!-- Left Corner: Skip + Active Skills -->
         <div class="combat-bottom-left-controls absolute flex flex-col items-start gap-2 z-50 pointer-events-auto combat-button-cluster--bottom-left">
           <button
-            class="h-8 px-5 bg-[#252030]/90 border border-white/15 rounded-lg text-xs text-white/80 hover:border-amber-400 hover:text-amber-200 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            class="combat-skip-btn h-8 px-5"
             :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT"
             @click="handleSkipTurn"
           >
@@ -913,6 +948,59 @@
                 :footer-right-text="slot.skill ? getActiveSkillStatusText(slot) : ''"
                 :footer-right-tone="activeSkillButtonDisabled(slot.idx) ? 'warning' : 'success'"
               />
+            </button>
+          </div>
+          <div v-if="omniWandRevertibleSlots.length > 0" class="flex gap-2">
+            <button
+              v-for="slotIdx in omniWandRevertibleSlots"
+              :key="`omni-wand-revert-${slotIdx}`"
+              type="button"
+              class="combat-skip-btn h-7 px-3 text-xs"
+              :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT"
+              @click="revertOmniWandSlot(slotIdx)"
+            >
+              切回万象魔杖
+            </button>
+          </div>
+          <button
+            v-if="canDiscardForbiddenWasteBarrel"
+            type="button"
+            class="combat-skip-btn h-7 px-3 text-xs"
+            :disabled="combatState.phase !== CombatPhase.PLAYER_INPUT"
+            @click="discardForbiddenWasteBarrel"
+          >
+            弃置禁忌废液桶
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-if="omniWandSelectingSlot !== null"
+        class="pointer-events-auto absolute inset-0 z-[120] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
+      >
+        <div class="w-full max-w-3xl rounded-lg border border-dungeon-gold/40 bg-[#171018]/95 p-4 shadow-2xl">
+          <div class="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div class="text-sm font-bold text-dungeon-gold">万象魔杖</div>
+              <div class="mt-1 text-xs text-dungeon-paper/70">选择本场战斗中要变化成的初始主动技</div>
+            </div>
+            <button
+              type="button"
+              class="rounded border border-dungeon-brown/60 px-3 py-1.5 text-xs text-dungeon-paper/80 hover:border-dungeon-gold/60"
+              @click="omniWandSelectingSlot = null"
+            >
+              取消
+            </button>
+          </div>
+          <div class="grid max-h-[62vh] grid-cols-2 gap-3 overflow-y-auto pr-1 md:grid-cols-3">
+            <button
+              v-for="formSkill in omniWandFormChoices"
+              :key="`omni-wand-form-${formSkill.id}`"
+              type="button"
+              class="rounded border border-dungeon-brown/50 bg-black/20 p-2 transition-colors hover:border-dungeon-gold/70"
+              @click="confirmOmniWandForm(formSkill.id)"
+            >
+              <ActiveSkillCard :skill="formSkill" :mana-cost="formSkill.manaCost" size="compact" />
             </button>
           </div>
         </div>
@@ -954,7 +1042,7 @@
       <div class="combat-top-right-panel absolute z-40 pointer-events-auto select-none flex flex-col items-end gap-2 combat-button-cluster--top-right">
         <div class="flex items-start">
           <button
-            class="h-[2.625rem] px-3 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[15px] leading-none text-white/50 hover:text-white/80 transition-colors"
+            class="combat-panel-toggle h-[2.625rem] px-3"
             :title="logsCollapsed ? '展开日志' : '折叠日志'"
             @click="logsCollapsed = !logsCollapsed"
           >
@@ -962,13 +1050,13 @@
           </button>
           <div
             v-if="!logsCollapsed"
-            class="w-80 max-h-44 overflow-y-auto space-y-1 border border-r-0 border-white/10 bg-[#18141e]/90 backdrop-blur-sm p-1 text-[10px] font-mono text-gray-300"
+            class="combat-log-panel w-80 max-h-44 overflow-y-auto space-y-1 p-1"
           >
             <!-- eslint-disable-next-line vue/no-v-html -->
             <div
               v-for="(l, i) in combatState.logs"
               :key="i"
-              class="bg-black/60 p-1 rounded border-l-2 border-gray-700"
+              class="combat-log-entry"
               v-html="l"
             ></div>
           </div>
@@ -976,7 +1064,7 @@
 
         <div class="flex items-start">
           <button
-            class="h-[2.625rem] px-3 rounded-l-lg border border-r-0 border-white/10 bg-[#18141e]/90 text-[15px] leading-none text-white/50 hover:text-white/80 transition-colors"
+            class="combat-panel-toggle h-[2.625rem] px-3"
             :title="isPlayerDeckHiddenByFantasyEmbrace
               ? (pilesCollapsed ? '展开弃牌堆' : '折叠弃牌堆')
               : (pilesCollapsed ? '展开牌库与弃牌堆' : '折叠牌库与弃牌堆')"
@@ -986,7 +1074,7 @@
           </button>
           <div
             v-if="!pilesCollapsed"
-            class="w-44 border border-r-0 border-white/10 bg-[#18141e]/90 backdrop-blur-sm p-2"
+            class="combat-pile-panel w-44 p-2"
           >
             <div class="flex items-center justify-center gap-2">
               <div
@@ -994,14 +1082,14 @@
                 class="relative group"
               >
                 <button
-                  class="w-14 h-14 bg-[#252030]/90 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:border-dungeon-gold active:scale-95 transition-all shadow-lg"
+                  class="combat-pile-btn w-14 h-14 flex flex-col items-center justify-center"
                   @click="overlayOpen = 'deck'"
                 >
                   <Layers class="size-5 text-dungeon-gold" />
-                <span class="text-[9px] text-white/40 mt-0.5">{{ combatState.playerDeck.length }}</span>
+                <span class="combat-pile-count">{{ combatState.playerDeck.length }}</span>
               </button>
               <div
-                class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                class="combat-pile-tip absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               >
                 牌库
               </div>
@@ -1009,14 +1097,14 @@
 
               <div class="relative group">
                 <button
-                  class="w-14 h-14 bg-[#252030]/90 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:border-gray-400 active:scale-95 transition-all shadow-lg"
+                  class="combat-pile-btn combat-pile-btn--discard w-14 h-14 flex flex-col items-center justify-center"
                   @click="overlayOpen = 'discard'"
                 >
                   <Trash2 class="size-5 text-gray-400" />
-                  <span class="text-[9px] text-white/40 mt-0.5">{{ combatState.discardPile.length }}</span>
+                  <span class="combat-pile-count">{{ combatState.discardPile.length }}</span>
                 </button>
                 <div
-                  class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                  class="combat-pile-tip absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
                 >
                   弃牌堆
                 </div>
@@ -1032,12 +1120,12 @@
       class="absolute inset-0 z-[70] flex items-center justify-center pointer-events-none"
     >
       <div
-        class="battle-result-banner px-12 py-5 rounded-2xl border-2 font-heading tracking-[0.2em] drop-shadow-[0_0_30px_rgba(0,0,0,0.9)] animate-pulse backdrop-blur-md"
-        :class="battleResultBanner === 'win'
-          ? 'bg-emerald-950/70 border-emerald-400/60 text-emerald-300'
-          : battleResultBanner === 'escape'
-            ? 'bg-zinc-900/75 border-zinc-300/50 text-zinc-100'
-            : 'bg-red-950/70 border-red-500/60 text-red-300'"
+        class="battle-result-banner px-14 py-5"
+        :class="{
+          'battle-result-banner--win': battleResultBanner === 'win',
+          'battle-result-banner--escape': battleResultBanner === 'escape',
+          'battle-result-banner--lose': battleResultBanner !== 'win' && battleResultBanner !== 'escape',
+        }"
       >
         {{ battleResultBanner === 'win' ? '胜利' : battleResultBanner === 'escape' ? '脱离' : '败北' }}
       </div>
@@ -1064,6 +1152,41 @@
       </div>
     </Teleport>
 
+    <!-- 【预言】选择界面 -->
+    <div
+      v-if="prophecyPickerHandIdx !== null"
+      class="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      @click="prophecyPickerHandIdx = null"
+    >
+      <div class="combat-pile-overlay px-8 py-6 w-auto max-w-[96%] max-h-[96%] flex flex-col relative" @click.stop>
+        <span class="combat-pile-overlay__border" aria-hidden="true"></span>
+        <div class="combat-pile-overlay__head flex justify-between items-center mb-4 pb-2">
+          <h3 class="combat-pile-overlay__title">预言：选择一张牌，本牌这一次变为它的复制</h3>
+          <button type="button" class="combat-pile-overlay__close" aria-label="关闭" @click="prophecyPickerHandIdx = null">
+            <XIcon class="size-4" />
+          </button>
+        </div>
+        <!-- 3×3 原尺寸卡牌，便于看清卡面；超过 9 张时可滚动 -->
+        <div class="overflow-y-auto custom-scrollbar grid grid-cols-3 gap-x-10 gap-y-4 px-4 py-2 justify-items-center">
+          <button
+            v-for="(card, i) in getProphecyBattleCards()"
+            :key="`prophecy-${i}`"
+            type="button"
+            class="relative flex flex-col items-center gap-1 disabled:cursor-not-allowed"
+            :disabled="isProphecyCardUsed(card)"
+            @click="resolveProphecyPick(card)"
+          >
+            <div :class="isProphecyCardUsed(card) ? 'opacity-35 grayscale' : ''">
+              <DungeonCard :card="getDisplayPileCard(card)" :current-turn="combatState.turn" disabled />
+            </div>
+            <span class="text-sm" :class="isProphecyCardUsed(card) ? 'text-gray-400' : 'text-violet-200'">
+              {{ isProphecyCardUsed(card) ? '已预言' : '预言为此牌' }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Deck/Discard Overlay -->
     <div
       v-if="overlayOpen && (!isPlayerDeckHiddenByFantasyEmbrace || overlayOpen === 'discard')"
@@ -1071,15 +1194,16 @@
       @click="overlayOpen = null"
     >
       <div
-        class="bg-[#18141e] border border-white/10 p-6 rounded-2xl max-w-2xl w-full max-h-[80%] flex flex-col relative shadow-2xl"
+        class="combat-pile-overlay p-6 max-w-2xl w-full max-h-[80%] flex flex-col relative"
         @click.stop
       >
-        <div class="flex justify-between items-center mb-4 border-b border-dungeon-brown pb-2">
-          <h3 class="font-heading text-xl text-dungeon-gold">
+        <span class="combat-pile-overlay__border" aria-hidden="true"></span>
+        <div class="combat-pile-overlay__head flex justify-between items-center mb-4 pb-2">
+          <h3 class="combat-pile-overlay__title">
             {{ overlayOpen === 'deck' ? '当前牌库' : '弃牌堆' }}
           </h3>
-          <button @click="overlayOpen = null">
-            <XIcon class="size-6 hover:text-red-500" />
+          <button type="button" class="combat-pile-overlay__close" aria-label="关闭" @click="overlayOpen = null">
+            <XIcon class="size-4" />
           </button>
         </div>
         <div class="overflow-y-auto grid grid-cols-4 gap-4 p-2">
@@ -1104,12 +1228,14 @@ import {
     Bone,
     Brain,
     Bug,
+    Coins,
     Droplet,
     Eye,
     EyeOff,
     Flame,
     GitCommit,
     Heart,
+    Hourglass,
     Layers,
     Leaf,
     Link2,
@@ -1129,7 +1255,7 @@ import {
     X as XIcon,
     Zap,
 } from 'lucide-vue-next';
-import { toRaw } from 'vue';
+import { shallowRef, toRaw } from 'vue';
 import {
     applyDamageToEntity,
     calculateFinalDamage,
@@ -1144,7 +1270,10 @@ import { GAIA_CARD, PAIN_CARD, PAIN_CURSES, PAIN_OATH_CARDS, SIGEL_CARD, UMBILIC
 import { EFFECT_REGISTRY, ELEMENTAL_DEBUFF_TYPES, applyEffect, beginRuneClash, canPlayCard, consumeRuneFinisherEnergy, findEffect, getEffectDisplayOrder, getEffectStacks, isRuneProtectionActive, processOnTurnEnd, processOnTurnStart as processEntityTurnStart, reduceEffectStacks, removeEffect, resolveRuneClashEnergy, startRuneTurn } from '../battle/effects';
 import { getEnemyByName } from '../battle/enemyRegistry';
 import { resolveInitialEntityStats } from '../battle/initialStats';
+import { OMNI_WAND_FORM_IDS, OMNI_WAND_SKILL_ID, getActiveSkillById } from '../battle/activeSkillRegistry';
+import { PORTED_CARD } from '../battle/cardRegistry';
 import {
+    PORTED_RELIC_ID,
     resolveRelicMap,
     type RelicActiveSkillHookContext,
     type RelicAfterBurnDamageTakenHookContext,
@@ -1160,7 +1289,16 @@ import {
     type RelicSide,
     type ResolvedRelicEntry,
 } from '../battle/relicRegistry';
+import { EVENT_CARD_CATEGORY, EVENT_CARD_ID, SIN_CARD_ID } from '../battle/eventCards';
+import { EVENT_RELIC_ID } from '../battle/eventRelics';
+import {
+  normalizeNegativeStatusList,
+  runNegativeStatusBattleHooks,
+  type NegativeStatusBattleContext,
+  type ParsedNegativeStatus,
+} from '../negativeStatusRegistry';
 import { recordEncounteredCards, recordEncounteredEffects, recordEncounteredEnemy } from '../codexStore';
+import type { ResolvedBattleModifiers } from '../combatModifiers';
 import {
     HELL_STARTING_DEBUFFS,
     getDifficultyHpMultiplier,
@@ -1177,9 +1315,18 @@ import { toggleFullScreen } from '../fullscreen';
 import { useGameStore } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
 import { invalidatePortrait, preloadPortrait, preloadRandomPortrait } from '../portraitPreload';
-import type { BattleEffectName } from '../presentation/feedbackRegistry';
+import {
+  EVENT_EFFECTS,
+  activeSkillFeedback,
+  cardFeedback,
+  effectImpactSeconds,
+  relicFeedback,
+  statusFeedback,
+  type BattleEffectName,
+  type FeedbackTarget,
+} from '../presentation/feedbackRegistry';
 import { useBattleFeedback } from '../presentation/useBattleFeedback';
-import { playUiSfx } from '../sfx';
+import { battleEffectsEnabled, playUiSfx } from '../sfx';
 import { CardType, CombatPhase, EffectType as ET, type ActiveSkillData, type CardData, type CardEffectTrigger, type CardManaDrainConfig, type CardSelfDamageConfig, type CombatState, type EffectInstance, type EffectPolarity, type EffectType, type EnemyAIContext, type EnemyDefinition, type EntityStats, type InitialEntityStats } from '../types';
 import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
@@ -1203,6 +1350,8 @@ const props = withDefaults(defineProps<{
   preservePlayerDeckOrder?: boolean;
   tutorialDiceScript?: ReadonlyArray<{ player: number; enemy: number }>;
   tutorialInitialRerollCharges?: number;
+  /** 事件带来的限时 / 本层 / 领主战修正（$战斗修正），以及事件战斗的敌方削弱 */
+  battleModifiers?: ResolvedBattleModifiers | null;
 }>(), {
   playerActiveSkills: () => [],
   playerRelics: () => ({}),
@@ -1214,10 +1363,11 @@ const props = withDefaults(defineProps<{
   preservePlayerDeckOrder: false,
   tutorialDiceScript: () => [],
   tutorialInitialRerollCharges: 0,
+  battleModifiers: null,
 });
 
 const emit = defineEmits<{
-  endCombat: [outcome: 'win' | 'lose' | 'escape', finalStats: EntityStats, logs: string[], negativeEffects: string[], goldDelta?: number];
+  endCombat: [outcome: 'win' | 'lose' | 'escape', finalStats: EntityStats, logs: string[], negativeEffects: string[], goldDelta?: number, consumedRelicIds?: string[]];
   openDeck: [];
   openRelics: [];
   openGlossary: [];
@@ -1225,6 +1375,8 @@ const emit = defineEmits<{
   playerDiceRerolled: [before: number, after: number];
   activeSkillUsed: [skill: ActiveSkillData];
   turnResolved: [turn: number];
+  playerTurnDamageThresholdReached: [];
+  playerMaxDiceThresholdReached: [];
   ready: [];
 }>();
 
@@ -1240,6 +1392,30 @@ function blockWhileLoading(event: Event) {
     event.preventDefault();
     event.stopImmediatePropagation();
   }
+}
+
+/** 预热本场战斗可能触发的非核心特效（卡组、主动技、事件、状态、圣遗物），失败不影响战斗 */
+function warmBattleFeedback() {
+  const effects = new Set<BattleEffectName>(Object.values(EVENT_EFFECTS));
+  const cards = [
+    ...combatState.value.playerDeck, ...combatState.value.playerHand,
+    ...combatState.value.enemyDeck, ...combatState.value.discardPile,
+  ];
+  for (const card of cards) {
+    const feedback = cardFeedback(card);
+    if (feedback) effects.add(feedback.effect);
+  }
+  for (const skill of props.playerActiveSkills ?? []) {
+    const feedback = activeSkillFeedback(skill);
+    if (feedback) effects.add(feedback.effect);
+  }
+  for (const type of Object.values(ET)) {
+    const effect = statusFeedback(type);
+    if (effect) effects.add(effect);
+  }
+  const list = [...effects];
+  void battleFeedback.warm(list).catch(() => undefined);
+  battleFxLayer.value?.warm(list);
 }
 
 async function prepareBattleResources() {
@@ -1258,6 +1434,7 @@ async function prepareBattleResources() {
     if (portraitLoaderDisposed) return;
     presentationReady = true;
     battleResourcesReady.value = true;
+    warmBattleFeedback();
     emit('ready');
   } catch (error) {
     if (!portraitLoaderDisposed) {
@@ -1288,7 +1465,7 @@ const difficultyHpMultiplier = getDifficultyHpMultiplier(
   customDifficultyInfluencesAtBattleStart,
 );
 const lordTurnBoostInterval = getLordTurnBoostInterval(difficultyAtBattleStart, customDifficultyInfluencesAtBattleStart);
-const isLordBattle = String(gameStore.statData._当前房间类型 ?? '').includes('领主');
+const isLordBattle = !isTutorialBattle && String(gameStore.statData._当前房间类型 ?? '').includes('领主');
 
 // --- Enemy Loading ---
 const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
@@ -1324,6 +1501,8 @@ const folderImagePromiseCache = new Map<string, Promise<string[]>>();
 const normalizeRepoPath = (path: string) => path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 const encodeRepoPath = (path: string) => normalizeRepoPath(path).split('/').map((seg) => encodeURIComponent(seg)).join('/');
 const toResolveUrl = (repoPath: string) => `${IMAGE_CDN_ROOT}/${encodeRepoPath(repoPath)}`;
+/** 属性图标·骰子（与主界面状态块同一素材：地牢/素材库/通用UI/属性图标） */
+const COMBAT_DICE_ICON_URL = toResolveUrl('地牢/素材库/通用UI/属性图标/骰子.webp');
 
 const fetchFolderImages = async (repoFolderPath: string): Promise<string[]> => {
   const folder = normalizeRepoPath(repoFolderPath);
@@ -1517,6 +1696,16 @@ const buildEnemyInitialStats = (): EntityStats => {
     baseStats.maxHp = scaledMaxHp;
     baseStats.hp = scaledHp;
   }
+  // 事件战斗的敌方削弱（如漫游的领主离开主场）与战斗修正的敌方点数变化
+  const enemyModifiers = props.battleModifiers?.enemy;
+  if (enemyModifiers && enemyModifiers.hpMultiplier !== 1 && baseStats.maxHp < INFINITE_HP_VALUE) {
+    baseStats.maxHp = Math.max(1, Math.round(baseStats.maxHp * enemyModifiers.hpMultiplier));
+    baseStats.hp = Math.max(1, Math.min(baseStats.maxHp, Math.round(baseStats.hp * enemyModifiers.hpMultiplier)));
+  }
+  if (enemyModifiers && (enemyModifiers.minDice !== 0 || enemyModifiers.maxDice !== 0)) {
+    baseStats.minDice = Math.max(1, baseStats.minDice + enemyModifiers.minDice);
+    baseStats.maxDice = Math.max(baseStats.minDice, baseStats.maxDice + enemyModifiers.maxDice);
+  }
   const normalized = normalizeTestStartStats(baseStats);
   if (enemyDef?.name === '奥赛罗') {
     const phaseTransition = normalized.effects.find(effect => effect.type === ET.PHASE_TRANSITION);
@@ -1627,6 +1816,24 @@ const getEffectDescription = (type: EffectType, side?: BattleSide): string => {
   }
   return description;
 };
+/** 状态栏中非状态效果的数值（金币、临时金币）的悬浮说明 */
+interface ValueTooltipSource {
+  infoName: string;
+  description: string;
+  stacks: number;
+}
+type TooltipSource = EffectInstance | ValueTooltipSource;
+const GOLD_TOOLTIP = {
+  infoName: '金币',
+  description: '持有的金币，可在商店消费；部分财富卡牌与主动技会消耗金币或依据金币数量生效。',
+} as const;
+const TEMP_GOLD_TOOLTIP = {
+  infoName: '临时金币',
+  description: '本场战斗内视为金币。消耗金币时优先使用临时金币，战斗结束时清空。',
+} as const;
+const GOLD_TOOLTIP_SOURCE = (amount: number): ValueTooltipSource => ({ ...GOLD_TOOLTIP, stacks: Math.max(0, Math.floor(amount)) });
+const TEMP_GOLD_TOOLTIP_SOURCE = (amount: number): ValueTooltipSource => ({ ...TEMP_GOLD_TOOLTIP, stacks: Math.max(0, Math.floor(amount)) });
+
 const createStatusEffectPreview = (type: EffectType, stacks: number): EffectInstance => ({
   type,
   stacks: Math.max(1, Math.floor(stacks)),
@@ -1709,17 +1916,8 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
 const getEffectIconComponent = (type: EffectType) => {
   return EFFECT_ICON_COMPONENTS[type] ?? Sparkles;
 };
-const effectIconBoxClass = (polarity: EffectPolarity): string => {
-  switch (polarity) {
-    case 'buff':    return 'bg-emerald-900/65 border-emerald-400/50 text-emerald-200';
-    case 'debuff':  return 'bg-red-900/65 border-red-400/55 text-red-200';
-    case 'trait':   return 'bg-slate-800/70 border-slate-400/45 text-slate-200';
-    case 'mixed':   return 'bg-indigo-900/70 border-indigo-400/55 text-indigo-200';
-    case 'special': return 'bg-amber-900/70 border-amber-400/55 text-amber-200';
-    case 'scene':   return 'bg-emerald-950/80 border-emerald-300/60 text-emerald-100';
-    default:        return 'bg-slate-800/70 border-slate-400/45 text-slate-200';
-  }
-};
+/** 状态效果图标的语义类：颜色统一在样式中定义（宝石座 + 语义色内衬） */
+const effectIconBoxClass = (polarity: EffectPolarity): string => `effect-icon--${polarity}`;
 
 // --- Armor computed ---
 const playerArmor = computed(() => {
@@ -2422,10 +2620,86 @@ function presentEffect(entity: EntityStats, effect: BattleEffectName, phase: 'ap
   if (presentationReady && !endCombatPending.value) battleFeedback.effect(effect, feedbackTarget(entity), phase);
 }
 
+/** 次要特效（状态施加、圣遗物触发）：目标身上已有其它特效时省略 */
+function presentMinorEffect(entity: EntityStats, effect: BattleEffectName) {
+  if (presentationReady && !endCombatPending.value) battleFeedback.effect(effect, feedbackTarget(entity), 'proc', { minor: true });
+}
+
+/** 已在伤害结算前播放过专属命中特效的卡牌（本次结算时不再重复播放） */
+let cardHitLeadIn: CardData | null = null;
+
 function presentCardHit(entity: EntityStats, card: CardData | undefined, impactDamage: number) {
   if (presentationReady && !endCombatPending.value && card && impactDamage > 0) {
-    battleFeedback.hit(card.type, feedbackTarget(entity));
+    // 有专属命中特效的卡牌替换默认的物理/魔法命中特效
+    const feedback = cardFeedback(card);
+    // 结算前已播放过（拼点失败伤害传入的是卡牌副本，按 id 比较）
+    if (feedback?.on === 'hit' && cardHitLeadIn && card.id === cardHitLeadIn.id) return;
+    battleFeedback.hit(card.type, feedbackTarget(entity), feedback?.on === 'hit' ? feedback.effect : null);
   }
+}
+
+/**
+ * 有专属命中特效的卡牌：先播放特效，等到特效的「击中时刻」再结算伤害，
+ * 让伤害数字与画面同步；多段攻击每一段都单独等待。
+ */
+async function playCardHitLeadIn(target: EntityStats, card: CardData) {
+  const feedback = cardFeedback(card);
+  if (!presentationReady || endCombatPending.value || !battleEffectsEnabled.value || feedback?.on !== 'hit') return;
+  presentEffect(target, feedback.effect);
+  cardHitLeadIn = card;
+  await wait(effectImpactSeconds(feedback.effect) * 1000);
+}
+
+/** 拼点失败：拼点失败时触发的专属特效；拼点失败时造成伤害的卡牌同样先播放命中特效 */
+async function presentClashFailFeedback(side: BattleSide, card: CardData) {
+  const feedback = cardFeedback(card);
+  if (!feedback || !presentationReady || endCombatPending.value) return;
+  if (feedback.on === 'clashFail') {
+    presentEffect(feedbackEntityFor(side, feedback.target), feedback.effect);
+    return;
+  }
+  if (feedback.on === 'hit' && card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_clash_fail'))) {
+    await playCardHitLeadIn(getEntityBySide(side === 'player' ? 'enemy' : 'player'), card);
+  }
+}
+
+/** 按「自身 / 对手」解析特效目标实体 */
+function feedbackEntityFor(source: BattleSide, target: FeedbackTarget): EntityStats {
+  return target === 'self' ? getEntityBySide(source) : getEntityBySide(source === 'player' ? 'enemy' : 'player');
+}
+
+/** 本场战斗已播放过的「仅首次」卡牌特效（键：出牌方 + 卡名） */
+const onceCardFeedbackShown = new Set<string>();
+
+/** 功能牌等「结算后」类卡牌专属特效 */
+function presentCardUseFeedback(source: BattleSide, card: CardData) {
+  const feedback = cardFeedback(card);
+  if (feedback?.on !== 'use') return;
+  if (feedback.once) {
+    const key = `${source}:${card.name}`;
+    if (onceCardFeedbackShown.has(key)) return;
+    onceCardFeedbackShown.add(key);
+  }
+  presentEffect(feedbackEntityFor(source, feedback.target), feedback.effect);
+}
+
+/** 闪避成功：有专属特效的闪避牌使用专属特效，否则使用通用闪避特效 */
+function presentDodgeFeedback(source: BattleSide, card: CardData) {
+  const feedback = cardFeedback(card);
+  if (feedback?.on === 'dodge') presentEffect(feedbackEntityFor(source, feedback.target), feedback.effect);
+  else presentEffect(getEntityBySide(source), EVENT_EFFECTS.dodge);
+}
+
+/** 主动技专属特效（主动技只属于我方；target 为 both 时双方同时播放） */
+function presentActiveSkillFeedback(skill: ActiveSkillData) {
+  const feedback = activeSkillFeedback(skill);
+  if (!feedback) return;
+  if (feedback.target === 'both') {
+    presentEffect(playerStats.value, feedback.effect);
+    presentEffect(getEntityBySide('enemy'), feedback.effect);
+    return;
+  }
+  presentEffect(feedbackEntityFor('player', feedback.target), feedback.effect);
 }
 
 function processOnTurnStart(entity: EntityStats, runeTurnAlreadyStarted = false) {
@@ -2433,7 +2707,11 @@ function processOnTurnStart(entity: EntityStats, runeTurnAlreadyStarted = false)
   const orgasm = getEffectStacks(entity, ET.ORGASM);
   const result = processEntityTurnStart(entity, { runeTurnAlreadyStarted });
   if (result.isStunned) presentEffect(entity, 'stun');
-  if (whiteTurbid > 0) presentEffect(entity, 'slime');
+  if (whiteTurbid > 0) {
+    // 白浊作用于持有者的对手（回复其生命并施加侵蚀），特效也播放在对手身上
+    const opponent = toRaw(entity) === toRaw(playerStats.value) ? enemyStats.value : playerStats.value;
+    presentEffect(opponent, 'slime');
+  }
   if (orgasm > 0) presentEffect(entity, 'heart');
   return result;
 }
@@ -2457,47 +2735,6 @@ interface PendingNextTurnCardEffects {
   selfEntity: EntityStats;
 }
 const pendingNextTurnCardEffects = ref<PendingNextTurnCardEffects[]>([]);
-const STATUS_PHEROMONE = '[信息素]';
-const STATUS_LUST_MARK = '[淫纹]';
-const STATUS_LUST_KNOWLEDGE = '[淫乱知识]';
-const STATUS_MARKED = '[被标记]';
-const STATUS_PARASITIZED = '[被寄生]';
-const STATUS_BLOODLINE_MARK = '[血族印记]';
-const STATUS_SCALE_POWDER = '[鳞粉]';
-const STATUS_SOUL_DAMAGE = '[灵魂受损]';
-const STATUS_SINKING = '[沉沦]';
-const PHEROMONE_CURSE_CARD_NAME = '信息素';
-const ARCHIVE_TAINT_CURSE_CARD_NAME = '档案污页';
-const normalizeNegativeStatusList = (value: unknown): string[] => {
-  const normalizeArray = (arr: unknown[]) => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const item of arr) {
-      if (typeof item !== 'string') continue;
-      const normalized = item.trim();
-      if (!normalized || seen.has(normalized)) continue;
-      seen.add(normalized);
-      result.push(normalized);
-    }
-    return result;
-  };
-
-  if (Array.isArray(value)) return normalizeArray(value);
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) return [];
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (Array.isArray(parsed)) return normalizeArray(parsed);
-    } catch {
-      // no-op
-    }
-    return normalizeArray(trimmed.split(/\r?\n|、|；|;|\|/g));
-  }
-
-  return [];
-};
 const PLAYER_POISON_LETHAL_NEGATIVE_STATUS = '[催淫]';
 const PLAYER_SHOCK_LETHAL_NEGATIVE_STATUS = '[神经肌肉失调]';
 const PLAYER_CORROSION_LETHAL_NEGATIVE_STATUS = '[被侵蚀]';
@@ -2550,6 +2787,21 @@ const battleCardPointBonus = ref<Record<BattleSide, Record<string, number>>>({
   player: {},
   enemy: {},
 });
+const systemCardTurnUseCount = ref<Record<BattleSide, Record<string, number>>>({
+  player: {},
+  enemy: {},
+});
+const systemCardTurnFlags = ref<Record<BattleSide, Record<string, boolean>>>({
+  player: {},
+  enemy: {},
+});
+const systemCardBattleFlags = ref<Record<BattleSide, Record<string, boolean>>>({
+  player: {},
+  enemy: {},
+});
+const systemPreviousClashLoss = ref<Record<BattleSide, boolean>>({ player: false, enemy: false });
+/** 上一回合是否拼点失败（回合开始时由本回合结果快照而来，供铁拳、自我安慰使用） */
+const systemLastTurnClashLoss = ref<Record<BattleSide, boolean>>({ player: false, enemy: false });
 const alchemyPerfumePointDoubleCardIds = ref<Record<BattleSide, Record<string, boolean>>>({
   player: {},
   enemy: {},
@@ -2573,7 +2825,7 @@ const alchemyGrandSynthesisPointBonusByCard = ref<Record<BattleSide, WeakMap<Car
 });
 const alchemyGrandSynthesisPointBonusVersion = ref(0);
 const alchemyPendingGrandSynthesis = ref<{ card: CardData; handIdx: number } | null>(null);
-const activeHandSelectionMode = ref<null | 'purify' | 'appreciate'>(null);
+const activeHandSelectionMode = ref<null | 'purify' | 'appreciate' | 'pawn'>(null);
 const activeHandSelectionSkillIdx = ref<number | null>(null);
 const pendingAlchemyGoldDelta = ref(0);
 const turnPointModifier = ref<Record<BattleSide, number>>({
@@ -2586,6 +2838,63 @@ const armorDecaySkippedThisTurn = ref<Record<BattleSide, boolean>>({
   player: false,
   enemy: false,
 });
+/** 临时金币：本场战斗内视为金币、优先消耗，战斗结束清空 */
+const battleTempGold = ref(0);
+/** 主动技预约的下回合开始回复魔力 */
+const pendingNextTurnSkillMana = ref(0);
+/** 主动【余烬回燃】：下回合开始重新施加的燃烧层数 */
+const pendingRekindleBurn = ref<Record<BattleSide, number> | null>(null);
+/** 主动【延缓】：生效回合；本回合免疫的非真实伤害在下回合开始时转化为燃烧 */
+const delayImmunityTurn = ref(-1);
+const pendingDelayBurn = ref(0);
+/** 【鬼影步】闪避成功后，下一张攻击牌（物理/魔法）的点数加成 */
+const ghostStepPendingBonus = ref<Record<BattleSide, number>>({ player: 0, enemy: 0 });
+let ghostStepBonusByCard = new WeakMap<CardData, number>();
+/** 【融入暗影】本场战斗追踪的原卡；转化后的卡牌记录其原卡，便于恢复 */
+const SHADOW_MELD_CARD_ID = 'system_shadow_融入暗影';
+let shadowMeldTrackedCards: CardData[] = [];
+let cardTransformOrigin = new WeakMap<CardData, CardData>();
+/** 主动【埋毒】：该回合结束时不触发中毒的一方（键为被施毒方） */
+const poisonSkipTurn = ref<Record<BattleSide, number>>({ player: -1, enemy: -1 });
+/** 中毒结算受敏感影响的回合（键为被施毒方） */
+const poisonVulnerableTurn = ref<Record<BattleSide, number>>({ player: -1, enemy: -1 });
+/** 【蜘蛛】：我方使用闪避牌的回合（敌方中毒结算×1.5） */
+const spiderPoisonBoostTurn = ref(-1);
+/** 【蜘蛛】：敌方使用闪避牌的回合（敌方受到的敏感加伤×2） */
+const spiderVulnerableBoostTurn = ref(-1);
+/** 【荆棘甲壳】本回合反击使用的点数 */
+const thornShellReflectPoint = ref<Record<BattleSide, number>>({ player: 0, enemy: 0 });
+/** 各方本场战斗最近一次打出的魔法牌（咒文复诵） */
+const lastPlayedMagicCard = ref<Record<BattleSide, CardData | null>>({ player: null, enemy: null });
+/** 【预言】已复制过的卡牌 ID */
+/**
+ * 【预言】本场战斗已预言过的卡牌（按卡牌原始对象记录，每张牌只能预言一次）。
+ * 必须用 shallowRef：普通 ref 会把 Set 变成响应式集合，展开旧集合时得到的是元素的代理而非原始对象，
+ * 导致之前预言过的牌查不到（只有最近一张显示为已预言）。
+ */
+const prophecyCopiedCards = shallowRef<Set<CardData>>(new Set());
+/** 【预言】临时复制品 → 原本的预言牌：复制品打出后，下次抽到时复原为预言 */
+const prophecyCopyOrigin = new WeakMap<CardData, CardData>();
+/** 正在为哪个手牌位置选择预言目标（null 表示未打开选择界面） */
+const prophecyPickerHandIdx = ref<number | null>(null);
+const PROPHECY_EXHAUSTED_LINES = [
+  '所有的岔路都已走尽，未来不再有秘密。',
+  '当你知晓了一切答案，便失去了提问的权利。',
+  '星辰已然沉默，命运之书翻到了最后一行。',
+  '水晶球里只剩下你自己的倒影。',
+  '你已窥尽每一种可能，余下的只有注定。',
+  '命运的丝线已全部织完，再无可牵之处。',
+];
+/** 【蓝星瓶】本场战斗剩余魔力 */
+const blueStarBottleRemaining = ref(20);
+/** 【博学者徽章】本场战斗是否已触发 */
+const scholarBadgeTriggered = ref(false);
+/** 本场战斗中被消耗、战后需从背包移除的圣遗物 ID */
+const consumedRelicIdsThisBattle = ref<string[]>([]);
+/** 【万象魔杖】各主动技槽位当前变化的形态（主动技 ID） */
+const omniWandFormBySlot = ref<Record<number, string | null>>({});
+/** 【万象魔杖】正在选择形态的槽位 */
+const omniWandSelectingSlot = ref<number | null>(null);
 const temporaryBarrierToRemoveAtTurnEnd = ref(0);
 const instantFreezeClearColdAtTurnEnd = ref(false);
 const reverseBladeBleedOnHit = ref<Record<BattleSide, number>>({
@@ -2801,6 +3110,8 @@ const activePlayerRelics = resolveRelicMap(props.playerRelics);
 const playerDiceRerollCharges = ref(0);
 const relicRuntimeState = reactive<Record<string, Record<string, unknown>>>({});
 const playerDamageTakenThisTurn = ref(0);
+const playerDamageDealtThisTurn = ref(0);
+const playerTurnDamageThresholdReached = ref(false);
 const directDamageTakenThisTurn = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
@@ -2817,6 +3128,10 @@ const damageHitTakenThisCombat = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
+/** 原罪·暴食：本场已打出的次数（决定伤害倍率与回合结束的真实伤害） */
+const sinGluttonyPlaysThisBattle = ref(0);
+/** 原罪·暴食：累计的回合结束真实伤害百分比（每打出一次，未共鸣 +5%，共鸣 +2%） */
+const sinGluttonyDrainPercent = ref(0);
 const freezePumpTriggersThisTurn = ref(0);
 const freezeFlowCoreTriggeredThisTurn = ref(false);
 const sealCircuitPendingMana = ref(0);
@@ -2941,9 +3256,12 @@ const getRelicRuntimeState = (relicId: string) => {
   return relicRuntimeState[relicId]!;
 };
 
-const hasActiveRelic = (id: string) => activePlayerRelics.some((entry) => entry.relic.id === id && entry.count > 0);
+/** 本场战斗中已被消耗（弃置/碎裂）的圣遗物不再生效 */
+const isRelicConsumedThisBattle = (id: string) => consumedRelicIdsThisBattle.value.includes(id);
+const hasActiveRelic = (id: string) => !isRelicConsumedThisBattle(id)
+  && activePlayerRelics.some((entry) => entry.relic.id === id && entry.count > 0);
 const getActiveRelicCount = (id: string) => (
-  activePlayerRelics.find((entry) => entry.relic.id === id)?.count ?? 0
+  isRelicConsumedThisBattle(id) ? 0 : activePlayerRelics.find((entry) => entry.relic.id === id)?.count ?? 0
 );
 
 const changeRerollCharges = (side: RelicSide, delta: number) => {
@@ -2968,12 +3286,17 @@ const forEachPlayerRelic = (
   callback: (entry: ResolvedRelicEntry, relic: RelicData, state: Record<string, unknown>) => void,
 ) => {
   for (const entry of activePlayerRelics) {
+    if (isRelicConsumedThisBattle(entry.relic.id)) continue;
     callback(entry, entry.relic, getRelicRuntimeState(entry.relic.id));
   }
 };
 
 const logRelicMessage = (message: string) => {
   log(`<span class="text-amber-300 text-[9px]">[圣遗物] ${message}</span>`);
+  // 圣遗物日志以「[名称]」开头：有专属特效的圣遗物在我方身上播放
+  const relicName = message.match(/^\[([^\]]+)\]/)?.[1];
+  const effect = relicName ? relicFeedback(relicName) : null;
+  if (effect) presentMinorEffect(playerStats.value, effect);
 };
 
 const addPlayerDamageTakenThisTurn = (amount: number) => {
@@ -3195,6 +3518,46 @@ const triggerBloodlineLifesteal = (
   log(`<span class="text-rose-300">${sourceLabel}[血族] ${reason}触发，回复 ${healed} 点生命。</span>`);
 };
 
+/** 淬毒刃：每场战斗第一次对敌方造成直接伤害时，使其获得等量的生命上限削减 */
+const VENOM_BLADE_RELIC_ID = 'system_shadow_venom_blade';
+const applyVenomBladeOnFirstDirectDamage = (target: EntityStats, damage: number) => {
+  const count = getActiveRelicCount(VENOM_BLADE_RELIC_ID);
+  if (count <= 0 || damage <= 0) return;
+  const state = getRelicRuntimeState(VENOM_BLADE_RELIC_ID);
+  if (state.triggered) return;
+  state.triggered = true;
+  const stacks = Math.floor(damage) * count;
+  const maxHpBefore = target.maxHp;
+  if (applyStatusEffectWithRelics('enemy', ET.MAX_HP_REDUCTION, stacks, { source: `relic:${VENOM_BLADE_RELIC_ID}`, sourceSide: 'player' })) {
+    logRelicMessage(`[淬毒刃] 首次直接伤害 ${Math.floor(damage)} 点，敌方生命上限 ${maxHpBefore} → ${target.maxHp}。`);
+  }
+};
+
+/**
+ * 曼陀罗：敌方每有 10 点中毒量获得 1 层虚弱，最多 4 层（每件）。
+ * 虚弱不会自然衰减，这里记录由曼陀罗施加的层数，按当前中毒量增减到目标值。
+ */
+const DATURA_RELIC_ID = 'system_corruption_relic_09';
+const syncDaturaWeaken = () => {
+  const count = getActiveRelicCount(DATURA_RELIC_ID);
+  if (count <= 0) return;
+  const state = getRelicRuntimeState(DATURA_RELIC_ID);
+  const enemy = enemyStats.value;
+  const applied = Math.max(0, Math.floor(Number(state.appliedWeaken ?? 0)));
+  const target = Math.min(4, Math.floor(Math.max(0, getEffectStacks(enemy, ET.POISON_AMOUNT)) / 10)) * count;
+  if (target === applied) return;
+  if (target > applied) {
+    if (applyStatusEffectWithRelics('enemy', ET.WEAKEN, target - applied, { source: `relic:${DATURA_RELIC_ID}`, sourceSide: 'player' })) {
+      state.appliedWeaken = target;
+      logRelicMessage(`[曼陀罗] 敌方中毒量 ${getEffectStacks(enemy, ET.POISON_AMOUNT)}，虚弱提升至 ${target} 层（曼陀罗施加）。`);
+    }
+    return;
+  }
+  reduceEffectStacks(enemy, ET.WEAKEN, applied - target);
+  state.appliedWeaken = target;
+  logRelicMessage(`[曼陀罗] 敌方中毒量下降，曼陀罗施加的虚弱降至 ${target} 层。`);
+};
+
 const applyDamageToSideWithRelics = (
   side: BattleSide,
   target: EntityStats,
@@ -3234,6 +3597,23 @@ const applyDamageToSideWithRelics = (
     : effectiveIncoming;
   if (side === 'player' && !painScene && !damageOptions.gaiaShared) {
     adjusted = applyPlayerLiverMarkDamageReduction(adjusted, reason);
+  }
+  if (
+    side === 'player'
+    && damageOptions.isDirectDamage
+    && damageOptions.sourceSide === 'enemy'
+    && damageOptions.card
+    && (damageOptions.card.type === CardType.PHYSICAL || damageOptions.card.type === CardType.MAGIC)
+    && combatState.value.playerHand.some(handCard => handCard.id === 'system_destruction_前方高能')
+  ) {
+    adjusted = Math.max(0, adjusted - 4);
+    log('<span class="text-zinc-300">手牌中的【过载预警】使本次受到的伤害 -4。</span>');
+  }
+  if (side === 'player' && !effectiveTrueDamage && adjusted > 0 && delayImmunityTurn.value === combatState.value.turn) {
+    pendingDelayBurn.value += adjusted;
+    pushFloatingText('player', '延缓', 'text-orange-300');
+    log(`<span class="text-orange-300">我方【延缓】免疫了 ${adjusted} 点伤害，下回合开始转化为燃烧（累计 ${pendingDelayBurn.value}）。</span>`);
+    return { actualDamage: 0, logs: [], limitOverflow: 0 };
   }
   if (
     damageOptions.isDirectDamage
@@ -3286,6 +3666,12 @@ const applyDamageToSideWithRelics = (
     adjusted = directDamageResult.damage;
     effectiveTrueDamage = directDamageResult.isTrueDamage;
   }
+  if (side === 'player' && getActiveRelicCount('system_destruction_relic_06') > 0) {
+    const steelHeartState = getRelicRuntimeState('system_destruction_relic_06');
+    const takenThisTurn = Math.max(0, Math.floor(Number(steelHeartState.damageTakenThisTurn ?? 0)));
+    const limit = Math.max(1, Math.floor(target.maxHp / 2));
+    adjusted = Math.min(adjusted, Math.max(0, limit - takenThisTurn));
+  }
   if (damageOptions.isDirectDamage) {
     const reflectionStacks = getEffectStacks(target, ET.REFLECTION);
     if (reflectionStacks > 0 || reflectionActiveThisTurn.value[side]) {
@@ -3302,6 +3688,7 @@ const applyDamageToSideWithRelics = (
   const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
   const targetMaxHpBeforeDamage = Math.max(0, Math.floor(target.maxHp));
   const armorBeforeDamage = getEffectStacks(target, ET.ARMOR);
+  const barrierBeforeDamage = getEffectStacks(target, ET.BARRIER);
   if (painScene) {
     adjusted = painIncomingDamage(painScene, side, adjusted, effectiveTrueDamage);
     if (side === 'player') adjusted = applyPlayerLiverMarkDamageReduction(applyPlayerHemostaticValveDamageCap(adjusted, reason), reason);
@@ -3330,6 +3717,20 @@ const applyDamageToSideWithRelics = (
       swarmAttack: !!damageOptions.card?.swarmAttack,
       minimumHp,
     });
+  if (
+    side === 'enemy'
+    && damageOptions.sourceSide === 'player'
+    && damageOptions.isDirectDamage
+    && !damageOptions.gaiaShared
+    && result.actualDamage > 0
+  ) {
+    playerDamageDealtThisTurn.value += result.actualDamage;
+    if (playerDamageDealtThisTurn.value > 50 && !playerTurnDamageThresholdReached.value) {
+      playerTurnDamageThresholdReached.value = true;
+      emit('playerTurnDamageThresholdReached');
+    }
+    applyVenomBladeOnFirstDirectDamage(target, result.actualDamage);
+  }
   if (gaiaState && side === 'enemy') gaiaState.damageTakenThisTurn += result.actualDamage;
   if (result.preventedLethal) processGaiaLethalProtection(side);
   if (gaiaState && !effectiveTrueDamage && !damageOptions.gaiaShared && result.actualDamage > 0) {
@@ -3341,8 +3742,13 @@ const applyDamageToSideWithRelics = (
   const armorAfterDamage = getEffectStacks(target, ET.ARMOR);
   const armorWasConsumed = armorAfterDamage < armorBeforeDamage;
   if (armorWasConsumed) presentEffect(target, 'armor');
+  if (getEffectStacks(target, ET.BARRIER) < barrierBeforeDamage) presentEffect(target, EVENT_EFFECTS.barrierAbsorb);
   if (result.actualDamage <= 0 && armorWasConsumed) {
     triggerHealthBarArmorImpact(side, target);
+  }
+  if (side === 'player' && getActiveRelicCount('system_destruction_relic_06') > 0) {
+    const steelHeartState = getRelicRuntimeState('system_destruction_relic_06');
+    steelHeartState.damageTakenThisTurn = Math.max(0, Math.floor(Number(steelHeartState.damageTakenThisTurn ?? 0))) + result.actualDamage;
   }
   if (damageOptions.feedbackEffect) {
     presentEffect(target, damageOptions.feedbackEffect, result.actualDamage > 0 ? 'proc' : 'blocked');
@@ -3389,6 +3795,21 @@ const applyDamageToSideWithRelics = (
     const maxHpThreshold = Number.POSITIVE_INFINITY;
     if (maxHpThreshold > 0 && result.actualDamage > maxHpThreshold) {
       reduceTargetMaxDiceByVoidTaint(side, oppositeSide(side), '自己单次受到了超过10%最大生命值的伤害');
+    }
+  }
+  if (side === 'player' && result.actualDamage > 0) {
+    const piggyCount = getActiveRelicCount('system_wealth_piggy_bank');
+    if (piggyCount > 0) {
+      const piggyState = getRelicRuntimeState('system_wealth_piggy_bank');
+      const triggers = Math.max(0, Math.floor(Number(piggyState.triggers ?? 0)));
+      piggyState.triggers = triggers + 1;
+      if (triggers < 3) {
+        const gained = changeSystemGold(piggyCount);
+        logRelicMessage(`[猪猪存钱罐] 受到伤害，获得 ${gained} 金币（${triggers + 1}/3）。`);
+      } else {
+        const gained = gainTempGold(piggyCount);
+        logRelicMessage(`[猪猪存钱罐] 受到伤害，获得 ${gained} 临时金币。`);
+      }
     }
   }
   if (!effectiveTrueDamage && result.actualDamage > 0 && !damageOptions.skipCoDamage) {
@@ -3611,6 +4032,21 @@ const addArmorForSide = (side: RelicSide, amount: number): number => {
   return added;
 };
 
+/** 按卡牌获得护甲的规则获得护甲（受铜、钻石、色欲之书等加成），返回实际增加量 */
+const gainArmorAsCardEffect = (side: BattleSide, amount: number, source: string, reason: string): number => {
+  const value = Math.max(0, Math.floor(amount));
+  if (value <= 0) return 0;
+  const target = getEntityBySide(side);
+  const before = getEffectStacks(target, ET.ARMOR);
+  if (!applyStatusEffectWithRelics(side, ET.ARMOR, value, { source })) return 0;
+  const added = Math.max(0, getEffectStacks(target, ET.ARMOR) - before);
+  if (added > 0) {
+    pushFloatingNumber(side, added, 'shield', '+', { targetEntity: target });
+    if (side === 'player') handlePlayerArmorGainFromSingleEvent(added, reason);
+  }
+  return added;
+};
+
 const tryTriggerModaoStabilizer = (side: RelicSide, actualDelta: number, reason: string) => {
   if (side !== 'player') return;
   if (actualDelta < 3) return;
@@ -3624,8 +4060,9 @@ const tryTriggerModaoStabilizer = (side: RelicSide, actualDelta: number, reason:
 };
 
 const restoreManaForSide = (side: RelicSide, amount: number): number => {
-  const value = Math.max(0, Math.floor(amount));
+  let value = Math.max(0, Math.floor(amount));
   if (value <= 0) return 0;
+  if (side === 'player') value += getActiveRelicCount('alchemy_lust_book');
   const target = getEntityBySide(side);
   const before = target.mp;
   target.mp = Math.max(0, target.mp + value);
@@ -3655,6 +4092,7 @@ const healForSide = (
     if (lifePendantCount > 0) {
       value += lifePendantCount;
     }
+    value += getActiveRelicCount('alchemy_lust_book');
   }
   const target = getEntityBySide(side);
   if (gaiaState && target.hp <= 0) return { healed: 0, overflow: 0, convertedDamage: 0 };
@@ -3692,6 +4130,12 @@ const healForSide = (
   if (healed > 0) {
     presentEffect(target, 'heal');
     pushFloatingNumber(side, healed, 'heal', '+');
+    if (side === 'player' && !options?.gaiaShared) {
+      const rubyCount = getActiveRelicCount('system_wealth_relic_08');
+      const emeraldCount = getActiveRelicCount('system_wealth_relic_12');
+      if (rubyCount > 0) addArmorForSide('player', healed * rubyCount);
+      if (emeraldCount > 0) changeManaWithShock('player', healed * emeraldCount, '绿宝石');
+    }
     if (side === 'player') {
       triggerLeviathanMirrorSeaOathRecovery(healed);
     }
@@ -4120,6 +4564,12 @@ const applyStatusEffectWithRelics = (
       value = Math.max(value, minimumStacks);
     }
   }
+  if (side === 'player' && effectType === ET.ARMOR) {
+    const diamondCount = getActiveRelicCount('system_wealth_relic_20');
+    const copperCount = getActiveRelicCount('system_wealth_relic_17');
+    const lustBookCount = getActiveRelicCount('alchemy_lust_book');
+    value = value * Math.pow(2, Math.max(0, diamondCount)) + Math.max(0, copperCount) + Math.max(0, lustBookCount);
+  }
   if (value <= 0) return false;
   if (!shouldAllowStatusEffectWithRelics(side, effectType, value, options)) return false;
   const target = getEntityBySide(side);
@@ -4137,6 +4587,10 @@ const applyStatusEffectWithRelics = (
     durationTurns: options?.durationTurns,
     temporary: options?.temporary,
   });
+  if (applied) {
+    const statusEffect = statusFeedback(effectType);
+    if (statusEffect) presentMinorEffect(target, statusEffect);
+  }
   if (painScene && applied && side === 'player' && effectType === ET.BLEED
     && (options?.sourceSide === 'enemy' || options?.source?.startsWith('enemy_pain_'))) {
     addPainMemory(enemyStats.value, 1);
@@ -4144,6 +4598,18 @@ const applyStatusEffectWithRelics = (
   if (applied && effectType === ET.ARMOR) {
     const armorGained = Math.max(0, getEffectStacks(target, ET.ARMOR) - armorBeforeApply);
     applyCorrodeOnArmorGain(side, armorGained, options?.source ? `因 ${options.source} ` : '');
+    const pebbleCount = side === 'player' ? getActiveRelicCount('system_wealth_relic_04') : 0;
+    if (armorGained > 0 && pebbleCount > 0 && enemyStats.value.hp > 0) {
+      const pebbleDamage = applyDirectHpLossWithRelics(
+        'enemy',
+        enemyStats.value,
+        pebbleCount,
+        '鹅卵石',
+        { sourceSide: 'player', isDirectDamage: true },
+      );
+      if (pebbleDamage > 0) pushFloatingNumber('enemy', pebbleDamage, 'physical', '-');
+      logRelicMessage(`[鹅卵石] 获得护甲时造成 ${pebbleDamage} 点伤害。`);
+    }
   }
   const hpLossFromNonLivingConversion = Math.max(0, hpBeforeApply - target.hp);
   if (hpLossFromNonLivingConversion > 0) recordBattlePainLoss(side, hpLossFromNonLivingConversion, isNonLivingPenaltyEffect);
@@ -4243,34 +4709,38 @@ const createPlayerLifecycleContext = (
   relic: RelicData,
   count: number,
   state: Record<string, unknown>,
-): RelicLifecycleHookContext => ({
-  count,
-  side: 'player',
-  self: playerStats.value,
-  opponent: enemyStats.value,
-  state,
-  turn: combatState.value.turn,
-  playedPhysicalOrMagicThisTurn: playerPlayedPhysicalOrMagicThisTurn.value,
-  previousTurnMana: previousTurnManaSnapshot.value.player,
-  addLog: logRelicMessage,
-  hasRelic: hasActiveRelic,
-  getRelicCount: getActiveRelicCount,
-  addStatusEffect: (side, effectType, stacks, options) => (
-    applyStatusEffectWithRelics(side, effectType, stacks, {
-      source: options?.source ?? `relic:${relic.id}`,
-      restrictedTypes: options?.restrictedTypes,
-      lockDecayThisTurn: options?.lockDecayThisTurn,
-      durationTurns: options?.durationTurns,
-      temporary: options?.temporary,
-    })
-  ),
-  addArmor: addArmorForSide,
-  restoreMana: restoreManaForSide,
-  spendMana: spendManaWithShock,
-  heal: healForSide,
-  addRerollCharges: changeRerollCharges,
-  getRerollCharges,
-});
+): RelicLifecycleHookContext => {
+  state.gold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+  state.currentPoint = combatState.value.playerBaseDice;
+  return {
+    count,
+    side: 'player',
+    self: playerStats.value,
+    opponent: enemyStats.value,
+    state,
+    turn: combatState.value.turn,
+    playedPhysicalOrMagicThisTurn: playerPlayedPhysicalOrMagicThisTurn.value,
+    previousTurnMana: previousTurnManaSnapshot.value.player,
+    addLog: logRelicMessage,
+    hasRelic: hasActiveRelic,
+    getRelicCount: getActiveRelicCount,
+    addStatusEffect: (side, effectType, stacks, options) => (
+      applyStatusEffectWithRelics(side, effectType, stacks, {
+        source: options?.source ?? `relic:${relic.id}`,
+        restrictedTypes: options?.restrictedTypes,
+        lockDecayThisTurn: options?.lockDecayThisTurn,
+        durationTurns: options?.durationTurns,
+        temporary: options?.temporary,
+      })
+    ),
+    addArmor: addArmorForSide,
+    restoreMana: restoreManaForSide,
+    spendMana: spendManaWithShock,
+    heal: healForSide,
+    addRerollCharges: changeRerollCharges,
+    getRerollCharges,
+  };
+};
 
 const triggerPlayerRelicLifecycleHooks = (
   hookName: keyof Pick<NonNullable<RelicData['hooks']>, 'onBattleStart' | 'onTurnStart' | 'onTurnEnd' | 'onDeckShuffle'>,
@@ -4338,6 +4808,28 @@ const triggerPlayerRelicAfterBurnDamageTakenHooks = (
   });
 };
 
+/** 我方攻击命中敌方后：事件吸血修正与卡牌附魔（淫文 / 刑印）的命中效果 */
+const applyEventHitEffects = (card: CardData) => {
+  const lifesteal = Math.max(0, Math.floor(props.battleModifiers?.player.lifesteal ?? 0));
+  if (lifesteal > 0 && !isTutorialBattle) {
+    const { healed } = healForSide('player', lifesteal, { sourceSide: 'player', reason: '血酒' });
+    if (healed > 0) log(`<span class="text-rose-300">[血酒] 命中敌方，回复 ${healed} 点生命。</span>`);
+  }
+  const enchant = card.enchant;
+  if (!enchant) return;
+  const hit = enchant.hitEffect;
+  if (hit && (hit.chance === undefined || Math.random() < hit.chance)) {
+    const applied = hit.effectType === ET.STUN
+      ? applyStatusEffectWithRelics('enemy', hit.effectType, hit.stacks, { source: `enchant:${enchant.key}`, lockDecayThisTurn: true })
+      : applyStatusEffectWithRelics('enemy', hit.effectType, hit.stacks, { source: `enchant:${enchant.key}` });
+    if (applied) log(`<span class="text-fuchsia-300">【${card.name}】的附魔【${enchant.label}】：敌方获得 ${hit.stacks} 层${getEffectName(hit.effectType)}。</span>`);
+  }
+  if (enchant.manaOnHit && enchant.manaOnHit > 0) {
+    const restored = restoreManaForSide('player', enchant.manaOnHit);
+    if (restored > 0) log(`<span class="text-sky-300">【${card.name}】的附魔【${enchant.label}】：回复 ${restored} 点魔力。</span>`);
+  }
+};
+
 const triggerPlayerRelicHitHooks = (
   sourceSide: RelicSide,
   targetSide: RelicSide,
@@ -4369,6 +4861,70 @@ const triggerPlayerRelicHitHooks = (
     relic.hooks?.onAfterHitDealt?.(ctx);
     relic.hooks?.onAfterHitTaken?.(ctx);
   });
+
+  const isDamageCard = card.type === CardType.PHYSICAL || card.type === CardType.MAGIC;
+  if (!isDamageCard) return;
+  const dealt = Math.max(0, Math.floor(actualDamage));
+
+  if (sourceSide === 'player' && targetSide === 'enemy' && dealt > 0) {
+    applyEventHitEffects(card);
+  }
+
+  if (sourceSide === 'player' && targetSide === 'enemy' && dealt > 0 && card.id === SIN_CARD_ID.GLUTTONY) {
+    const { healed } = healForSide('player', dealt, { sourceSide: 'player', reason: '原罪·暴食' });
+    if (healed > 0) log(`<span class="text-rose-400">【原罪·暴食】吞噬血肉，回复 ${healed} 点生命。</span>`);
+  }
+  if (sourceSide === 'player' && targetSide === 'enemy' && dealt > 0) {
+    const gluttonyCount = getActiveRelicCount(PORTED_RELIC_ID.GLUTTONY_BOOK);
+    if (gluttonyCount > 0) {
+      const { healed } = healForSide('player', dealt * gluttonyCount, { sourceSide: 'player', reason: '暴食之书' });
+      if (healed > 0) logRelicMessage(`[暴食之书] 命中敌方，回复 ${healed} 点生命。`);
+    }
+    const scholarCount = getActiveRelicCount(PORTED_RELIC_ID.SCHOLAR_BADGE);
+    if (scholarCount > 0 && !scholarBadgeTriggered.value) {
+      scholarBadgeTriggered.value = true;
+      const battleDeck = [
+        ...combatState.value.playerDeck,
+        ...combatState.value.playerHand,
+        ...combatState.value.discardPile,
+      ];
+      const deckManaCost = battleDeck
+        .filter(entry => entry.type === CardType.MAGIC)
+        .reduce((sum, entry) => sum + Math.max(0, Math.floor(entry.manaCost ?? 0)), 0);
+      const skillManaCost = normalizedPlayerActiveSkills.value
+        .reduce((sum, skill) => sum + Math.max(0, Math.floor(skill?.manaCost ?? 0)), 0);
+      const bonusDamage = (deckManaCost + skillManaCost) * scholarCount;
+      if (bonusDamage > 0) {
+        const { actualDamage: scholarDamage } = applyDamageToSideWithRelics(
+          'enemy',
+          target,
+          bonusDamage,
+          false,
+          '博学者徽章',
+          { sourceSide: 'player', isDirectDamage: true },
+        );
+        if (scholarDamage > 0) pushFloatingNumber('enemy', scholarDamage, 'magic', '-', { targetEntity: target });
+        logRelicMessage(`[博学者徽章] 首次命中，额外造成 ${scholarDamage} 点伤害（魔力消耗总和 ${deckManaCost + skillManaCost}）。`);
+      }
+    }
+  }
+
+  if (sourceSide === 'enemy' && targetSide === 'player' && hitIndex === 1) {
+    const hornCount = getActiveRelicCount(PORTED_RELIC_ID.DEMON_HORN);
+    if (hornCount > 0 && source.hp > 0) {
+      const floor = Math.max(1, Math.floor(Number(gameStore.statData._楼层数 ?? 1)));
+      const { actualDamage: hornDamage } = applyDamageToSideWithRelics(
+        'enemy',
+        source,
+        floor * 2 * hornCount,
+        false,
+        '恶魔之角',
+        { sourceSide: 'player', isDirectDamage: true },
+      );
+      if (hornDamage > 0) pushFloatingNumber('enemy', hornDamage, 'physical', '-', { targetEntity: source });
+      logRelicMessage(`[恶魔之角] 被命中，对敌方造成 ${hornDamage} 点伤害。`);
+    }
+  }
 };
 
 const triggerPlayerRelicBeforeDirectDamageHooks = (
@@ -4403,6 +4959,29 @@ const triggerPlayerRelicBeforeDirectDamageHooks = (
     currentDamage = Math.max(0, Math.floor(ctx.damage));
     currentTrueDamage = !!ctx.isTrueDamage;
   });
+
+  if (targetSide === 'player' && sourceSide === 'enemy') {
+    const asymA = getActiveRelicCount('system_destruction_relic_02');
+    const asymB = getActiveRelicCount('system_destruction_relic_03');
+    if (asymA > 0) currentDamage += combatState.value.turn % 2 === 1 ? 3 * asymA : -6 * asymA;
+    if (asymB > 0) currentDamage += combatState.value.turn % 2 === 1 ? -6 * asymB : 3 * asymB;
+    const nuclearCount = getActiveRelicCount('system_destruction_relic_11');
+    if (nuclearCount > 0 && card && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)) {
+      currentTrueDamage = true;
+    }
+  }
+
+  if (targetSide === 'player' && currentDamage > 0) {
+    const greedBookCount = getActiveRelicCount('system_wealth_relic_15');
+    if (greedBookCount > 0) {
+      const absorbed = Math.min(currentDamage, getSpendableGold());
+      if (absorbed > 0) {
+        spendGoldPreferTemp(absorbed);
+        currentDamage -= absorbed;
+        logRelicMessage(`[贪婪之书] 消耗 ${absorbed} 金币抵挡伤害。`);
+      }
+    }
+  }
 
   return { damage: currentDamage, isTrueDamage: currentTrueDamage };
 };
@@ -4941,6 +5520,8 @@ const processTurnEndInHandCardEffects = async () => {
   const cards = [...combatState.value.playerHand];
   const shouldProcessTurnEndCard = (card: CardData) => (
     card.gluttonyEnchanted === true
+    || card.id === SIN_CARD_ID.SLOTH
+    || card.id === EVENT_CARD_ID.DEBT
     || card.id === BEHEMOTH_ROASTED_RABBIT_LEG_ID
     || card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_turn_end_in_hand'))
   );
@@ -4959,6 +5540,30 @@ const processTurnEndInHandCardEffects = async () => {
         applyStatusEffectWithRelics('player', ET.CORROSION, 3, { source: 'gluttony_enchantment' });
         log(`<span class="text-fuchsia-300">【${card.name}】的饕餮魔素发作，我方获得 3 层侵蚀。</span>`);
       }
+      if (card.id === SIN_CARD_ID.SLOTH) {
+        const armor = Math.max(0, Math.floor(finalPoint * 2));
+        if (armor > 0) {
+          applyStatusEffectWithRelics('player', ET.ARMOR, armor, { source: `sin:${card.id}` });
+          log(`<span class="text-rose-400">【${card.name}】回合结束仍在手中，我方获得 ${armor} 点护甲。</span>`);
+        }
+        if (isSinResonatedInBattle(card)) {
+          if (applyStatusEffectWithRelics('player', ET.FATIGUE, 2, { source: `sin:${card.id}` })) {
+            logSin(card, '原罪余波：我方获得 2 层疲劳。');
+          }
+        } else {
+          const before = playerStats.value.maxDice;
+          playerStats.value.maxDice = Math.max(playerStats.value.minDice, playerStats.value.maxDice - 1);
+          if (playerStats.value.maxDice !== before) {
+            logSin(card, `原罪发作：我方最大点数 ${before} → ${playerStats.value.maxDice}。`);
+          }
+        }
+      }
+      if (card.id === EVENT_CARD_ID.DEBT) {
+        const paid = spendGoldPreferTemp(1);
+        log(paid > 0
+          ? `<span class="text-yellow-300">【债务】回合结束仍在手中，失去 ${paid} 金币。</span>`
+          : '<span class="text-yellow-300/70">【债务】回合结束仍在手中，但已身无分文。</span>');
+      }
       if (card.id === BEHEMOTH_ROASTED_RABBIT_LEG_ID) {
         const beforeMp = Math.max(0, Math.floor(playerStats.value.mp));
         const nextMp = Math.floor(beforeMp / 2);
@@ -4966,7 +5571,7 @@ const processTurnEndInHandCardEffects = async () => {
         if (lostMp > 0) {
           changeManaWithShock('player', -lostMp, '烤兔腿');
         }
-        log(`<span class="text-amber-300">【烤兔腿】回合结束仍在手中，我方法力 ${beforeMp} → ${nextMp}。</span>`);
+        log(`<span class="text-amber-300">【烤兔腿】回合结束仍在手中，我方魔力 ${beforeMp} → ${nextMp}。</span>`);
       }
       applyCardEffectsByTrigger('player', card, finalPoint, 'on_turn_end_in_hand');
       await wait(card.id === MOORE_MIMIC_CARD_ID ? 720 : 430);
@@ -5099,8 +5704,9 @@ const changeManaWithShock = (
   reason: string,
   options?: { requireEnoughForDecrease?: boolean; showPositiveFloating?: boolean },
 ): { ok: boolean; actualDelta: number } => {
-  const value = Math.floor(delta);
+  let value = Math.floor(delta);
   if (value === 0) return { ok: true, actualDelta: 0 };
+  if (value > 0 && side === 'player') value += getActiveRelicCount('alchemy_lust_book');
 
   const target = getEntityBySide(side);
   const before = target.mp;
@@ -5119,6 +5725,10 @@ const changeManaWithShock = (
     applyShockOnManaLoss(side, -actualDelta, reason);
   }
   if (actualDelta > 0) {
+    if (side === 'player') {
+      const sapphireCount = getActiveRelicCount('system_wealth_relic_11');
+      if (sapphireCount > 0) addArmorForSide('player', actualDelta * sapphireCount);
+    }
     tryTriggerModaoStabilizer(side, actualDelta, `${reason}，`);
   }
 
@@ -5258,11 +5868,15 @@ const applyBloodpoolRedHeadbandPointBonus = (
 const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   const base = Math.max(0, Math.floor(card.manaCost ?? 0));
   if (card.type !== CardType.MAGIC) return base;
+  if (side === 'player' && getActiveRelicCount('modao_arrogance_book') > 0) return 0;
   const locked = lockedManaCostByCard.get(toRaw(card));
   if (typeof locked === 'number') return Math.max(0, Math.floor(locked));
   if (isMagicCostFreeThisTurn(side)) return 0;
 
   let discount = 0;
+  if (card.id === 'system_wealth_石巨人') {
+    discount += getEffectStacks(getEntityBySide(side), ET.ARMOR);
+  }
   if (side === 'player') {
     if (hasModaoWeaveBackupInPlayerHand()) {
       discount += 1;
@@ -5275,6 +5889,58 @@ const getEffectiveManaCost = (side: BattleSide, card: CardData): number => {
   }
 
   return Math.max(0, base - discount);
+};
+
+/** 【蓝星瓶】本场战斗还能补足的魔力 */
+const getBlueStarBottleReserve = (): number => (
+  getActiveRelicCount(PORTED_RELIC_ID.BLUE_STAR_BOTTLE) > 0 ? Math.max(0, Math.floor(blueStarBottleRemaining.value)) : 0
+);
+
+/** 我方可用于支付的魔力（含蓝星瓶） */
+const getPlayerPayableMana = (): number => Math.max(0, Math.floor(playerStats.value.mp)) + getBlueStarBottleReserve();
+
+/** 【贤者之石】出牌时可用生命补足魔力（至少保留1点生命） */
+const getSagesStoneHpReserve = (): number => (
+  getActiveRelicCount('bloodpool_sages_stone') > 0 ? Math.max(0, Math.floor(playerStats.value.hp) - 1) : 0
+);
+
+/** 我方出牌校验：魔力不足但蓝星瓶或贤者之石可补足时跳过魔力校验 */
+const getPlayerManaCheckOptions = (card: CardData): { ignoreMana?: boolean } => {
+  if (card.type !== CardType.MAGIC) return {};
+  const cost = Math.max(0, Math.floor(card.manaCost ?? 0));
+  const mp = Math.max(0, Math.floor(playerStats.value.mp));
+  return mp < cost && getPlayerPayableMana() + getSagesStoneHpReserve() >= cost ? { ignoreMana: true } : {};
+};
+
+/** 我方出牌时能否支付魔法牌的魔力（含蓝星瓶、贤者之石） */
+const canPlayerAffordCardMana = (card: CardData): boolean => (
+  card.type !== CardType.MAGIC
+  || getPlayerPayableMana() + getSagesStoneHpReserve() >= Math.max(0, Math.floor(card.manaCost ?? 0))
+);
+
+/** 我方支付魔力：不足部分依次由蓝星瓶、（出牌时）贤者之石补足 */
+const spendPlayerManaWithBottle = (cost: number, reason: string, options: { allowHp?: boolean } = {}): boolean => {
+  const amount = Math.max(0, Math.floor(cost));
+  if (amount <= 0) return true;
+  const mp = Math.max(0, Math.floor(playerStats.value.mp));
+  if (mp >= amount) return spendManaWithShock('player', amount, reason);
+  const shortfall = amount - mp;
+  const bottleReserve = getBlueStarBottleReserve();
+  const hpReserve = options.allowHp ? getSagesStoneHpReserve() : 0;
+  if (bottleReserve + hpReserve < shortfall) return false;
+  if (mp > 0 && !spendManaWithShock('player', mp, reason)) return false;
+  const fromBottle = Math.min(bottleReserve, shortfall);
+  if (fromBottle > 0) {
+    blueStarBottleRemaining.value -= fromBottle;
+    logRelicMessage(`[蓝星瓶] 补足 ${fromBottle} 点魔力（瓶中剩余 ${blueStarBottleRemaining.value}）。`);
+  }
+  const fromHp = shortfall - fromBottle;
+  if (fromHp > 0) {
+    playerStats.value.hp = Math.max(1, Math.floor(playerStats.value.hp) - fromHp);
+    pushFloatingNumber('player', fromHp, 'true', '-');
+    logRelicMessage(`[贤者之石] 消耗 ${fromHp} 点生命补足魔力。`);
+  }
+  return true;
 };
 
 const withEffectiveManaCost = (side: BattleSide, card: CardData): CardData => {
@@ -5330,7 +5996,7 @@ const triggerBleedProc = (targetSide: BattleSide, reason: string): number => {
   }
   log(`<span class="text-rose-300">[流血] ${reason}触发：${targetLabel}受到 ${actualDamage} 点真实伤害。</span>`);
   if (vulnerableBonus > 0) {
-    logRelicMessage(`[惊悚唱片] ${targetLabel}敏感使本次流血伤害 +${vulnerableBonus}。`);
+    logRelicMessage(`[惊悚八音盒] ${targetLabel}敏感使本次流血伤害 +${vulnerableBonus}。`);
   }
   for (const dl of bleedLogs) {
     const normalized = dl.startsWith('受到') ? `${targetLabel}${dl}` : dl;
@@ -5566,7 +6232,7 @@ const applyCardEffectsByTrigger = (
       const manaResult = changeManaWithShock(
         targetSide,
         restoreAmount,
-        `法力变化（${label}【${card.name}】）`,
+        `魔力变化（${label}【${card.name}】）`,
         { showPositiveFloating: true },
       );
       const actualRestore = Math.max(0, manaResult.actualDelta);
@@ -5574,10 +6240,10 @@ const applyCardEffectsByTrigger = (
         log(`<span class="text-blue-400">${label}【${card.name}】回复了 ${actualRestore} 点魔力</span>`);
         hasEffect = true;
       } else if (manaResult.actualDelta < 0) {
-        log(`<span class="text-blue-400">${label}【${card.name}】使目标法力减少 ${Math.abs(manaResult.actualDelta)} 点</span>`);
+        log(`<span class="text-blue-400">${label}【${card.name}】使目标魔力减少 ${Math.abs(manaResult.actualDelta)} 点</span>`);
         hasEffect = true;
       } else if (restoreAmount !== 0) {
-        log(`<span class="text-blue-400">${label}【${card.name}】未造成法力变化</span>`);
+        log(`<span class="text-blue-400">${label}【${card.name}】未造成魔力变化</span>`);
         hasEffect = true;
       }
     } else if (ce.kind === 'cleanse') {
@@ -5617,6 +6283,41 @@ const applyCardEffectsByTrigger = (
 
   return hasEffect;
 };
+
+const applyPendingNextTurnSkillEffects = () => {
+  const pendingMana = Math.max(0, Math.floor(pendingNextTurnSkillMana.value));
+  pendingNextTurnSkillMana.value = 0;
+  if (pendingMana > 0) {
+    const restored = restoreManaForSide('player', pendingMana);
+    log(`<span class="text-blue-300">主动【高纯蓄能魔晶】：下回合开始回复 ${restored} 点魔力。</span>`);
+  }
+  const rekindle = pendingRekindleBurn.value;
+  pendingRekindleBurn.value = null;
+  if (rekindle) {
+    for (const side of ['player', 'enemy'] as const) {
+      const stacks = Math.max(0, Math.floor(rekindle[side]));
+      if (stacks <= 0) continue;
+      applyStatusEffectWithRelics(side, ET.BURN, stacks, { source: 'active_burn_rekindle' });
+      log(`<span class="text-orange-300">主动【余烬回燃】：${side === 'player' ? '我方' : '敌方'}重新燃起 ${stacks} 层燃烧。</span>`);
+    }
+  }
+};
+
+/** 主动技造成的固定伤害使用的临时卡牌（用于增伤、敏感等伤害修正） */
+const buildActiveSkillDamageCard = (skill: ActiveSkillData, damage: number): CardData => ({
+  id: skill.id,
+  name: skill.name,
+  type: CardType.PHYSICAL,
+  category: skill.category,
+  rarity: skill.rarity,
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: damage },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: skill.description,
+});
 
 const applyPendingNextTurnCardEffects = () => {
   const pendingEffects = pendingNextTurnCardEffects.value;
@@ -5761,9 +6462,134 @@ const applyAmbushOnCardPlay = (source: BattleSide, card: CardData) => {
   log(`<span class="text-violet-300">${ambushOwnerLabel}[伏击] 触发：${sourceLabel}获得 1 层束缚。</span>`);
 };
 
+const applySystemPollutionDodgeEffect = (source: BattleSide, card: CardData) => {
+  if (card.id !== 'system_corruption_污染之路') return;
+  const targetSide = source === 'player' ? 'enemy' : 'player';
+  const target = getEntityBySide(targetSide);
+  const poison = Math.max(0, getEffectStacks(target, ET.POISON));
+  if (poison <= 0) return;
+  applyStatusEffectWithRelics(targetSide, ET.POISON, poison, { source: card.id });
+  log(`<span class="text-emerald-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】使目标中毒翻倍（+${poison}）。</span>`);
+};
+
+/** 立即触发一次中毒：中毒层数转化为等量中毒量，随后中毒层数-1（与回合结束结算一致） */
+const triggerPoisonOnceForSide = (side: BattleSide, reason: string): number => {
+  const target = getEntityBySide(side);
+  const sideLabel = side === 'player' ? '我方' : '敌方';
+  const stacks = Math.max(0, Math.floor(getEffectStacks(target, ET.POISON)));
+  if (stacks <= 0) {
+    log(`<span class="text-gray-400">${reason}：${sideLabel}没有中毒，未触发。</span>`);
+    return 0;
+  }
+  applyEffect(target, ET.POISON_AMOUNT, stacks);
+  reduceEffectStacks(target, ET.POISON, 1);
+  log(`<span class="text-emerald-300">${reason}：触发${sideLabel}中毒，中毒量 +${stacks}，中毒层数 -1。</span>`);
+  const paintingCount = side === 'enemy' ? getActiveRelicCount('bloodpool_eerie_miniature_painting') : 0;
+  for (let i = 0; i < paintingCount && target.hp > 0; i += 1) {
+    const damage = triggerBleedProc('enemy', `[诡异微型画作] 中毒触发联动（${i + 1}/${paintingCount}）`);
+    if (damage <= 0) break;
+  }
+  return stacks;
+};
+
+/** 新增闪避牌的闪避成功效果 */
+const applyNewSystemDodgeSuccessEffects = (source: BattleSide, card: CardData) => {
+  const label = source === 'player' ? '我方' : '敌方';
+  if (card.id === 'system_corruption_瘴气帷幕') {
+    triggerPoisonOnceForSide(oppositeSide(source), `${label}【${card.name}】`);
+  } else if (card.id === 'system_shadow_鬼影步') {
+    ghostStepPendingBonus.value[source] = Math.max(0, ghostStepPendingBonus.value[source] ?? 0) + 3;
+    log(`<span class="text-indigo-300">${label}【${card.name}】闪避成功：下一张攻击牌点数 +3。</span>`);
+  }
+};
+
+/** 【鬼影步】的加成绑定到本次打出的攻击牌上，绑定后不再作用于其他卡牌 */
+const bindGhostStepBonusToCard = (source: BattleSide, card: CardData) => {
+  if (card.id === PASS_CARD.id || (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC)) return;
+  const bonus = Math.max(0, Math.floor(ghostStepPendingBonus.value[source] ?? 0));
+  if (bonus <= 0) return;
+  ghostStepPendingBonus.value[source] = 0;
+  ghostStepBonusByCard.set(toRaw(card), bonus);
+  log(`<span class="text-indigo-300">${source === 'player' ? '我方' : '敌方'}【鬼影步】使【${card.name}】点数 +${bonus}。</span>`);
+};
+
+const getGhostStepPointBonus = (source: BattleSide, card: CardData): number => {
+  if (card.id === PASS_CARD.id || (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC)) return 0;
+  return ghostStepBonusByCard.get(toRaw(card)) ?? Math.max(0, Math.floor(ghostStepPendingBonus.value[source] ?? 0));
+};
+
+/** 记录卡牌被转化：替换后的卡牌指回原卡（供【融入暗影】恢复原样） */
+const recordCardTransform = (original: CardData | null | undefined, replacement: CardData) => {
+  if (original) cardTransformOrigin.set(toRaw(replacement), toRaw(original));
+};
+
+const isTransformedFromCard = (card: CardData, original: CardData): boolean => {
+  let current = cardTransformOrigin.get(toRaw(card));
+  for (let guard = 0; current && guard < 20; guard += 1) {
+    if (current === original) return true;
+    current = cardTransformOrigin.get(current);
+  }
+  return false;
+};
+
+/** 【融入暗影】生命低于30%时，无论原卡身处何处（抽牌堆、弃牌堆、被移除或被转化），都以原样回到手牌最左侧 */
+const pullShadowMeldCardsIntoHand = () => {
+  if (shadowMeldTrackedCards.length <= 0 || endCombatPending.value) return;
+  const player = playerStats.value;
+  if (player.hp <= 0 || player.hp >= player.maxHp * 0.3) return;
+  const returned: CardData[] = [];
+  const notes: string[] = [];
+  for (const tracked of shadowMeldTrackedCards) {
+    if (combatState.value.playerHand.some(card => toRaw(card) === tracked)) continue;
+    let located = false;
+    for (const pile of [combatState.value.playerDeck, combatState.value.discardPile]) {
+      const idx = pile.findIndex(card => toRaw(card) === tracked);
+      if (idx < 0) continue;
+      pile.splice(idx, 1);
+      located = true;
+      break;
+    }
+    if (!located) {
+      for (const pile of [combatState.value.playerHand, combatState.value.playerDeck, combatState.value.discardPile]) {
+        const idx = pile.findIndex(card => isTransformedFromCard(card, tracked));
+        if (idx < 0) continue;
+        const [transformed] = pile.splice(idx, 1);
+        if (transformed) notes.push(`【${transformed.name}】恢复原样`);
+        located = true;
+        break;
+      }
+    }
+    if (!located) notes.push('从移除中返回');
+    returned.push(tracked);
+  }
+  if (returned.length <= 0) return;
+  const nextHand = [...returned, ...combatState.value.playerHand];
+  const overflow = nextHand.splice(PLAYER_HAND_SLOT_COUNT);
+  if (overflow.length > 0) {
+    // 手牌已满时，最右侧的卡牌放回抽牌堆顶
+    combatState.value.playerDeck.push(...overflow);
+    notes.push(`【${overflow.map(card => card.name).join('】【')}】放回抽牌堆顶`);
+  }
+  combatState.value.playerHand = nextHand;
+  combatState.value.playerHand.forEach((card, slot) => playerHandSlotByCard.set(card, slot));
+  const returnedInHand = combatState.value.playerHand.slice(0, returned.length);
+  applyOnDrawCardEffects(returnedInHand);
+  markDrawnCardsAnimation(returnedInHand);
+  refreshPlayerSightDeprivationMask(combatState.value.playerHand);
+  log(`<span class="text-indigo-300">我方生命低于30%，【融入暗影】回到手牌最左侧${notes.length > 0 ? `（${notes.join('，')}）` : ''}。</span>`);
+};
+
 const withIgnoreDodgeBuffOnAttackCard = (source: BattleSide, card: CardData): CardData => {
   if (card.id === PASS_CARD.id) return card;
   if (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC) return card;
+
+  const nightCatInHand = source === 'player'
+    && combatState.value.playerHand.some(handCard => handCard.id === 'system_shadow_夜猫视野');
+  if (nightCatInHand && !card.ignoreDodge) {
+    const boosted = cloneCardForBattle(card);
+    boosted.ignoreDodge = true;
+    return boosted;
+  }
 
   const sourceStats = getEntityBySide(source);
   const stacks = getEffectStacks(sourceStats, ET.IGNORE_DODGE);
@@ -5848,6 +6674,52 @@ const increaseBattleCardPointBonus = (side: BattleSide, cardId: string, amount: 
     Math.max(0, getBattleCardUseCount(side, cardId) + Math.floor(amount)),
   );
   battleCardPointBonus.value[side][cardId] = next;
+  return next;
+};
+
+const getSystemGold = () => Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+
+/**
+ * 战斗中改变金币：立即更新本地显示，并把实际变化量计入战斗结算的金币变化，
+ * 战斗结束时随 endCombat 一并写入变量（本地 statData 不会被直接持久化）。
+ */
+const changeSystemGold = (delta: number) => {
+  const before = getSystemGold();
+  const after = Math.max(0, before + Math.floor(delta));
+  gameStore.statData._金币 = after;
+  const actual = after - before;
+  pendingAlchemyGoldDelta.value += actual;
+  return actual;
+};
+
+/** 可用金币 = 金币 + 临时金币 */
+const getSpendableGold = () => getSystemGold() + Math.max(0, Math.floor(battleTempGold.value));
+
+/** 获得临时金币（战斗结束时清空） */
+const gainTempGold = (amount: number): number => {
+  const gained = Math.max(0, Math.floor(amount));
+  battleTempGold.value = Math.max(0, Math.floor(battleTempGold.value)) + gained;
+  if (gained > 0) presentEffect(playerStats.value, EVENT_EFFECTS.tempGold);
+  return gained;
+};
+
+/** 消耗金币：优先消耗临时金币，返回实际消耗量 */
+const spendGoldPreferTemp = (amount: number): number => {
+  let remaining = Math.max(0, Math.floor(amount));
+  const fromTemp = Math.min(remaining, Math.max(0, Math.floor(battleTempGold.value)));
+  battleTempGold.value -= fromTemp;
+  remaining -= fromTemp;
+  const fromGold = remaining > 0 ? -changeSystemGold(-remaining) : 0;
+  return fromTemp + fromGold;
+};
+
+const getSystemCardTurnUses = (side: BattleSide, cardId: string) => (
+  Math.max(0, Math.floor(systemCardTurnUseCount.value[side][cardId] ?? 0))
+);
+
+const increaseSystemCardTurnUses = (side: BattleSide, cardId: string) => {
+  const next = getSystemCardTurnUses(side, cardId) + 1;
+  systemCardTurnUseCount.value[side][cardId] = next;
   return next;
 };
 
@@ -5961,6 +6833,7 @@ const countHandCardTypesForSide = (side: BattleSide, currentCard?: CardData): nu
 const getRandomRareBattleCard = (): CardData | null => {
   const rarePool = getAllCards().filter(card => (
     card.category !== '敌人'
+    && card.category !== EVENT_CARD_CATEGORY
     && card.type !== CardType.ACTIVE
     && card.type !== CardType.CURSE
     && card.rarity === '稀有'
@@ -6022,7 +6895,7 @@ const applyAlchemyDizzyFruitOnTurnStart = () => {
 };
 
 const replacePlayerHandWithRandomRareCards = (count: number): CardData[] => {
-  const rarePool = getAllCards().filter(card => card.category !== '敌人' && card.type !== CardType.ACTIVE && card.rarity === '稀有');
+  const rarePool = getAllCards().filter(card => card.category !== '敌人' && card.category !== EVENT_CARD_CATEGORY && card.type !== CardType.ACTIVE && card.rarity === '稀有');
   const nextHand: CardData[] = [];
   for (let i = 0; i < count; i++) {
     if (rarePool.length <= 0) break;
@@ -6305,8 +7178,15 @@ const consumeChargeOnRoll = (stats: EntityStats, label: string, rolled: number) 
   const chargeStacks = getEffectStacks(stats, ET.CHARGE);
   if (chargeStacks > 0) {
     removeEffect(stats, ET.CHARGE);
-    next = Math.max(0, Math.floor(next + chargeStacks));
-    log(`<span class="text-cyan-300">${label}[蓄力] +${chargeStacks}，原始骰子 ${rolled} → ${next}</span>`);
+    let chargeBonus = chargeStacks;
+    if (stats === playerStats.value) {
+      // 海盗钩子：每层蓄力额外+1；海盗眼罩：蓄力效果×1.5
+      chargeBonus += chargeStacks * getActiveRelicCount('system_destruction_relic_08');
+      const eyepatchCount = getActiveRelicCount('system_destruction_relic_10');
+      if (eyepatchCount > 0) chargeBonus = Math.floor(chargeBonus * 1.5 ** eyepatchCount);
+    }
+    next = Math.max(0, Math.floor(next + chargeBonus));
+    log(`<span class="text-cyan-300">${label}[蓄力] ${chargeStacks}层 +${chargeBonus}，原始骰子 ${rolled} → ${next}</span>`);
   }
 
   const fatigueStacks = getEffectStacks(stats, ET.FATIGUE);
@@ -6493,6 +7373,10 @@ const getUmbilicalOpposingPoint = (source: BattleSide, isPreview: boolean): numb
   );
 };
 
+/**
+ * 卡牌最终点数。传入 trace 时同步记录每一步修正，供上方的点数预览展示，
+ * 保证预览明细与实际结算使用同一套计算。
+ */
 const getCardFinalPoint = (
   source: 'player' | 'enemy',
   card: CardData,
@@ -6500,136 +7384,251 @@ const getCardFinalPoint = (
   isPreview: boolean = false,
   suppressComparisonSpecials: boolean = false,
   opposingPointOverride?: number | null,
+  trace?: string[],
 ) => {
   const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
   const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
   if (attacker.pointModifiersSuppressed) {
-    return card.id === PASS_CARD.id ? 0 : unmodifiedDiceByEntity.get(toRaw(attacker)) ?? Math.max(0, Math.floor(baseDice));
+    const rawPoint = card.id === PASS_CARD.id ? 0 : unmodifiedDiceByEntity.get(toRaw(attacker)) ?? Math.max(0, Math.floor(baseDice));
+    trace?.push(`原始：${rawPoint}`, '削弱符：本回合所有点数修正失效');
+    return rawPoint;
+  }
+  if (source === 'player' && card.id === SIN_CARD_ID.GREED) {
+    const goldPoint = getSpendableGold();
+    trace?.push(`原罪·贪婪：点数无视一切修正，等于当前金币 ${goldPoint}`);
+    return goldPoint;
   }
   const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
+  const additionText = card.calculation.addition >= 0 ? `+${card.calculation.addition}` : `${card.calculation.addition}`;
 
-  let finalPoint = shriveledHandActive
-    ? baseDice + card.calculation.addition * 2
-    : calculateFinalPoint({
+  trace?.push(`原始：${baseDice}`);
+  let finalPoint: number;
+  if (shriveledHandActive) {
+    finalPoint = baseDice + card.calculation.addition * 2;
+    trace?.push(`干瘪之手：卡牌乘法不触发，加减触发2次 ${additionText}x2 => ${finalPoint}`);
+  } else {
+    finalPoint = calculateFinalPoint({
+      baseDice,
+      card,
+      entityEffects: attacker.effects,
+      relicModifiers: NO_RELIC_MOD,
+    });
+    if (trace) {
+      const withoutSolitude = calculateFinalPoint({
         baseDice,
         card,
-        entityEffects: attacker.effects,
+        entityEffects: attacker.effects.filter(effect => effect.type !== ET.SOLITUDE),
         relicModifiers: NO_RELIC_MOD,
       });
+      trace.push(`卡牌修正 x${formatPointValue(card.calculation.multiplier)} ${additionText} => ${withoutSolitude}`);
+      if (finalPoint !== withoutSolitude) {
+        trace.push(`孤独 ${finalPoint > withoutSolitude ? '+' : ''}${finalPoint - withoutSolitude} => ${finalPoint}`);
+      }
+    }
+  }
 
-  // 卡牌专属点数修正：敌方每有2层燃烧，点数+1
-  if (card.id.startsWith('enemy_pain_')) finalPoint += painPointBonusByCard.get(card) ?? painPointBonus(card, attacker);
-  if (card.id === SIGEL_CARD.FINALE) finalPoint += getRuneFinisherPointBonus(source, card);
+  if (card.id === EVENT_CARD_ID.LUCKY_COIN) {
+    const factor = getLuckyCoinFactor(card);
+    finalPoint = Math.max(0, Math.floor(finalPoint * factor));
+    trace?.push(`幸运币 x${factor} => ${finalPoint}`);
+  }
+  if (source === 'player' && card.id === SIN_CARD_ID.WRATH) {
+    const wrathBonus = getDamageHitTakenThisCombat('player');
+    if (wrathBonus > 0) {
+      finalPoint += wrathBonus;
+      trace?.push(`原罪·暴怒：本场受伤 ${wrathBonus} 次 +${wrathBonus} => ${finalPoint}`);
+    }
+  }
+
+  const add = (label: string, delta: number) => {
+    if (!delta) return;
+    finalPoint += delta;
+    trace?.push(`${label} ${delta > 0 ? '+' : ''}${formatPointValue(delta)} => ${formatPointValue(finalPoint)}`);
+  };
+  const multiply = (label: string, factor: number) => {
+    if (factor === 1) return;
+    finalPoint *= factor;
+    trace?.push(`${label} x${formatPointValue(factor)} => ${formatPointValue(finalPoint)}`);
+  };
+  const setPoint = (label: string, next: number) => {
+    if (Math.abs(next - finalPoint) < 0.0001) return;
+    finalPoint = next;
+    trace?.push(`${label} => ${formatPointValue(finalPoint)}`);
+  };
+  const sourceLabel = source === 'player' ? '我方' : '敌方';
+
+  // 卡牌专属点数修正
+  if (card.id.startsWith('enemy_pain_')) add('痛忆', painPointBonusByCard.get(card) ?? painPointBonus(card, attacker));
+  if (card.id === SIGEL_CARD.FINALE) {
+    // 消耗为0时也列出，提示本牌的点数来源
+    const runeBonus = getRuneFinisherPointBonus(source, card);
+    finalPoint += runeBonus;
+    trace?.push(`消耗符能 +${runeBonus} => ${formatPointValue(finalPoint)}`, '打出时撤去之后3回合的符文防护');
+  }
   if (painScene && source === 'player' && !suppressComparisonSpecials
     && getPainOath(painScene, ET.PAIN_OATH_PILLAR)
     && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
     && combatState.value.enemyIntentCard?.type === card.type && !card.ignoreClash && !combatState.value.enemyIntentCard.ignoreClash) {
-    finalPoint += 1;
+    add('握住刑柱', 1);
   }
   if (card.id === 'burn_inferno_judgement') {
-    finalPoint += Math.floor(getEffectStacks(defender, ET.BURN));
+    add('炎狱判决', Math.floor(getEffectStacks(defender, ET.BURN)));
   }
   if (card.id === 'yanhan_ice_spike') {
-    finalPoint += Math.floor(getEffectStacks(defender, ET.COLD) / 3);
+    add('冰锥', Math.floor(getEffectStacks(defender, ET.COLD) / 3));
   }
   if (card.id === 'bloodpool_pulse_fist') {
     const hpValue = Math.max(0, Math.floor(attacker.hp));
-    finalPoint += hpValue % 2 === 0 ? -4 : 4;
+    add(`脉搏拳（生命${hpValue}为${hpValue % 2 === 0 ? '双' : '单'}数）`, hpValue % 2 === 0 ? -4 : 4);
   }
   if (card.id === 'bloodpool_life_drain' && isBelowHalfHp(attacker)) {
-    finalPoint += 2;
+    add('生命汲取（生命低于50%）', 2);
   }
   if (card.id === 'bloodpool_blood_control') {
-    finalPoint += Math.max(0, getEffectStacks(attacker, ET.BLEED) + 4);
+    add('驭血术（含新施加4层流血）', Math.max(0, getEffectStacks(attacker, ET.BLEED) + 4));
   }
   if (card.id === 'enemy_abyss_shoal_fangs') {
-    const bleedBonus = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
-    finalPoint += bleedBonus;
+    const playerBleed = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
+    add(`利齿（玩家流血${playerBleed}）`, playerBleed);
   }
   if (card.id === 'enemy_penitent_ghost_mirror_lure') {
-    finalPoint += Math.max(0, getEffectStacks(defender, ET.STIGMATA)) * 3;
+    const stigmataStacks = Math.max(0, getEffectStacks(defender, ET.STIGMATA));
+    add(`镜中诱惑（目标圣痕${stigmataStacks}）`, stigmataStacks * 3);
   }
   if (card.id === 'enemy_holy_water_sprite_struggle') {
-    finalPoint += Math.floor(getHolyWaterSpriteStruggleSelfDamageAmount(attacker) / 10);
+    const selfDamage = getHolyWaterSpriteStruggleSelfDamageAmount(attacker);
+    add(`挣扎（预估自伤${selfDamage}）`, Math.floor(selfDamage / 10));
   }
   if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
     if (executionerPuppetPointModifier.value !== null) {
-      finalPoint += executionerPuppetPointModifier.value;
+      add('行刑', executionerPuppetPointModifier.value);
     } else if (!isPreview) {
       const playerCardType = combatState.value.playerSelectedCard?.type;
       executionerPuppetPointModifier.value = playerCardType === CardType.DODGE
         ? Math.floor(Math.random() * 2) - 2
         : Math.floor(Math.random() * 2) + 1;
-      finalPoint += executionerPuppetPointModifier.value;
+      add('行刑', executionerPuppetPointModifier.value);
+    } else {
+      trace?.push(combatState.value.playerSelectedCard?.type === CardType.DODGE
+        ? '行刑：若对手使用闪避，点数随机-2~-1'
+        : '行刑：若对手未使用闪避，点数随机+1~+2');
     }
   }
   // 血债重击/嗜血重击：自身每损失指定生命，点数+1
   if (card.id === 'bloodpool_blood_debt_strike' || card.id === 'enemy_veronica_bloodthirsty_heavy_strike') {
     const divisor = card.id === 'enemy_veronica_bloodthirsty_heavy_strike' ? 9 : 3;
     const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
-    finalPoint += Math.floor(lostHp / divisor);
+    add(`${card.name}（已损失${lostHp}）`, Math.floor(lostHp / divisor));
   }
   if (card.id === 'enemy_stitched_spider_pack_hunt') {
-    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    add(`${card.name}（群集${swarmBonus}）`, swarmBonus);
   }
   if (card.id === 'enemy_silk_puppet_cooperative_subdue') {
-    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    add(`合力制服（群集${swarmBonus}）`, swarmBonus);
   }
   if (card.id === 'enemy_yustia_trueword_scale_powder') {
-    finalPoint += Math.max(0, Math.floor(defender.mp));
+    const manaBonus = Math.max(0, Math.floor(defender.mp));
+    add(`真言鳞粉（目标魔力${manaBonus}）`, manaBonus);
   }
   if (card.id === 'enemy_selina_space_fold') {
-    finalPoint += getSelinaSpaceFoldManaSpend(attacker);
+    add(`${card.name}（消耗魔力）`, getSelinaSpaceFoldManaSpend(attacker));
   }
   if (card.id === 'enemy_nightmare_moth_collective_dreamweave') {
-    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
+    add(`${card.name}（群集${swarmBonus}）`, swarmBonus);
   }
   if (card.id === 'enemy_moore_progressive_weaving') {
-    finalPoint += getBattleCardUseCount(source, card.id);
+    add(`${card.name}（本战累计）`, getBattleCardUseCount(source, card.id));
   }
   if (card.id === 'enemy_nightmare_moth_blissful_dream') {
-    finalPoint += countDistinctDebuffTypes(defender) * 2;
+    const debuffTypeCount = countDistinctDebuffTypes(defender);
+    add(`极乐之梦（debuff种类${debuffTypeCount}）`, debuffTypeCount * 2);
   }
   if (card.id === 'enemy_broken_mirror_bat_self_stripping' && getEffectStacks(defender, ET.LUST_ILLUSION) > 0) {
-    finalPoint *= 2;
+    multiply('自我剥离（目标有淫靡幻象）', 2);
     if (!isPreview) {
-      log(`<span class="text-fuchsia-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】目标已有淫靡幻象，点数 x2</span>`);
+      log(`<span class="text-fuchsia-300">${sourceLabel}【${card.name}】目标已有淫靡幻象，点数 x2</span>`);
     }
   }
   if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
-    finalPoint += 3;
+    add('尖锐攻击（当前仅有的物理牌）', 3);
     if (!isPreview) {
-      log(`<span class="text-amber-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】为当前卡组中仅有的物理卡牌，点数 +3</span>`);
+      log(`<span class="text-amber-300">${sourceLabel}【${card.name}】为当前卡组中仅有的物理卡牌，点数 +3</span>`);
     }
   }
   if (card.id === 'basic_jagged_attack') {
-    finalPoint += getBattleCardUseCount(source, card.id);
+    add('锯齿攻击（本战累计）', getBattleCardUseCount(source, card.id));
+  }
+  if (card.id === 'system_wealth_黄金镐') {
+    add('黄金镐（每5金币）', Math.floor((source === 'player' ? getSpendableGold() : getSystemGold()) / 5));
+  }
+  if (card.id === 'system_wealth_心之容器') {
+    add('心之容器（本战累计）', -getBattleCardUseCount(source, card.id));
+  }
+  if (card.id === 'system_wealth_水晶之锤') {
+    add('水晶之锤（每4护甲）', Math.floor(getEffectStacks(attacker, ET.ARMOR) / 4));
+  }
+  if (card.id === 'system_destruction_铁拳' && systemLastTurnClashLoss.value[source]) {
+    multiply('铁拳（上回合拼点失败）', 2);
+  }
+  if (card.id === 'system_destruction_引爆' || card.id === 'system_destruction_引爆2') {
+    add(`${card.name}（本战累计）`, getBattleCardUseCount(source, card.id));
+  }
+  if (card.id === 'system_shadow_影之手') {
+    const opposing = getOpposingCardForPointComparison(source);
+    if (opposing.card?.type === CardType.DODGE || opposing.card?.type === CardType.FUNCTION) {
+      multiply('影之手（对方使用闪避/功能牌）', 2);
+    }
+  }
+  if (hasActiveRelic('system_wealth_relic_05') && source === 'enemy' && card.type === CardType.FUNCTION) {
+    setPoint('肥皂（功能牌）x0.8', Math.floor(finalPoint * 0.8));
+  }
+  if (hasActiveRelic('system_wealth_relic_05') && source === 'enemy' && card.type === CardType.DODGE) {
+    add('肥皂（闪避牌）', 1);
+  }
+  if (hasActiveRelic('system_shadow_relic_09') && source === 'player' && defender.hp >= defender.maxHp) {
+    add('死神摆件（敌方满生命）', 4);
+  }
+  if (source === 'player' && combatState.value.turn === 1) {
+    add('破晓之刃（第1回合）', 4 * getActiveRelicCount('system_shadow_relic_12'));
+  }
+  // 猫耳：我方使用闪避牌时，我方点数+2，对方点数+4
+  if (hasActiveRelic('system_shadow_relic_04') && card.id !== PASS_CARD.id) {
+    if (source === 'player' && card.type === CardType.DODGE) {
+      add('猫耳（使用闪避）', 2);
+      trace?.push('猫耳：对方点数 +4');
+    } else if (source === 'enemy') {
+      const playerCard = combatState.value.playerSelectedCard ?? playerPreviewCardForPointContext.value;
+      if (playerCard?.type === CardType.DODGE && playerCard.id !== PASS_CARD.id) add('猫耳（对方使用闪避）', 4);
+    }
   }
   if (card.id === 'basic_raid_attack' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
-    finalPoint += 4;
+    add('袭击（首次使用）', 4);
     if (!isPreview && markBattleCardFirstUse(source, card.id)) {
-      log(`<span class="text-indigo-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】首次使用，点数 +4</span>`);
+      log(`<span class="text-indigo-300">${sourceLabel}【${card.name}】首次使用，点数 +4</span>`);
     }
   }
   if (card.id === 'basic_targeted_slash' && source === 'player' && isCurrentOpponentLord()) {
-    finalPoint += 4;
+    add(`${card.name}（领主）`, 4);
   }
   if (card.id === 'basic_stealth' && source === 'player' && hasNoPhysicalOrMagicInHand(source, card)) {
-    finalPoint -= 3;
+    add('潜行（手牌无物理/魔法）', -3);
     if (!isPreview) {
       log('<span class="text-cyan-300">我方【潜行】手牌中没有物理或魔法卡牌，点数 -3</span>');
     }
   }
   if (card.id === 'basic_life_death_judgement' && baseDice === 4) {
-    finalPoint *= 4;
+    multiply('生死决断（投掷点数为4）', 4);
     if (!isPreview) {
-      log(`<span class="text-rose-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】投掷点数为4，点数 x4</span>`);
+      log(`<span class="text-rose-300">${sourceLabel}【${card.name}】投掷点数为4，点数 x4</span>`);
     }
   }
   if (card.id === 'basic_scarlet_scythe' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
-    finalPoint *= 2;
+    multiply('猩红镰刀（首次使用）', 2);
     if (!isPreview && markBattleCardFirstUse(source, card.id)) {
-      log(`<span class="text-rose-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】首次使用，点数 x2</span>`);
+      log(`<span class="text-rose-300">${sourceLabel}【${card.name}】首次使用，点数 x2</span>`);
     }
   }
   if (card.id === 'basic_slime_axe' && !suppressComparisonSpecials) {
@@ -6637,24 +7636,26 @@ const getCardFinalPoint = (
     if (opposing.card) {
       const opposingPoint = getCardFinalPoint(opposing.side, opposing.card, opposing.baseDice, true, true);
       if (finalPoint <= opposingPoint) {
-        finalPoint = opposingPoint + 1;
+        setPoint('粘液斧（超过对方最终点数）', opposingPoint + 1);
       }
     }
   }
   if (card.id === 'modao_rune_greatsword') {
-    finalPoint += countMagicCardsInDeckForSide(source) * 2;
+    const magicCardCount = countMagicCardsInDeckForSide(source);
+    add(`符文大剑（牌库法术 ${magicCardCount}）`, magicCardCount * 2);
   }
   if (card.id === 'alchemy_abnormal_overload') {
-    finalPoint += countDistinctDebuffTypes(defender);
+    const debuffTypeCount = countDistinctDebuffTypes(defender);
+    add(`异况超量（负面状态种类${debuffTypeCount}）`, debuffTypeCount);
   }
   if (card.id === 'alchemy_gilded_strike') {
     const rareCount = countBattleCardsForSide(source, card, entry => entry.rarity === '稀有');
-    finalPoint += rareCount * 2;
+    add(`辉金打击（稀有牌${rareCount}）`, rareCount * 2);
   }
   if (source === 'player' && getActiveRelicCount('alchemy_five_color_paint') > 0 && !card.traits.combo) {
     const handTypeCount = countHandCardTypesForSide(source, card);
     if (handTypeCount >= 3) {
-      finalPoint *= 1.5;
+      multiply(`五色颜料（手牌类型${handTypeCount}）`, 1.5);
       if (!isPreview) {
         logRelicMessage(`[五色颜料] 手牌类型达到 ${handTypeCount} 种，非连击牌点数 x1.5。`);
       }
@@ -6663,12 +7664,12 @@ const getCardFinalPoint = (
   if (source === 'player' && getActiveRelicCount('alchemy_five_color_ring') > 0) {
     const typeCount = countDistinctCardTypesForSide(source, card);
     if (typeCount >= 5) {
-      finalPoint *= 1.5;
+      multiply(`五色环（卡牌类型${typeCount}）`, 1.5);
       if (!isPreview) {
         logRelicMessage('[五色环] 牌组拥有5种卡牌类型，点数 x1.5。');
       }
     } else if (typeCount >= 4) {
-      finalPoint *= 1.2;
+      multiply(`五色环（卡牌类型${typeCount}）`, 1.2);
       if (!isPreview) {
         logRelicMessage('[五色环] 牌组拥有4种卡牌类型，点数 x1.2。');
       }
@@ -6679,7 +7680,7 @@ const getCardFinalPoint = (
     const curseHandBonus = combatState.value.playerHand.filter(entry => entry.type === CardType.CURSE).length;
     const bonus = (curseDeckBonus + curseHandBonus) * getActiveRelicCount('alchemy_voodoo_doll');
     if (bonus > 0) {
-      finalPoint += bonus;
+      add('巫毒娃娃（诅咒牌）', bonus);
       if (!isPreview) {
         logRelicMessage(`[巫毒娃娃] 诅咒牌使点数 +${bonus}。`);
       }
@@ -6687,18 +7688,19 @@ const getCardFinalPoint = (
   }
   const grandSynthesisBonus = getAlchemyGrandSynthesisPointBonus(source, card);
   if (grandSynthesisBonus > 0) {
-    finalPoint += grandSynthesisBonus;
+    add('大炼成绑定', grandSynthesisBonus);
   }
-  finalPoint += Math.max(0, blankOfBlankBonusThisTurn.value[source] ?? 0);
-  finalPoint += Math.floor(turnPointModifier.value[source] ?? 0);
+  add('空白的空白（本回合累计）', Math.max(0, blankOfBlankBonusThisTurn.value[source] ?? 0));
+  add('本回合点数修正', Math.floor(turnPointModifier.value[source] ?? 0));
+  add('鬼影步', getGhostStepPointBonus(source, card));
   if (card.type === CardType.MAGIC) {
-    finalPoint += getCurrentTurnMagicPointBonus(source);
+    add('风筝（本回合法术点数加成）', getCurrentTurnMagicPointBonus(source));
   }
   if (card.type === CardType.DODGE) {
-    finalPoint += Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
+    add('鳞粉', Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER)));
   }
   if (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24) {
-    finalPoint *= 1.5;
+    multiply('梦境控制权（<=24%）', 1.5);
   }
   if (card.id === PASS_CARD.id) {
     finalPoint = 0;
@@ -6708,7 +7710,7 @@ const getCardFinalPoint = (
     && getActiveRelicCount('burn_circling_glow') > 0
     && (getEffectStacks(playerStats.value, ET.COLD) > 0 || getEffectStacks(enemyStats.value, ET.COLD) > 0)
   ) {
-    finalPoint -= getActiveRelicCount('burn_circling_glow');
+    add('环绕火光（存在寒冷）', -getActiveRelicCount('burn_circling_glow'));
   }
 
   if (source === 'player') {
@@ -6718,6 +7720,7 @@ const getCardFinalPoint = (
       if (
         shriveledHandActive
         && (relic.id === 'modao_witch_hat'
+          || relic.id === 'basic_brute_hammer'
           || relic.id === 'basic_silver_mirror'
           || relic.id === 'burn_will_o_wisp_chain')
       ) {
@@ -6727,6 +7730,7 @@ const getCardFinalPoint = (
       const ctx: RelicPointHookContext = {
         count: entry.count,
         side: 'player',
+        turn: combatState.value.turn,
         card,
         baseDice,
         currentPoint: finalPoint,
@@ -6742,39 +7746,50 @@ const getCardFinalPoint = (
       finalPoint = shriveledHandActive
         ? beforeRelicPoint + (nextPoint - beforeRelicPoint) * 2
         : nextPoint;
+      if (Math.abs(finalPoint - beforeRelicPoint) >= 0.0001) {
+        trace?.push(`${relic.name} ${formatRelicPointDelta(relic.id, beforeRelicPoint, finalPoint)} => ${formatPointValue(finalPoint)}`);
+      }
     });
 
+    const beforeRedHeadband = finalPoint;
     finalPoint = applyBloodpoolRedHeadbandPointBonus(source, card, attacker, finalPoint, isPreview);
+    if (Math.abs(finalPoint - beforeRedHeadband) >= 0.0001) {
+      trace?.push(`红色头带 ${formatRelicPointDelta('bloodpool_red_headband', beforeRedHeadband, finalPoint)} => ${formatPointValue(finalPoint)}`);
+    }
   }
 
   if (shouldApplyAmplificationStarPointBonus(source, card)) {
+    const beforeStar = finalPoint;
     finalPoint *= getAmplificationStarPointMultiplier();
+    trace?.push(`增幅星 ${formatRelicPointDelta('basic_amplification_star', beforeStar, finalPoint)} => ${formatPointValue(finalPoint)}`);
   }
 
   if (alchemyPerfumePointDoubleCardIds.value[source][card.id]) {
-    finalPoint *= 2;
+    multiply('魔女香水', 2);
   }
 
   if (card.id === 'modao_staff_strike') {
-    finalPoint = Math.max(finalPoint, baseDice);
+    setPoint('杖击（最终点数不低于原始点数）', Math.max(finalPoint, baseDice));
   }
 
   if (getMercyEffectAgainstCard(source, card)) {
     const beforeMercy = finalPoint;
-    finalPoint *= 0.5;
+    multiply('怜悯', 0.5);
     if (!isPreview) {
       const holderLabel = source === 'player' ? '敌方' : '我方';
-      const sourceLabel = source === 'player' ? '我方' : '敌方';
       log(`<span class="text-fuchsia-300">${holderLabel}[怜悯] ${sourceLabel}打出被标记的【${card.type}】牌，点数 x0.5（${formatPointValue(beforeMercy)}→${formatPointValue(finalPoint)}）。</span>`);
     }
   }
 
   if (card.id === UMBILICAL_TENTACLE_CARD.PULL && !suppressComparisonSpecials) {
+    const beforePull = finalPoint;
     finalPoint = getUmbilicalPullFinalPoint(
       finalPoint,
       opposingPointOverride === undefined ? getUmbilicalOpposingPoint(source, isPreview) : opposingPointOverride,
       combatState.value.turn,
     );
+    const delta = finalPoint - beforePull;
+    trace?.push(`牵引入巢（调整上限±${getUmbilicalPullLimit(combatState.value.turn)}）${delta >= 0 ? '+' : ''}${formatPointValue(delta)} => ${formatPointValue(finalPoint)}`);
   }
 
   return Math.max(0, Math.floor(finalPoint));
@@ -6798,6 +7813,7 @@ const getPlayerCardContextForEnemyPointPreview = (): CardData | null => {
     if (handCard.id === PASS_CARD.id || handCard.traits.combo) return false;
     const runtimeCard = withEffectiveManaCost('player', handCard);
     return canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
+      ...getPlayerManaCheckOptions(runtimeCard),
       previousCardType: previousPlayerLastCardType.value,
     }).allowed;
   }) ?? null;
@@ -6819,7 +7835,7 @@ const getAmplificationStarPointMultiplier = () => (
 );
 
 const formatRelicPointDelta = (relicId: string, before: number, after: number): string => {
-  if ((relicId === 'modao_witch_hat' || relicId === 'basic_amplification_star') && Math.abs(before) > 0.0001) {
+  if ((relicId === 'modao_witch_hat' || relicId === 'basic_brute_hammer' || relicId === 'basic_amplification_star') && Math.abs(before) > 0.0001) {
     return `x${formatPointValue(after / before)}（${formatPointValue(before)}→${formatPointValue(after)}）`;
   }
   const delta = after - before;
@@ -6837,376 +7853,14 @@ const buildCardPreviewLines = (
   baseDice: number,
   options?: { hideDetails?: boolean },
 ): string[] => {
-  const attacker = source === 'player' ? playerStats.value : getEntityBySide('enemy');
-  const defender = source === 'player' ? getEntityBySide('enemy') : playerStats.value;
+  // 明细直接取自实际结算的点数计算，避免两套逻辑不同步
   const lines: string[] = [];
-  if (attacker.pointModifiersSuppressed) {
-    const rawPoint = card.id === PASS_CARD.id ? 0 : unmodifiedDiceByEntity.get(toRaw(attacker)) ?? Math.max(0, Math.floor(baseDice));
-    return [`原始：${rawPoint}`, '削弱符：本回合所有点数修正失效', `最终：${rawPoint}`];
-  }
-  const shriveledHandActive = source === 'player' && getActiveRelicCount('basic_shriveled_hand') > 0;
-
-  lines.push(`原始：${baseDice}`);
-  let finalPoint = shriveledHandActive
-    ? baseDice + card.calculation.addition * 2
-    : calculateFinalPoint({
-        baseDice,
-        card,
-        entityEffects: attacker.effects.filter(effect => effect.type !== ET.SOLITUDE),
-        relicModifiers: NO_RELIC_MOD,
-      });
-  const multiplierText = formatPointValue(card.calculation.multiplier);
-  const addition = card.calculation.addition;
-  const additionText = addition >= 0 ? `+${addition}` : `${addition}`;
-  lines.push(shriveledHandActive
-    ? `干瘪之手：卡牌乘法不触发，加减触发2次 ${additionText}x2 => ${finalPoint}`
-    : `卡牌修正 x${multiplierText} ${additionText} => ${finalPoint}`);
-
-  const solitudeBonus = card.id === PASS_CARD.id ? 0 : Math.max(0, getEffectStacks(attacker, ET.SOLITUDE));
-  if (solitudeBonus > 0) {
-    finalPoint += solitudeBonus;
-    lines.push(`孤独 +${solitudeBonus} => ${finalPoint}`);
-  }
-
-  if (card.id.startsWith('enemy_pain_')) {
-    const bonus = painPointBonusByCard.get(card) ?? painPointBonus(card, attacker);
-    finalPoint += bonus;
-    if (bonus > 0) lines.push(`痛忆 +${bonus} => ${finalPoint}`);
-  }
-  if (card.id === SIGEL_CARD.FINALE) {
-    const bonus = getRuneFinisherPointBonus(source, card);
-    finalPoint += bonus;
-    lines.push(`消耗符能 +${bonus} => ${finalPoint}`);
-    lines.push('打出时撤去之后3回合的符文防护');
-  }
-  if (painScene && source === 'player' && getPainOath(painScene, ET.PAIN_OATH_PILLAR)
-    && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)
-    && combatState.value.enemyIntentCard?.type === card.type && !card.ignoreClash && !combatState.value.enemyIntentCard.ignoreClash) {
-    finalPoint += 1;
-    lines.push(`握住刑柱 +1 => ${finalPoint}`);
-  }
-
-  if (card.id === 'burn_inferno_judgement') {
-    const bonus = Math.floor(getEffectStacks(defender, ET.BURN));
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`炎狱判决 +${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'yanhan_ice_spike') {
-    const bonus = Math.floor(getEffectStacks(defender, ET.COLD) / 3);
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`冰锥 +${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'bloodpool_pulse_fist') {
-    const hpValue = Math.max(0, Math.floor(attacker.hp));
-    const bonus = hpValue % 2 === 0 ? -4 : 4;
-    finalPoint += bonus;
-    lines.push(`脉搏拳（生命${hpValue}为${hpValue % 2 === 0 ? '双' : '单'}数）${bonus >= 0 ? '+' : ''}${bonus} => ${finalPoint}`);
-  }
-  if (card.id === 'bloodpool_life_drain' && isBelowHalfHp(attacker)) {
-    finalPoint += 2;
-    lines.push(`生命汲取（生命低于50%）+2 => ${finalPoint}`);
-  }
-  if (card.id === 'bloodpool_blood_control') {
-    const bonus = Math.max(0, getEffectStacks(attacker, ET.BLEED) + 4);
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`驭血术（含新施加4层流血）+${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_abyss_shoal_fangs') {
-    const playerBleed = Math.max(0, getEffectStacks(playerStats.value, ET.BLEED));
-    const bonus = playerBleed;
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`利齿（玩家流血${playerBleed}）+${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_penitent_ghost_mirror_lure') {
-    const stigmataStacks = Math.max(0, getEffectStacks(defender, ET.STIGMATA));
-    const bonus = stigmataStacks * 3;
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`镜中诱惑（目标圣痕${stigmataStacks}）+${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_holy_water_sprite_struggle') {
-    const selfDamage = getHolyWaterSpriteStruggleSelfDamageAmount(attacker);
-    const bonus = Math.floor(selfDamage / 10);
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`挣扎（预估自伤${selfDamage}）+${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_executioner_puppet_execution' && source === 'enemy') {
-    if (executionerPuppetPointModifier.value !== null) {
-      finalPoint += executionerPuppetPointModifier.value;
-      lines.push(`行刑 ${executionerPuppetPointModifier.value >= 0 ? '+' : ''}${executionerPuppetPointModifier.value} => ${finalPoint}`);
-    } else {
-      const playerCardType = combatState.value.playerSelectedCard?.type;
-      if (playerCardType === CardType.DODGE) {
-        lines.push('行刑：若对手使用闪避，点数随机-2~-1');
-      } else {
-        lines.push('行刑：若对手未使用闪避，点数随机+1~+2');
-      }
-    }
-  }
-  if (card.id === 'bloodpool_blood_debt_strike' || card.id === 'enemy_veronica_bloodthirsty_heavy_strike') {
-    const divisor = card.id === 'enemy_veronica_bloodthirsty_heavy_strike' ? 9 : 3;
-    const lostHp = Math.max(0, Math.floor(attacker.maxHp - attacker.hp));
-    const bonus = Math.floor(lostHp / divisor);
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`${card.name}（已损失${lostHp}） +${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_silk_puppet_cooperative_subdue') {
-    const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
-    if (swarmBonus > 0) {
-      finalPoint += swarmBonus;
-      lines.push(`合力制服（群集${swarmBonus}）+${swarmBonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_yustia_trueword_scale_powder') {
-    const manaBonus = Math.max(0, Math.floor(defender.mp));
-    if (manaBonus > 0) {
-      finalPoint += manaBonus;
-      lines.push(`真言鳞粉（目标魔力${manaBonus}）+${manaBonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_nightmare_moth_collective_dreamweave') {
-    const swarmBonus = Math.max(0, getEffectStacks(attacker, ET.SWARM));
-    if (swarmBonus > 0) {
-      finalPoint += swarmBonus;
-      lines.push(`${card.name}（群集${swarmBonus}）+${swarmBonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_nightmare_moth_blissful_dream') {
-    const debuffTypeCount = countDistinctDebuffTypes(defender);
-    const blissBonus = debuffTypeCount * 2;
-    if (blissBonus > 0) {
-      finalPoint += blissBonus;
-      lines.push(`极乐之梦（debuff种类${debuffTypeCount}）+${blissBonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'enemy_broken_mirror_bat_self_stripping' && getEffectStacks(defender, ET.LUST_ILLUSION) > 0) {
-    finalPoint *= 2;
-    lines.push(`自我剥离（目标有淫靡幻象）x2 => ${formatPointValue(finalPoint)}`);
-  }
-  if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
-    finalPoint += 3;
-    lines.push(`尖锐攻击（当前仅有的物理牌）+3 => ${finalPoint}`);
-  }
-  if (card.id === 'basic_jagged_attack') {
-    const jaggedBonus = getBattleCardUseCount(source, card.id);
-    if (jaggedBonus > 0) {
-      finalPoint += jaggedBonus;
-      lines.push(`锯齿攻击（本战累计）+${jaggedBonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'basic_raid_attack' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
-    finalPoint += 4;
-    lines.push(`袭击（首次使用）+4 => ${finalPoint}`);
-  }
-  if (card.id === 'basic_targeted_slash' && source === 'player' && isCurrentOpponentLord()) {
-    finalPoint += 4;
-    lines.push(`针对性斩击（领主）+4 => ${finalPoint}`);
-  }
-  if (card.id === 'basic_stealth' && source === 'player' && hasNoPhysicalOrMagicInHand(source, card)) {
-    finalPoint -= 3;
-    lines.push(`潜行（手牌无物理/魔法）-3 => ${finalPoint}`);
-  }
-  if (card.id === 'basic_life_death_judgement' && baseDice === 4) {
-    finalPoint *= 4;
-    lines.push(`生死决断（投掷点数为4）x4 => ${finalPoint}`);
-  }
-  if (card.id === 'basic_scarlet_scythe' && battleCardFirstUseConsumed.value[source][card.id] !== true) {
-    finalPoint *= 2;
-    lines.push(`猩红镰刀（首次使用）x2 => ${finalPoint}`);
-  }
-  if (card.id === 'basic_slime_axe') {
-    const opposing = getOpposingCardForPointComparison(source);
-    if (opposing.card) {
-      const opposingPoint = getCardFinalPoint(opposing.side, opposing.card, opposing.baseDice, true, true);
-      if (finalPoint <= opposingPoint) {
-        finalPoint = opposingPoint + 1;
-        lines.push(`粘液斧（超过对方最终点数）=> ${finalPoint}`);
-      }
-    }
-  }
-  if (card.id === 'modao_rune_greatsword') {
-    const magicCardCount = countMagicCardsInDeckForSide(source);
-    if (magicCardCount > 0) {
-      const bonus = magicCardCount * 2;
-      finalPoint += bonus;
-      lines.push(`符文大剑（牌库法术 ${magicCardCount}）+${bonus} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'alchemy_abnormal_overload') {
-    const debuffTypeCount = countDistinctDebuffTypes(defender);
-    if (debuffTypeCount > 0) {
-      finalPoint += debuffTypeCount;
-      lines.push(`异况超量（负面状态种类${debuffTypeCount}）+${debuffTypeCount} => ${finalPoint}`);
-    }
-  }
-  if (card.id === 'alchemy_gilded_strike') {
-    const rareCount = countBattleCardsForSide(source, card, entry => entry.rarity === '稀有');
-    const bonus = rareCount * 2;
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`辉金打击（稀有牌${rareCount}）+${bonus} => ${finalPoint}`);
-    }
-  }
-  if (source === 'player' && getActiveRelicCount('alchemy_five_color_paint') > 0 && !card.traits.combo) {
-    const handTypeCount = countHandCardTypesForSide(source, card);
-    if (handTypeCount >= 3) {
-      finalPoint *= 1.5;
-      lines.push(`五色颜料（手牌类型${handTypeCount}）x1.5 => ${formatPointValue(finalPoint)}`);
-    }
-  }
-  if (source === 'player' && getActiveRelicCount('alchemy_five_color_ring') > 0) {
-    const typeCount = countDistinctCardTypesForSide(source, card);
-    if (typeCount >= 5) {
-      finalPoint *= 1.5;
-      lines.push(`五色环（卡牌类型${typeCount}）x1.5 => ${formatPointValue(finalPoint)}`);
-    } else if (typeCount >= 4) {
-      finalPoint *= 1.2;
-      lines.push(`五色环（卡牌类型${typeCount}）x1.2 => ${formatPointValue(finalPoint)}`);
-    }
-  }
-  if (source === 'player' && getActiveRelicCount('alchemy_voodoo_doll') > 0) {
-    const curseDeckBonus = Math.floor(countBattleCardsForSide(source, card, entry => entry.type === CardType.CURSE) / 2);
-    const curseHandBonus = combatState.value.playerHand.filter(entry => entry.type === CardType.CURSE).length;
-    const bonus = (curseDeckBonus + curseHandBonus) * getActiveRelicCount('alchemy_voodoo_doll');
-    if (bonus > 0) {
-      finalPoint += bonus;
-      lines.push(`巫毒娃娃（诅咒牌）+${bonus} => ${formatPointValue(finalPoint)}`);
-    }
-  }
-  const grandSynthesisBonus = getAlchemyGrandSynthesisPointBonus(source, card);
-  if (grandSynthesisBonus > 0) {
-    finalPoint += grandSynthesisBonus;
-    lines.push(`大炼成绑定 +${grandSynthesisBonus} => ${finalPoint}`);
-  }
-  const blankOfBlankBonus = Math.max(0, blankOfBlankBonusThisTurn.value[source] ?? 0);
-  if (blankOfBlankBonus > 0) {
-    finalPoint += blankOfBlankBonus;
-    lines.push(`空白的空白（本回合累计）+${blankOfBlankBonus} => ${finalPoint}`);
-  }
-  if ((turnPointModifier.value[source] ?? 0) !== 0) {
-    const delta = Math.floor(turnPointModifier.value[source] ?? 0);
-    finalPoint += delta;
-    lines.push(`本回合点数修正 ${delta >= 0 ? '+' : ''}${delta} => ${finalPoint}`);
-  }
-  if (card.type === CardType.MAGIC) {
-    const magicPointBonus = getCurrentTurnMagicPointBonus(source);
-    if (magicPointBonus > 0) {
-      finalPoint += magicPointBonus;
-      lines.push(`风筝（本回合法术点数加成）+${magicPointBonus} => ${finalPoint}`);
-    }
-  }
-
-  if (card.type === CardType.DODGE) {
-    const scalePowderStacks = Math.max(0, getEffectStacks(attacker, ET.SCALE_POWDER));
-    if (scalePowderStacks > 0) {
-      finalPoint += scalePowderStacks;
-      lines.push(`鳞粉 +${scalePowderStacks} => ${finalPoint}`);
-    }
-  }
-  if (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24) {
-    finalPoint *= 1.5;
-    lines.push(`梦境控制权（<=24%）x1.5 => ${formatPointValue(finalPoint)}`);
-  }
-  if (
-    source === 'enemy'
-    && getActiveRelicCount('burn_circling_glow') > 0
-    && (getEffectStacks(playerStats.value, ET.COLD) > 0 || getEffectStacks(enemyStats.value, ET.COLD) > 0)
-  ) {
-    const delta = getActiveRelicCount('burn_circling_glow');
-    finalPoint -= delta;
-    lines.push(`环绕火光（存在寒冷）-${delta} => ${formatPointValue(finalPoint)}`);
-  }
-
-  if (source === 'player') {
-    forEachPlayerRelic((entry, relic, state) => {
-      const hook = relic.hooks?.modifyFinalPoint;
-      if (!hook) return;
-      if (
-        shriveledHandActive
-        && (relic.id === 'modao_witch_hat'
-          || relic.id === 'basic_silver_mirror'
-          || relic.id === 'burn_will_o_wisp_chain')
-      ) {
-        return;
-      }
-      const before = finalPoint;
-      const ctx: RelicPointHookContext = {
-        count: entry.count,
-        side: 'player',
-        card,
-        baseDice,
-        currentPoint: finalPoint,
-        self: attacker,
-        opponent: defender,
-        state,
-        isPreview: true,
-        addLog: logRelicMessage,
-        hasRelic: hasActiveRelic,
-        getRelicCount: getActiveRelicCount,
-      };
-      const nextPoint = hook(ctx);
-      finalPoint = shriveledHandActive
-        ? before + (nextPoint - before) * 2
-        : nextPoint;
-      if (Math.abs(finalPoint - before) < 0.0001) return;
-      lines.push(`${relic.name} ${formatRelicPointDelta(relic.id, before, finalPoint)} => ${formatPointValue(finalPoint)}`);
-    });
-
-    const beforeRedHeadband = finalPoint;
-    finalPoint = applyBloodpoolRedHeadbandPointBonus(source, card, attacker, finalPoint, true);
-    if (Math.abs(finalPoint - beforeRedHeadband) >= 0.0001) {
-      lines.push(`红色头带 ${formatRelicPointDelta('bloodpool_red_headband', beforeRedHeadband, finalPoint)} => ${formatPointValue(finalPoint)}`);
-    }
-  }
-
-  if (shouldApplyAmplificationStarPointBonus(source, card)) {
-    const before = finalPoint;
-    finalPoint *= getAmplificationStarPointMultiplier();
-    lines.push(`增幅星 ${formatRelicPointDelta('basic_amplification_star', before, finalPoint)} => ${formatPointValue(finalPoint)}`);
-  }
-
-  if (alchemyPerfumePointDoubleCardIds.value[source][card.id]) {
-    finalPoint *= 2;
-    lines.push(`魔女香水 x2 => ${formatPointValue(finalPoint)}`);
-  }
-
-  if (card.id === 'modao_staff_strike' && finalPoint < baseDice) {
-    finalPoint = baseDice;
-    lines.push(`杖击（最终点数不低于原始点数）=> ${finalPoint}`);
-  }
-
-  if (getMercyEffectAgainstCard(source, card)) {
-    finalPoint *= 0.5;
-    lines.push(`怜悯 x0.5 => ${formatPointValue(finalPoint)}`);
-  }
-
-  if (card.id === UMBILICAL_TENTACLE_CARD.PULL) {
-    const opposingPoint = getUmbilicalOpposingPoint(source, true);
-    const before = Math.max(0, Math.floor(finalPoint));
-    finalPoint = getUmbilicalPullFinalPoint(before, opposingPoint, combatState.value.turn);
-    const delta = finalPoint - before;
-    lines.push(`牵引入巢（调整上限±${getUmbilicalPullLimit(combatState.value.turn)}）${delta >= 0 ? '+' : ''}${delta} => ${finalPoint}`);
-  }
-
-  const finalLine = `最终：${Math.max(0, Math.floor(finalPoint))}`;
-  lines.push(finalLine);
+  const finalPoint = getCardFinalPoint(source, card, baseDice, true, false, undefined, lines);
+  const finalLine = `最终：${finalPoint}`;
   if (options?.hideDetails) {
     return [`原始：${baseDice}`, '？？？', finalLine];
   }
-  return lines;
+  return [...lines, finalLine];
 };
 
 const getCardPreviewPoint = (source: 'player' | 'enemy', card: CardData, baseDice: number) => {
@@ -7524,8 +8178,23 @@ const clearEffectTooltipTimers = () => {
   }
 };
 
-const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance, align: TooltipAlign = 'center') => {
+const showEffectTooltipForTarget = (target: HTMLElement, effect: TooltipSource, align: TooltipAlign = 'center') => {
   const rect = target.getBoundingClientRect();
+  if ('infoName' in effect) {
+    const margin = 8;
+    effectTooltip.value = {
+      x: align === 'right'
+        ? Math.max(margin, Math.min(rect.right + 10, window.innerWidth - 256 - margin))
+        : Math.max(margin + 128, Math.min(rect.left + rect.width / 2, window.innerWidth - margin - 128)),
+      y: Math.max(margin, rect.top - margin),
+      name: effect.infoName,
+      description: effect.description,
+      stacks: 0,
+      align,
+      below: false,
+    };
+    return;
+  }
   const below = effect.polarity === 'scene';
   const tooltipMaxWidth = below ? 320 : 256;
   const margin = 8;
@@ -7554,7 +8223,7 @@ const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance,
 
 const showEffectTooltip = (
   event: MouseEvent | FocusEvent,
-  effect: EffectInstance,
+  effect: TooltipSource,
   align: TooltipAlign = 'center',
 ) => {
   const target = event.currentTarget as HTMLElement | null;
@@ -7570,7 +8239,7 @@ const hideEffectTooltip = () => {
 
 const handleEffectTouchStart = (
   event: TouchEvent,
-  effect: EffectInstance,
+  effect: TooltipSource,
   align: TooltipAlign = 'center',
 ) => {
   const target = event.currentTarget as HTMLElement | null;
@@ -7682,90 +8351,54 @@ if (difficultyAtBattleStart !== '普通' && difficultyAtBattleStart !== '自定�
   log(`<span class="text-amber-200">[难度] 当前为【${difficultyAtBattleStart}】；敌方生命系数 x${difficultyHpMultiplier.toFixed(1)}。</span>`);
 }
 
-const applyMvuNegativeStatusesOnBattleStart = () => {
-  const statuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
-  if (statuses.length === 0) return;
+/** 本场战斗生效的正文负面状态；训练战独立于存档，不带入任何负面状态 */
+const getBattleNegativeStatuses = (): string[] =>
+  isTutorialBattle ? [] : normalizeNegativeStatusList(gameStore.statData.$负面状态);
 
-  if (statuses.includes(STATUS_PHEROMONE)) {
-    const pheromoneCard = getCardByName(PHEROMONE_CURSE_CARD_NAME);
-    if (pheromoneCard) {
-      for (let i = 0; i < 3; i += 1) {
+const createNegativeStatusBattleContext = (parsed: ParsedNegativeStatus): NegativeStatusBattleContext => {
+  const source = `negative-status:${parsed.raw}`;
+  return {
+    stacks: parsed.stacks,
+    turn: combatState.value.turn,
+    enemyName: String(gameStore.statData._对手名称 ?? '').trim(),
+    applyEffect: (effectType, stacks, options) => (
+      options?.lockDecayThisTurn
+        ? applyStatusEffectWithRelics('player', effectType, stacks, { source, lockDecayThisTurn: true })
+        : applyEffect(playerStats.value, effectType, stacks, { source })
+    ),
+    insertCards: (cardName, count) => {
+      const card = getCardByName(cardName);
+      if (!card) return 0;
+      for (let i = 0; i < count; i += 1) {
         const insertAt = Math.floor(Math.random() * (combatState.value.playerDeck.length + 1));
-        combatState.value.playerDeck.splice(insertAt, 0, cloneCardForBattle(pheromoneCard));
+        combatState.value.playerDeck.splice(insertAt, 0, cloneCardForBattle(card));
       }
-      log('<span class="text-fuchsia-300">[负面状态][信息素] 开局向牌库插入了3张【信息素】。</span>');
-    } else {
-      log('<span class="text-red-400">[负面状态][信息素] 未找到【信息素】卡牌定义。</span>');
-    }
-  }
-
-  if (statuses.includes(STATUS_LUST_MARK)) {
-    const applied = applyEffect(playerStats.value, ET.POISON, 3, { source: 'negative-status:[淫纹]' });
-    if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][淫纹] 开局获得了3层中毒。</span>');
-    }
-  }
-
-  if (statuses.includes(STATUS_LUST_KNOWLEDGE)) {
-    const taintCard = getCardByName(ARCHIVE_TAINT_CURSE_CARD_NAME);
-    if (taintCard) {
-      for (let i = 0; i < 1; i += 1) {
-        const insertAt = Math.floor(Math.random() * (combatState.value.playerDeck.length + 1));
-        combatState.value.playerDeck.splice(insertAt, 0, cloneCardForBattle(taintCard));
+      return count;
+    },
+    restoreMana: amount => restoreManaForSide('player', amount),
+    loseHp: (amount, options) => {
+      const floor = options?.nonLethal ? 1 : 0;
+      const before = playerStats.value.hp;
+      playerStats.value.hp = Math.max(Math.min(before, floor), before - Math.max(0, Math.floor(amount)));
+      const lost = before - playerStats.value.hp;
+      if (lost > 0) {
+        pushFloatingNumber('player', lost, 'true', '-');
+        addPlayerDamageTakenThisTurn(lost);
       }
-      log('<span class="text-fuchsia-300">[负面状态][淫乱知识] 开局向牌库插入了1张【档案污页】。</span>');
-    } else {
-      log('<span class="text-red-400">[负面状态][淫乱知识] 未找到【档案污页】卡牌定义。</span>');
-    }
-  }
-
-  if (statuses.includes(STATUS_MARKED)) {
-    const applied = applyEffect(playerStats.value, ET.VULNERABLE, 2, { source: 'negative-status:[被标记]' });
-    if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][被标记] 开局获得了2层敏感。</span>');
-    }
-  }
-
-  if (statuses.includes(STATUS_PARASITIZED)) {
-    const applied = applyEffect(playerStats.value, ET.ORGASM, 1, { source: 'negative-status:[被寄生]' });
-    if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][被寄生] 开局获得了1层性兴奋。</span>');
-    }
-  }
-
-  if (statuses.includes(STATUS_BLOODLINE_MARK) && String(gameStore.statData._对手名称 ?? '').trim() === '伊丽莎白') {
-    const applied = applyEffect(playerStats.value, ET.ORGASM, 10, { source: 'negative-status:[血族印记]' });
-    if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][血族印记] 面对伊丽莎白时，开局获得了10层性兴奋。</span>');
-    }
-  }
-
-  if (statuses.includes(STATUS_SCALE_POWDER)) {
-    const applied = applyEffect(playerStats.value, ET.SCALE_POWDER, 1, { source: 'negative-status:[鳞粉]' });
-    if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][鳞粉] 开局获得了1层鳞粉。</span>');
-    }
-  }
-
-  if (statuses.includes(STATUS_SOUL_DAMAGE)) {
-    const applied = applyEffect(playerStats.value, ET.MANA_DRAIN, 3, { source: 'negative-status:[灵魂受损]' });
-    if (applied) {
-      log('<span class="text-fuchsia-300">[负面状态][灵魂受损] 开局获得了3层法力枯竭。</span>');
-    }
-  }
+      return lost;
+    },
+    random: Math.random,
+    log: message => log(`<span class="text-fuchsia-300">[负面状态]${parsed.raw} ${message}</span>`),
+  };
 };
 
-const applySinkingNegativeStatusOnTurnStart = () => {
-  if (combatState.value.turn !== 3) return;
-  const statuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
-  if (!statuses.includes(STATUS_SINKING)) return;
-  const applied = applyStatusEffectWithRelics('player', ET.STUN, 1, {
-    source: 'negative-status:[沉沦]',
-    lockDecayThisTurn: true,
-  });
-  if (applied) {
-    log('<span class="text-fuchsia-300">[负面状态][沉沦] 第3回合为自身施加了1层眩晕。</span>');
-  }
+/** 负面状态的战斗效果统一定义在 negativeStatusRegistry 中 */
+const applyMvuNegativeStatusesOnBattleStart = () => {
+  runNegativeStatusBattleHooks('onBattleStart', getBattleNegativeStatuses(), createNegativeStatusBattleContext);
+};
+
+const applyNegativeStatusesOnTurnStart = () => {
+  runNegativeStatusBattleHooks('onTurnStart', getBattleNegativeStatuses(), createNegativeStatusBattleContext);
 };
 
 const applyDifficultyBattleStartEffects = () => {
@@ -7959,7 +8592,7 @@ const processLeviathanSummonTurnStart = (summon: LeviathanSummonRuntime) => {
       logs.push(...damageLogs);
     }
     if (result.mpChange !== 0) {
-      changeManaWithShock('enemy', result.mpChange, '召唤物法力变化（回合开始）', { showPositiveFloating: true });
+      changeManaWithShock('enemy', result.mpChange, '召唤物魔力变化（回合开始）', { showPositiveFloating: true });
     }
     const reviveResult = triggerSwarmReviveIfNeeded(summon.stats, 'enemy');
     logs.push(...reviveResult.logs);
@@ -7979,7 +8612,9 @@ const processLeviathanSummonTurnEnd = (summon: LeviathanSummonRuntime) => {
   leviathanEnemySourceOverride.value = summon.stats;
   leviathanEnemyTargetOverride.value = summon.stats;
   try {
+    const poisonTriggered = getEffectStacks(summon.stats, ET.POISON) > 0;
     const logs = processOnTurnEnd(summon.stats);
+    if (poisonTriggered) presentEffect(summon.stats, 'poison');
     for (const entry of logs) {
       log(`<span class="text-gray-500 text-[9px]">召唤物【${summon.name}】: ${entry}</span>`);
     }
@@ -8203,9 +8838,83 @@ const insertHolyWaterBackflowForAbyssShoal = () => {
   log(`<span class="text-fuchsia-300">[深渊鱼群] 开局向我方抽牌堆插入了1张【圣水倒灌】（牌库${combatState.value.playerDeck.length}）。</span>`);
 };
 
+/**
+ * 战斗修正的最小点数下限（如校规·狂热课堂令）：最小点数低于下限时提升至下限，
+ * 最大点数低于下限时也提升至下限。开局与每次投掷前各执行一次，战斗中被压低的点数会在下次投掷前恢复。
+ */
+const applyEventDiceFloor = (timing: 'battle_start' | 'roll') => {
+  const modifiers = props.battleModifiers;
+  if (!modifiers || isTutorialBattle) return;
+  const sides = [
+    { label: '我方', stats: playerStats.value, floor: modifiers.player.minDiceFloor },
+    { label: '敌方', stats: enemyStats.value, floor: modifiers.enemy.minDiceFloor },
+  ];
+  for (const { label, stats, floor } of sides) {
+    if (!(floor > 0)) continue;
+    const beforeMin = stats.minDice;
+    const beforeMax = stats.maxDice;
+    stats.minDice = Math.max(stats.minDice, floor);
+    stats.maxDice = Math.max(stats.maxDice, floor, stats.minDice);
+    if (stats.minDice === beforeMin && stats.maxDice === beforeMax) continue;
+    const sourceText = modifiers.sources.length > 0 ? `[${modifiers.sources.join('、')}]` : '[战斗修正]';
+    log(
+      `<span class="text-amber-300">${sourceText} ${label}${timing === 'battle_start' ? '' : '本次投掷'}最小点数不得低于 ${floor}，点数范围 ${beforeMin}~${beforeMax} → ${stats.minDice}~${stats.maxDice}。</span>`,
+    );
+  }
+};
+
+/** 事件带来的战斗修正（$战斗修正）：开局护甲 / 回复 / 魔力 / 点数 / 状态 */
+const applyEventBattleModifiersOnStart = () => {
+  const modifiers = props.battleModifiers;
+  if (!modifiers || isTutorialBattle) return;
+  const sourceText = modifiers.sources.length > 0 ? `[${modifiers.sources.join('、')}]` : '[战斗修正]';
+  const logModifier = (message: string) => log(`<span class="text-amber-300">${sourceText} ${message}</span>`);
+
+  const player = modifiers.player;
+  if (player.minDice !== 0 || player.maxDice !== 0) {
+    playerStats.value.minDice = Math.max(1, playerStats.value.minDice + player.minDice);
+    playerStats.value.maxDice = Math.max(playerStats.value.minDice, playerStats.value.maxDice + player.maxDice);
+    logModifier(`我方点数范围变为 ${playerStats.value.minDice}~${playerStats.value.maxDice}。`);
+  }
+  // 点数增减先结算，再套用最小点数下限
+  applyEventDiceFloor('battle_start');
+  if (player.heal > 0) {
+    const { healed } = healForSide('player', player.heal, { sourceSide: 'player', reason: '战斗修正' });
+    if (healed > 0) logModifier(`我方开局回复 ${healed} 点生命。`);
+  }
+  if (player.mana > 0) {
+    const restored = restoreManaForSide('player', player.mana);
+    if (restored > 0) logModifier(`我方开局魔力 +${restored}。`);
+  }
+  if (player.armor > 0) {
+    const added = addArmorForSide('player', player.armor);
+    if (added > 0) logModifier(`我方开局获得 ${added} 点护甲。`);
+  }
+  for (const effect of player.effects) {
+    if (effect.stacks > 0 && applyEffect(playerStats.value, effect.type, effect.stacks, { source: 'event-modifier' })) {
+      logModifier(`我方开局获得 ${effect.stacks} 层${getEffectName(effect.type)}。`);
+    }
+  }
+
+  const enemy = modifiers.enemy;
+  if (enemy.armor > 0) {
+    const added = addArmorForSide('enemy', enemy.armor);
+    if (added > 0) logModifier(`敌方开局获得 ${added} 点护甲。`);
+  }
+  for (const effect of enemy.effects) {
+    if (effect.stacks > 0 && applyEffect(enemyStats.value, effect.type, effect.stacks, { source: 'event-modifier' })) {
+      logModifier(`敌方开局获得 ${effect.stacks} 层${getEffectName(effect.type)}。`);
+    }
+  }
+  if (enemy.hpMultiplier !== 1) {
+    logModifier(`敌方生命 ×${enemy.hpMultiplier}。`);
+  }
+};
+
 triggerPlayerRelicLifecycleHooks('onBattleStart');
 applyAlchemyBattleStartRelics();
 applyMvuNegativeStatusesOnBattleStart();
+applyEventBattleModifiersOnStart();
 applyDifficultyBattleStartEffects();
 applyCustomDifficultyBattleStartEffects();
 insertHolyWaterBackflowForAbyssShoal();
@@ -8286,7 +8995,11 @@ const drawCards = (count: number, currentDeck: CardData[], currentDiscard: CardD
       rebindMimicDisplayCardsForDeck('player', deck, discard);
     }
     const card = deck.pop();
-    if (card) drawn.push(card);
+    if (!card) continue;
+    // 【预言】的临时复制品被再次抽到时复原为预言
+    const prophecyOrigin = prophecyCopyOrigin.get(toRaw(card));
+    if (prophecyOrigin) prophecyCopyOrigin.delete(toRaw(card));
+    drawn.push(prophecyOrigin ?? card);
   }
   return { drawn, newDeck: deck, newDiscard: discard };
 };
@@ -8335,8 +9048,64 @@ const normalizedPlayerActiveSkills = computed<Array<ActiveSkillData | null>>(() 
     ? props.playerActiveSkills.slice(0, 2)
     : [];
   while (raw.length < 2) raw.push(null);
-  return raw.map((skill) => (skill ? { ...skill } : null));
+  return raw.map((skill, idx) => {
+    if (!skill) return null;
+    const formId = skill.id === OMNI_WAND_SKILL_ID ? omniWandFormBySlot.value[idx] : null;
+    const formSkill = formId ? getActiveSkillById(formId) : null;
+    return formSkill ? { ...formSkill } : { ...skill };
+  });
 });
+
+const isOmniWandBaseSlot = (idx: number): boolean => {
+  const raw = Array.isArray(props.playerActiveSkills) ? props.playerActiveSkills[idx] : null;
+  return raw?.id === OMNI_WAND_SKILL_ID;
+};
+
+const omniWandFormChoices = computed<ActiveSkillData[]>(() => OMNI_WAND_FORM_IDS
+  .map(id => getActiveSkillById(id))
+  .filter((skill): skill is ActiveSkillData => Boolean(skill)));
+
+const omniWandRevertibleSlots = computed<number[]>(() => [0, 1].filter(idx => (
+  isOmniWandBaseSlot(idx) && Boolean(omniWandFormBySlot.value[idx])
+)));
+
+const confirmOmniWandForm = (formId: string) => {
+  const slotIdx = omniWandSelectingSlot.value;
+  omniWandSelectingSlot.value = null;
+  if (slotIdx === null) return;
+  const formSkill = getActiveSkillById(formId);
+  if (!formSkill) return;
+  omniWandFormBySlot.value = { ...omniWandFormBySlot.value, [slotIdx]: formId };
+  log(`<span class="text-zinc-200">主动【万象魔杖】：本场战斗中变化为【${formSkill.name}】。</span>`);
+};
+
+const revertOmniWandSlot = (slotIdx: number) => {
+  if (!omniWandFormBySlot.value[slotIdx]) return;
+  omniWandFormBySlot.value = { ...omniWandFormBySlot.value, [slotIdx]: null };
+  log('<span class="text-zinc-200">主动【万象魔杖】：已切回万象魔杖。</span>');
+};
+
+const playerTempGoldDisplay = computed(() => Math.max(0, Math.floor(battleTempGold.value)));
+const playerGoldDisplay = computed(() => getSystemGold());
+
+const FORBIDDEN_WASTE_BARREL_ID = 'system_destruction_relic_11';
+const canDiscardForbiddenWasteBarrel = computed(() => (
+  !consumedRelicIdsThisBattle.value.includes(FORBIDDEN_WASTE_BARREL_ID)
+  && getActiveRelicCount(FORBIDDEN_WASTE_BARREL_ID) > 0
+));
+
+/** 禁忌废液桶：弃置本圣遗物，对敌方造成其20%当前生命的真实伤害 */
+const discardForbiddenWasteBarrel = () => {
+  if (!canDiscardForbiddenWasteBarrel.value || combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  const target = getEntityBySide('enemy');
+  const rawDamage = Math.max(0, Math.floor(Math.max(0, target.hp) * 0.2));
+  consumedRelicIdsThisBattle.value = [...consumedRelicIdsThisBattle.value, FORBIDDEN_WASTE_BARREL_ID];
+  const { actualDamage } = rawDamage > 0
+    ? applyDamageToSideWithRelics('enemy', target, rawDamage, true, '禁忌废液桶', { sourceSide: 'player', isDirectDamage: true })
+    : { actualDamage: 0 };
+  if (actualDamage > 0) pushFloatingNumber('enemy', actualDamage, 'true', '-', { targetEntity: target });
+  logRelicMessage(`[禁忌废液桶] 弃置圣遗物，对敌方造成 ${actualDamage} 点真实伤害。`);
+};
 
 const activeSkillRuntime = ref<ActiveSkillRuntimeState[]>([
   { nextAvailableTurn: 1, usedCount: 0, manaTaxThisTurn: 0 },
@@ -8386,6 +9155,8 @@ const activeSkillDisabledReason = (idx: number): string | null => {
   if (activeSkillResolving.value) return '主动技能结算中';
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return '当前阶段不可使用主动技能';
   if (getEffectStacks(playerStats.value, ET.STUN) > 0) return '处于眩晕，无法行动';
+  // 万象魔杖未变化形态时：点击仅打开形态选择，不受冷却与魔力限制
+  if (skill.id === OMNI_WAND_SKILL_ID) return null;
 
   const runtime = activeSkillRuntime.value[idx];
   const cooldown = activeSkillCooldownRemaining(idx);
@@ -8415,14 +9186,19 @@ const activeSkillDisabledReason = (idx: number): string | null => {
     }
   }
 
-  if (skill.id === 'active_bloodpool_demon_contract') {
+  const maxUsesPerTurn = Math.max(0, Math.floor(skill.maxUsesPerTurn ?? 0));
+  if (maxUsesPerTurn > 0) {
     const usedThisTurn = Math.max(0, Math.floor(activeSkillTurnUseCount.value[skill.id] ?? 0));
-    if (usedThisTurn >= 2) {
-      return '本回合已达到最大使用次数（2）';
+    if (usedThisTurn >= maxUsesPerTurn) {
+      return `本回合已达到最大使用次数（${maxUsesPerTurn}）`;
     }
   }
 
-  if (playerStats.value.mp < getActiveSkillManaCost(idx)) {
+  if ((skill.id === 'active_wealth_bargain' || skill.id === 'active_wealth_power') && getSpendableGold() <= 0) {
+    return '金币不足';
+  }
+
+  if (getPlayerPayableMana() < getActiveSkillManaCost(idx)) {
     return '魔力不足';
   }
 
@@ -8435,7 +9211,7 @@ const activeSkillButtonDisabled = (idx: number): boolean => {
   if (
     activeHandSelectionMode.value
     && activeHandSelectionSkillIdx.value === idx
-    && (skill.id === 'active_alchemy_purify' || skill.id === 'active_alchemy_appreciate')
+    && isHandSelectionActiveSkill(skill.id)
   ) {
     return false;
   }
@@ -8457,6 +9233,8 @@ const getActiveSkillStatusText = (slot: ActiveSkillSlotView): string => {
   if (reason?.startsWith('本回合已达到最大使用次数')) return '回合上限';
   if (slot.maxUses) return `${slot.usedCount}/${slot.maxUses}`;
   if (reason === '魔力不足') return '缺蓝';
+  if (reason === '金币不足') return '缺金';
+  if (slot.skill?.id === OMNI_WAND_SKILL_ID) return '变化';
   if (!slot.skill) return '未装备';
   return reason ? '不可用' : '可用';
 };
@@ -8475,6 +9253,11 @@ const commitActiveSkillUse = (idx: number, skill: ActiveSkillData) => {
   triggerPlayerRelicAfterActiveSkillHooks(skill);
 };
 
+/** 需要先选择一张手牌再结算的主动技 */
+const isHandSelectionActiveSkill = (skillId: string): boolean => (
+  skillId === 'active_alchemy_purify' || skillId === 'active_alchemy_appreciate' || skillId === 'active_wealth_pawn'
+);
+
 const clearActiveHandSelection = () => {
   activeHandSelectionMode.value = null;
   activeHandSelectionSkillIdx.value = null;
@@ -8490,16 +9273,43 @@ const handleActiveHandSelection = (card: CardData, handIdx: number): boolean => 
     return true;
   }
 
+  if (mode === 'pawn' && card.type === CardType.CURSE && getSpendableGold() < 2) {
+    playUiSfx('invalid');
+    log(`<span class="text-gray-400">主动【${skill.name}】：金币不足2，无法典当诅咒牌。</span>`);
+    return true;
+  }
+
   const manaCost = getActiveSkillManaCost(skillIdx);
   if (manaCost > 0) {
-    const ok = spendManaWithShock('player', manaCost, `使用主动【${skill.name}】`);
+    const ok = spendPlayerManaWithBottle(manaCost, `使用主动【${skill.name}】`);
     if (!ok) {
       log(`<span class="text-red-400">主动【${skill.name}】使用失败：魔力不足。</span>`);
       return true;
     }
   }
 
-  if (mode === 'purify') {
+  if (mode === 'pawn') {
+    if (card.type === CardType.CURSE) {
+      const spent = spendGoldPreferTemp(2);
+      combatState.value.playerHand.splice(handIdx, 1);
+      log(`<span class="text-yellow-300">主动【${skill.name}】：消耗 ${spent} 金币，本场战斗中移除了诅咒【${card.name}】。</span>`);
+    } else {
+      const replacementName = card.rarity === '稀有' ? '空白的空白' : '空白';
+      const template = getCardByName(replacementName);
+      if (!template) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：未找到【${replacementName}】。</span>`);
+        return true;
+      }
+      const original = combatState.value.playerHand[handIdx];
+      const slot = original ? playerHandSlotByCard.get(original) ?? handIdx : handIdx;
+      const replacement = cloneCardForBattle(template);
+      recordCardTransform(original, replacement);
+      combatState.value.playerHand.splice(handIdx, 1, replacement);
+      const placed = combatState.value.playerHand[handIdx];
+      if (placed) playerHandSlotByCard.set(placed, slot);
+      log(`<span class="text-yellow-300">主动【${skill.name}】：本场战斗中将【${card.name}】典当为【${replacementName}】。</span>`);
+    }
+  } else if (mode === 'purify') {
     const [removed] = combatState.value.playerHand.splice(handIdx, 1);
     log(`<span class="text-yellow-300">主动【${skill.name}】：本场战斗中移除了【${removed?.name ?? card.name}】。</span>`);
   } else if (mode === 'appreciate') {
@@ -8563,7 +9373,7 @@ const useActiveSkill = async (idx: number) => {
   if (
     activeHandSelectionMode.value
     && activeHandSelectionSkillIdx.value === idx
-    && (skill.id === 'active_alchemy_purify' || skill.id === 'active_alchemy_appreciate')
+    && isHandSelectionActiveSkill(skill.id)
   ) {
     clearActiveHandSelection();
     log(`<span class="text-gray-400">主动【${skill.name}】：已退出选择。</span>`);
@@ -8576,8 +9386,15 @@ const useActiveSkill = async (idx: number) => {
     return;
   }
 
-  if (skill.id === 'active_alchemy_purify' || skill.id === 'active_alchemy_appreciate') {
-    activeHandSelectionMode.value = skill.id === 'active_alchemy_purify' ? 'purify' : 'appreciate';
+  if (skill.id === OMNI_WAND_SKILL_ID) {
+    omniWandSelectingSlot.value = idx;
+    return;
+  }
+
+  if (isHandSelectionActiveSkill(skill.id)) {
+    activeHandSelectionMode.value = skill.id === 'active_alchemy_purify'
+      ? 'purify'
+      : skill.id === 'active_wealth_pawn' ? 'pawn' : 'appreciate';
     activeHandSelectionSkillIdx.value = idx;
     log(`<span class="text-yellow-300">主动【${skill.name}】：请选择一张手牌。</span>`);
     return;
@@ -8586,7 +9403,7 @@ const useActiveSkill = async (idx: number) => {
   activeSkillResolving.value = true;
   const manaCost = getActiveSkillManaCost(idx);
   if (manaCost > 0) {
-    const ok = spendManaWithShock('player', manaCost, `使用主动【${skill.name}】`);
+    const ok = spendPlayerManaWithBottle(manaCost, `使用主动【${skill.name}】`);
     if (!ok) {
       activeSkillResolving.value = false;
       log(`<span class="text-red-400">主动【${skill.name}】使用失败：魔力不足。</span>`);
@@ -8709,13 +9526,19 @@ const useActiveSkill = async (idx: number) => {
       break;
     }
     case 'active_basic_golden_chest': {
+      // 手牌在本场战斗中被「转换」：原来的手牌离开本场战斗（不进入弃牌堆），由等量的随机稀有卡取代
       const oldHand = [...combatState.value.playerHand];
       const nextHand = replacePlayerHandWithRandomRareCards(oldHand.length);
       await playCardsToDiscardAnimation(oldHand);
       markDrawnCardsAnimation(nextHand);
-      combatState.value.discardPile = [...combatState.value.discardPile, ...oldHand];
       combatState.value.playerHand = mergePlayerHandWithDrawnCards([], nextHand);
-      log(`<span class="text-zinc-200">主动【${skill.name}】：将手牌替换为 ${nextHand.length} 张随机稀有卡牌。</span>`);
+      log(
+        `<span class="text-zinc-200">主动【${skill.name}】：本场战斗中将手牌${
+          oldHand.length > 0 ? `【${oldHand.map(card => card.name).join('、')}】` : ''
+        }转换为 ${nextHand.length} 张随机稀有卡牌${
+          nextHand.length > 0 ? `【${nextHand.map(card => card.name).join('、')}】` : ''
+        }。</span>`,
+      );
       break;
     }
     case 'active_yanhan_flash_freeze': {
@@ -8869,12 +9692,202 @@ const useActiveSkill = async (idx: number) => {
         break;
       }
       const beforeName = picked.entry.name;
-      combatState.value.playerHand.splice(picked.handIdx, 1, cloneCardForBattle(curseCard));
-      pendingAlchemyGoldDelta.value += 1;
+      const decomposed = cloneCardForBattle(curseCard);
+      recordCardTransform(picked.entry, decomposed);
+      combatState.value.playerHand.splice(picked.handIdx, 1, decomposed);
+      changeSystemGold(1);
       const { healed } = healForSide('player', 5, {
         reason: `主动【${skill.name}】治疗`,
       });
       log(`<span class="text-yellow-300">主动【${skill.name}】：将【${beforeName}】变为【黑手印】，获得1金币，回复 ${healed} 点生命。</span>`);
+      break;
+    }
+    case 'active_wealth_crystal': {
+      const added = gainArmorAsCardEffect('player', 6, skill.id, `主动【${skill.name}】`);
+      log(`<span class="text-amber-200">主动【${skill.name}】：获得 ${added} 点护甲。</span>`);
+      break;
+    }
+    case 'active_wealth_pan_gold': {
+      const amount = Math.max(0, Math.floor(combatState.value.playerBaseDice * 0.5));
+      if (amount <= 0) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：当前点数过低，未获得金币。</span>`);
+        break;
+      }
+      if (!systemCardBattleFlags.value.player[skill.id]) {
+        systemCardBattleFlags.value.player[skill.id] = true;
+        changeSystemGold(amount);
+        log(`<span class="text-yellow-300">主动【${skill.name}】：获得 ${amount} 金币。</span>`);
+      } else {
+        gainTempGold(amount);
+        log(`<span class="text-yellow-300">主动【${skill.name}】：获得 ${amount} 临时金币。</span>`);
+      }
+      break;
+    }
+    case 'active_wealth_polish': {
+      const added = gainArmorAsCardEffect('player', 2, skill.id, `主动【${skill.name}】`);
+      armorDecaySkippedThisTurn.value.player = true;
+      log(`<span class="text-amber-200">主动【${skill.name}】：获得 ${added} 点护甲，本回合护甲不会减半。</span>`);
+      break;
+    }
+    case 'active_wealth_bargain': {
+      if (spendGoldPreferTemp(1) <= 0) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：金币不足。</span>`);
+        break;
+      }
+      const added = gainArmorAsCardEffect('player', 2, skill.id, `主动【${skill.name}】`);
+      const restored = restoreManaForSide('player', 1);
+      log(`<span class="text-yellow-300">主动【${skill.name}】：消耗1金币，获得 ${added} 点护甲与 ${restored} 点魔力。</span>`);
+      break;
+    }
+    case 'active_wealth_power': {
+      const useCount = increaseSystemCardTurnUses('player', skill.id);
+      const spent = useCount >= 5 ? spendGoldPreferTemp(getSpendableGold()) : spendGoldPreferTemp(1);
+      if (spent <= 0) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：金币不足。</span>`);
+        break;
+      }
+      const before = combatState.value.playerBaseDice;
+      combatState.value.playerBaseDice = Math.max(0, combatState.value.playerBaseDice + spent);
+      playerTurnRawDice.value = Math.max(0, playerTurnRawDice.value + spent);
+      log(`<span class="text-yellow-300">主动【${skill.name}】${useCount >= 5 ? '（本回合第5次）' : ''}：消耗 ${spent} 金币，原始点数 ${before} → ${combatState.value.playerBaseDice}</span>`);
+      break;
+    }
+    case 'active_shadow_throwing_knife': {
+      const target = getEntityBySide('enemy');
+      const damageCard = buildActiveSkillDamageCard(skill, 1);
+      const damageResult = calculateFinalDamage({
+        finalPoint: 1,
+        card: damageCard,
+        attackerEffects: playerStats.value.effects,
+        defenderEffects: target.effects,
+        relicModifiers: NO_RELIC_MOD,
+      });
+      const { actualDamage } = applyDamageToSideWithRelics(
+        'enemy',
+        target,
+        damageResult.damage,
+        damageResult.isTrueDamage,
+        `主动【${skill.name}】`,
+        { sourceSide: 'player', isDirectDamage: true, card: damageCard },
+      );
+      if (actualDamage > 0) pushFloatingNumber('enemy', actualDamage, 'physical', '-', { targetEntity: target });
+      log(`<span class="text-indigo-300">主动【${skill.name}】：对敌方造成 ${actualDamage} 点伤害。</span>`);
+      break;
+    }
+    case 'active_shadow_aim_weakness': {
+      const stacks = Math.max(0, Math.floor(combatState.value.playerBaseDice * 0.5));
+      if (stacks > 0 && applyStatusEffectWithRelics('enemy', ET.VULNERABLE, stacks, { source: skill.id, durationTurns: 1 })) {
+        log(`<span class="text-indigo-300">主动【${skill.name}】：对敌方施加 ${stacks} 层敏感（持续1回合）。</span>`);
+      } else {
+        log(`<span class="text-gray-400">主动【${skill.name}】：当前点数过低，未施加敏感。</span>`);
+      }
+      break;
+    }
+    case 'active_shadow_instinct': {
+      const firstCard = combatState.value.playerHand[0];
+      const dodgePool = getAllCards().filter(entry => entry.type === CardType.DODGE && entry.category !== '敌人' && entry.category !== EVENT_CARD_CATEGORY);
+      const dodge = dodgePool[Math.floor(Math.random() * dodgePool.length)];
+      if (!firstCard || !dodge) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：没有可变化的手牌。</span>`);
+        break;
+      }
+      const instinctDodge = cloneCardForBattle(dodge);
+      recordCardTransform(firstCard, instinctDodge);
+      combatState.value.playerHand[0] = instinctDodge;
+      log(`<span class="text-indigo-300">主动【${skill.name}】：将【${firstCard.name}】变为【${dodge.name}】。</span>`);
+      break;
+    }
+    case 'active_destruction_mana_crystal':
+    case 'active_destruction_pure_crystal': {
+      const before = combatState.value.playerBaseDice;
+      combatState.value.playerBaseDice = Math.max(0, combatState.value.playerBaseDice - 1);
+      playerTurnRawDice.value = Math.max(0, playerTurnRawDice.value - 1);
+      applyStatusEffectWithRelics('player', ET.CHARGE, 1, { source: skill.id });
+      if (skill.id === 'active_destruction_pure_crystal') {
+        pendingNextTurnSkillMana.value += 1;
+      }
+      log(`<span class="text-zinc-200">主动【${skill.name}】：原始点数 ${before} → ${combatState.value.playerBaseDice}，获得1层蓄力${skill.id === 'active_destruction_pure_crystal' ? '，下回合开始回复1点魔力' : ''}。</span>`);
+      break;
+    }
+    case 'active_destruction_repel': {
+      systemCardTurnFlags.value.player.system_destruction_repel = true;
+      log(`<span class="text-zinc-200">主动【${skill.name}】：本回合受到的伤害减半。</span>`);
+      break;
+    }
+    case 'active_destruction_intimidate': {
+      // 敌方原始点数 -2，随后比较双方原始点数：敌方更小时，直接把敌方本回合意图改为【普通闪避】
+      const before = combatState.value.enemyBaseDice;
+      combatState.value.enemyBaseDice = Math.max(0, before - 2);
+      enemyTurnRawDice.value = Math.max(0, enemyTurnRawDice.value - 2);
+      const playerRaw = combatState.value.playerBaseDice;
+      const enemyRaw = combatState.value.enemyBaseDice;
+      const intent = combatState.value.enemyIntentCard;
+      const dodgeTemplate = getCardByName('普通闪避');
+      let intentChanged = false;
+      if (enemyRaw < playerRaw && dodgeTemplate && intent && intent.id !== PASS_CARD.id && intent.type !== CardType.DODGE) {
+        combatState.value.enemyIntentCard = cloneCardForBattle(dodgeTemplate);
+        if (isTwinBattle) {
+          twinEnemyIntentCards.value = [cloneCardForBattle(dodgeTemplate), cloneCardForBattle(dodgeTemplate)];
+        }
+        intentChanged = true;
+      }
+      log(`<span class="text-zinc-200">主动【${skill.name}】：敌方原始点数 ${before} → ${enemyRaw}${intentChanged ? `，低于我方的 ${playerRaw}，敌方意图改为【普通闪避】` : ''}。</span>`);
+      break;
+    }
+    case 'active_modao_overdraw': {
+      const restored = restoreManaForSide('player', 10);
+      applyStatusEffectWithRelics('player', ET.MANA_DRAIN, 3, { source: skill.id });
+      log(`<span class="text-blue-300">主动【${skill.name}】：回复 ${restored} 点魔力，获得3层魔力枯竭。</span>`);
+      break;
+    }
+    case 'active_burn_rekindle': {
+      const playerBurn = Math.max(0, getEffectStacks(playerStats.value, ET.BURN));
+      const enemyBurn = Math.max(0, getEffectStacks(getEntityBySide('enemy'), ET.BURN));
+      if (playerBurn > 0) removeEffect(playerStats.value, ET.BURN);
+      if (enemyBurn > 0) removeEffect(getEntityBySide('enemy'), ET.BURN);
+      const playerCold = Math.max(0, getEffectStacks(playerStats.value, ET.COLD));
+      if (playerCold > 0) removeEffect(playerStats.value, ET.COLD);
+      pendingRekindleBurn.value = { player: playerBurn, enemy: enemyBurn };
+      log(`<span class="text-orange-300">主动【${skill.name}】：清除我方 ${playerBurn} 层、敌方 ${enemyBurn} 层燃烧与我方 ${playerCold} 层寒冷，下回合开始重新燃起。</span>`);
+      break;
+    }
+    case 'active_alchemy_hourglass_flip': {
+      const target = getEntityBySide('enemy');
+      const burn = Math.max(0, getEffectStacks(target, ET.BURN));
+      const cold = Math.max(0, getEffectStacks(target, ET.COLD));
+      const poison = Math.max(0, getEffectStacks(target, ET.POISON));
+      const bleed = Math.max(0, getEffectStacks(target, ET.BLEED));
+      for (const type of [ET.BURN, ET.COLD, ET.POISON, ET.BLEED]) removeEffect(target, type);
+      const nextCold = burn * 2;
+      const nextBurn = Math.floor(cold / 2);
+      const nextBleed = poison * 2;
+      const nextPoison = Math.floor(bleed / 2);
+      if (nextBurn > 0) applyEffect(target, ET.BURN, nextBurn, { source: skill.id });
+      if (nextCold > 0) applyEffect(target, ET.COLD, nextCold, { source: skill.id });
+      if (nextPoison > 0) applyEffect(target, ET.POISON, nextPoison, { source: skill.id });
+      if (nextBleed > 0) applyEffect(target, ET.BLEED, nextBleed, { source: skill.id });
+      log(`<span class="text-lime-300">主动【${skill.name}】：敌方燃烧 ${burn}→${nextBurn}、寒冷 ${cold}→${nextCold}、中毒 ${poison}→${nextPoison}、流血 ${bleed}→${nextBleed}。</span>`);
+      break;
+    }
+    case 'active_corruption_bury_poison': {
+      const applied = applyStatusEffectWithRelics('enemy', ET.POISON, 2, { source: skill.id, sourceSide: 'player' });
+      poisonSkipTurn.value.enemy = combatState.value.turn;
+      log(`<span class="text-emerald-300">主动【${skill.name}】：${applied ? '对敌方施加 2 层中毒，' : ''}敌方本回合不触发中毒。</span>`);
+      break;
+    }
+    case 'active_yanhan_ice_surface': {
+      const playerBefore = combatState.value.playerBaseDice;
+      const enemyBefore = combatState.value.enemyBaseDice;
+      combatState.value.playerBaseDice = Math.max(0, Math.floor(playerBefore * 0.5));
+      combatState.value.enemyBaseDice = Math.max(0, Math.floor(enemyBefore * 0.5));
+      playerTurnRawDice.value = Math.max(0, Math.floor(playerTurnRawDice.value * 0.5));
+      enemyTurnRawDice.value = Math.max(0, Math.floor(enemyTurnRawDice.value * 0.5));
+      log(`<span class="text-sky-300">主动【${skill.name}】：我方原始点数 ${playerBefore} → ${combatState.value.playerBaseDice}，敌方原始点数 ${enemyBefore} → ${combatState.value.enemyBaseDice}。</span>`);
+      break;
+    }
+    case 'active_burn_delay': {
+      delayImmunityTurn.value = combatState.value.turn;
+      log(`<span class="text-orange-300">主动【${skill.name}】：本回合免疫所有非真实伤害，下回合开始按免疫量获得燃烧。</span>`);
       break;
     }
     default:
@@ -8883,6 +9896,7 @@ const useActiveSkill = async (idx: number) => {
   }
 
   commitActiveSkillUse(idx, skill);
+  presentActiveSkillFeedback(skill);
   emit('activeSkillUsed', skill);
   activeSkillResolving.value = false;
 };
@@ -9286,6 +10300,11 @@ const startTurn = () => {
   armorDecaySkippedThisTurn.value.enemy = false;
   turnPointModifier.value.player = 0;
   turnPointModifier.value.enemy = 0;
+  systemCardTurnUseCount.value = { player: {}, enemy: {} };
+  systemCardTurnFlags.value = { player: {}, enemy: {} };
+  systemLastTurnClashLoss.value = { ...systemPreviousClashLoss.value };
+  systemPreviousClashLoss.value = { player: false, enemy: false };
+  thornShellReflectPoint.value = { player: 0, enemy: 0 };
   reflectionActiveThisTurn.value = { player: false, enemy: false };
   blankOfBlankActiveThisTurn.value = { player: false, enemy: false };
   blankOfBlankBonusThisTurn.value = { player: 0, enemy: 0 };
@@ -9327,6 +10346,8 @@ const startTurn = () => {
   stopAllCardAnimations();
   combatState.value.phase = CombatPhase.DRAW_PHASE;
   combatState.value.playerSelectedCard = null;
+  // 点击出牌时的悬停记录不会在结算阶段清除，回合开始时清掉，避免敌方点数预览沿用上回合的牌
+  playerPreviewCardForPointContext.value = null;
   combatState.value.enemyIntentCard = null;
   executionerPuppetPointModifier.value = null;
   enemyIntentConsumedThisTurn.value = false;
@@ -9344,6 +10365,35 @@ const startTurn = () => {
   alchemyBlackComboTriggeredThisTurn.value = false;
   triggerPlayerRelicLifecycleHooks('onTurnStart');
   applyAlchemyDizzyFruitOnTurnStart();
+  // 【延缓】上回合免疫的伤害在燃烧结算之后转化为燃烧，本回合拼点胜利即可消除
+  const delayBurn = Math.max(0, Math.floor(pendingDelayBurn.value));
+  pendingDelayBurn.value = 0;
+  if (delayBurn > 0 && applyStatusEffectWithRelics('player', ET.BURN, delayBurn, { source: 'active_burn_delay' })) {
+    log(`<span class="text-orange-300">主动【延缓】：上回合免疫的伤害化为 ${delayBurn} 层燃烧。</span>`);
+  }
+  const twinSerpentCount = getActiveRelicCount('bloodpool_twin_serpent_ring');
+  if (twinSerpentCount > 0 && playerStats.value.hp > 0) {
+    if (isAboveHalfHp(playerStats.value)) {
+      const { actualDamage } = applyDamageToSideWithRelics('player', playerStats.value, twinSerpentCount, true, '双头蛇戒');
+      if (actualDamage > 0) {
+        pushFloatingNumber('player', actualDamage, 'true', '-');
+        addPlayerDamageTakenThisTurn(actualDamage);
+      }
+      logRelicMessage(`[双头蛇戒] 生命高于50%，受到 ${actualDamage} 点真实伤害。`);
+      if (playerStats.value.hp <= 0) return;
+    } else if (isBelowHalfHp(playerStats.value)) {
+      const { healed } = healForSide('player', twinSerpentCount, { reason: '双头蛇戒' });
+      logRelicMessage(`[双头蛇戒] 生命低于50%，回复 ${healed} 点生命。`);
+    }
+  }
+  const interestCount = getActiveRelicCount('system_wealth_interest');
+  if (interestCount > 0) {
+    const interest = Math.floor(getSystemGold() / 15) * interestCount;
+    if (interest > 0) {
+      gainTempGold(interest);
+      logRelicMessage(`[利息] 持有 ${getSystemGold()} 金币，获得 ${interest} 临时金币。`);
+    }
+  }
   const pulseMarkCount = getActiveRelicCount('bloodpool_pulse_mark');
   if (pulseMarkCount > 0 && playerStats.value.hp > 0) {
     const pulseDamage = Math.max(0, pulseMarkCount * 2);
@@ -9374,6 +10424,9 @@ const startTurn = () => {
 
   setTimeout(() => {
     if (endCombatPending.value) return;
+    applyEventDiceFloor('roll');
+    // 回合开始的中毒量结算之后、出牌之前，曼陀罗同步一次（卡牌直接施加的中毒量也会在此生效）
+    syncDaturaWeaken();
     const scriptedDice = props.tutorialDiceScript[combatState.value.turn - 1];
     const pRawRoll = scriptedDice
       ? Math.min(
@@ -9432,6 +10485,7 @@ watch(
     if (endCombatPending.value) return;
     if (phase === CombatPhase.TURN_START) {
       painPointBonusByCard = new WeakMap<CardData, number>();
+      ghostStepBonusByCard = new WeakMap<CardData, number>();
       runeConsumedEnergyByCard = new WeakMap<CardData, number>();
       pendingRuneShiftCards.clear();
       startCardPointTurn();
@@ -9439,9 +10493,11 @@ watch(
         for (const entry of startRuneTurn(entity)) log(`${side}${entry}`);
       }
       playerDamageTakenThisTurn.value = 0;
+      playerDamageDealtThisTurn.value = 0;
       directDamageTakenThisTurn.value = { player: 0, enemy: 0 };
       damageHitTakenThisTurn.value = { player: 0, enemy: 0 };
       coldRetaliationPerDamageThisTurn.value = { player: 0, enemy: 0 };
+  getRelicRuntimeState('system_destruction_relic_06').damageTakenThisTurn = 0;
       alchemyCatalystActiveThisTurn.value = { player: false, enemy: false };
       freezePumpTriggersThisTurn.value = 0;
       freezeFlowCoreTriggeredThisTurn.value = false;
@@ -9460,6 +10516,11 @@ watch(
         flowingLightRingConsumed.value = false;
         battleCardFirstUseConsumed.value = { player: {}, enemy: {} };
         battleCardPointBonus.value = { player: {}, enemy: {} };
+        systemCardTurnUseCount.value = { player: {}, enemy: {} };
+        systemCardTurnFlags.value = { player: {}, enemy: {} };
+        systemCardBattleFlags.value = { player: {}, enemy: {} };
+        systemPreviousClashLoss.value = { player: false, enemy: false };
+        systemLastTurnClashLoss.value = { player: false, enemy: false };
         alchemyPerfumePointDoubleCardIds.value = { player: {}, enemy: {} };
         alchemyGrandSynthesisPointBonusByCard.value = { player: new WeakMap<CardData, number>(), enemy: new WeakMap<CardData, number>() };
         alchemyGrandSynthesisPointBonusVersion.value += 1;
@@ -9469,6 +10530,33 @@ watch(
         activeHandSelectionMode.value = null;
         activeHandSelectionSkillIdx.value = null;
         pendingAlchemyGoldDelta.value = 0;
+        battleTempGold.value = 0;
+        pendingNextTurnSkillMana.value = 0;
+        pendingRekindleBurn.value = null;
+        delayImmunityTurn.value = -1;
+        pendingDelayBurn.value = 0;
+        ghostStepPendingBonus.value = { player: 0, enemy: 0 };
+        ghostStepBonusByCard = new WeakMap<CardData, number>();
+        cardTransformOrigin = new WeakMap<CardData, CardData>();
+        shadowMeldTrackedCards = [
+          ...combatState.value.playerHand,
+          ...combatState.value.playerDeck,
+          ...combatState.value.discardPile,
+        ].filter(card => card.id === SHADOW_MELD_CARD_ID).map(card => toRaw(card));
+        poisonVulnerableTurn.value = { player: -1, enemy: -1 };
+        poisonSkipTurn.value = { player: -1, enemy: -1 };
+        spiderPoisonBoostTurn.value = -1;
+        spiderVulnerableBoostTurn.value = -1;
+        lastPlayedMagicCard.value = { player: null, enemy: null };
+        prophecyCopiedCards.value = new Set();
+        prophecyPickerHandIdx.value = null;
+        blueStarBottleRemaining.value = 20;
+        scholarBadgeTriggered.value = false;
+        consumedRelicIdsThisBattle.value = [];
+        sinGluttonyPlaysThisBattle.value = 0;
+        sinGluttonyDrainPercent.value = 0;
+        omniWandFormBySlot.value = {};
+        omniWandSelectingSlot.value = null;
         turnPointModifier.value = { player: 0, enemy: 0 };
         reflectionActiveThisTurn.value = { player: false, enemy: false };
         blankOfBlankActiveThisTurn.value = { player: false, enemy: false };
@@ -9542,12 +10630,13 @@ watch(
       applyIntangibleAura('player');
       applyIntangibleAura('enemy');
       shouldBridgeHolyWaterJellyfishPortraitHidden.value = false;
-      applySinkingNegativeStatusOnTurnStart();
+      applyNegativeStatusesOnTurnStart();
       insertPrayerCandleRetreatIntoPlayerDeck();
       applyTwinDreamControlThresholds();
       activateLeviathanMirrorSeaOathIfPending();
       activateLeviathanTidalLockIfPending();
       applyPendingNextTurnCardEffects();
+      applyPendingNextTurnSkillEffects();
       processPainTurnStart();
       // Process turn-start effects (poison, burn, mana spring, etc.)
       if (combatState.value.turn > 1) {
@@ -9728,7 +10817,7 @@ watch(
             recordBattlePainLoss(side, Math.max(0, beforeLoss - stats.value.hp), false);
           }
           if (result.mpChange !== 0) {
-            changeManaWithShock(side, result.mpChange, '法力变化（回合开始）', { showPositiveFloating: true });
+            changeManaWithShock(side, result.mpChange, '魔力变化（回合开始）', { showPositiveFloating: true });
           }
           if (result.trueDamage > 0) {
             const hpBeforeTrueDamage = stats.value.hp;
@@ -9819,6 +10908,15 @@ watch(
   { immediate: true },
 );
 
+// 【融入暗影】：轮到我方行动时，若生命低于30%则把原卡拉回手牌
+watch(
+  [() => combatState.value.phase, () => playerStats.value.hp, () => playerStats.value.maxHp],
+  ([phase]) => {
+    if (phase !== CombatPhase.PLAYER_INPUT) return;
+    pullShadowMeldCardsIntoHand();
+  },
+);
+
 // Watch for DRAW_PHASE
 watch(
   [() => combatState.value.phase, isRolling],
@@ -9867,6 +10965,173 @@ watch(
 );
 
 // Handle Card Select
+/** 生命锁：记录复活触发的回合 */
+const markPlayerReviveTurn = () => {
+  getRelicRuntimeState('system_destruction_relic_18').reviveTurn = combatState.value.turn;
+};
+
+/** 十字项链：生命归零时复活并回满生命、清除负面状态，随后失去该圣遗物 */
+const tryTriggerCrossNecklaceRevive = (): boolean => {
+  if (getActiveRelicCount(PORTED_RELIC_ID.CROSS_NECKLACE) <= 0) return false;
+  if (consumedRelicIdsThisBattle.value.includes(PORTED_RELIC_ID.CROSS_NECKLACE)) return false;
+  consumedRelicIdsThisBattle.value = [...consumedRelicIdsThisBattle.value, PORTED_RELIC_ID.CROSS_NECKLACE];
+  const debuffs = playerStats.value.effects.filter(effect => (
+    effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff'
+  ));
+  for (const effect of debuffs) removeEffect(playerStats.value, effect.type);
+  playerStats.value.hp = Math.max(1, playerStats.value.maxHp);
+  pushFloatingNumber('player', playerStats.value.hp, 'heal', '+');
+  markPlayerReviveTurn();
+  logRelicMessage('[十字项链] 生命归零，立即复活并回满生命、清除所有负面状态；十字项链碎裂了。');
+  return true;
+};
+
+/** 七原罪：持有对应罪书即共鸣，原罪副作用被削弱或改写（傲慢共鸣后改为无视拼点） */
+const isSinResonatedInBattle = (card: CardData | null | undefined): boolean => (
+  Boolean(card?.sin) && getActiveRelicCount(card!.sin!.bookRelicId) > 0
+);
+const logSin = (card: CardData, message: string) => {
+  log(`<span class="text-rose-400">【${card.name}】${message}</span>`);
+};
+
+/** 原罪·暴食：每打出一次伤害倍率 +0.5 */
+const SIN_GLUTTONY_MULTIPLIER_STEP = 0.5;
+/** 原罪·暴食：每打出一次，回合结束额外受到的当前生命百分比真实伤害（未共鸣 / 共鸣） */
+const SIN_GLUTTONY_DRAIN_PERCENT = { corrupted: 5, resonated: 2 } as const;
+const getSinGluttonyMultiplier = () => 1 + SIN_GLUTTONY_MULTIPLIER_STEP * sinGluttonyPlaysThisBattle.value;
+
+/** 原罪卡打出后的效果与原罪副作用（在本回合双方卡牌结算完毕后统一处理，不论拼点胜负） */
+const applySinCardAfterPlay = (card: CardData, baseDice: number) => {
+  if (!card.sin) return;
+  const resonated = isSinResonatedInBattle(card);
+  const prefix = resonated ? '原罪余波' : '原罪发作';
+  const enemy = getEntityBySide('enemy');
+  if (card.id === SIN_CARD_ID.GLUTTONY) {
+    sinGluttonyPlaysThisBattle.value += 1;
+    sinGluttonyDrainPercent.value += resonated ? SIN_GLUTTONY_DRAIN_PERCENT.resonated : SIN_GLUTTONY_DRAIN_PERCENT.corrupted;
+    logSin(card, `${prefix}：此后每回合结束将受到 ${sinGluttonyDrainPercent.value}% 当前生命的真实伤害。`);
+    logSin(card, `伤害倍率提升至 ${getSinGluttonyMultiplier()} 倍。`);
+    return;
+  }
+  if (card.id === SIN_CARD_ID.ENVY) {
+    if (resonated) {
+      if (applyStatusEffectWithRelics('enemy', ET.CHARGE, 2, { source: `sin:${card.id}`, sourceSide: 'player' })) {
+        logSin(card, `${prefix}：敌方获得 2 层蓄力。`);
+      }
+      return;
+    }
+    const before = enemy.minDice;
+    enemy.minDice = Math.min(enemy.maxDice, enemy.minDice + 1);
+    if (enemy.minDice !== before) logSin(card, `${prefix}：敌方最小点数 ${before} → ${enemy.minDice}。`);
+  } else if (card.id === SIN_CARD_ID.WRATH) {
+    const burn = resonated ? 1 : Math.floor(getDamageHitTakenThisCombat('player') / 2);
+    if (burn > 0 && applyStatusEffectWithRelics('player', ET.BURN, burn, { source: `sin:${card.id}` })) {
+      logSin(card, `${prefix}：怒火反噬，我方获得 ${burn} 层燃烧。`);
+    }
+  } else if (card.id === SIN_CARD_ID.GREED) {
+    const gold = getSystemGold();
+    const loss = resonated ? Math.min(1, gold) : gold - Math.floor(gold * 0.9);
+    if (loss > 0) {
+      changeSystemGold(-loss);
+      logSin(card, `${prefix}：失去 ${loss} 金币（${gold} → ${getSystemGold()}）。`);
+    }
+  } else if (card.id === SIN_CARD_ID.LUST) {
+    // 未共鸣：与敌方获得的敏感等量（0.5 倍点数）；共鸣：只获得 1 层
+    const amount = resonated
+      ? 1
+      : Math.max(0, Math.floor(getCardFinalPoint('player', card, baseDice, true) * 0.5));
+    if (amount > 0 && applyStatusEffectWithRelics('player', ET.VULNERABLE, amount, { source: `sin:${card.id}` })) {
+      logSin(card, `${prefix}：我方获得 ${amount} 层敏感。`);
+    }
+  }
+};
+
+/** 替身人偶 / 灵魂人偶：生命归零时复活（替身 1 点生命，灵魂回满），随后碎裂 */
+const tryTriggerEventDollRevive = (): boolean => {
+  const doll = [
+    { id: EVENT_RELIC_ID.STAND_IN_DOLL, name: '替身人偶', fullHp: false },
+    { id: EVENT_RELIC_ID.SOUL_DOLL, name: '灵魂人偶', fullHp: true },
+  ].find(entry => getActiveRelicCount(entry.id) > 0);
+  if (!doll) return false;
+  consumedRelicIdsThisBattle.value = [...consumedRelicIdsThisBattle.value, doll.id];
+  playerStats.value.hp = doll.fullHp ? Math.max(1, playerStats.value.maxHp) : 1;
+  pushFloatingNumber('player', playerStats.value.hp, 'heal', '+');
+  markPlayerReviveTurn();
+  logRelicMessage(
+    doll.fullHp
+      ? `[${doll.name}] 生命归零，人偶代替你承受了死亡，你回满生命复活；${doll.name}碎裂了。`
+      : `[${doll.name}] 生命归零，人偶代替你承受了死亡，你以 1 点生命复活；${doll.name}碎裂了。`,
+  );
+  // 灵魂人偶：复活的那一回合，被抽走的灵魂让魔力滞涩
+  if (doll.fullHp && applyStatusEffectWithRelics('player', ET.MANA_DRAIN, 1, { source: `relic:${doll.id}` })) {
+    logRelicMessage(`[${doll.name}] 灵魂的亏空让你获得 1 层魔力枯竭。`);
+  }
+  return true;
+};
+
+/** 幸运币：每回合首次计算点数时决定 ×2 或 ×0.5，同一回合内预览与结算保持一致 */
+const luckyCoinFactorCache = new WeakMap<object, { turn: number; factor: number }>();
+const getLuckyCoinFactor = (card: CardData): number => {
+  const key = toRaw(card) as object;
+  const cached = luckyCoinFactorCache.get(key);
+  if (cached && cached.turn === combatState.value.turn) return cached.factor;
+  const factor = Math.random() < 0.5 ? 2 : 0.5;
+  luckyCoinFactorCache.set(key, { turn: combatState.value.turn, factor });
+  return factor;
+};
+
+/** 【预言】本场战斗中可预言的全部卡牌（不含预言自身、跳过、诅咒与预言出的临时复制品） */
+const getProphecyBattleCards = (): CardData[] => [
+  ...combatState.value.playerDeck,
+  ...combatState.value.playerHand,
+  ...combatState.value.discardPile,
+].filter(entry => (
+  entry.id !== PORTED_CARD.PROPHECY
+  && entry.id !== PASS_CARD.id
+  && entry.type !== CardType.CURSE
+  && !prophecyCopyOrigin.has(toRaw(entry))
+));
+
+const isProphecyCardUsed = (card: CardData) => prophecyCopiedCards.value.has(toRaw(card));
+const getProphecyCandidates = () => getProphecyBattleCards().filter(entry => !isProphecyCardUsed(entry));
+
+/** 预言已无可选卡牌：所有预言牌改为带宿命感的描述，并不可再使用 */
+const markProphecyExhausted = () => {
+  const line = PROPHECY_EXHAUSTED_LINES[Math.floor(Math.random() * PROPHECY_EXHAUSTED_LINES.length)];
+  const description = `${line}（本场战斗已无法预言）`;
+  for (const card of [...combatState.value.playerDeck, ...combatState.value.playerHand, ...combatState.value.discardPile]) {
+    if (card.id === PORTED_CARD.PROPHECY) card.description = description;
+  }
+};
+const isProphecyExhausted = (card: CardData) => card.id === PORTED_CARD.PROPHECY && card.description.includes('本场战斗已无法预言');
+
+/** 【预言】点击使用，不视为出牌：打开选择界面，从本场战斗的牌组中挑选一张尚未预言过的卡牌 */
+const openProphecyPicker = (card: CardData, handIdx: number) => {
+  if (isProphecyExhausted(card) || getProphecyCandidates().length === 0) {
+    if (!isProphecyExhausted(card)) markProphecyExhausted();
+    triggerInvalidCardShake(card);
+    log('<span class="text-gray-400">【预言】本场战斗已无法预言。</span>');
+    return;
+  }
+  prophecyPickerHandIdx.value = handIdx;
+};
+
+/** 选定预言目标：本牌在这一次变为该牌的复制，打出后复原为预言 */
+const resolveProphecyPick = (target: CardData) => {
+  const handIdx = prophecyPickerHandIdx.value;
+  prophecyPickerHandIdx.value = null;
+  if (handIdx === null || combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  const prophecy = combatState.value.playerHand[handIdx];
+  if (!prophecy || prophecy.id !== PORTED_CARD.PROPHECY || isProphecyCardUsed(target)) return;
+  prophecyCopiedCards.value = new Set([...prophecyCopiedCards.value, toRaw(target)]);
+  const copy = cloneCardForBattle(target);
+  prophecyCopyOrigin.set(toRaw(copy), toRaw(prophecy));
+  combatState.value.playerHand.splice(handIdx, 1, copy);
+  log(`<span class="text-violet-300">【预言】本牌这一次变为【${target.name}】的复制，打出后复原为预言。</span>`);
+  presentEffect(playerStats.value, EVENT_EFFECTS.prophecy);
+  if (getProphecyCandidates().length === 0) markProphecyExhausted();
+};
+
 const handleCardSelect = (card: CardData, handIdx: number) => {
   playUiSfx('none');
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
@@ -9874,6 +11139,10 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   if (handIdx < 0 || handIdx >= combatState.value.playerHand.length) return;
   if (combatState.value.playerHand[handIdx] !== card) return;
   if (handleActiveHandSelection(card, handIdx)) return;
+  if (card.id === 'basic_prophecy') {
+    openProphecyPicker(card, handIdx);
+    return;
+  }
   if (isBlockedByPriorityFoodCard(card)) {
     triggerInvalidCardShake(card);
     log('<span class="text-red-400">【烤肉】在手牌中时，必须优先打出它。</span>');
@@ -9886,6 +11155,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
       const allowedTypes = getTwinDirectComboAllowedTypes();
       const controlledExpectedType = allowedTypes.length === 1 ? allowedTypes[0] : null;
       const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
+        ...getPlayerManaCheckOptions(runtimeCard),
         controlledExpectedType,
         previousCardType: previousPlayerLastCardType.value,
       });
@@ -9900,10 +11170,10 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
         log(`<span class="text-red-400">${controlledReason ?? check.reason ?? '当前无法使用这张卡牌。'}</span>`);
         return;
       }
-      if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
+      if (!canPlayerAffordCardMana(runtimeCard)) {
         triggerInvalidCardShake(card);
         triggerPlayerManaBlockedFeedback();
-        log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+        log('<span class="text-red-400">魔力不足，无法使用该魔法卡牌。</span>');
         return;
       }
       void resolveTwinDirectComboCard(card, handIdx);
@@ -9926,6 +11196,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
       return intentCard.type;
     })();
     const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
+      ...getPlayerManaCheckOptions(runtimeCard),
       controlledExpectedType,
       previousCardType: previousPlayerLastCardType.value,
     });
@@ -9935,10 +11206,10 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
       log(`<span class="text-red-400">${check.reason ?? '当前无法使用这张卡牌。'}</span>`);
       return;
     }
-    if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
+    if (!canPlayerAffordCardMana(runtimeCard)) {
       triggerInvalidCardShake(card);
       triggerPlayerManaBlockedFeedback();
-      log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+      log('<span class="text-red-400">魔力不足，无法使用该魔法卡牌。</span>');
       return;
     }
     lockCardManaCost('player', card);
@@ -9959,6 +11230,7 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     return intentCard.type;
   })();
   const check = canPlayCard(playerStats.value, runtimeCard, combatState.value.playerBaseDice, {
+    ...getPlayerManaCheckOptions(runtimeCard),
     controlledExpectedType,
     previousCardType: previousPlayerLastCardType.value,
   });
@@ -9969,10 +11241,10 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
     return;
   }
 
-  if (runtimeCard.type === CardType.MAGIC && playerStats.value.mp < runtimeCard.manaCost) {
+  if (!canPlayerAffordCardMana(runtimeCard)) {
     triggerInvalidCardShake(card);
     triggerPlayerManaBlockedFeedback();
-    log('<span class="text-red-400">法力不足，无法使用该魔法卡牌。</span>');
+    log('<span class="text-red-400">魔力不足，无法使用该魔法卡牌。</span>');
     return;
   }
   if (card.id === 'alchemy_grand_synthesis' && alchemyGrandSynthesisBoundCard.value.player === null) {
@@ -10039,6 +11311,15 @@ const isMagicRingClashPair = (card1: CardData, card2: CardData): boolean => (
   getActiveRelicCount('basic_magic_ring') > 0 && isPhysicalMagicPair(card1, card2)
 );
 
+const isSystemAttackActionClashPair = (card1: CardData, card2: CardData): boolean => {
+  const playerAttack = card1.type === CardType.PHYSICAL || card1.type === CardType.MAGIC;
+  const enemyAction = card2.type === CardType.FUNCTION || card2.type === CardType.DODGE;
+  if (!playerAttack || !enemyAction) return false;
+  return card1.id === 'system_destruction_液压机'
+    || getActiveRelicCount('system_destruction_relic_05') > 0
+    || getActiveRelicCount('system_destruction_relic_16') > 0;
+};
+
 const isIgnoreDodgeBypassPair = (card1: CardData, card2: CardData): boolean => {
   const t1 = card1.type;
   const t2 = card2.type;
@@ -10051,17 +11332,21 @@ const isIgnoreDodgeBypassPair = (card1: CardData, card2: CardData): boolean => {
 const isSameRuleClash = (card1: CardData, card2: CardData): boolean => (
   card1.type === card2.type
   || isMagicRingClashPair(card1, card2)
+  || isSystemAttackActionClashPair(card1, card2)
 );
 
 // Clashable check
 const isClashable = (card1: CardData, card2: CardData): boolean => {
   if (card1.ignoreClash || card2.ignoreClash) return false;
+  if ((card1.id === SIN_CARD_ID.ARROGANCE && isSinResonatedInBattle(card1))
+    || (card2.id === SIN_CARD_ID.ARROGANCE && isSinResonatedInBattle(card2))) return false;
   const t1 = card1.type;
   const t2 = card2.type;
 
   if (t1 === CardType.PHYSICAL && t2 === CardType.PHYSICAL) return true;
   if (t1 === CardType.MAGIC && t2 === CardType.MAGIC) return true;
   if (isMagicRingClashPair(card1, card2)) return true;
+  if (isSystemAttackActionClashPair(card1, card2)) return true;
 
   const bypassDodge =
     isIgnoreDodgeBypassPair(card1, card2)
@@ -10187,14 +11472,16 @@ const resolveCombat = async (
     const manaCost = runtimeCard.id === 'enemy_selina_space_fold'
       ? getSelinaSpaceFoldManaSpend(stats)
       : runtimeCard.manaCost;
-    const canSpend = spendManaWithShock(side, manaCost, `使用【${runtimeCard.name}】`);
+    const canSpend = side === 'player'
+      ? spendPlayerManaWithBottle(manaCost, `使用【${runtimeCard.name}】`, { allowHp: true })
+      : spendManaWithShock(side, manaCost, `使用【${runtimeCard.name}】`);
     if (!canSpend) {
       if (side === 'enemy') {
         triggerEnemyIntentInvalidShake(options.twinSlotIndex, card);
         notifyEnemyManaInsufficient();
       } else {
         triggerPlayerManaBlockedFeedback();
-        log(`<span class="text-red-400">我方【${runtimeCard.name}】发动失败：法力已不足。</span>`);
+        log(`<span class="text-red-400">我方【${runtimeCard.name}】发动失败：魔力已不足。</span>`);
       }
       return false;
     }
@@ -10255,7 +11542,7 @@ const resolveCombat = async (
   resolveMimicCurse('player');
   resolveMimicCurse('enemy');
 
-  const shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
+  let shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
   for (const [side, card] of [['player', resolvedPlayerCard], ['enemy', resolvedEnemyCard]] as const) {
     if (side === 'enemy' && deferEnemyMagicManaPayment && !shouldClash) continue;
     prepareRuneCardOnPlay(side, card);
@@ -10270,6 +11557,7 @@ const resolveCombat = async (
       painPointBonusByCard.set(card, bonus);
       addPainMemory(holder, -bonus / 2);
     }
+    bindGhostStepBonusToCard(side, card);
   }
   const clashBypassedByIgnoreDodge = isIgnoreDodgeBypassPair(resolvedPlayerCard, resolvedEnemyCard);
   if (!shouldClash && clashBypassedByIgnoreDodge) {
@@ -10383,11 +11671,33 @@ const resolveCombat = async (
   }
 
   let pClashPoint = getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice);
-  const eClashPoint = resolvedEnemyCard.id === UMBILICAL_TENTACLE_CARD.PULL
+  let eClashPoint = resolvedEnemyCard.id === UMBILICAL_TENTACLE_CARD.PULL
     ? getCardFinalPoint('enemy', resolvedEnemyCard, resolvedEnemyDice, true, false, playerSkippedTurn ? null : pClashPoint)
     : getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
   if (resolvedPlayerCard.id === UMBILICAL_TENTACLE_CARD.PULL) {
     pClashPoint = getCardFinalPoint('player', resolvedPlayerCard, resolvedPlayerDice, true, false, enemySkippedTurn ? null : eClashPoint);
+  }
+  // 原罪·傲慢（未共鸣）：若本次拼点即将获胜，则傲慢地无视拼点，双方卡牌都会生效
+  if (shouldClash && resolvedPlayerCard.id === SIN_CARD_ID.ARROGANCE && !isSinResonatedInBattle(resolvedPlayerCard)) {
+    const wouldWin = isSameRuleClash(resolvedPlayerCard, resolvedEnemyCard)
+      ? pClashPoint > eClashPoint
+      : resolvedEnemyCard.type === CardType.DODGE
+        ? !(pClashPoint > eClashPoint)
+          && !(pClashPoint === eClashPoint && resolvedEnemyCard.id === 'system_shadow_镜影')
+        : false;
+    if (wouldWin) {
+      shouldClash = false;
+      logSin(resolvedPlayerCard, '原罪发作：胜券在握，傲慢地无视了拼点——双方卡牌都会生效。');
+    }
+  }
+  // 【蜘蛛】：使用闪避牌的一方决定本回合的增幅方向
+  if (getActiveRelicCount('system_corruption_relic_06') > 0) {
+    if (resolvedPlayerCard.type === CardType.DODGE && resolvedPlayerCard.id !== PASS_CARD.id) {
+      spiderPoisonBoostTurn.value = combatState.value.turn;
+    }
+    if (resolvedEnemyCard.type === CardType.DODGE && resolvedEnemyCard.id !== PASS_CARD.id) {
+      spiderVulnerableBoostTurn.value = combatState.value.turn;
+    }
   }
   if (!isEnemyComboPrelude) {
     previousPlayerLastCardType.value = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard.type;
@@ -10418,18 +11728,47 @@ const resolveCombat = async (
     log(`<span class="text-orange-300">${reason} ${label}燃烧清空（${burnStacks}层）。</span>`);
   };
 
+  if (shouldClash) {
+    const pirateHookCount = getActiveRelicCount('system_destruction_relic_08');
+    if (pirateHookCount > 0) {
+      applyStatusEffectWithRelics('player', ET.CHARGE, pirateHookCount, { source: 'relic:system_destruction_relic_08' });
+    }
+  }
+  const pirateHatCount = getActiveRelicCount('system_destruction_relic_09');
+  if (pirateHatCount > 0 && pClashPoint > playerStats.value.maxDice) {
+    const charge = Math.floor((pClashPoint - playerStats.value.maxDice) / 2) * pirateHatCount;
+    if (charge > 0) applyStatusEffectWithRelics('player', ET.CHARGE, charge, { source: 'relic:system_destruction_relic_09' });
+  }
+
+  // 怠惰之书：双方都处于眩晕时，跳过回合不会清除对方燃烧
+  const slothBookKeepsBurn = getActiveRelicCount(PORTED_RELIC_ID.SLOTH_BOOK) > 0
+    && getEffectStacks(playerStats.value, ET.STUN) > 0
+    && getEffectStacks(enemyStats.value, ET.STUN) > 0;
+  if (slothBookKeepsBurn && (enemySkippedTurn || playerSkippedTurn)) {
+    logRelicMessage('[怠惰之书] 双方眩晕，跳过回合不会清除燃烧。');
+  }
   if (enemySkippedTurn) {
-    clearBurnForSide('player', '敌方跳过回合。');
+    if (!slothBookKeepsBurn) clearBurnForSide('player', '敌方跳过回合。');
     tickStigmataSkipDecay('enemy');
   }
   if (playerSkippedTurn) {
-    clearBurnForSide('enemy', '我方跳过回合。');
+    if (!slothBookKeepsBurn) clearBurnForSide('enemy', '我方跳过回合。');
     tickStigmataSkipDecay('player');
   }
   if (playerSkippedTurn) {
     const lanternCount = getActiveRelicCount('burn_flame_lantern');
     if (lanternCount > 0 && applyStatusEffectWithRelics('enemy', ET.BURN, 2 * lanternCount, { source: 'relic:burn_flame_lantern' })) {
       logRelicMessage(`[火焰灯笼] 跳过回合后，对敌方施加 ${2 * lanternCount} 层燃烧。`);
+    }
+    const smokeBombCount = getActiveRelicCount('system_corruption_relic_07');
+    const smokeBombState = getRelicRuntimeState('system_corruption_relic_07');
+    if (smokeBombCount > 0 && smokeBombState.used !== true) {
+      smokeBombState.used = true;
+      applyStatusEffectWithRelics('enemy', ET.STUN, smokeBombCount, {
+        source: 'relic:system_corruption_relic_07',
+        lockDecayThisTurn: true,
+      });
+      logRelicMessage('[迷雾瓶] 跳过回合，使敌方眩晕。');
     }
   }
 
@@ -10496,8 +11835,36 @@ const resolveCombat = async (
     // 血刃附加：进入拼点即触发
     applyBloodbladeAttachOnClash('player', 'enemy');
     applyBloodbladeAttachOnClash('enemy', 'player');
-    applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_clash');
+    const rageBookRepeats = getActiveRelicCount('system_destruction_relic_01') > 0 ? 2 : 1;
+    for (let repeat = 0; repeat < rageBookRepeats; repeat++) {
+      const triggered = applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_clash');
+      if (!triggered) break;
+      if (repeat > 0) logRelicMessage(`[暴怒之书] 【${resolvedPlayerCard.name}】的拼点效果再次触发。`);
+    }
     applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_clash');
+    // 【反冲】拼点时使对方受到等同其自身点数的物理伤害
+    for (const [recoilSide, recoilCard, opposingPoint] of [
+      ['player', resolvedPlayerCard, eClashPoint],
+      ['enemy', resolvedEnemyCard, pClashPoint],
+    ] as const) {
+      if (recoilCard.id !== 'system_destruction_反冲') continue;
+      const targetSide = oppositeSide(recoilSide);
+      const repeats = recoilSide === 'player' ? rageBookRepeats : 1;
+      for (let repeat = 0; repeat < repeats; repeat++) {
+        const target = getEntityBySide(targetSide);
+        const { actualDamage } = applyDamageToSideWithRelics(
+          targetSide,
+          target,
+          Math.max(0, Math.floor(opposingPoint)),
+          false,
+          `卡牌【${recoilCard.name}】`,
+          { sourceSide: recoilSide, isDirectDamage: true, card: recoilCard },
+        );
+        if (actualDamage > 0) pushFloatingNumber(targetSide, actualDamage, 'physical', '-', { targetEntity: target });
+        log(`<span class="text-zinc-300">${recoilSide === 'player' ? '我方' : '敌方'}【${recoilCard.name}】反冲：对方受到 ${actualDamage} 点物理伤害。</span>`);
+        if (repeat > 0) logRelicMessage(`[暴怒之书] 【${recoilCard.name}】的拼点效果再次触发。`);
+      }
+    }
 
     let successfulDodger: BattleSide | null = null;
 
@@ -10510,17 +11877,35 @@ const resolveCombat = async (
         pSuccess = false;
         clashWinner = 'enemy';
         resultMsg = '敌方拼点成功！';
+      } else if (getActiveRelicCount('system_shadow_relic_07') > 0) {
+        eSuccess = false;
+        clashWinner = 'player';
+        resultMsg = '我方[面罩]将平局视为拼点胜利';
+        applyStatusEffectWithRelics('enemy', ET.VULNERABLE, getActiveRelicCount('system_shadow_relic_07'), { source: 'relic:system_shadow_relic_07' });
       } else {
         pSuccess = false;
         eSuccess = false;
         clashWinner = 'tie';
         resultMsg = '势均力敌！';
+        const maskTwoCount = getActiveRelicCount('system_shadow_relic_08');
+        if (maskTwoCount > 0) applyStatusEffectWithRelics('player', ET.DAMAGE_BOOST, maskTwoCount, { source: 'relic:system_shadow_relic_08' });
       }
     } else if (resolvedPlayerCard.type === CardType.DODGE) {
       if (eClashPoint > pClashPoint) {
         eSuccess = false;
         clashWinner = 'player';
         resultMsg = '我方闪避成功！';
+        successfulDodger = 'player';
+      } else if (eClashPoint === pClashPoint && resolvedPlayerCard.id === 'system_shadow_镜影') {
+        eSuccess = false;
+        clashWinner = 'player';
+        resultMsg = '我方【镜影】将平点视为闪避成功';
+        successfulDodger = 'player';
+        applyStatusEffectWithRelics('enemy', ET.VULNERABLE, 2, { source: resolvedPlayerCard.id, sourceSide: 'player' });
+      } else if (eClashPoint === pClashPoint && getActiveRelicCount('system_shadow_relic_07') > 0) {
+        eSuccess = false;
+        clashWinner = 'player';
+        resultMsg = '我方[面罩]将平局视为闪避成功';
         successfulDodger = 'player';
       } else {
         pSuccess = false;
@@ -10533,11 +11918,37 @@ const resolveCombat = async (
         clashWinner = 'enemy';
         resultMsg = '敌方闪避成功！';
         successfulDodger = 'enemy';
+      } else if (pClashPoint === eClashPoint && resolvedEnemyCard.id === 'system_shadow_镜影') {
+        pSuccess = false;
+        clashWinner = 'enemy';
+        resultMsg = '敌方【镜影】将平点视为闪避成功';
+        successfulDodger = 'enemy';
+        applyStatusEffectWithRelics('player', ET.VULNERABLE, 2, { source: resolvedEnemyCard.id, sourceSide: 'enemy' });
       } else {
         eSuccess = false;
         clashWinner = 'player';
         resultMsg = '敌方闪避失败！';
       }
+    }
+
+    if (successfulDodger === 'player' && resolvedPlayerCard.id === SIN_CARD_ID.ENVY) {
+      const envyTarget = getEntityBySide('enemy');
+      if (envyTarget.maxDice > playerStats.value.maxDice) {
+        const before = envyTarget.maxDice;
+        envyTarget.maxDice = Math.max(envyTarget.minDice, envyTarget.maxDice - 1);
+        if (envyTarget.maxDice !== before) logSin(resolvedPlayerCard, `嫉妒地夺走了敌方的力量：敌方最大点数 ${before} → ${envyTarget.maxDice}。`);
+      }
+    }
+
+    const playerAttackCard = resolvedPlayerCard.type === CardType.PHYSICAL
+      || resolvedPlayerCard.type === CardType.MAGIC;
+    const steelHandFollowThrough = getActiveRelicCount('system_destruction_relic_05') > 0
+      && playerAttackCard
+      && resolvedEnemyCard.type !== CardType.DODGE
+      && (clashWinner === 'enemy' || clashWinner === 'tie');
+    if (steelHandFollowThrough) {
+      pSuccess = true;
+      log(`<span class="text-zinc-300">[钢铁之手] 我方攻击牌即使拼点失败或平局仍然命中。</span>`);
     }
 
     if (clashWinner) {
@@ -10555,11 +11966,39 @@ const resolveCombat = async (
       log(`<span class="text-gray-300">${resultMsg}</span>`);
     }
     if (!pSuccess) {
-      applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_clash_fail');
+      // 坠落之塔按对方点数结算拼点失败效果
+      const playerClashFailPoint = resolvedPlayerCard.id === 'system_destruction_坠落之塔' ? eClashPoint : pClashPoint;
+      const rageRepeats = getActiveRelicCount('system_destruction_relic_01') > 0 ? 2 : 1;
+      await presentClashFailFeedback('player', resolvedPlayerCard);
+      if (resolvedPlayerCard.id === 'system_destruction_反冲') {
+        systemCardTurnFlags.value.player.system_destruction_repel = true;
+        log(`<span class="text-zinc-300">我方【${resolvedPlayerCard.name}】拼点失败：本回合受到的伤害减半。</span>`);
+      }
+      for (let repeat = 0; repeat < rageRepeats; repeat++) {
+        const triggered = applyCardEffectsByTrigger('player', resolvedPlayerCard, playerClashFailPoint, 'on_clash_fail');
+        if (!triggered) break;
+        if (repeat > 0) logRelicMessage(`[暴怒之书] 【${resolvedPlayerCard.name}】的拼点失败效果再次触发。`);
+      }
+      cardHitLeadIn = null;
     }
     if (!eSuccess) {
-      applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_clash_fail');
+      const enemyClashFailPoint = resolvedEnemyCard.id === 'system_destruction_坠落之塔' ? pClashPoint : eClashPoint;
+      await presentClashFailFeedback('enemy', resolvedEnemyCard);
+      if (resolvedEnemyCard.id === 'system_destruction_反冲') {
+        systemCardTurnFlags.value.enemy.system_destruction_repel = true;
+        log(`<span class="text-zinc-300">敌方【${resolvedEnemyCard.name}】拼点失败：本回合受到的伤害减半。</span>`);
+      }
+      applyCardEffectsByTrigger('enemy', resolvedEnemyCard, enemyClashFailPoint, 'on_clash_fail');
+      cardHitLeadIn = null;
       if (painScene) addPainMemory(enemyStats.value, -3);
+    }
+    systemPreviousClashLoss.value.player = clashWinner === 'enemy';
+    systemPreviousClashLoss.value.enemy = clashWinner === 'player';
+    // 大爆破 / 爆破：本场战斗每次拼点失败（无论打出的是什么牌）点数+3
+    const clashLoserSide: BattleSide | null = clashWinner === 'enemy' ? 'player' : clashWinner === 'player' ? 'enemy' : null;
+    if (clashLoserSide) {
+      increaseBattleCardPointBonus(clashLoserSide, 'system_destruction_引爆', 3, 999);
+      increaseBattleCardPointBonus(clashLoserSide, 'system_destruction_引爆2', 3, 999);
     }
     if (painScene?.phaseTwoActive && clashWinner === 'player'
       && resolvedPlayerCard.type === resolvedEnemyCard.type
@@ -10580,6 +12019,44 @@ const resolveCombat = async (
     if (clashWinner === 'enemy') {
       changeRerollCharges('player', 1);
       log('<span class="text-amber-300">拼点失败：重掷次数 +1</span>');
+      const bandageCount = getActiveRelicCount('system_destruction_relic_04');
+      if (bandageCount > 0) {
+        const { healed } = healForSide('player', 2 * bandageCount, { sourceSide: 'player', reason: '止血绷带' });
+        if (healed > 0) logRelicMessage(`[止血绷带] 拼点失败，回复 ${healed} 点生命。`);
+      }
+      const towerCount = getActiveRelicCount(PORTED_RELIC_ID.COLLAPSING_TOWER);
+      if (towerCount > 0) {
+        const towerTarget = getEntityBySide('enemy');
+        const { actualDamage: towerDamage } = applyDamageToSideWithRelics(
+          'enemy',
+          towerTarget,
+          3 * towerCount,
+          true,
+          '崩塌之塔',
+          { sourceSide: 'player', isDirectDamage: true },
+        );
+        if (towerDamage > 0) pushFloatingNumber('enemy', towerDamage, 'true', '-', { targetEntity: towerTarget });
+        logRelicMessage(`[崩塌之塔] 拼点失败，对敌方造成 ${towerDamage} 点真实伤害。`);
+      }
+      const bootCount = getActiveRelicCount('system_destruction_relic_07');
+      if (bootCount > 0 && playerStats.value.minDice < playerStats.value.maxDice) {
+        playerStats.value.minDice = Math.min(playerStats.value.maxDice, playerStats.value.minDice + bootCount);
+        logRelicMessage(`[钢靴] 拼点失败，最小点数提升至 ${playerStats.value.minDice}。`);
+      }
+      const insuranceCount = getActiveRelicCount('system_destruction_relic_17');
+      if (insuranceCount > 0) {
+        const state = getRelicRuntimeState('system_destruction_relic_17');
+        const used = Math.max(0, Math.floor(Number(state.uses ?? 0)));
+        const available = Math.max(0, 30 - used);
+        const triggers = Math.min(insuranceCount, available);
+        if (triggers > 0) {
+          state.uses = used + triggers;
+          changeSystemGold(triggers);
+          playerStats.value.maxHp += triggers;
+          playerStats.value.hp = Math.min(playerStats.value.maxHp, playerStats.value.hp + triggers);
+          logRelicMessage(`[赔偿契约] 拼点失败，获得 ${triggers} 金币与 ${triggers} 点生命上限。`);
+        }
+      }
       const resonanceCount = getActiveRelicCount('bloodpool_halfline_resonance');
       if (resonanceCount > 0) {
         const bleedStacks = 3 * resonanceCount;
@@ -10621,9 +12098,63 @@ const resolveCombat = async (
     }
 
     if (successfulDodger === 'player') {
+      presentDodgeFeedback('player', resolvedPlayerCard);
       applyLightningAttachOnDodge('player', 'enemy');
       applyCardEffectsByTrigger('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
+      applySystemPollutionDodgeEffect('player', resolvedPlayerCard);
+      applyNewSystemDodgeSuccessEffects('player', resolvedPlayerCard);
       triggerShadowAssaultDamage('player', resolvedPlayerCard, pClashPoint, 'on_dodge_success');
+      const kunaiCount = getActiveRelicCount('system_shadow_relic_03');
+      if (kunaiCount > 0) {
+        const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, 2 * kunaiCount, false, '投刃', {
+          sourceSide: 'player', isDirectDamage: true,
+        });
+        if (actualDamage > 0) pushFloatingNumber('enemy', actualDamage, 'physical', '-');
+      }
+      const catTailCount = getActiveRelicCount('system_shadow_relic_05');
+      if (catTailCount > 0) {
+        const state = getRelicRuntimeState('system_shadow_relic_05');
+        const uses = Math.max(0, Math.floor(Number(state.uses ?? 0)));
+        if (uses < 9) {
+          state.uses = uses + 1;
+          healForSide('player', catTailCount, { sourceSide: 'player', reason: '猫尾' });
+        }
+      }
+      const geckoCount = getActiveRelicCount('system_corruption_relic_08');
+      if (geckoCount > 0) {
+        const geckoState = getRelicRuntimeState('system_corruption_relic_08');
+        const geckoUses = Math.max(0, Math.floor(Number(geckoState.uses ?? 0)));
+        if (geckoUses < 9) {
+          geckoState.uses = geckoUses + 1;
+          const restored = restoreManaForSide('player', geckoCount);
+          if (restored > 0) logRelicMessage(`[壁虎] 闪避成功，回复 ${restored} 点魔力（本场 ${geckoUses + 1}/9）。`);
+        }
+      }
+      const catClawCount = getActiveRelicCount('system_shadow_relic_06');
+      const catClawState = getRelicRuntimeState('system_shadow_relic_06');
+      const catClawLastTurn = Math.floor(Number(catClawState.lastTriggerTurn ?? -99));
+      if (catClawCount > 0 && combatState.value.turn - catClawLastTurn >= 4) {
+        catClawState.lastTriggerTurn = combatState.value.turn;
+        const { actualDamage } = applyDamageToSideWithRelics('enemy', enemyStats.value, Math.max(0, Math.floor(pClashPoint * catClawCount)), false, '猫爪', {
+          sourceSide: 'player', isDirectDamage: true,
+        });
+        if (actualDamage > 0) pushFloatingNumber('enemy', actualDamage, 'physical', '-');
+      }
+      const shadowBladeCount = getActiveRelicCount('system_shadow_relic_11');
+      if (shadowBladeCount > 0) applyStatusEffectWithRelics('player', ET.DAMAGE_BOOST, shadowBladeCount, { source: 'relic:system_shadow_relic_11' });
+      const centipedeCount = getActiveRelicCount('system_corruption_relic_04');
+      if (centipedeCount > 0) {
+        const centipedeBonus = enemyStats.value.hp >= enemyStats.value.maxHp ? centipedeCount * 2 : centipedeCount;
+        applyStatusEffectWithRelics('enemy', ET.POISON, centipedeBonus, { source: 'relic:system_corruption_relic_04' });
+      }
+      const shadowCopyCount = getActiveRelicCount('system_shadow_relic_10');
+      if (shadowCopyCount > 0) {
+        if (resolvedEnemyCard.type === CardType.DODGE) {
+          applyStatusEffectWithRelics('enemy', ET.VULNERABLE, shadowCopyCount, { source: 'relic:system_shadow_relic_10' });
+        } else if (resolvedEnemyCard.type === CardType.FUNCTION) {
+          healForSide('player', shadowCopyCount, { sourceSide: 'player', reason: '它的影子' });
+        }
+      }
       if (resolvedPlayerCard.id === 'modao_zero_domain_dodge') {
         grantNextTurnMagicCostFree('player', resolvedPlayerCard);
       }
@@ -10634,8 +12165,11 @@ const resolveCombat = async (
         insertHolyWaterIntoOpponentDeck('player', 2, resolvedPlayerCard.name);
       }
     } else if (successfulDodger === 'enemy') {
+      presentDodgeFeedback('enemy', resolvedEnemyCard);
       applyLightningAttachOnDodge('enemy', 'player');
       applyCardEffectsByTrigger('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
+      applySystemPollutionDodgeEffect('enemy', resolvedEnemyCard);
+      applyNewSystemDodgeSuccessEffects('enemy', resolvedEnemyCard);
       triggerShadowAssaultDamage('enemy', resolvedEnemyCard, eClashPoint, 'on_dodge_success');
       if (resolvedEnemyCard.id === 'enemy_othello_cold_star') {
         const meteor = getCardByName('陨');
@@ -10761,15 +12295,26 @@ const resolveCombat = async (
       const playerManaCost = card.id === 'enemy_selina_space_fold'
         ? getSelinaSpaceFoldManaSpend(attacker)
         : runtimeCard.manaCost;
-      const canSpend = spendManaWithShock('player', playerManaCost, `使用【${card.name}】`);
+      const canSpend = spendPlayerManaWithBottle(playerManaCost, `使用【${card.name}】`, { allowHp: true });
       if (!canSpend) {
-        log(`<span class="text-red-400">${label}【${card.name}】发动失败：法力已不足。</span>`);
+        log(`<span class="text-red-400">${label}【${card.name}】发动失败：魔力已不足。</span>`);
         return;
       }
     } else if (source === 'player' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id && executeOptions.skipManaCost) {
       if (!executeOptions.manaCostAlreadyPaid) {
-        logRelicMessage(`[星之核] 【${card.name}】额外结算不再消耗法力。`);
+        logRelicMessage(`[星之核] 【${card.name}】额外结算不再消耗魔力。`);
       }
+    }
+    if (card.id === PORTED_CARD.SPELL_RECITAL) {
+      const recalled = lastPlayedMagicCard.value[source];
+      if (recalled) {
+        log(`<span class="text-blue-300">${label}【${card.name}】复诵上一张魔法牌【${recalled.name}】。</span>`);
+        card = { ...recalled };
+      } else {
+        log(`<span class="text-gray-400">${label}【${card.name}】本场尚未打出过魔法牌，按自身效果结算。</span>`);
+      }
+    } else if (card.type === CardType.MAGIC && card.id !== PASS_CARD.id) {
+      lastPlayedMagicCard.value[source] = card;
     }
     triggerStigmataOnCardPlay(source, card);
     if (endCombatPending.value) return;
@@ -10831,7 +12376,7 @@ const resolveCombat = async (
         const drainResult = changeManaWithShock(
           defenderSide,
           -manaDrain,
-          `法力汲取（${label}【${card.name}】）`,
+          `魔力汲取（${label}【${card.name}】）`,
         );
         const drainedMana = Math.max(0, -drainResult.actualDelta);
         const overflowHpDamage = Math.max(0, manaDrain - drainedMana);
@@ -10842,7 +12387,7 @@ const resolveCombat = async (
             defenderSide,
             defender,
             overflowHpDamage,
-            `卡牌【${card.name}】法力汲取溢出`,
+            `卡牌【${card.name}】魔力汲取溢出`,
             { sourceSide: source, isDirectDamage: true },
           );
           pushFloatingNumber(defenderSide, actualOverflowHpDamage, 'true', '-');
@@ -10851,7 +12396,7 @@ const resolveCombat = async (
         const gainResult = changeManaWithShock(
           source,
           manaDrain,
-          `法力汲取（${label}【${card.name}】）`,
+          `魔力汲取（${label}【${card.name}】）`,
           { showPositiveFloating: true },
         );
         const gainedMana = Math.max(0, gainResult.actualDelta);
@@ -10860,7 +12405,7 @@ const resolveCombat = async (
         const overflowDamageText = actualOverflowHpDamage > 0
           ? `，额外造成 ${actualOverflowHpDamage} 点真实伤害`
           : '';
-        log(`<span class="text-blue-300">${label}【${card.name}】法力汲取：吸收 ${drainedMana} 点法力并回复自身 ${gainedMana} 点法力${overflowDamageText}</span>`);
+        log(`<span class="text-blue-300">${label}【${card.name}】魔力汲取：吸收 ${drainedMana} 点魔力并回复自身 ${gainedMana} 点魔力${overflowDamageText}</span>`);
 
         if (actualOverflowHpDamage > 0) {
           const reviveResult = triggerSwarmReviveIfNeeded(defender);
@@ -10921,6 +12466,7 @@ const resolveCombat = async (
     };
 
     const finalizeCardExecution = () => {
+      if (card.id !== PASS_CARD.id) presentCardUseFeedback(source, card);
       if (source === 'enemy') {
         aiFlags.patrolBatLastEnemyCardId = card.id;
         aiFlags.abyssJellyfishLastEnemyCardId = card.id;
@@ -10950,6 +12496,9 @@ const resolveCombat = async (
       if (card.id === 'enemy_moore_progressive_weaving') {
         const nextBonus = increaseBattleCardPointBonus(source, card.id, 1, 99);
         log(`<span class="text-fuchsia-300">${label}【${card.name}】本场战斗点数加成提升至 +${nextBonus}</span>`);
+      }
+      if (card.id === 'system_destruction_引爆2') {
+        battleCardPointBonus.value[source][card.id] = 0;
       }
       if (card.id === 'enemy_prayer_candle_bliss_baptism') {
         const beforePrayer = Math.max(0, getEffectStacks(attacker, ET.PRAYER));
@@ -11006,6 +12555,9 @@ const resolveCombat = async (
       applyPurgeTraitAfterUse(source, card);
     };
     const finalizeAndTrack = () => {
+      if (card.id === 'system_destruction_引爆2') {
+        battleCardPointBonus.value[source][card.id] = 0;
+      }
       finalizeCardExecution();
       triggerPostActionRelicTracking();
     };
@@ -11116,7 +12668,9 @@ const resolveCombat = async (
       if (slumber && targetHand.length > 0) {
         const pickedIndex = Math.floor(Math.random() * targetHand.length);
         const beforeName = targetHand[pickedIndex]?.name ?? '未知卡牌';
-        targetHand.splice(pickedIndex, 1, cloneCardForBattle(slumber));
+        const slumberCard = cloneCardForBattle(slumber);
+        recordCardTransform(targetHand[pickedIndex], slumberCard);
+        targetHand.splice(pickedIndex, 1, slumberCard);
         log(`<span class="text-fuchsia-300">${label}【${card.name}】将未打出的【${beforeName}】拖入【陷入永恒的沉睡】</span>`);
       } else {
         log(`<span class="text-gray-400">${label}【${card.name}】未找到可转化的未打出手牌</span>`);
@@ -11319,7 +12873,7 @@ const resolveCombat = async (
       const x = Math.max(0, Math.floor(defender.mp));
       let actualManaGain = 0;
       if (x > 0) {
-        const manaResult = changeManaWithShock(source, x, `法力变化（${label}【${card.name}】）`, {
+        const manaResult = changeManaWithShock(source, x, `魔力变化（${label}【${card.name}】）`, {
           showPositiveFloating: true,
         });
         actualManaGain = Math.max(0, manaResult.actualDelta);
@@ -11362,7 +12916,9 @@ const resolveCombat = async (
       if (waste && targetHand.length > 0) {
         const pickedIndex = Math.floor(Math.random() * targetHand.length);
         const beforeName = targetHand[pickedIndex]?.name ?? '未知卡牌';
-        targetHand.splice(pickedIndex, 1, cloneCardForBattle(waste));
+        const wasteCard = cloneCardForBattle(waste);
+        recordCardTransform(targetHand[pickedIndex], wasteCard);
+        targetHand.splice(pickedIndex, 1, wasteCard);
         log(`<span class="text-lime-300">${label}【${card.name}】将未打出的【${beforeName}】腐化为【炼金废料】</span>`);
       } else {
         log(`<span class="text-gray-400">${label}【${card.name}】未找到可腐化的未打出手牌</span>`);
@@ -11837,7 +13393,7 @@ const resolveCombat = async (
         if (cycles > 0) {
           const coldApplied = cycles * 2;
           applyStatusEffectWithRelics(defenderSide, ET.COLD, coldApplied, { source: card.id });
-          const manaResult = changeManaWithShock(source, cycles, `法力变化（${label}【${card.name}】）`, {
+          const manaResult = changeManaWithShock(source, cycles, `魔力变化（${label}【${card.name}】）`, {
             showPositiveFloating: true,
           });
           const restored = Math.max(0, manaResult.actualDelta);
@@ -11919,7 +13475,7 @@ const resolveCombat = async (
         const currentMp = Math.max(0, Math.floor(attacker.mp));
         const gain = Math.min(20, currentMp);
         if (gain > 0) {
-          const manaResult = changeManaWithShock(source, gain, `法力变化（${label}【${card.name}】）`, {
+          const manaResult = changeManaWithShock(source, gain, `魔力变化（${label}【${card.name}】）`, {
             showPositiveFloating: true,
           });
           const restored = Math.max(0, manaResult.actualDelta);
@@ -11934,7 +13490,7 @@ const resolveCombat = async (
         syncCurrentPointForUi();
         const consumedMp = Math.min(5, Math.max(0, Math.floor(attacker.mp)));
         if (consumedMp > 0) {
-          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+          changeManaWithShock(source, -consumedMp, `魔力变化（${label}【${card.name}】）`);
         }
         const armorGain = consumedMp * 2;
         if (armorGain > 0) {
@@ -11975,7 +13531,7 @@ const resolveCombat = async (
           finalizeAndTrack();
           return;
         }
-        const spent = spendManaWithShock(source, wagerCost, `法力变化（${label}【${card.name}】）`);
+        const spent = spendManaWithShock(source, wagerCost, `魔力变化（${label}【${card.name}】）`);
         if (!spent) {
           log(`<span class="text-gray-400">${label}【${card.name}】魔力不足，未能转化为增伤</span>`);
           finalizeAndTrack();
@@ -12135,6 +13691,57 @@ const resolveCombat = async (
         return;
       }
 
+      // 四体系中需要读取金币、手牌或上一回合结果的功能牌在这里补充运行时效果。
+      if (card.id.startsWith('system_')) {
+        if (card.id === 'system_wealth_黄金木板') {
+          const gained = Math.max(0, Math.floor(finalPoint));
+          if (source === 'player') {
+            if (gained > 0) gainTempGold(gained);
+            const armorGain = Math.floor(getSpendableGold() / 3);
+            const added = armorGain > 0 ? gainArmorAsCardEffect('player', armorGain, card.id, `卡牌【${card.name}】`) : 0;
+            log(`<span class="text-yellow-300">${label}【${card.name}】获得 ${gained} 临时金币，按金币获得 ${added} 点护甲。</span>`);
+          }
+        } else if (card.id === 'system_wealth_金币巧克力') {
+          if (source === 'player') {
+            gainTempGold(1);
+            log(`<span class="text-yellow-300">${label}【${card.name}】获得1临时金币。</span>`);
+          }
+        } else if (card.id === 'system_wealth_榴莲') {
+          systemCardTurnFlags.value[source][card.id] = true;
+          thornShellReflectPoint.value[source] = Math.max(0, Math.floor(finalPoint));
+        } else if (card.id === 'system_wealth_心之容器') {
+          increaseBattleCardPointBonus(source, card.id, 2, 999);
+        } else if (card.id === 'system_corruption_酒里藏毒') {
+          const { healed } = healForSide(defenderSide, Math.max(0, Math.floor(finalPoint * 2)), {
+            sourceSide: source,
+            reason: `卡牌【${card.name}】治疗`,
+          });
+          const poisonStacks = Math.floor(healed / 2);
+          if (poisonStacks > 0) {
+            applyStatusEffectWithRelics(defenderSide, ET.POISON, poisonStacks, { source: card.id, sourceSide: source });
+          }
+          log(`<span class="text-emerald-300">${label}【${card.name}】使${defenderLabel}回复 ${healed} 点生命，并施加 ${poisonStacks} 层中毒。</span>`);
+        } else if (card.id === 'system_corruption_腐化（暗影）') {
+          poisonVulnerableTurn.value[defenderSide] = combatState.value.turn;
+          log(`<span class="text-emerald-300">${label}【${card.name}】本回合${defenderLabel}的中毒结算受敏感影响。</span>`);
+        } else if (card.id === 'system_destruction_偏折' && finalPoint >= attacker.maxDice) {
+          applyStatusEffectWithRelics(source, ET.BARRIER, 1, { source: card.id, durationTurns: 1, temporary: true });
+        } else if (card.id === 'system_destruction_压缩饼干') {
+          systemCardTurnFlags.value[source][card.id] = true;
+        } else if (card.id === 'system_destruction_自我安慰') {
+          if (systemLastTurnClashLoss.value[source]) {
+            healForSide(source, 6, { sourceSide: source, reason: `卡牌【${card.name}】` });
+            applyStatusEffectWithRelics(source, ET.BARRIER, 1, { source: card.id, durationTurns: 1, temporary: true });
+          } else {
+            const armorGain = Math.max(0, Math.floor(finalPoint));
+            if (armorGain > 0) {
+              const added = gainArmorAsCardEffect(source, armorGain, card.id, `卡牌【${card.name}】`);
+              log(`<span class="text-cyan-300">${label}【${card.name}】获得 ${added} 点护甲。</span>`);
+            }
+          }
+        }
+      }
+
       // Process card effects (heal, apply_buff, restore_mana, cleanse)
       syncCurrentPointForUi();
       const hasEffect = applyCardEffects();
@@ -12205,7 +13812,7 @@ const resolveCombat = async (
           const manaResult = changeManaWithShock(
             defenderSide,
             -currentMana,
-            `法力变化（${label}【${card.name}】）`,
+            `魔力变化（${label}【${card.name}】）`,
           );
           const removedMana = Math.max(0, -manaResult.actualDelta);
           const coldStacks = removedMana * 2;
@@ -12278,7 +13885,7 @@ const resolveCombat = async (
         syncCurrentPointForUi();
         const consumedMp = Math.max(0, Math.floor(attacker.mp));
         if (consumedMp > 0) {
-          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+          changeManaWithShock(source, -consumedMp, `魔力变化（${label}【${card.name}】）`);
         }
         const { healed } = healForSide(defenderSide, consumedMp, {
           sourceSide: source,
@@ -12289,7 +13896,7 @@ const resolveCombat = async (
             source: card.id,
           });
         }
-        log(`<span class="text-violet-300">${label}【${card.name}】消耗了 ${consumedMp} 点魔力，回复对手 ${healed} 点生命并施加 ${consumedMp} 层法力枯竭</span>`);
+        log(`<span class="text-violet-300">${label}【${card.name}】消耗了 ${consumedMp} 点魔力，回复对手 ${healed} 点生命并施加 ${consumedMp} 层魔力枯竭</span>`);
         finalizeAndTrack();
         return;
       }
@@ -12382,7 +13989,7 @@ const resolveCombat = async (
         const consumedMp = Math.floor(availableMp / 4) * 4;
         const bonusHits = Math.floor(consumedMp / 4);
         if (consumedMp > 0) {
-          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+          changeManaWithShock(source, -consumedMp, `魔力变化（${label}【${card.name}】）`);
         }
         extraHitCount += bonusHits;
         log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
@@ -12392,7 +13999,7 @@ const resolveCombat = async (
         const consumedMp = Math.floor(availableMp / 2) * 2;
         const bonusHits = Math.floor(consumedMp / 2);
         if (consumedMp > 0) {
-          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+          changeManaWithShock(source, -consumedMp, `魔力变化（${label}【${card.name}】）`);
         }
         extraHitCount += bonusHits;
         log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
@@ -12402,13 +14009,13 @@ const resolveCombat = async (
         const consumedMp = Math.floor(availableMp / 2) * 2;
         const bonusHits = Math.floor(consumedMp / 2);
         if (consumedMp > 0) {
-          changeManaWithShock(source, -consumedMp, `法力变化（${label}【${card.name}】）`);
+          changeManaWithShock(source, -consumedMp, `魔力变化（${label}【${card.name}】）`);
         }
         extraHitCount += bonusHits;
         log(`<span class="text-blue-300">${label}【${card.name}】额外消耗 ${consumedMp} 点魔力，追加 ${bonusHits} 次攻击</span>`);
       }
       if (card.id === 'modao_arcane_lance' && attacker.mp >= 8) {
-        const canConsume = spendManaWithShock(source, 4, `法力变化（${label}【${card.name}】额外结算）`);
+        const canConsume = spendManaWithShock(source, 4, `魔力变化（${label}【${card.name}】额外结算）`);
         if (canConsume) {
           extraHitCount += 1;
           arcaneLanceBonusHit = true;
@@ -12416,11 +14023,25 @@ const resolveCombat = async (
         }
       }
       if (card.id === 'enemy_selina_dimension_strip' && attacker.mp >= 4) {
-        const canConsume = spendManaWithShock(source, 4, `法力变化（${label}【${card.name}】额外结算）`);
+        const canConsume = spendManaWithShock(source, 4, `魔力变化（${label}【${card.name}】额外结算）`);
         if (canConsume) {
           extraHitCount += 1;
           log(`<span class="text-blue-300">${label}【${card.name}】额外消耗4点魔力，再结算一次</span>`);
         }
+      }
+      if (card.id === 'system_shadow_暗器连发' && source === 'player') {
+        const battleDeck = [
+          ...combatState.value.playerDeck,
+          ...combatState.value.playerHand,
+          ...combatState.value.discardPile,
+        ];
+        const dodgeCount = battleDeck.filter(entry => entry.type === CardType.DODGE).length;
+        extraHitCount += Math.min(4, dodgeCount);
+      }
+      if (card.id === PORTED_CARD.TRACKING_MISSILE) {
+        const rolledHits = 3 + Math.floor(Math.random() * 4);
+        extraHitCount += Math.max(0, rolledHits - baseHitCount);
+        log(`<span class="text-blue-300">${label}【${card.name}】本次追踪 ${rolledHits} 次。</span>`);
       }
       const totalHitCount = baseHitCount + extraHitCount;
       const painFeedbackTakenHits = card.id === 'bloodpool_pain_feedback'
@@ -12469,6 +14090,18 @@ const resolveCombat = async (
         }
       }
 
+      if (card.id === 'system_wealth_地震') {
+        const armorStacks = getEffectStacks(defender, ET.ARMOR);
+        const removed = Math.min(armorStacks, Math.max(0, Math.floor(finalPoint)));
+        if (removed > 0) {
+          reduceEffectStacks(defender, ET.ARMOR, removed);
+          log(`<span class="text-yellow-300">${label}【${card.name}】移除了对方 ${removed} 点护甲。</span>`);
+        }
+      }
+      if (card.id === 'system_wealth_黄金镐' && source === 'player') {
+        changeSystemGold(5);
+      }
+
       let modaoMagicSwordTotalDamage = 0;
       let totalActualDamageDealt = 0;
       let goldenVortexBleedApplied = 0;
@@ -12479,7 +14112,9 @@ const resolveCombat = async (
           ? Math.abs(Math.max(0, Math.floor(attacker.mp)) - Math.max(0, Math.floor(previousTurnManaSnapshot.value[source] ?? 0)))
           : 0;
         const customDamage =
-          card.id === 'burn_scorch_wind'
+          card.id === SIN_CARD_ID.GLUTTONY
+            ? Math.floor(finalPoint * getSinGluttonyMultiplier())
+            : card.id === 'burn_scorch_wind'
             ? Math.floor(finalPoint * 0.5) + burnStacksOnDefender
             : card.id === 'burn_detonation'
               ? Math.floor(burnStacksOnDefender)
@@ -12507,6 +14142,12 @@ const resolveCombat = async (
                 ? Math.floor(finalPoint) + 2
               : card.id === 'enemy_mask_attendant_forced_invitation' && targetHasBindBeforeOnUse
                 ? Math.floor(finalPoint) * 2
+              : card.id === 'system_shadow_背刺' && defender.hp >= defender.maxHp
+                ? Math.floor(finalPoint * 2)
+              : card.id === 'system_shadow_影之眼'
+                ? 1 + getEffectStacks(attacker, ET.DAMAGE_BOOST) * 2
+              : card.id === 'system_wealth_水晶之镰'
+                ? Math.floor(finalPoint + getEffectStacks(attacker, ET.ARMOR))
               : null;
 
         if (customDamage !== null) {
@@ -12521,6 +14162,7 @@ const resolveCombat = async (
           || card.id === 'enemy_dream_demon_twin_misa_nightmare_domination'
           || card.id === 'enemy_grace_tentacle_lotus_suck'
           || card.id === 'enemy_holy_water_sprite_farewell_light'
+          || card.id === 'system_destruction_腐蚀钢钉'
           || (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24);
         const attackerEffectsForDamage = card.id === 'modao_big_destruction'
           ? attacker.effects.filter(effect => effect.type !== ET.DAMAGE_BOOST)
@@ -12537,6 +14179,27 @@ const resolveCombat = async (
         let damage = damageResult.damage;
         const isTrueDamage = damageResult.isTrueDamage;
         const dmgLogs = damageResult.logs;
+        if (card.id === 'system_shadow_影之眼' && !isTrueDamage) {
+          damage += getEffectStacks(defender, ET.VULNERABLE) * 2;
+        }
+        if (
+          source === 'player'
+          && !isTrueDamage
+          && spiderVulnerableBoostTurn.value === combatState.value.turn
+          && getActiveRelicCount('system_corruption_relic_06') > 0
+        ) {
+          const spiderBonus = getEffectStacks(defender, ET.VULNERABLE);
+          if (spiderBonus > 0) {
+            damage += spiderBonus;
+            logRelicMessage(`[蜘蛛] 敌方使用了闪避牌，本次敏感加伤翻倍（+${spiderBonus}）。`);
+          }
+        }
+        if (systemCardTurnFlags.value[defenderSide].system_destruction_repel) {
+          damage = Math.floor(damage * 0.5);
+        }
+        if (systemCardTurnFlags.value[defenderSide]['system_destruction_压缩饼干']) {
+          damage = Math.max(0, damage - 1);
+        }
         const rainbowGrassCount = getActiveRelicCount('alchemy_rainbow_grass');
         if (rainbowGrassCount > 0 && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC)) {
           if (source === 'player') {
@@ -12559,6 +14222,7 @@ const resolveCombat = async (
           : damage;
         const armorBeforeHit = getEffectStacks(defender, ET.ARMOR);
         const barrierBeforeHit = getEffectStacks(defender, ET.BARRIER);
+        await playCardHitLeadIn(defender, cardForCalculation);
         const { actualDamage, logs: applyLogs, damageBeforeLimit } = applyDamageToSideWithRelics(
           defenderSide,
           defender,
@@ -12567,6 +14231,7 @@ const resolveCombat = async (
           `卡牌【${card.name}】`,
           { sourceSide: source, isDirectDamage: true, card: cardForCalculation },
         );
+        cardHitLeadIn = null;
         const hitPrefix = totalHitCount > 1 ? `第${hit + 1}段` : '';
         const damageLogColorClass = isTrueDamage ? 'text-zinc-500' : 'text-red-400';
         log(`${label}【${card.name}】${hitPrefix}点数${finalPoint}，造成 <span class="${damageLogColorClass} font-bold">${actualDamage}</span> 点伤害`);
@@ -12607,6 +14272,23 @@ const resolveCombat = async (
         }
 
         if (actualDamage > 0) {
+          if (systemCardTurnFlags.value[defenderSide]['system_wealth_榴莲']) {
+            const reflected = Math.max(0, Math.floor(thornShellReflectPoint.value[defenderSide]));
+            if (reflected > 0) {
+              const reflectedResult = applyDamageToSideWithRelics(
+                source,
+                attacker,
+                reflected,
+                false,
+                `卡牌【${card.name}】反击`,
+                { sourceSide: defenderSide, isDirectDamage: true },
+              );
+              if (reflectedResult.actualDamage > 0) {
+                pushFloatingNumber(source, reflectedResult.actualDamage, 'physical', '-');
+              }
+              log(`<span class="text-yellow-300">${defenderLabel}【荆棘甲壳】反击，造成 ${reflectedResult.actualDamage} 点物理伤害。</span>`);
+            }
+          }
           const thornStacks = getEffectStacks(defender, ET.THORNS);
           if (thornStacks > 0) {
             let reflectedDamage = Math.max(0, thornStacks);
@@ -12830,7 +14512,7 @@ const resolveCombat = async (
         }
       }
       if (card.id === 'modao_magic_sword' && modaoMagicSwordTotalDamage > 0) {
-        const manaResult = changeManaWithShock(source, modaoMagicSwordTotalDamage, `法力变化（${label}【${card.name}】）`, {
+        const manaResult = changeManaWithShock(source, modaoMagicSwordTotalDamage, `魔力变化（${label}【${card.name}】）`, {
           showPositiveFloating: true,
         });
         const restored = Math.max(0, manaResult.actualDelta);
@@ -12918,6 +14600,42 @@ const resolveCombat = async (
           log(`<span class="text-gray-400">${label}【${card.name}】未造成伤害，未获得临时生命上限</span>`);
         }
       }
+      if (card.id === 'system_corruption_蚀骨之刺') {
+        const vulnerableStacks = Math.max(0, Math.floor(getEffectStacks(defender, ET.VULNERABLE)));
+        if (vulnerableStacks > 0 && applyStatusEffectWithRelics(defenderSide, ET.POISON_AMOUNT, vulnerableStacks, { source: card.id, sourceSide: source })) {
+          log(`<span class="text-emerald-300">${label}【${card.name}】按${defenderLabel}敏感层数施加 ${vulnerableStacks} 层中毒量。</span>`);
+        }
+      }
+      if (card.id === 'system_corruption_毒绽') {
+        const reduction = Math.floor(Math.max(0, getEffectStacks(defender, ET.POISON_AMOUNT)) / 2);
+        const maxHpBefore = defender.maxHp;
+        if (reduction > 0 && applyStatusEffectWithRelics(defenderSide, ET.MAX_HP_REDUCTION, reduction, { source: card.id, sourceSide: source })) {
+          log(`<span class="text-emerald-300">${label}【${card.name}】使${defenderLabel}生命上限 -${Math.max(0, maxHpBefore - defender.maxHp)}。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】${defenderLabel}中毒量不足，未削减生命上限。</span>`);
+        }
+      }
+      if (card.id === 'system_corruption_毒素催化') {
+        const bonus = Math.floor(Math.max(0, getEffectStacks(defender, ET.POISON_AMOUNT)) / 2);
+        if (bonus > 0 && applyStatusEffectWithRelics(defenderSide, ET.POISON_AMOUNT, bonus, { source: card.id, sourceSide: source })) {
+          log(`<span class="text-emerald-300">${label}【${card.name}】催化：额外施加 ${bonus} 层中毒量。</span>`);
+        }
+      }
+      if (card.id === 'system_shadow_处决' && defender.hp > 0) {
+        const executeDamage = Math.floor(getLostHp(defender) * 0.2);
+        if (executeDamage > 0) {
+          const { actualDamage } = applyDamageToSideWithRelics(
+            defenderSide,
+            defender,
+            executeDamage,
+            true,
+            `卡牌【${card.name}】处决`,
+            { sourceSide: source, isDirectDamage: true },
+          );
+          if (actualDamage > 0) pushFloatingNumber(defenderSide, actualDamage, 'true', '-', { targetEntity: defender });
+          log(`<span class="text-indigo-300">${label}【${card.name}】处决：额外造成 ${actualDamage} 点真实伤害。</span>`);
+        }
+      }
 
       const inkCreationStacks = Math.max(0, getEffectStacks(attacker, ET.INK_CREATION));
       if (inkCreationStacks > 0 && totalActualDamageDealt > 0) {
@@ -12944,7 +14662,7 @@ const resolveCombat = async (
       if (card.id === 'enemy_hilvy_mime_pull' && targetHasSilenceBeforeOnUse) {
         const manaGain = Math.max(0, Math.floor(finalPoint));
         if (manaGain > 0) {
-          const manaResult = changeManaWithShock(source, manaGain, `法力变化（${label}【${card.name}】）`, {
+          const manaResult = changeManaWithShock(source, manaGain, `魔力变化（${label}【${card.name}】）`, {
             showPositiveFloating: true,
           });
           const actualGain = Math.max(0, manaResult.actualDelta);
@@ -13057,6 +14775,21 @@ const resolveCombat = async (
         } else {
           log(`<span class="text-gray-400">${label}【${card.name}】对手当前无燃烧，未触发翻倍</span>`);
         }
+      }
+      if (card.id === PORTED_CARD.FROST_FIRE_FLOWER) {
+        const burnStacks = Math.max(0, getEffectStacks(defender, ET.BURN));
+        const coldStacks = Math.max(0, getEffectStacks(defender, ET.COLD));
+        if (burnStacks < coldStacks) {
+          applyStatusEffectWithRelics(defenderSide, ET.BURN, coldStacks - burnStacks, { source: card.id });
+        } else if (coldStacks < burnStacks) {
+          applyStatusEffectWithRelics(defenderSide, ET.COLD, burnStacks - coldStacks, { source: card.id });
+        }
+        const extraStacks = Math.max(0, Math.floor(finalPoint * 0.5));
+        const extraType = Math.random() < 0.5 ? ET.BURN : ET.COLD;
+        if (extraStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, extraType, extraStacks, { source: card.id });
+        }
+        log(`<span class="text-orange-300">${label}【${card.name}】使对手燃烧与寒冷持平（${burnStacks}/${coldStacks} → ${Math.max(burnStacks, coldStacks)}），并额外施加 ${extraStacks} 层${extraType === ET.BURN ? '燃烧' : '寒冷'}</span>`);
       }
       if (card.id === 'bloodpool_blood_debt_strike' || card.id === 'enemy_veronica_bloodthirsty_heavy_strike') {
         const bleedStacks = 3;
@@ -13301,12 +15034,14 @@ const resolveCombat = async (
     const playerSuppress = (pSuccess && (
       resolvedPlayerCard.id === 'basic_point_suppress'
       || resolvedPlayerCard.id === 'basic_weak_magic'
+      || resolvedPlayerCard.id === 'system_shadow_雾中人'
     ))
       ? Math.max(0, getCardPreviewPoint('player', resolvedPlayerCard, resolvedPlayerDice))
       : 0;
     const enemySuppress = (eSuccess && (
       resolvedEnemyCard.id === 'basic_point_suppress'
       || resolvedEnemyCard.id === 'basic_weak_magic'
+      || resolvedEnemyCard.id === 'system_shadow_雾中人'
     ))
       ? Math.max(0, getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice))
       : 0;
@@ -13447,7 +15182,7 @@ const resolveCombat = async (
       && enemyStats.value.hp > 0
     ) {
       alchemyBlackComboTriggeredThisTurn.value = true;
-      logRelicMessage(`[黑色] 本回合第一张连击牌【${action.card.name}】额外结算一次。`);
+      logRelicMessage(`[黑丝] 本回合第一张连击牌【${action.card.name}】额外结算一次。`);
       await wait(320);
       if (endCombatPending.value) return;
       await executeCardWithEnemySelfLock({ skipManaCost: action.type === CardType.MAGIC });
@@ -13473,7 +15208,7 @@ const resolveCombat = async (
         if (cycleNeedleCount > 0 && manaCostBeforeUse > 0 && Math.random() < 0.5) {
           const restored = restoreManaForSide('player', manaCostBeforeUse);
           if (restored > 0) {
-            logRelicMessage(`[循环针] 返还 ${restored} 点法力。`);
+            logRelicMessage(`[循环针] 返还 ${restored} 点魔力。`);
           }
         }
       }
@@ -13603,6 +15338,11 @@ const resolveCombat = async (
   if (endCombatPending.value) return;
   if (isEnemyComboPrelude) return;
 
+  if (resolvedPlayerCard.id !== PASS_CARD.id && resolvedPlayerCard.sin) {
+    applySinCardAfterPlay(resolvedPlayerCard, resolvedPlayerDice);
+    if (endCombatPending.value || playerStats.value.hp <= 0) return;
+  }
+
   // 连击：本次打出后，若带 draw 则补抽 1 张；并允许继续从剩余手牌出牌
   if (resolvedPlayerCard.traits.combo) {
     if (resolvedPlayerCard.traits.draw || getActiveRelicCount('alchemy_white_silk') > 0) {
@@ -13675,7 +15415,7 @@ const resolveCombat = async (
     const drained = Math.max(0, -drainedResult.actualDelta);
     const restored = restoreManaForSide('player', drained);
     if (drained > 0 || restored > 0) {
-      logRelicMessage(`[汲取符文] 汲取 ${drained} 点法力，回复 ${restored} 点法力。`);
+      logRelicMessage(`[汲取符文] 汲取 ${drained} 点魔力，回复 ${restored} 点魔力。`);
     }
   }
   const lightningOrbCount = getActiveRelicCount('modao_lightning_orb');
@@ -13700,14 +15440,49 @@ const resolveCombat = async (
   }
   getRelicRuntimeState('burn_will_o_wisp_chain')['nextTurnPointBoost'] =
     getDamageHitTakenThisTurn('enemy') >= 2;
-  const playerSkipArmorDecay = armorDecaySkippedThisTurn.value.player;
+  if (sinGluttonyDrainPercent.value > 0 && playerStats.value.hp > 0) {
+    const drain = Math.floor((Math.max(0, playerStats.value.hp) * sinGluttonyDrainPercent.value) / 100);
+    if (drain > 0) {
+      const lost = applyDirectHpLossWithRelics('player', playerStats.value, drain, '原罪·暴食');
+      if (lost > 0) pushFloatingNumber('player', lost, 'true', '-');
+      log(`<span class="text-rose-400">【原罪·暴食】饥饿反噬，回合结束受到 ${lost} 点真实伤害。</span>`);
+    }
+  }
+  const gluttonyBookCount = getActiveRelicCount(PORTED_RELIC_ID.GLUTTONY_BOOK);
+  if (gluttonyBookCount > 0 && playerStats.value.hp > 0) {
+    const drain = Math.floor(Math.max(0, playerStats.value.hp) * 0.2 * gluttonyBookCount);
+    if (drain > 0) {
+      const lost = applyDirectHpLossWithRelics('player', playerStats.value, drain, '暴食之书');
+      if (lost > 0) pushFloatingNumber('player', lost, 'true', '-');
+      logRelicMessage(`[暴食之书] 回合结束，受到 ${lost} 点真实伤害。`);
+    }
+  }
+  const whiteCrystalState = getRelicRuntimeState('system_wealth_relic_02');
+  const playerSkipArmorDecay = armorDecaySkippedThisTurn.value.player || whiteCrystalState.skipArmorDecay === true;
+  whiteCrystalState.skipArmorDecay = false;
   const enemySkipArmorDecay = armorDecaySkippedThisTurn.value.enemy;
   const enemyPoisonStacksBeforeEnd = Math.max(0, getEffectStacks(enemyStats.value, ET.POISON));
+  const playerPoisonStacksBeforeEnd = Math.max(0, getEffectStacks(playerStats.value, ET.POISON));
   processLustIllusionTurnEndForSide('player');
   processLustIllusionTurnEndForSide('enemy');
   bridgeHolyWaterJellyfishPortraitHiddenForRefresh();
-  const pEndLogs = processOnTurnEnd(playerStats.value);
-  const eEndLogs = processOnTurnEnd(enemyStats.value);
+  const currentTurn = combatState.value.turn;
+  const enemyPoisonSkipped = poisonSkipTurn.value.enemy === currentTurn;
+  const pEndLogs = processOnTurnEnd(playerStats.value, {
+    poisonAffectedByVulnerable: poisonVulnerableTurn.value.player === currentTurn,
+    skipPoison: poisonSkipTurn.value.player === currentTurn,
+  });
+  const scorpionActive = getActiveRelicCount('system_corruption_relic_05') > 0 && currentTurn >= 4;
+  const eEndLogs = processOnTurnEnd(enemyStats.value, {
+    poisonAffectedByVulnerable: scorpionActive || poisonVulnerableTurn.value.enemy === currentTurn,
+    poisonMultiplier: spiderPoisonBoostTurn.value === currentTurn && getActiveRelicCount('system_corruption_relic_06') > 0 ? 1.5 : 1,
+    skipPoison: enemyPoisonSkipped,
+  });
+  // 回合结束触发中毒（中毒层数转化为中毒量）时播放中毒特效
+  if (playerPoisonStacksBeforeEnd > 0 && poisonSkipTurn.value.player !== currentTurn) presentEffect(playerStats.value, 'poison');
+  if (enemyPoisonStacksBeforeEnd > 0 && !enemyPoisonSkipped) presentEffect(enemyStats.value, 'poison');
+  // 中毒层数刚转化为中毒量：曼陀罗按新的中毒量调整虚弱
+  syncDaturaWeaken();
   processPhaseTransitionTurnEnd('player');
   processPhaseTransitionTurnEnd('enemy');
   if (playerSkipArmorDecay) {
@@ -13737,7 +15512,7 @@ const resolveCombat = async (
     }
   }
   const paintingCount = getActiveRelicCount('bloodpool_eerie_miniature_painting');
-  if (paintingCount > 0 && enemyPoisonStacksBeforeEnd > 0 && enemyStats.value.hp > 0) {
+  if (paintingCount > 0 && enemyPoisonStacksBeforeEnd > 0 && !enemyPoisonSkipped && enemyStats.value.hp > 0) {
     for (let i = 0; i < paintingCount; i += 1) {
       const damage = triggerBleedProc('enemy', `[诡异微型画作] 中毒触发联动（${i + 1}/${paintingCount}）`);
       if (damage <= 0 || enemyStats.value.hp <= 0) break;
@@ -13806,6 +15581,10 @@ const resolveCombat = async (
     removeDefeatedLeviathanSummons();
   }
   insertBehemothFoodIntoPlayerDiscard();
+  forEachPlayerRelic((entry, relic, state) => {
+    state.skippedTurn = resolvedPlayerCard.id === PASS_CARD.id;
+    state.clashFailed = systemPreviousClashLoss.value.player;
+  });
   triggerPlayerRelicLifecycleHooks('onTurnEnd');
   if (instantFreezeClearColdAtTurnEnd.value) {
     const enemyColdStacks = Math.max(0, getEffectStacks(enemyStats.value, ET.COLD));
@@ -13952,6 +15731,10 @@ const runEndCombatSequence = async (outcome: CombatOutcome) => {
     pendingCardNegativeEffects.value.push(negativeStatus);
     log(`<span class="text-fuchsia-300">我方战败于【${enemyDisplayName}】，获得负面状态：${negativeStatus}</span>`);
   }
+  if (outcome === 'win') {
+    const greedBookCount = getActiveRelicCount('system_wealth_relic_15');
+    if (greedBookCount > 0) pendingAlchemyGoldDelta.value += 5 * greedBookCount;
+  }
   emit(
     'endCombat',
     outcome,
@@ -13959,6 +15742,7 @@ const runEndCombatSequence = async (outcome: CombatOutcome) => {
     [...combatState.value.logs],
     [...pendingCardNegativeEffects.value],
     pendingAlchemyGoldDelta.value,
+    [...consumedRelicIdsThisBattle.value],
   );
 };
 
@@ -13996,6 +15780,14 @@ watch(
   },
 );
 
+watch(
+  () => playerStats.value.maxDice,
+  maxDice => {
+    if (maxDice >= 8) emit('playerMaxDiceThresholdReached');
+  },
+  { immediate: true },
+);
+
 // 任何生命值/中毒量变化后，立即执行中毒量致死判定。
 watch(
   [
@@ -14023,6 +15815,8 @@ watch(
   ([pHp, eHp]) => {
     if (endCombatPending.value) return;
 
+    if (pHp <= 0 && (tryTriggerCrossNecklaceRevive() || tryTriggerEventDollRevive())) return;
+
     let outcome: CombatOutcome | null = null;
     if (pHp <= 0) outcome = 'lose';
     else if (eHp <= 0) outcome = 'win';
@@ -14030,6 +15824,16 @@ watch(
 
     endCombatPending.value = true;
     void runEndCombatSequence(outcome);
+  },
+);
+
+// 记录我方复活触发的回合（生命锁：复活回合免伤）
+watch(
+  () => getEffectStacks(playerStats.value, ET.INDOMITABLE)
+    + getEffectStacks(playerStats.value, ET.BLOOD_COCOON)
+    + getEffectStacks(playerStats.value, ET.SWARM),
+  (next, prev) => {
+    if (next < prev) markPlayerReviveTurn();
   },
 );
 </script>
@@ -14539,21 +16343,36 @@ watch(
   }
 }
 
+/* 状态效果图标：金边宝石座 + 语义色内衬（buff 绿 / debuff 红 / mixed 紫 / special 金 / scene 青 / trait 铁） */
 .effect-icon-btn {
+  --effect-tint: 120, 110, 100;
+  --effect-ink: 232, 220, 196;
   position: relative;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 0.35rem;
-  border-width: 1px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   overflow: visible;
+  border: 1px solid rgba(201, 161, 96, 0.65);
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(var(--effect-tint), 0.75), rgba(var(--effect-tint), 0.25) 60%, rgba(10, 7, 5, 0.9)),
+    #140e0b;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 230, 190, 0.18), 0 1px 3px rgba(0, 0, 0, 0.6);
+  color: rgb(var(--effect-ink));
   transition:
     transform 0.14s ease,
     filter 0.14s ease,
     box-shadow 0.22s ease;
 }
+
+.effect-icon--buff { --effect-tint: 70, 140, 80; --effect-ink: 210, 240, 200; }
+.effect-icon--debuff { --effect-tint: 170, 50, 40; --effect-ink: 255, 210, 200; }
+.effect-icon--mixed { --effect-tint: 120, 70, 200; --effect-ink: 228, 210, 255; }
+.effect-icon--special { --effect-tint: 190, 130, 40; --effect-ink: 255, 232, 180; }
+.effect-icon--scene { --effect-tint: 50, 130, 120; --effect-ink: 200, 245, 235; }
+.effect-icon--trait { --effect-tint: 100, 92, 84; --effect-ink: 230, 222, 208; }
 
 .effect-icon-btn::before {
   content: '';
@@ -14561,7 +16380,7 @@ watch(
   inset: -1px;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(125, 211, 252, 0.08), rgba(244, 114, 182, 0.2));
+  background: linear-gradient(135deg, rgba(255, 240, 210, 0.35), transparent 55%);
   opacity: 0;
   transform: scale(0.86);
   transition:
@@ -14572,14 +16391,14 @@ watch(
 .effect-icon-btn:hover,
 .effect-icon-btn:focus-visible {
   transform: translateY(-1px);
-  filter: brightness(1.12);
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.1);
+  filter: brightness(1.15);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 10px rgba(var(--effect-tint), 0.55);
   outline: none;
 }
 
 .effect-icon-btn:hover::before,
 .effect-icon-btn:focus-visible::before {
-  opacity: 0.42;
+  opacity: 0.5;
   transform: scale(1);
 }
 
@@ -14674,14 +16493,15 @@ watch(
 
 .effect-stack-badge {
   position: absolute;
-  right: -0.28rem;
-  bottom: -0.28rem;
-  min-width: 0.9rem;
-  height: 0.9rem;
+  right: -0.32rem;
+  bottom: -0.32rem;
+  min-width: 0.95rem;
+  height: 0.95rem;
   border-radius: 999px;
-  background: rgba(8, 12, 24, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  color: rgba(255, 255, 255, 0.9);
+  background: radial-gradient(circle at 35% 30%, #3a2c22, #110c09 75%);
+  border: 1px solid rgba(240, 208, 138, 0.8);
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-data);
   font-size: 9px;
   line-height: 1;
   font-weight: 700;
@@ -14719,13 +16539,14 @@ watch(
   }
 }
 
+/* 悬浮提示：与弹窗同材质的小型典籍签 */
 .effect-tooltip {
   max-width: 20rem;
-  background: rgba(8, 10, 16, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 0.5rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
-  padding: 0.5rem 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(201, 161, 96, 0.6);
+  border-radius: 2px;
+  background: var(--dg-bg-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.08), 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
 .effect-tooltip--center {
@@ -14741,55 +16562,33 @@ watch(
 }
 
 .effect-tooltip-name {
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
 }
 
 .effect-tooltip-desc {
-  margin-top: 0.25rem;
-  color: rgba(229, 231, 235, 0.92);
-  font-size: 10px;
-  line-height: 1.4;
+  margin-top: 0.3rem;
+  color: var(--dg-text);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .effect-tooltip-stacks {
-  margin-top: 0.25rem;
-  color: rgba(250, 204, 21, 0.92);
+  margin-top: 0.3rem;
+  color: var(--dg-coin);
+  font-family: var(--dg-font-data);
   font-size: 10px;
-  line-height: 1.2;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .effect-tooltip-card-preview {
   width: 10rem;
   height: 15rem;
   margin: 0.5rem auto 0.6rem;
-}
-
-.poison-wave-bar {
-  background-image:
-    linear-gradient(180deg, rgba(16, 185, 129, 0.28), rgba(22, 163, 74, 0.8)),
-    repeating-linear-gradient(
-      -25deg,
-      rgba(255, 255, 255, 0.18) 0px,
-      rgba(255, 255, 255, 0.18) 10px,
-      rgba(255, 255, 255, 0) 10px,
-      rgba(255, 255, 255, 0) 20px
-    );
-  background-size: 100% 100%, 220% 100%;
-  background-position: 0 0, 0 0;
-  animation: poison-wave-slide 2.1s linear infinite;
-}
-
-@keyframes poison-wave-slide {
-  from {
-    background-position: 0 0, 0 0;
-  }
-  to {
-    background-position: 0 0, 220% 0;
-  }
 }
 
 .invalid-card-shake {
@@ -14881,13 +16680,62 @@ watch(
   transform-origin: bottom;
 }
 
-.battle-result-banner {
-  font-size: 3.75rem;
-  line-height: 1;
+/* ---------- 回合数 ---------- */
+.combat-turn-label {
+  color: var(--dg-text-muted);
+  font-family: var(--dg-font-title);
+  font-size: 0.78rem;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
+.combat-turn-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-data);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 10px rgba(232, 170, 70, 0.35);
+}
+
+.combat-turn-value::before,
+.combat-turn-value::after {
+  width: 1.4rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--dg-gold));
+  content: '';
+}
+
+.combat-turn-value::after { background: linear-gradient(90deg, var(--dg-gold), transparent); }
+
+/* 骰点计算预览：淡暗衬底 + 左侧金线，避免文字直接压在立绘上 */
+.combat-dice-preview {
+  padding: 0.35rem 0.55rem;
+  border-left: 2px solid rgba(201, 161, 96, 0.6);
+  background: linear-gradient(90deg, rgba(17, 12, 9, 0.78), rgba(17, 12, 9, 0.35) 75%, transparent);
+}
+
+/* ---------- 状态面板：黑铁皮革 + 小号金角框 ---------- */
 .combat-status-bar {
   transform-origin: bottom center;
+  background: var(--dg-bg-panel);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+}
+
+.combat-status-bar__border {
+  position: absolute;
+  z-index: 1;
+  inset: -6px;
+  border-style: solid;
+  border-width: 28px;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
+  pointer-events: none;
 }
 
 .combat-status-bar--enemy {
@@ -14898,6 +16746,278 @@ watch(
 
 .combat-status-bar--player {
   transform: scale(1.24);
+}
+
+.combat-status-name {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.25rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+.combat-status-name::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--dg-line-strong), var(--dg-line) 60%, transparent);
+  content: '';
+}
+
+.combat-status-name--player { font-size: 0.82rem; }
+
+.combat-stat-label {
+  font-family: var(--dg-font-data);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.combat-stat-label--mp { color: #7fb0f0; }
+
+.combat-stat-value {
+  color: var(--dg-text);
+  font-family: var(--dg-font-data);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.combat-stat-value--enemy-dice { color: #f0a097; }
+.combat-stat-value--player-dice { color: var(--dg-gold-bright); }
+
+/* 魔力条：黑铁凹槽 + 蓝色填充（与血条同款轨道） */
+.combat-mp-track {
+  height: 0.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(201, 161, 96, 0.35);
+  border-radius: 1px;
+  background: linear-gradient(180deg, #06080f, #121826);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.combat-mp-fill {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 50%, rgba(0, 0, 0, 0.25)),
+    linear-gradient(90deg, #1d4f9c, #4f8fe0);
+  box-shadow: 0 0 6px rgba(79, 143, 224, 0.5);
+}
+
+.combat-dice-icon {
+  width: 1.5rem;
+  height: 0.95rem;
+  object-fit: contain;
+  object-position: left center;
+}
+
+/* 重掷次数：计数铭牌 */
+.combat-reroll-chip {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid rgba(201, 161, 96, 0.55);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2a1f18, #15100c);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.1), 0 2px 4px rgba(0, 0, 0, 0.5);
+  color: var(--dg-gold-bright);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.combat-reroll-chip.is-dim { color: var(--dg-text-muted); }
+
+/* 跳过回合：主要按钮框（两端红宝石） */
+.combat-skip-btn {
+  border-style: solid;
+  border-width: 0 12px;
+  border-image-source: var(--dg-img-button);
+  border-image-slice: 0 80 fill;
+  border-image-repeat: stretch;
+  background: none;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+  transition: filter 0.18s ease, transform 0.12s ease;
+}
+
+.combat-skip-btn:hover:not(:disabled) { filter: brightness(1.15) drop-shadow(0 0 5px rgba(232, 170, 70, 0.35)); }
+.combat-skip-btn:active:not(:disabled) { transform: scale(0.96); }
+
+.combat-skip-btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7) brightness(0.6);
+}
+
+/* ---------- 日志 / 牌堆 ---------- */
+.combat-panel-toggle {
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  border-right: 0;
+  border-radius: 2px 0 0 2px;
+  background: linear-gradient(180deg, #2a1f18, #15100c);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.1);
+  color: var(--dg-text-muted);
+  font-family: var(--dg-font-title);
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.combat-panel-toggle:hover {
+  border-color: var(--dg-gold-bright);
+  color: var(--dg-gold-bright);
+}
+
+.combat-log-panel,
+.combat-pile-panel {
+  border: 1px solid rgba(201, 161, 96, 0.4);
+  border-right: 0;
+  background: var(--dg-bg-panel);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  scrollbar-color: rgba(201, 161, 96, 0.4) transparent;
+  scrollbar-width: thin;
+}
+
+.combat-log-panel {
+  color: var(--dg-text);
+  font-size: 10px;
+}
+
+/* 日志条目：左侧金线，内容中的彩色 span 保持原语义色 */
+.combat-log-entry {
+  padding: 0.25rem 0.4rem;
+  border-left: 2px solid rgba(201, 161, 96, 0.45);
+  background: rgba(0, 0, 0, 0.35);
+  line-height: 1.5;
+}
+
+.combat-pile-btn {
+  border: 1px solid rgba(201, 161, 96, 0.5);
+  border-radius: 2px;
+  background: radial-gradient(circle at 35% 25%, #3a2c22, #16100c 75%);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 220, 160, 0.12), 0 2px 6px rgba(0, 0, 0, 0.5);
+  color: var(--dg-gold);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
+}
+
+.combat-pile-btn:hover {
+  border-color: var(--dg-gold-bright);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 8px rgba(232, 170, 70, 0.3);
+}
+
+.combat-pile-btn:active { transform: scale(0.95); }
+.combat-pile-btn--discard { color: var(--dg-text-muted); }
+
+.combat-pile-count {
+  margin-top: 0.1rem;
+  color: var(--dg-text);
+  font-family: var(--dg-font-data);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.combat-pile-tip {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid rgba(201, 161, 96, 0.5);
+  border-radius: 2px;
+  background: #15100c;
+  color: var(--dg-gold-bright);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+/* 牌库 / 弃牌堆浏览：与弹窗同款的典籍面板 */
+.combat-pile-overlay {
+  background: var(--dg-bg-panel);
+  box-shadow: var(--dg-shadow-deep);
+}
+
+.combat-pile-overlay__border {
+  position: absolute;
+  z-index: 2;
+  inset: -12px;
+  border-style: solid;
+  border-width: 50px;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
+  pointer-events: none;
+}
+
+.combat-pile-overlay__head {
+  position: relative;
+  z-index: 3;
+}
+
+.combat-pile-overlay__head::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--dg-line-strong), var(--dg-line) 70%, transparent);
+  content: '';
+}
+
+.combat-pile-overlay__title {
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1.3rem;
+  letter-spacing: 0.18em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+.combat-pile-overlay__close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(201, 161, 96, 0.55);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a2c22, #16100c 70%);
+  color: var(--dg-gold);
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.combat-pile-overlay__close:hover {
+  border-color: var(--dg-gold-bright);
+  color: var(--dg-gold-bright);
+}
+
+/* ---------- 胜负横幅：标题字体铭板 ---------- */
+.battle-result-banner {
+  --result-color: var(--dg-gold-bright);
+  --result-glow: rgba(232, 170, 70, 0.45);
+  border: 1px solid rgba(201, 161, 96, 0.7);
+  border-radius: 2px;
+  background: var(--dg-bg-panel);
+  box-shadow: inset 0 0 0 4px rgba(17, 12, 9, 0.9), inset 0 0 0 5px rgba(201, 161, 96, 0.35), 0 0 40px rgba(0, 0, 0, 0.85), 0 0 30px var(--result-glow);
+  color: var(--result-color);
+  font-family: var(--dg-font-title);
+  font-size: 3.75rem;
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  line-height: 1;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.9), 0 0 18px var(--result-glow);
+  animation: battle-result-breathe 2.4s ease-in-out infinite;
+}
+
+.battle-result-banner--win { --result-color: var(--dg-gold-bright); --result-glow: rgba(232, 170, 70, 0.5); }
+.battle-result-banner--escape { --result-color: #d9d2c4; --result-glow: rgba(200, 190, 170, 0.25); }
+.battle-result-banner--lose { --result-color: #e47a6a; --result-glow: rgba(192, 80, 63, 0.45); }
+
+@keyframes battle-result-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.82; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle-result-banner { animation: none; }
 }
 
 .player-layout-shell {
@@ -15321,5 +17441,21 @@ watch(
     right: -0.4rem;
     top: -8.9rem;
   }
+}
+
+.temp-gold-icon {
+  position: relative;
+  display: inline-flex;
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.temp-gold-icon__badge {
+  position: absolute;
+  right: -0.3rem;
+  bottom: -0.2rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 90%));
 }
 </style>

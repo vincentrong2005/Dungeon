@@ -70,7 +70,7 @@ export const CUSTOM_DIFFICULTY_INFLUENCE_GROUPS: CustomDifficultyInfluenceGroup[
       { value: '资源稀缺', label: '资源稀缺', description: '宝箱只会出现 1 个宝物。', exclusiveWith: ['资源丰盛'] },
       { value: '黑手烙印', label: '黑手烙印', description: '战斗开始时在抽牌堆中加入 1 张黑手印。' },
       { value: '体柔身轻', label: '体柔身轻', description: '初始生命上限减半。', exclusiveWith: ['肉装魔女'] },
-      { value: '魔力匮乏', label: '魔力匮乏', description: '战斗开始时为自身附加 1 层法力枯竭。' },
+      { value: '魔力匮乏', label: '魔力匮乏', description: '战斗开始时为自身附加 1 层魔力枯竭。' },
     ],
   },
   {

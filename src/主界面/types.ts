@@ -149,15 +149,34 @@ export interface CardManaDrainConfig {
 }
 
 // ── 卡牌数据 ──────────────────────────────────────────────────
+/** 七原罪卡牌元信息 */
+export interface SinCardMeta {
+  /** 原罪名：傲慢 / 嫉妒 / 暴怒 / 怠惰 / 贪婪 / 暴食 / 色欲 */
+  sin: string;
+  /** 对应罪书圣遗物（持有即共鸣） */
+  bookRelicId: string;
+  bookRelicName: string;
+  /** 隐藏卡池体系：携带该体系魔法书时，领主战奖励槽有概率出现本卡 */
+  poolCategory: string;
+  /** 未共鸣时附加的原罪副作用说明 */
+  sideEffect: string;
+  /** 共鸣（持有对应罪书）后被削弱 / 改写的副作用说明；缺省表示共鸣后没有副作用 */
+  resonatedSideEffect?: string;
+  /** 共鸣后的额外说明（如傲慢共鸣后获得"无视拼点"） */
+  resonanceNote?: string;
+}
+
 export interface CardData {
   id: string;
   name: string;
   type: CardType;
   /** 卡牌类别（大分类）：基础、敌人、火魔法、冰魔法等 */
   category: string;
+  /** 多体系卡牌：需同时携带列出的全部魔法书才会进入卡池（category 作为主显示体系） */
+  requiredCategories?: string[];
   /** 稀有度 */
   rarity: CardRarity;
-  /** 法力消耗（仅 Type == 魔法 时有效，其余为 0） */
+  /** 魔力消耗（仅 Type == 魔法 时有效，其余为 0） */
   manaCost: number;
   /** 点数计算参数 */
   calculation: CardCalculation;
@@ -173,7 +192,7 @@ export interface CardData {
   description: string;
   /** 负面效果：卡牌生效后记录到战斗后写入的 $负面状态（仅对玩家结算） */
   negativeEffect?: string;
-  /** 法力汲取：卡牌生效后吸收对方对应数值法力并恢复自身；不足部分改为扣除对方生命 */
+  /** 魔力汲取：卡牌生效后吸收对方对应数值魔力并恢复自身；不足部分改为扣除对方生命 */
   manaDrain?: number | CardManaDrainConfig;
   /** 无视闪避：对闪避牌时不进入闪避拼点，直接生效 */
   ignoreDodge?: boolean;
@@ -191,8 +210,36 @@ export interface CardData {
   selfDamage?: number | CardSelfDamageConfig;
   /** 饕餮魔素：回合结束留在手中时，为自身施加侵蚀 */
   gluttonyEnchanted?: boolean;
+  /** 七原罪卡牌：对应的罪书与原罪副作用（持有对应罪书时"共鸣"，副作用消失） */
+  sin?: SinCardMeta;
+  /** 附魔：由 _附魔 写入的槽位附魔（精炼 / 淫文 / 刑印），在构建战斗卡组时附加 */
+  enchant?: CardEnchantInfo;
   /** 卡牌图片（可选） */
   image?: string;
+}
+
+/** 附魔命中效果：攻击牌每次命中敌方后触发 */
+export interface CardEnchantHitEffect {
+  effectType: EffectType;
+  stacks: number;
+  /** 触发概率（0~1，缺省为必定触发） */
+  chance?: number;
+}
+
+/** 卡牌上的附魔信息（附魔定义见 battle/enchantRegistry.ts） */
+export interface CardEnchantInfo {
+  /** 存入 _附魔 的值，如 '精炼Ⅱ'、'淫文'、'刑印·中毒' */
+  key: string;
+  /** 展示文本 */
+  label: string;
+  /** 效果说明 */
+  description: string;
+  /** 命中敌方后对敌方施加的效果 */
+  hitEffect?: CardEnchantHitEffect;
+  /** 命中敌方后为自身回复的魔力 */
+  manaOnHit?: number;
+  /** 仅本场战斗有效的临时附魔 */
+  temporary?: boolean;
 }
 
 // ── 主动技能数据 ──────────────────────────────────────────────
@@ -204,7 +251,7 @@ export interface ActiveSkillData {
   category: string;
   /** 稀有度 */
   rarity: CardRarity;
-  /** 法力消耗 */
+  /** 魔力消耗 */
   manaCost: number;
   /** 冷却回合数 */
   Cooldown: number;
@@ -214,6 +261,8 @@ export interface ActiveSkillData {
   useCondition?: string;
   /** 单场战斗最大使用次数（可选） */
   maxUses?: number;
+  /** 每回合最大使用次数（可选） */
+  maxUsesPerTurn?: number;
 }
 
 /** 自伤配置 */
@@ -308,8 +357,8 @@ export enum EffectType {
   POINT_GROWTH_BIG = '点数成长（大）',
   /** 点数成长（小）— 每3回合最小骰子点数+1 */
   POINT_GROWTH_SMALL = '点数成长（小）',
-  /** 法力枯竭 — 每回合清零法力 */
-  MANA_DRAIN = '法力枯竭',
+  /** 魔力枯竭 — 每回合清零魔力 */
+  MANA_DRAIN = '魔力枯竭',
   /** 魔力源泉 — 每回合开始魔力+层数 */
   MANA_SPRING = '魔力源泉',
   /** 虚妄之拥 — 战斗开始插入拟态，受到伤害降低 */
@@ -368,7 +417,7 @@ export enum EffectType {
   RESONANCE_LOCK = '共鸣锁',
   /** 坚固 — 每次受击固定减伤，不会在回合结束清空 */
   STURDY = '坚固',
-  /** 电击 — 每次法力减少时，损失等同层数生命并层数减半 */
+  /** 电击 — 每次魔力减少时，损失等同层数生命并层数减半 */
   SHOCK = '电击',
   /** 火焰附加 — 物理卡命中后为对手施加燃烧 */
   FLAME_ATTACH = '火焰附加',

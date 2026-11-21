@@ -1,5 +1,9 @@
 @import 'tailwindcss';
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&family=MedievalSharp&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&family=MedievalSharp&family=Noto+Serif+SC:wght@400;600&display=swap');
+@import './theme/fonts.css';
+@import './theme/tokens.css';
+@import './theme/skins.css';
+@import './theme/minigame.css';
 
 @theme {
   --color-dungeon-dark: #0a0a0c;
@@ -11,7 +15,8 @@
   --color-dungeon-magic: #4b0082;
   --color-dungeon-action: #2e8b57;
 
-  --font-heading: 'MedievalSharp', cursive;
+  /* 标题统一为 Cinzel（中文落到思源宋体），与 theme/tokens.css 的 --dg-font-title 一致 */
+  --font-heading: 'Cinzel', 'Noto Serif SC', 'Source Han Serif SC', serif;
   --font-body: 'Cinzel', serif;
   --font-ui: 'Inter', sans-serif;
 

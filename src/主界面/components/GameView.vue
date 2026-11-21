@@ -139,16 +139,15 @@
             class="ui-story-layout size-full min-h-0 flex flex-col pt-2 pb-[7.8rem] px-4 md:px-12 md:pl-24 transition-all duration-300"
             :style="{ maxWidth: textSettings.containerWidth + 'px' }"
           >
-            <!-- Story Text Area -->
+            <!-- Story Text Area：外层不滚动，承载典籍外框（顶边 + 两侧，与下方输入栏外框衔接） -->
+            <div class="ui-story-frame">
             <div
               ref="storyTextContainerRef"
-              class="ui-story-panel flex-1 bg-dungeon-dark/80 border border-dungeon-brown rounded-t-lg shadow-2xl backdrop-blur-sm p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar relative"
+              class="ui-story-panel p-6 md:p-10 overflow-y-auto min-h-0 custom-scrollbar"
             >
-              <!-- Decorative Corners -->
-              <div class="absolute top-2 left-2 size-4 border-t border-l border-dungeon-gold/30"></div>
-              <div class="absolute top-2 right-2 size-4 border-t border-r border-dungeon-gold/30"></div>
               <div class="story-floor-indicator pointer-events-none select-none">
-                消息楼层 第 {{ currentTavernFloorNumber }} 层
+                <span class="story-floor-indicator__label">消息楼层</span>
+                <span class="story-floor-indicator__value">第 {{ currentTavernFloorNumber }} 层</span>
               </div>
 
               <div v-if="showMissingMainTextTagNotice" class="story-main-text-warning" role="status">
@@ -179,7 +178,7 @@
                   :style="{
                     fontSize: textSettings.fontSize + 'px',
                     lineHeight: textSettings.lineHeight,
-                    fontFamily: textSettings.fontFamily,
+                    fontFamily: storyFontFamily,
                   }"
                 ></textarea>
                 <!-- Edit Actions -->
@@ -203,11 +202,11 @@
               <template v-else>
                 <!-- Story Content -->
                 <div
-                  class="prose prose-invert max-w-none prose-p:text-dungeon-paper tracking-wide"
+                  class="prose prose-invert max-w-none prose-p:text-dungeon-paper tracking-wide ui-story-prose"
                   :style="{
                     fontSize: textSettings.fontSize + 'px',
                     lineHeight: textSettings.lineHeight,
-                    fontFamily: textSettings.fontFamily,
+                    fontFamily: storyFontFamily,
                   }"
                 >
                   <!-- Streaming text (during generation) -->
@@ -352,9 +351,7 @@
                     </Transition>
                   </Teleport>
 
-                  <div
-                    class="h-px w-full bg-linear-to-r from-transparent via-dungeon-gold/20 to-transparent mb-2"
-                  ></div>
+                  <div class="ui-ornate-divider" aria-hidden="true"></div>
 
                   <!-- A-D Normal Options -->
                   <button
@@ -380,6 +377,31 @@
                       @click="handleSpecialOption"
                     >
                       <MainButtonSkin :skin="specialOptionConfig.skin" />
+                    </button>
+                  </div>
+
+                  <!-- 事件结算：结局判定后需要玩家操作的奖励 / 代价 -->
+                  <div v-if="pendingEventAction" class="special-action-section">
+                    <div class="action-divider-label">事件</div>
+                    <button
+                      type="button"
+                      class="option-action-btn event-action-btn"
+                      :style="optionButtonTextStyle"
+                      :disabled="eventActionDisabled"
+                      @click="handleEventActionClick"
+                    >
+                      <span class="option-action-btn__marker">★</span>
+                      <span class="option-action-btn__text">{{ pendingEventAction.label }}</span>
+                      <ChevronRight class="option-action-btn__arrow size-5" aria-hidden="true" />
+                    </button>
+                    <button
+                      v-if="pendingEventAction.type === 'battle'"
+                      type="button"
+                      class="event-action-abandon"
+                      :disabled="eventActionDisabled"
+                      @click="abandonEventAction"
+                    >
+                      放弃这场战斗
                     </button>
                   </div>
 
@@ -429,6 +451,8 @@
                 </div>
               </template>
             </div>
+            <span class="ui-story-frame__border" aria-hidden="true"></span>
+            </div>
           </div>
         </div>
         <!-- Input Area (Stage-Anchored) -->
@@ -437,14 +461,15 @@
             class="ui-input-inner w-full mx-auto px-4 md:px-12 md:pl-24"
             :style="{ maxWidth: textSettings.containerWidth + 'px' }"
           >
-            <div class="ui-input-shell bg-[#0f0f0f] border-x border-b border-dungeon-brown rounded-b-lg p-3">
+            <div class="ui-input-shell p-3">
+              <span class="ui-input-shell__border" aria-hidden="true"></span>
               <div class="w-full flex items-stretch gap-2">
                 <textarea
                   v-model="inputText"
                   :disabled="gameStore.isGenerating"
                   :placeholder="inputPlaceholder"
                   rows="2"
-                  class="ui-input-field flex-1 h-18 resize-none overflow-y-auto bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-2xl/normal px-5 py-3 rounded-lg focus:outline-none focus:border-dungeon-gold focus:ring-1 focus:ring-dungeon-gold/50 font-ui transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="ui-input-field flex-1 h-18 resize-none overflow-y-auto text-2xl/normal px-5 py-3 font-ui disabled:opacity-50 disabled:cursor-not-allowed"
                   @keydown.enter.exact.prevent="handleSendInput"
                 ></textarea>
                 <div v-if="isButtonCompletionEnabled" ref="buttonCompletionMenuRef" class="ui-option-completion-wrap">
@@ -515,107 +540,33 @@
 
           <Transition name="status-slide">
             <section v-if="isStatusOpen" class="status-hud-panel">
-              <div class="status-hud-panel-glint"></div>
+              <span class="status-hud-panel__border" aria-hidden="true"></span>
               <div class="status-hud-header">
-                <span>状态</span>
-                <span>{{ negativeStatusEntries.length }} 项负面</span>
+                <span class="status-hud-title">状态</span>
+                <span class="status-hud-curse" :class="{ 'is-empty': negativeStatusEntries.length === 0 }">
+                  <img :src="STAT_ICON_URLS.curse" alt="" aria-hidden="true" />
+                  {{ negativeStatusEntries.length }} 项负面
+                </span>
               </div>
 
+              <!-- 生命 / 魔力：宝石图标按剩余比例从下往上“灌注” -->
               <div class="status-hud-vitals">
-                <div class="status-hud-vital status-hud-vital--hp">
-                  <div class="status-hud-vital-icon">
-                    <div class="stat-container-heart" :title="`HP: ${displayHp}/${displayMaxHp}`">
-                      <svg viewBox="0 0 64 64" class="status-hud-svg">
-                        <defs>
-                          <clipPath id="heartClip">
-                            <path
-                              d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
-                            />
-                          </clipPath>
-                          <filter id="hpGlow">
-                            <feGaussianBlur stdDeviation="2" result="glow" />
-                            <feMerge>
-                              <feMergeNode in="glow" />
-                              <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                          </filter>
-                          <linearGradient id="hpGradient" x1="0" y1="1" x2="0" y2="0">
-                            <stop offset="0%" stop-color="#8a0e0e" />
-                            <stop offset="50%" stop-color="#cc2222" />
-                            <stop offset="100%" stop-color="#ee4444" />
-                          </linearGradient>
-                        </defs>
-                        <path
-                          d="M32 56 C32 56, 6 40, 6 22 C6 12, 14 4, 24 4 C28 4, 31 6, 32 9 C33 6, 36 4, 40 4 C50 4, 58 12, 58 22 C58 40, 32 56, 32 56Z"
-                          fill="#1a0808"
-                          stroke="#5c1a1a"
-                          stroke-width="1.5"
-                        />
-                        <g clip-path="url(#heartClip)">
-                          <rect
-                            x="0"
-                            :y="64 - (hpPercent / 100) * 60"
-                            width="64"
-                            :height="(hpPercent / 100) * 60"
-                            fill="url(#hpGradient)"
-                            filter="url(#hpGlow)"
-                            class="transition-all duration-700 ease-out"
-                          />
-                        </g>
-                        <ellipse
-                          cx="22"
-                          cy="18"
-                          rx="5"
-                          ry="4"
-                          fill="rgba(255,255,255,0.12)"
-                          transform="rotate(-20,22,18)"
-                        />
-                      </svg>
-                    </div>
-                  </div>
+                <div class="status-hud-vital status-hud-vital--hp" :title="`HP: ${displayHp}/${displayMaxHp}`">
+                  <span class="status-hud-gem" :style="{ '--fill': `${hpPercent}%` }" aria-hidden="true">
+                    <img class="status-hud-gem__empty" :src="STAT_ICON_URLS.hp" alt="" />
+                    <img class="status-hud-gem__full" :src="STAT_ICON_URLS.hp" alt="" />
+                  </span>
                   <div class="status-hud-vital-value">
                     <span>HP</span>
                     <strong>{{ displayHp }}/{{ displayMaxHp }}</strong>
                   </div>
                 </div>
 
-                <div class="status-hud-vital status-hud-vital--mp">
-                  <div class="status-hud-vital-icon">
-                    <div class="stat-container-mana" :title="`MP: ${displayMp}`">
-                      <svg viewBox="0 0 64 64" class="status-hud-svg">
-                        <defs>
-                          <clipPath id="manaClip">
-                            <path d="M32 4 L54 24 L32 60 L10 24 Z" />
-                          </clipPath>
-                          <filter id="mpGlow">
-                            <feGaussianBlur stdDeviation="2" result="glow" />
-                            <feMerge>
-                              <feMergeNode in="glow" />
-                              <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                          </filter>
-                          <linearGradient id="mpGradient" x1="0" y1="1" x2="0" y2="0">
-                            <stop offset="0%" stop-color="#1a1a8a" />
-                            <stop offset="50%" stop-color="#3344cc" />
-                            <stop offset="100%" stop-color="#5566ee" />
-                          </linearGradient>
-                        </defs>
-                        <path d="M32 4 L54 24 L32 60 L10 24 Z" fill="#080818" stroke="#1a1a5c" stroke-width="1.5" />
-                        <g clip-path="url(#manaClip)">
-                          <rect
-                            x="0"
-                            :y="64 - (mpPercent / 100) * 60"
-                            width="64"
-                            :height="(mpPercent / 100) * 60"
-                            fill="url(#mpGradient)"
-                            filter="url(#mpGlow)"
-                            class="transition-all duration-700 ease-out"
-                          />
-                        </g>
-                        <polygon points="26,14 32,8 38,14 32,20" fill="rgba(255,255,255,0.1)" />
-                      </svg>
-                    </div>
-                  </div>
+                <div class="status-hud-vital status-hud-vital--mp" :title="`MP: ${displayMp}`">
+                  <span class="status-hud-gem" :style="{ '--fill': `${mpPercent}%` }" aria-hidden="true">
+                    <img class="status-hud-gem__empty" :src="STAT_ICON_URLS.mp" alt="" />
+                    <img class="status-hud-gem__full" :src="STAT_ICON_URLS.mp" alt="" />
+                  </span>
                   <div class="status-hud-vital-value">
                     <span>MP</span>
                     <strong>{{ displayMp }}</strong>
@@ -625,14 +576,14 @@
 
               <div class="status-hud-minor-grid">
                 <div class="status-hud-minor status-hud-minor--dice">
-                  <Dices class="size-4" />
+                  <img :src="STAT_ICON_URLS.dice" alt="" aria-hidden="true" />
                   <div>
                     <span>骰子</span>
                     <strong>{{ effectiveDisplayMinDice }}~{{ effectiveDisplayMaxDice }}</strong>
                   </div>
                 </div>
                 <div class="status-hud-minor status-hud-minor--gold">
-                  <Coins class="size-4" />
+                  <img :src="STAT_ICON_URLS.gold" alt="" aria-hidden="true" />
                   <div>
                     <span>金币</span>
                     <strong>{{ displayGold }}</strong>
@@ -662,6 +613,7 @@
           <div class="player-detail-modal">
             <div class="player-detail-portrait-panel">
               <div class="player-detail-portrait-shell">
+                <span class="player-detail-portrait-frame" aria-hidden="true"></span>
                 <img
                   v-if="playerStatusPortraitUrl && !playerStatusPortraitError"
                   :src="playerStatusPortraitUrl"
@@ -718,20 +670,24 @@
                   <div class="player-detail-section-title">基础数值</div>
                   <div class="player-detail-stat-grid">
                     <div class="player-detail-stat-card">
+                      <img class="player-detail-stat-icon" :src="STAT_ICON_URLS.hp" alt="" aria-hidden="true" />
                       <span class="player-detail-stat-label">生命值</span>
                       <span class="player-detail-stat-value player-detail-stat-value--hp"
                         >{{ displayHp }}/{{ displayMaxHp }}</span
                       >
                     </div>
                     <div class="player-detail-stat-card">
+                      <img class="player-detail-stat-icon" :src="STAT_ICON_URLS.mp" alt="" aria-hidden="true" />
                       <span class="player-detail-stat-label">魔量</span>
                       <span class="player-detail-stat-value player-detail-stat-value--mp">{{ displayMp }}</span>
                     </div>
                     <div class="player-detail-stat-card">
+                      <img class="player-detail-stat-icon" :src="STAT_ICON_URLS.gold" alt="" aria-hidden="true" />
                       <span class="player-detail-stat-label">金币</span>
                       <span class="player-detail-stat-value player-detail-stat-value--gold">{{ displayGold }}</span>
                     </div>
                     <div class="player-detail-stat-card">
+                      <img class="player-detail-stat-icon" :src="STAT_ICON_URLS.dice" alt="" aria-hidden="true" />
                       <span class="player-detail-stat-label">骰子范围</span>
                       <span class="player-detail-stat-value"
                         >{{ effectiveDisplayMinDice }} ~ {{ effectiveDisplayMaxDice }}</span
@@ -750,6 +706,24 @@
                     <div
                       v-for="entry in negativeStatusEntries"
                       :key="`detail-negative-${entry.name}`"
+                      class="player-detail-negative-item"
+                    >
+                      <img class="player-detail-negative-icon" :src="STAT_ICON_URLS.curse" alt="" aria-hidden="true" />
+                      <div class="player-detail-negative-name">{{ entry.name }}</div>
+                      <div class="player-detail-negative-desc">{{ entry.description }}</div>
+                    </div>
+                  </div>
+                </section>
+
+                <section v-if="timedEffectEntries.length > 0" class="player-detail-section panel-section">
+                  <div class="player-detail-section-head">
+                    <div class="player-detail-section-title">限时效果</div>
+                    <div class="player-detail-section-meta">{{ timedEffectEntries.length }} 项</div>
+                  </div>
+                  <div class="player-detail-negative-list">
+                    <div
+                      v-for="(entry, index) in timedEffectEntries"
+                      :key="`detail-timed-${index}`"
                       class="player-detail-negative-item"
                     >
                       <div class="player-detail-negative-name">{{ entry.name }}</div>
@@ -863,7 +837,7 @@
                         @touchcancel="handleRelicTouchEnd"
                       >
                         <div class="inventory-relic-icon-wrap">
-                          <Box class="inventory-relic-icon" />
+                          <img class="inventory-relic-icon" :src="getRelicOrbUrl(relic.rarity)" alt="" draggable="false" />
                           <span class="inventory-relic-count">x{{ relic.count }}</span>
                         </div>
                         <span class="inventory-relic-name">{{ relic.name }}</span>
@@ -927,60 +901,14 @@
           title="地牢地图"
           :icon="MapIcon"
           :is-open="activeModal === 'map'"
-          panel-class="max-w-5xl"
+          variant="bare"
           body-id="dungeon-map-modal-body"
           @body-scroll="handleMapModalBodyScroll"
           @close="activeModal = null"
         >
+          <!-- 无外框整张地图：路线图可缩放拖动；楼层信息固定在顶部居中，图例固定在右上方 -->
           <div class="map-modal">
-            <section class="map-hero">
-              <div class="map-hero__aside">
-                <div class="map-hero__chips">
-                <div class="map-hero__chip">
-                  <span class="map-hero__chip-label">当前楼层</span>
-                  <span class="map-hero__chip-value">{{ mapCurrentFloorLabel }}</span>
-                </div>
-                <div class="map-hero__chip">
-                  <span class="map-hero__chip-label">当前区域</span>
-                  <span class="map-hero__chip-value">{{ mapCurrentAreaLabel }}</span>
-                </div>
-                <div class="map-hero__chip">
-                  <span class="map-hero__chip-label">已走房间</span>
-                  <span class="map-hero__chip-value">{{ currentFloorPath.length }}</span>
-                </div>
-                <div class="map-hero__chip">
-                  <span class="map-hero__chip-label">当前房型</span>
-                  <span class="map-hero__chip-value">{{ mapCurrentRoomLabel }}</span>
-                </div>
-                <div class="map-hero__chip">
-                  <span class="map-hero__chip-label">缩放比例</span>
-                  <span class="map-hero__chip-value">{{ mapZoomPercent }}</span>
-                </div>
-                </div>
-                <div class="map-legend" aria-label="地图图例">
-                <div class="map-legend__title">图例</div>
-                <div v-for="entry in mapLegendEntries" :key="entry.roomType" class="map-legend__item">
-                  <span class="map-legend__icon" :style="entry.iconStyle" aria-hidden="true"></span>
-                  <span class="map-legend__label">— {{ entry.label }}</span>
-                </div>
-                </div>
-              </div>
-            </section>
-            <div class="map-toolbar">
-              <div class="map-summary">
-                <span
-                  >统计计数：<span class="map-summary-highlight">{{ currentLayerRoomCount }}</span> 房</span
-                >
-              </div>
-              <div class="map-controls">
-                <button type="button" class="map-control-btn panel-action panel-icon-button" title="缩小地图" aria-label="缩小地图" @click="handleMapZoomOut"><ZoomOut /></button>
-                <button type="button" class="map-control-btn panel-action panel-icon-button" title="放大地图" aria-label="放大地图" @click="handleMapZoomIn"><ZoomIn /></button>
-                <button type="button" class="map-control-btn panel-action panel-icon-button" title="重置视图" aria-label="重置视图" @click="handleMapResetView">
-                  <Scan />
-                </button>
-              </div>
-            </div>
-            <div v-if="mapNodes.length === 0" class="map-empty panel-empty">当前楼层地图尚未生成</div>
+            <div v-if="mapNodes.length === 0" class="map-empty">当前楼层地图尚未生成</div>
             <div
               v-else
               ref="mapViewportRef"
@@ -1000,17 +928,15 @@
                     :height="mapContentHeight"
                     :viewBox="`0 0 ${mapContentWidth} ${mapContentHeight}`"
                   >
-                    <line
+                    <path
                       v-for="line in mapLines"
                       :key="line.key"
-                      :x1="line.x1"
-                      :y1="line.y1"
-                      :x2="line.x2"
-                      :y2="line.y2"
-                      :class="{ 'map-link--visited': line.isVisited }"
+                      :d="line.d"
+                      fill="none"
+                      :class="{ 'map-link--visited': line.isVisited, 'map-link--gate': mapIsFloorTransition }"
                       :stroke="line.isVisited ? 'rgba(250, 204, 76, 0.98)' : 'rgba(28,24,18,0.68)'"
-                      :stroke-width="line.isVisited ? 3.2 : 2.2"
-                      :stroke-dasharray="line.isVisited ? '5 6' : '1 7'"
+                      :stroke-width="(line.isVisited ? 3.2 : 2.2) * mapNodeBoost"
+                      :stroke-dasharray="line.isVisited ? `${5 * mapNodeBoost} ${6 * mapNodeBoost}` : `${mapNodeBoost} ${7 * mapNodeBoost}`"
                       stroke-linecap="round"
                     />
                   </svg>
@@ -1034,12 +960,47 @@
                     @pointerdown.stop
                     @click.stop="handleMapNodeClick(node)"
                   >
-                    <span v-if="node.isLatest || node.isAvailable" class="map-room-pulse"></span>
-                    <span class="map-room-icon" :style="node.iconStyle" aria-hidden="true"></span>
-                    <span class="map-room-label">{{ node.label }}</span>
+                    <template v-if="node.kind === 'floor'">
+                      <span class="map-gate__seal" aria-hidden="true">{{ node.gateNumeral }}</span>
+                      <span class="map-gate__text">
+                        <b>{{ node.label }}</b>
+                        <small>{{ mapNextFloorLabel }}</small>
+                      </span>
+                      <span class="map-gate__arrow" aria-hidden="true">›</span>
+                    </template>
+                    <template v-else>
+                      <span v-if="node.isLatest || node.isAvailable" class="map-room-pulse"></span>
+                      <span class="map-room-icon" :style="node.iconStyle" aria-hidden="true"></span>
+                      <span class="map-room-label">{{ node.label }}</span>
+                    </template>
                   </button>
                 </div>
               </div>
+            </div>
+            <template v-if="mapNodes.length > 0">
+              <header class="map-cartouche" aria-label="当前楼层信息">
+                <div class="map-cartouche__floor">{{ mapCurrentFloorLabel }}</div>
+                <div class="map-cartouche__area">{{ mapCurrentAreaLabel }}</div>
+                <div class="map-cartouche__rule" aria-hidden="true"></div>
+                <dl class="map-cartouche__stats">
+                  <div><dt>已走房间</dt><dd>{{ currentFloorPath.length }}</dd></div>
+                  <div><dt>当前房型</dt><dd>{{ mapCurrentRoomLabel }}</dd></div>
+                  <div><dt>本层房间</dt><dd>{{ currentLayerRoomCount }}</dd></div>
+                </dl>
+              </header>
+              <aside class="map-legend" aria-label="地图图例">
+                <div class="map-legend__title">图例</div>
+                <div v-for="entry in mapLegendEntries" :key="entry.roomType" class="map-legend__item">
+                  <span class="map-legend__icon" :style="entry.iconStyle" aria-hidden="true"></span>
+                  <span class="map-legend__label">{{ entry.label }}</span>
+                </div>
+              </aside>
+            </template>
+            <div v-if="mapNodes.length > 0" class="map-controls" @pointerdown.stop>
+              <span class="map-controls__zoom">{{ mapZoomPercent }}</span>
+              <button type="button" class="map-control-btn" title="缩小地图" aria-label="缩小地图" @click="handleMapZoomOut"><ZoomOut /></button>
+              <button type="button" class="map-control-btn" title="放大地图" aria-label="放大地图" @click="handleMapZoomIn"><ZoomIn /></button>
+              <button type="button" class="map-control-btn" title="重置视图" aria-label="重置视图" @click="handleMapResetView"><Scan /></button>
             </div>
           </div>
         </DungeonModal>
@@ -1058,6 +1019,7 @@
                 class="bond-portrait-frame bond-portrait-frame--clickable"
                 @click="openBondPortraitPreview(entry)"
               >
+                <span class="bond-portrait-border" aria-hidden="true"></span>
                 <img
                   v-if="!bondPortraitErrors[entry.name]"
                   :src="entry.portraitUrl"
@@ -1087,9 +1049,9 @@
               </div>
             </div>
           </div>
-          <div v-else class="flex flex-col items-center justify-center gap-3 py-12">
+          <div v-else class="panel-empty">
             <Users class="size-12 text-dungeon-gold/20" />
-            <span class="font-ui text-sm text-dungeon-paper/50">暂无可显示的羁绊角色</span>
+            <span>暂无可显示的羁绊角色</span>
           </div>
         </DungeonModal>
         <Teleport to="body">
@@ -1115,7 +1077,7 @@
         </Teleport>
 
         <DungeonModal title="符文卡组" :icon="Scroll" :is-open="activeModal === 'deck'" @close="activeModal = null">
-          <div class="deck-panel-head"><span>已装备卡牌</span><span>{{ resolvedDeck.length }} 张</span></div>
+          <div class="panel-caption"><span>已装备卡牌</span><span class="panel-count">{{ resolvedDeck.length }} 张</span></div>
           <div v-if="resolvedDeck.length > 0" class="deck-panel-grid">
             <div
               v-for="(card, i) in resolvedDeck"
@@ -1125,214 +1087,342 @@
               <DungeonCard :card="card" disabled />
             </div>
           </div>
-          <div v-else class="flex flex-col items-center justify-center py-12 gap-4">
+          <div v-else class="panel-empty">
             <Scroll class="size-12 text-dungeon-gold/20" />
-            <span class="font-ui text-dungeon-paper/40 text-sm">卡组为空 — 尚未装备技能卡</span>
+            <span>卡组为空 — 尚未装备技能卡</span>
           </div>
         </DungeonModal>
 
         <DungeonModal
-          title="魔法书"
-          :icon="NotebookText"
+          title=""
           :is-open="activeModal === 'magicBooks'"
-          panel-class="max-w-[92rem] max-h-[94%]"
+          variant="magic-book"
+          panel-class="magic-book-modal-shell"
           @close="activeModal = null"
         >
-          <div class="magic-books-layout">
-            <section class="magic-books-hero panel-section">
-              <div class="magic-books-hero__chips">
-                <div class="magic-books-hero__chip">
-                  <span class="magic-books-hero__chip-label">已携带魔法书</span>
-                  <span class="magic-books-hero__chip-value">{{ magicBookCarryCount }}</span>
-                </div>
-                <div class="magic-books-hero__chip">
-                  <span class="magic-books-hero__chip-label">可选书库</span>
-                  <span class="magic-books-hero__chip-value">{{ carryableMagicBookNames.length }}</span>
-                </div>
-                <div class="magic-books-hero__chip">
-                  <span class="magic-books-hero__chip-label">已装主动槽</span>
-                  <span class="magic-books-hero__chip-value">{{ startingActiveEquippedCount }}/2</span>
-                </div>
-              </div>
-            </section>
+          <div class="magic-book-world">
+            <!-- 书本坐标系：容器严格保持素材 3:2 比例，所有页面/导航均以书本百分比与 cqw 定位 -->
+            <div :ref="bindMagicBookShell" class="magic-book-shell" :style="MAGIC_BOOK_SHELL_STYLE">
+              <img class="magic-book-shell__book" :src="MAGIC_BOOK_UI_BOOK_URL" alt="" aria-hidden="true" />
 
-            <div class="magic-books-tabs panel-tabs">
-              <button
-                type="button"
-                class="magic-books-tab panel-tab"
-                :class="magicBooksNavTab === 'books' ? 'is-active' : ''"
-                @click="magicBooksNavTab = 'books'"
-              >
-                <NotebookText aria-hidden="true" />附加魔法书
-              </button>
-              <button
-                type="button"
-                class="magic-books-tab panel-tab"
-                :class="magicBooksNavTab === 'active' ? 'is-active' : ''"
-                @click="magicBooksNavTab = 'active'"
-              >
-                <Sparkles aria-hidden="true" />主动技能
-              </button>
-            </div>
+              <template v-if="magicBooksNavTab === 'books'">
+                <template v-if="magicBookLeftPageEntry && magicBookRightPageEntry">
+                  <!-- 左页（静态）：体系插画 -->
+                  <section class="magic-book-page magic-book-page--left" aria-label="体系插画">
+                    <div
+                      class="magic-book-folio magic-book-folio--verso magic-book-art-page"
+                      :class="{
+                        'is-locked': isMagicBookLocked(magicBookLeftPageEntry.category),
+                        'is-unavailable': !magicBookLeftPageEntry.available,
+                      }"
+                    >
+                      <figure class="magic-book-illumination">
+                        <div class="magic-book-illumination__plate">
+                          <img
+                            :src="getMagicBookArtUrl(magicBookLeftPageEntry.category)"
+                            :alt="`${magicBookLeftPageEntry.category}体系插画`"
+                            class="magic-book-illumination__art"
+                          />
+                          <span class="magic-book-illumination__grain" aria-hidden="true"></span>
+                        </div>
+                        <figcaption class="magic-book-illumination__caption">{{ magicBookLeftPageEntry.category }}</figcaption>
+                      </figure>
+                      <footer class="magic-book-folio__foot">
+                        <button
+                          type="button"
+                          class="magic-book-turn-button magic-book-turn-button--prev"
+                          :disabled="magicBookPageIndex <= 0"
+                          aria-label="上一页"
+                          @click="flipMagicBookPage(-1)"
+                        >
+                          <ChevronLeft aria-hidden="true" />
+                          <span>前页</span>
+                        </button>
+                        <span class="magic-book-folio__number">已携带 {{ magicBookCarryCount }} / {{ carryableMagicBookNames.length }}</span>
+                        <span class="magic-book-folio__spacer" aria-hidden="true"></span>
+                      </footer>
+                    </div>
+                  </section>
 
-            <template v-if="magicBooksNavTab === 'books'">
-              <div v-if="carryableMagicBookNames.length > 0" class="magic-books-grid custom-scrollbar">
-                <button
-                  v-for="bookName in carryableMagicBookNames"
-                  :key="`magic-book-${bookName}`"
-                  type="button"
-                  class="magic-book-card panel-item"
-                  :class="{
-                    'is-equipped': carriedMagicBookSet.has(bookName),
-                    'is-locked': isMagicBookLocked(bookName),
-                  }"
-                  :disabled="isUpdatingMagicBooks"
-                  @click="toggleMagicBook(bookName)"
-                >
+                  <!-- 右页（静态）：体系说明与携带操作 -->
+                  <section class="magic-book-page magic-book-page--right" :aria-label="`${magicBookRightPageEntry.category}之书`">
+                    <div
+                      class="magic-book-folio magic-book-folio--recto magic-book-text-page"
+                      :class="{
+                        'is-equipped': carriedMagicBookSet.has(magicBookRightPageEntry.category),
+                        'is-locked': isMagicBookLocked(magicBookRightPageEntry.category),
+                        'is-unavailable': !magicBookRightPageEntry.available,
+                      }"
+                    >
+                      <header class="magic-book-heading">
+                        <span class="magic-book-heading__eyebrow">体系卡组</span>
+                        <h3 class="magic-book-heading__title">{{ magicBookRightPageEntry.category }}之书</h3>
+                        <span class="magic-book-rule" aria-hidden="true"></span>
+                      </header>
+                      <ul class="magic-book-text-page__keywords" aria-label="体系关键词">
+                        <li v-for="keyword in magicBookRightPageEntry.keywords" :key="keyword">{{ keyword }}</li>
+                      </ul>
+                      <p class="magic-book-text-page__description">{{ magicBookRightPageEntry.description }}</p>
+                      <div class="magic-book-text-page__actions">
+                        <div class="magic-book-text-page__meta">
+                          <span>{{ magicBookRightPageEntry.cardCount }} 张卡牌</span>
+                          <span class="magic-book-text-page__meta-sep" aria-hidden="true"></span>
+                          <span>{{ getMagicBookStatusLabel(magicBookRightPageEntry) }}</span>
+                        </div>
+                        <button
+                          type="button"
+                          class="magic-book-seal-button"
+                          :class="{ 'is-active': carriedMagicBookSet.has(magicBookRightPageEntry.category) }"
+                          :disabled="isUpdatingMagicBooks || !magicBookRightPageEntry.available || isMagicBookLocked(magicBookRightPageEntry.category)"
+                          :aria-disabled="magicBookPageTurning"
+                          @click="!magicBookPageTurning && toggleMagicBook(magicBookRightPageEntry.category)"
+                        >
+                          <component :is="getMagicBookToggleIcon(magicBookRightPageEntry)" aria-hidden="true" />
+                          <span>{{ getMagicBookToggleLabel(magicBookRightPageEntry) }}</span>
+                        </button>
+                        <p class="magic-book-text-page__hint">选择体系后，它的卡牌与圣遗物会加入下一次战斗的牌池。</p>
+                      </div>
+                      <footer class="magic-book-folio__foot">
+                        <span class="magic-book-folio__spacer" aria-hidden="true"></span>
+                        <span class="magic-book-folio__number">{{ getMagicBookPageNumber(magicBookRightPageEntry) }} / {{ magicBookPages.length }}</span>
+                        <button
+                          type="button"
+                          class="magic-book-turn-button magic-book-turn-button--next"
+                          :disabled="magicBookPageIndex >= magicBookPages.length - 1"
+                          aria-label="下一页"
+                          @click="flipMagicBookPage(1)"
+                        >
+                          <span>后页</span>
+                          <ChevronRight aria-hidden="true" />
+                        </button>
+                      </footer>
+                    </div>
+                  </section>
+
+                  <!-- 翻页投影：落在静态书页上，位置与浓度由翻页帧实时驱动 -->
+                  <div ref="magicBookTurnShadowLeftEl" class="magic-book-turn-shadow magic-book-turn-shadow--left" aria-hidden="true"></div>
+                  <div ref="magicBookTurnShadowRightEl" class="magic-book-turn-shadow magic-book-turn-shadow--right" aria-hidden="true"></div>
+
+                  <!--
+                    翻动中的书页：所有分段都以中央装订线 (stage 的 50%) 为原点，
+                    正面 = 右页内容，背面 = 左页内容；向后翻 0° → -180°，向前翻 -180° → 0°。
+                  -->
                   <div
-                    class="magic-book-card__cover"
-                    :class="
-                      isMagicBookLocked(bookName)
-                        ? 'border-slate-500/55'
-                        : carriedMagicBookSet.has(bookName)
-                          ? 'border-dungeon-gold/60'
-                          : 'border-dungeon-brown/60'
-                    "
+                    v-if="magicBookPageTurning && magicBookLeafFrontEntry && magicBookLeafBackEntry"
+                    ref="magicBookLeafStageEl"
+                    class="magic-book-leaf-stage"
+                    aria-hidden="true"
                   >
-                    <img
-                      :src="getMagicBookCoverUrl(bookName)"
-                      :alt="`${bookName} 魔法书封面`"
-                      class="magic-book-card__image"
-                      :class="
-                        isMagicBookLocked(bookName)
-                          ? 'brightness-35 saturate-0'
-                          : carriedMagicBookSet.has(bookName)
-                            ? 'brightness-100 saturate-110'
-                            : 'brightness-50 saturate-60'
-                      "
-                      loading="lazy"
-                    />
-                    <div class="magic-book-card__shade"></div>
-                    <div v-if="isMagicBookLocked(bookName)" class="magic-book-card__lock">挑战过商人后解锁</div>
-                    <div class="magic-book-card__title-wrap">
-                      <div class="magic-book-title text-center truncate text-[22px]">{{ bookName }}之书</div>
+                    <div
+                      v-for="(segment, segIdx) in MAGIC_BOOK_LEAF_SEGMENTS"
+                      :key="`magic-book-leaf-segment-${segIdx}`"
+                      :ref="el => setMagicBookLeafSegmentEl(el, segIdx)"
+                      class="magic-book-leaf-seg"
+                      :style="segment.segmentStyle"
+                    >
+                      <div class="magic-book-leaf-face magic-book-leaf-face--front">
+                        <div class="magic-book-leaf-sheet magic-book-leaf-sheet--front" :style="segment.frontSheetStyle">
+                          <span class="magic-book-leaf-sheet__paper"></span>
+                          <span class="magic-book-leaf-sheet__print"></span>
+                          <div
+                            class="magic-book-folio magic-book-folio--recto magic-book-text-page"
+                            :class="{
+                              'is-equipped': carriedMagicBookSet.has(magicBookLeafFrontEntry.category),
+                              'is-locked': isMagicBookLocked(magicBookLeafFrontEntry.category),
+                              'is-unavailable': !magicBookLeafFrontEntry.available,
+                            }"
+                          >
+                            <header class="magic-book-heading">
+                              <span class="magic-book-heading__eyebrow">体系卡组</span>
+                              <span class="magic-book-heading__title">{{ magicBookLeafFrontEntry.category }}之书</span>
+                              <span class="magic-book-rule"></span>
+                            </header>
+                            <ul class="magic-book-text-page__keywords">
+                              <li v-for="keyword in magicBookLeafFrontEntry.keywords" :key="keyword">{{ keyword }}</li>
+                            </ul>
+                            <p class="magic-book-text-page__description">{{ magicBookLeafFrontEntry.description }}</p>
+                            <div class="magic-book-text-page__actions">
+                              <div class="magic-book-text-page__meta">
+                                <span>{{ magicBookLeafFrontEntry.cardCount }} 张卡牌</span>
+                                <span class="magic-book-text-page__meta-sep"></span>
+                                <span>{{ getMagicBookStatusLabel(magicBookLeafFrontEntry) }}</span>
+                              </div>
+                              <span
+                                class="magic-book-seal-button"
+                                :class="{
+                                  'is-active': carriedMagicBookSet.has(magicBookLeafFrontEntry.category),
+                                  'is-disabled': !magicBookLeafFrontEntry.available || isMagicBookLocked(magicBookLeafFrontEntry.category),
+                                }"
+                              >
+                                <component :is="getMagicBookToggleIcon(magicBookLeafFrontEntry)" />
+                                <span>{{ getMagicBookToggleLabel(magicBookLeafFrontEntry) }}</span>
+                              </span>
+                              <p class="magic-book-text-page__hint">选择体系后，它的卡牌与圣遗物会加入下一次战斗的牌池。</p>
+                            </div>
+                            <footer class="magic-book-folio__foot">
+                              <span class="magic-book-folio__spacer"></span>
+                              <span class="magic-book-folio__number">{{ getMagicBookPageNumber(magicBookLeafFrontEntry) }} / {{ magicBookPages.length }}</span>
+                              <span
+                                class="magic-book-turn-button magic-book-turn-button--next"
+                                :class="{ 'is-disabled': getMagicBookPageNumber(magicBookLeafFrontEntry) >= magicBookPages.length }"
+                              >
+                                <span>后页</span>
+                                <ChevronRight />
+                              </span>
+                            </footer>
+                          </div>
+                          <span class="magic-book-leaf-face__shade" :style="segment.frontShadeStyle"></span>
+                        </div>
+                      </div>
+                      <div class="magic-book-leaf-face magic-book-leaf-face--back">
+                        <div class="magic-book-leaf-sheet magic-book-leaf-sheet--back" :style="segment.backSheetStyle">
+                          <span class="magic-book-leaf-sheet__paper"></span>
+                          <span class="magic-book-leaf-sheet__print"></span>
+                          <div
+                            class="magic-book-folio magic-book-folio--verso magic-book-art-page"
+                            :class="{
+                              'is-locked': isMagicBookLocked(magicBookLeafBackEntry.category),
+                              'is-unavailable': !magicBookLeafBackEntry.available,
+                            }"
+                          >
+                            <figure class="magic-book-illumination">
+                              <div class="magic-book-illumination__plate">
+                                <img :src="getMagicBookArtUrl(magicBookLeafBackEntry.category)" alt="" class="magic-book-illumination__art" />
+                                <span class="magic-book-illumination__grain"></span>
+                              </div>
+                              <figcaption class="magic-book-illumination__caption">{{ magicBookLeafBackEntry.category }}</figcaption>
+                            </figure>
+                            <footer class="magic-book-folio__foot">
+                              <span
+                                class="magic-book-turn-button magic-book-turn-button--prev"
+                                :class="{ 'is-disabled': getMagicBookPageNumber(magicBookLeafBackEntry) <= 1 }"
+                              >
+                                <ChevronLeft />
+                                <span>前页</span>
+                              </span>
+                              <span class="magic-book-folio__number">已携带 {{ magicBookCarryCount }} / {{ carryableMagicBookNames.length }}</span>
+                              <span class="magic-book-folio__spacer"></span>
+                            </footer>
+                          </div>
+                          <span class="magic-book-leaf-face__shade" :style="segment.backShadeStyle"></span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div class="magic-book-card__footer">
-                    <span class="magic-book-card__footer-title">{{ bookName }}</span>
-                    <span class="magic-book-card__footer-action magic-book-card__badge">
-                      {{
-                        isMagicBookLocked(bookName)
-                          ? '未解锁'
-                          : carriedMagicBookSet.has(bookName)
-                            ? '已携带'
-                            : '未携带'
-                      }}
-                    </span>
-                  </div>
-                </button>
-              </div>
-              <div v-else class="magic-books-empty panel-empty">当前没有可选的附加魔法书。</div>
-            </template>
+                </template>
+                <section v-else class="magic-book-page magic-book-page--right">
+                  <div class="magic-book-folio magic-book-folio--recto magic-book-empty">当前没有可选的魔法书。</div>
+                </section>
+              </template>
 
-            <template v-else>
-              <div class="magic-books-active-panel panel-section">
-                <div class="magic-books-active-panel__head">
-                  <div>
-                    <div class="magic-books-active-panel__title panel-heading">起始主动槽</div>
-                    <div class="magic-books-active-panel__desc">
-                      先选中要编辑的槽位，再从下方技能库中指定一张开局主动技能。
-                    </div>
-                  </div>
-                  <div class="magic-books-active-panel__badge">当前编辑槽位：{{ selectedStartingActiveSlot + 1 }}</div>
-                </div>
-                <div class="magic-books-slot-grid">
-                  <button
-                    v-for="entry in startingActiveSkillEntries"
-                    :key="`starting-active-slot-${entry.idx}`"
-                    type="button"
-                    class="magic-books-slot-card panel-item"
-                    :class="selectedStartingActiveSlot === entry.idx ? 'is-selected' : ''"
-                    :disabled="isUpdatingStartingActiveSkills"
-                    @click="selectedStartingActiveSlot = entry.idx"
-                  >
-                    <div v-if="entry.skill" class="magic-books-slot-card__top">
-                      <div class="magic-books-slot-card__mana">
-                        {{ entry.skill.manaCost }}
-                      </div>
-                      <div class="magic-books-slot-card__tag">主动</div>
-                    </div>
-                    <div class="magic-books-slot-card__art">
-                      <div class="magic-books-slot-card__art-glow"></div>
-                      <span class="magic-books-slot-card__art-letter">{{ entry.skill?.name?.[0] ?? '槽' }}</span>
-                    </div>
-                    <div class="magic-books-slot-card__body">
-                      <div class="magic-books-slot-card__name">
-                        {{ entry.skill?.name ?? `主动槽位 ${entry.idx + 1}` }}
-                      </div>
-                      <div class="magic-books-slot-card__desc">
-                        {{ entry.skill?.description ?? '空主动槽位，点击下方技能卡可装备到此槽位。' }}
-                      </div>
-                      <div class="magic-books-slot-card__state">
-                        {{ selectedStartingActiveSlot === entry.idx ? '当前编辑中' : `槽位 ${entry.idx + 1}` }}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-                <div class="magic-books-active-panel__actions">
-                  <button
-                    type="button"
-                    class="magic-books-clear-btn panel-action"
-                    :disabled="isUpdatingStartingActiveSkills"
-                    @click="clearStartingActiveSkill(selectedStartingActiveSlot)"
-                  >
-                    清空当前槽位
-                  </button>
-                </div>
-              </div>
-
-              <div class="magic-books-skill-grid custom-scrollbar">
-                <button
-                  v-for="skill in startingActiveSkillOptions"
-                  :key="`starting-active-skill-${skill.id}`"
-                  type="button"
-                  class="magic-books-skill-card panel-item"
-                  :class="[
-                    skill.rarity === '稀有' ? 'rare-active-skill-card' : '',
-                    { 'is-equipped': isSkillEquippedInStartingActive(skill.name) },
-                  ]"
-                  :disabled="isUpdatingStartingActiveSkills"
-                  @click="setStartingActiveSkill(skill)"
-                >
-                  <div class="magic-books-skill-card__top">
-                    <div class="magic-books-skill-card__mana">
-                      {{ skill.manaCost }}
-                    </div>
-                    <div class="magic-books-skill-card__tag">主动</div>
-                  </div>
-                  <div class="magic-books-skill-card__art">
-                    <div class="magic-books-skill-card__art-glow"></div>
-                    <span class="magic-books-skill-card__art-letter">{{ skill.name[0] }}</span>
-                  </div>
-                  <div class="magic-books-skill-card__body">
-                    <div class="magic-books-skill-card__name">
-                      {{ skill.name }}
-                    </div>
-                    <div class="magic-books-skill-card__desc">
-                      {{ skill.description }}
-                    </div>
-                    <div class="magic-books-skill-card__meta">
-                      <span>CD {{ skill.Cooldown }}</span>
-                      <span
-                        :class="isSkillEquippedInStartingActive(skill.name) ? 'text-dungeon-gold' : 'text-white/55'"
+              <template v-else>
+                <!-- 左页：起始主动技能槽 -->
+                <section class="magic-book-page magic-book-page--left" aria-label="主动技能槽">
+                  <div class="magic-book-folio magic-book-folio--verso magic-book-active-page">
+                    <header class="magic-book-heading magic-book-heading--compact">
+                      <span class="magic-book-heading__eyebrow">起始配置 · 已装备 {{ startingActiveEquippedCount }}/2</span>
+                      <h3 class="magic-book-heading__title">主动技能槽</h3>
+                      <span class="magic-book-rule" aria-hidden="true"></span>
+                      <p class="magic-book-heading__note">选择槽位，再从右页装备技能。</p>
+                    </header>
+                    <div class="magic-book-active-slots">
+                      <button
+                        v-for="entry in startingActiveSkillEntries"
+                        :key="`starting-active-slot-${entry.idx}`"
+                        type="button"
+                        class="magic-book-active-card-button magic-book-active-card-button--slot"
+                        :class="{ 'is-selected': selectedStartingActiveSlot === entry.idx, 'is-empty': !entry.skill }"
+                        :disabled="isUpdatingStartingActiveSkills"
+                        :aria-pressed="selectedStartingActiveSlot === entry.idx"
+                        :aria-label="`编辑主动槽位 ${entry.idx + 1}`"
+                        @click="selectedStartingActiveSlot = entry.idx"
                       >
-                        {{ isSkillEquippedInStartingActive(skill.name) ? '已装备' : '点击装备' }}
-                      </span>
+                        <span class="magic-book-active-card-button__gem" aria-hidden="true"></span>
+                        <ActiveSkillCard
+                          :skill="entry.skill"
+                          size="compact"
+                          :empty-label="`主动槽位 ${entry.idx + 1}`"
+                          :footer-right-text="selectedStartingActiveSlot === entry.idx ? '编辑中' : `槽位 ${entry.idx + 1}`"
+                          :footer-right-tone="selectedStartingActiveSlot === entry.idx ? 'success' : 'muted'"
+                        />
+                      </button>
+                    </div>
+                    <div class="magic-book-active-slot-caption">
+                      <span>当前编辑槽位 {{ selectedStartingActiveSlot + 1 }}</span>
+                      <button
+                        type="button"
+                        class="magic-book-active-clear"
+                        :disabled="isUpdatingStartingActiveSkills"
+                        @click="clearStartingActiveSkill(selectedStartingActiveSlot)"
+                      >
+                        清空
+                      </button>
                     </div>
                   </div>
+                </section>
+
+                <!-- 右页：主动技能库 -->
+                <section class="magic-book-page magic-book-page--right" aria-label="主动技能库">
+                  <div class="magic-book-folio magic-book-folio--recto magic-book-active-page">
+                    <header class="magic-book-heading magic-book-heading--compact">
+                      <span class="magic-book-heading__eyebrow">技能库 · {{ startingActiveSkillOptions.length }} 张</span>
+                      <h3 class="magic-book-heading__title">选择一张主动技能</h3>
+                      <span class="magic-book-rule" aria-hidden="true"></span>
+                      <p class="magic-book-heading__note">点击技能，装备到槽位 {{ selectedStartingActiveSlot + 1 }}。</p>
+                    </header>
+                    <div
+                      class="magic-book-active-library"
+                      :class="{ 'is-scrollable': magicBookLibraryLayout.scroll }"
+                      :style="{ '--mb-lib-cols': magicBookLibraryLayout.cols, '--mb-card-w': magicBookLibraryLayout.width }"
+                    >
+                      <button
+                        v-for="skill in startingActiveSkillOptions"
+                        :key="`starting-active-skill-${skill.id}`"
+                        type="button"
+                        class="magic-book-active-card-button magic-book-active-card-button--library"
+                        :class="{ 'is-equipped': isSkillEquippedInStartingActive(skill.name) }"
+                        :disabled="isUpdatingStartingActiveSkills"
+                        :aria-label="`${isSkillEquippedInStartingActive(skill.name) ? '已装备' : '装备'}${skill.name}`"
+                        @click="setStartingActiveSkill(skill)"
+                      >
+                        <span class="magic-book-active-card-button__gem" aria-hidden="true"></span>
+                        <ActiveSkillCard
+                          :skill="skill"
+                          size="compact"
+                          :footer-right-text="isSkillEquippedInStartingActive(skill.name) ? '已装备' : '装备'"
+                          :footer-right-tone="isSkillEquippedInStartingActive(skill.name) ? 'success' : 'muted'"
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </template>
+
+              <!-- 底部导航：铆在书脚页边上的铭牌，内端插入中央红宝石扣的金属臂之下 -->
+              <nav class="magic-book-nav" aria-label="魔法书分栏">
+                <button
+                  v-for="tab in MAGIC_BOOK_NAV_TABS"
+                  :key="tab.id"
+                  type="button"
+                  class="magic-book-nav__plate"
+                  :class="[tab.plateClass, { 'is-active': magicBooksNavTab === tab.id }]"
+                  :aria-pressed="magicBooksNavTab === tab.id"
+                  :title="tab.id === 'books' ? `已携带 ${magicBookCarryCount} / ${carryableMagicBookNames.length}` : `已装备 ${startingActiveEquippedCount}/2`"
+                  @click="magicBooksNavTab = tab.id"
+                >
+                  <span class="magic-book-nav__seat" aria-hidden="true"></span>
+                  <img class="magic-book-nav__metal" :src="MAGIC_BOOK_UI_PLATE_URL" alt="" aria-hidden="true" draggable="false" />
+                  <span class="magic-book-nav__glow" aria-hidden="true"></span>
+                  <span class="magic-book-nav__label">{{ tab.label }}</span>
+                  <span class="magic-book-nav__gem" aria-hidden="true"></span>
                 </button>
-              </div>
-            </template>
+              </nav>
+
+              <!-- 装订线金饰：取自书本素材本身，覆盖在书页（含翻动书页）与铭牌之上 -->
+              <img class="magic-book-shell__ornaments" :src="MAGIC_BOOK_UI_ORNAMENT_URL" alt="" aria-hidden="true" draggable="false" />
+              <span class="magic-book-gem-fx magic-book-gem-fx--crown" aria-hidden="true"><span></span></span>
+              <span class="magic-book-gem-fx magic-book-gem-fx--clasp" aria-hidden="true"><span></span></span>
+            </div>
           </div>
         </DungeonModal>
 
@@ -1390,6 +1480,12 @@
                       :disabled="isUpdatingMagicHatDifficulty || option.locked"
                       @click="setMagicHatDifficulty(option.value)"
                     >
+                      <img
+                        class="magic-hat-difficulty-card__seal"
+                        :src="getMagicHatSealUrl(option.value, option.locked)"
+                        alt=""
+                        aria-hidden="true"
+                      />
                       <div class="magic-hat-difficulty-card__head">
                         <span class="magic-hat-difficulty-card__name">{{ option.label }}</span>
                         <span class="magic-hat-difficulty-card__state">
@@ -1599,13 +1695,26 @@
           </div>
         </DungeonModal>
 
+        <!-- 初次进入：三个关键按钮的新手指引 -->
+        <SpotlightGuide
+          :open="showMainGuide"
+          :steps="mainGuideSteps"
+          :finish-label="canEditMagicBooks ? '打开魔法书' : '开始冒险'"
+          :secondary-finish-label="canEditMagicBooks ? '稍后再看' : ''"
+          @finish="finishMainGuide(true)"
+          @skip="finishMainGuide(false)"
+        />
+
         <Teleport to="body">
           <div
             v-if="relicTooltip"
             class="fixed z-220 pointer-events-none relic-tooltip"
             :style="{ left: `${relicTooltip.x}px`, top: `${relicTooltip.y}px` }"
           >
-            <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
+            <div class="relic-tooltip-head">
+              <img class="relic-tooltip-orb" :src="getRelicOrbUrl(relicTooltip.rarity)" alt="" />
+              <div class="relic-tooltip-name">{{ relicTooltip.name }}</div>
+            </div>
             <div class="relic-tooltip-desc">{{ relicTooltip.description }}</div>
           </div>
         </Teleport>
@@ -1692,9 +1801,9 @@
                     class="settings-select bg-[#1a0f08] border border-dungeon-brown text-dungeon-paper text-sm px-3 py-1.5 rounded-sm focus:outline-none focus:border-dungeon-gold font-ui sm:min-w-56"
                   >
                     <option value="'Cinzel', serif">Cinzel (默认)</option>
+                    <option value="'Noto Serif SC', serif">思源宋体</option>
                     <option value="'Inter', sans-serif">Inter</option>
                     <option value="'MedievalSharp', cursive">MedievalSharp</option>
-                    <option value="'MaShanZheng', 'KaiTi', serif">马善政体</option>
                     <option value="'MagicBookTitle', 'KaiTi', serif">江湖琅琶体</option>
                     <option value="serif">Serif</option>
                     <option value="sans-serif">Sans-serif</option>
@@ -2000,6 +2109,49 @@
                     :disabled="isFastModeLocked"
                     role="switch"
                     @click="toggleFastModeSetting"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
+
+                <div
+                  v-if="isCombatTestUnlocked"
+                  class="flex flex-col gap-2 pl-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>测试模式</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('testMode')"
+                      @mouseleave="closeSettingsHelp('testMode')"
+                      @focus="openSettingsHelp('testMode')"
+                      @blur="closeSettingsHelp('testMode')"
+                      @touchstart.passive="startSettingsHelpTouch('testMode')"
+                      @touchend="endSettingsHelpTouch('testMode')"
+                      @touchcancel="endSettingsHelpTouch('testMode')"
+                      @click.stop.prevent="toggleSettingsHelp('testMode')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'testMode'" class="settings-help-popover">
+                        {{ settingsHelpText.testMode }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isTestModeEnabled }"
+                    aria-label="测试模式"
+                    :aria-checked="isTestModeEnabled"
+                    role="switch"
+                    @click="toggleTestModeSetting"
                   >
                     <span class="settings-switch-track">
                       <span class="settings-switch-label settings-switch-label--off">关</span>
@@ -2440,15 +2592,33 @@
                   <LogOut aria-hidden="true" />
                   退出到标题
                 </button>
+                <button class="settings-action-btn settings-action-btn--gold" @click="replayMainGuide">
+                  <BookOpen aria-hidden="true" />
+                  重新查看新手指引
+                </button>
+                <button
+                  class="settings-action-btn"
+                  :class="missingVariablePaths.length > 0 ? 'settings-action-btn--accent' : 'settings-action-btn--gold'"
+                  :disabled="variableMigrationApplying || gameStore.isGenerating"
+                  :title="
+                    missingVariablePaths.length > 0
+                      ? `当前存档缺少 ${missingVariablePaths.length} 个新变量：${missingVariablePaths.slice(0, 6).join('、')}${missingVariablePaths.length > 6 ? '……' : ''}`
+                      : '当前存档已是最新变量结构'
+                  "
+                  @click="runVariableMigration"
+                >
+                  <DatabaseZap aria-hidden="true" />
+                  {{ missingVariablePaths.length > 0 ? `更新变量结构（缺 ${missingVariablePaths.length} 项）` : '变量结构已是最新' }}
+                </button>
                 <button
                   class="settings-action-btn settings-action-btn--test"
                   :class="isCombatTestUnlocked ? 'settings-action-btn--accent' : 'settings-action-btn--locked'"
-                  :title="isCombatTestUnlocked ? '进入战斗测试' : '作者测试用'"
+                  :title="isCombatTestUnlocked ? 'GM界面：战斗测试、事件结局触发' : '作者测试用'"
                   @click="handleCombatTestButtonClick"
                 >
-                  <Swords v-if="isCombatTestUnlocked" aria-hidden="true" />
+                  <Wrench v-if="isCombatTestUnlocked" aria-hidden="true" />
                   <LockKeyhole v-else aria-hidden="true" />
-                  {{ isCombatTestUnlocked ? '进入战斗测试' : '作者测试用' }}
+                  {{ isCombatTestUnlocked ? 'GM界面' : '作者测试用' }}
                 </button>
               </div>
             </div>
@@ -2491,9 +2661,99 @@
           </div>
         </DungeonModal>
 
+        <!-- GM 界面：战斗测试入口 + 全部事件结局触发 -->
+        <DungeonModal
+          title="GM界面"
+          :icon="Wrench"
+          panel-class="dungeon-modal--fullscreen"
+          :is-open="activeModal === 'gmPanel'"
+          @close="activeModal = null"
+        >
+          <div class="gm-panel">
+            <section class="gm-section">
+              <h3 class="gm-section__title">战斗测试</h3>
+              <div class="gm-row">
+                <button type="button" class="settings-action-btn settings-action-btn--accent" @click="openCombatTestFromGm">
+                  <Swords aria-hidden="true" />
+                  打开战斗测试配置
+                </button>
+              </div>
+            </section>
+
+            <section class="gm-section">
+              <h3 class="gm-section__title">小游戏直达</h3>
+              <div class="gm-row">
+                <button type="button" class="settings-action-btn settings-action-btn--gold" @click="gmTriggerEventOutcome('大转盘', '结局二')">大转盘</button>
+                <button type="button" class="settings-action-btn settings-action-btn--gold" @click="gmTriggerEventOutcome('扭蛋机', '结局二')">扭蛋机</button>
+                <button type="button" class="settings-action-btn settings-action-btn--gold" @click="gmTriggerEventOutcome('占卜', '结局二')">占卜（付钱 · 3 次）</button>
+                <button type="button" class="settings-action-btn settings-action-btn--gold" @click="gmTriggerEventOutcome('占卜', '结局三')">占卜（诅咒 · 6 次）</button>
+              </div>
+              <p class="gm-hint">触发后关闭本界面，点击选项区的「事件」按钮进入小游戏。占卜结局二会扣 10 金币，结局三会先要求替换【债务】诅咒。</p>
+            </section>
+
+            <section class="gm-section">
+              <h3 class="gm-section__title">事件状态</h3>
+              <p class="gm-hint">{{ gmCurrentEventSummary }}</p>
+              <div class="gm-row">
+                <button type="button" class="settings-action-btn settings-action-btn--gold" @click="gmResetEventState">重置事件状态</button>
+                <button
+                  type="button"
+                  class="settings-action-btn settings-action-btn--danger"
+                  :disabled="gmPendingNoticeCount === 0"
+                  @click="gmClearEventNotices"
+                >
+                  清空待注入的结算说明（{{ gmPendingNoticeCount }}）
+                </button>
+              </div>
+              <p class="gm-hint">测试产生的结算说明会附在下一条发送给 LLM 的消息里；只想看前端效果时，测试完记得清空。</p>
+            </section>
+
+            <section class="gm-section">
+              <div class="gm-section__head">
+                <h3 class="gm-section__title">事件结局触发</h3>
+                <input v-model="gmEventFilter" type="text" class="gm-search" placeholder="搜索事件或区域" />
+              </div>
+              <p class="gm-hint">
+                点击结局会把当前房间切为事件房、按真实流程抽定出场对象并写入判定结果，之后由正常的结算流程处理。灰色按钮表示该结局只有剧情、没有结算。
+              </p>
+              <div v-for="group in gmEventGroups" :key="`gm-group-${group.label}`" class="gm-group">
+                <div class="gm-group__label">{{ group.label }}</div>
+                <div class="gm-event-list">
+                  <div v-for="event in group.events" :key="`gm-event-${event.name}`" class="gm-event">
+                    <div class="gm-event__name">
+                      {{ event.name }}<span v-if="event.area" class="gm-event__area">{{ event.area }}</span>
+                    </div>
+                    <div class="gm-event__verdicts">
+                      <button
+                        v-for="verdict in EVENT_VERDICTS"
+                        :key="`gm-${event.name}-${verdict}`"
+                        type="button"
+                        class="gm-verdict"
+                        :class="{ 'is-empty': !getGmVerdictState(event.name, verdict).configured }"
+                        :title="getGmVerdictState(event.name, verdict).label"
+                        :disabled="gameStore.isGenerating"
+                        @click="gmTriggerEventOutcome(event.name, verdict)"
+                      >
+                        <span class="gm-verdict__name">{{ verdict }}</span>
+                        <span class="gm-verdict__label">{{ getGmVerdictState(event.name, verdict).label }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </DungeonModal>
+
         <!-- Combat Test Builder Modal -->
-        <DungeonModal title="战斗测试配置" :icon="Swords" :is-open="activeModal === 'combatTestBuilder'" @close="activeModal = null">
-          <div class="flex flex-col gap-4 w-full max-w-4xl">
+        <DungeonModal
+          title="战斗测试配置"
+          :icon="Swords"
+          panel-class="dungeon-modal--fullscreen"
+          :is-open="activeModal === 'combatTestBuilder'"
+          @close="activeModal = null"
+        >
+          <div class="flex flex-col gap-4 w-full">
             <template v-if="combatTestStep === 'deck'">
               <div class="flex items-center justify-between">
                 <h3 class="font-heading text-dungeon-gold text-sm tracking-widest uppercase">步骤1：组建卡组（9张）</h3>
@@ -2551,7 +2811,7 @@
               </div>
 
               <div
-                class="max-h-[42vh] overflow-y-auto rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-3 custom-scrollbar"
+                class="max-h-[72vh] overflow-y-auto rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-3 custom-scrollbar"
               >
                 <div class="space-y-3">
                   <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
@@ -2580,7 +2840,7 @@
                       </h4>
                       <span class="text-[10px] text-dungeon-paper/50">{{ group.cards.length }} 张</span>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] justify-items-center gap-4">
                       <button
                         v-for="card in group.cards"
                         :key="`all-card-${group.category}-${card.id}`"
@@ -2628,7 +2888,7 @@
                     <div class="mt-2 text-[10px] text-dungeon-paper/60 min-h-[30px]">
                       {{ entry.skill?.description ?? '从下方列表选择一个主动技装入该槽位。' }}
                     </div>
-                    <div class="mt-3 max-h-40 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
+                    <div class="mt-3 max-h-[40vh] overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
                       <button
                         v-for="skill in activeSkillsForBattle"
                         :key="`test-active-pick-${entry.idx}-${skill.id}`"
@@ -2676,7 +2936,7 @@
               </div>
 
               <div
-                class="max-h-[42vh] overflow-y-auto rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar"
+                class="max-h-[60vh] overflow-y-auto rounded-sm border border-dungeon-brown/60 bg-dungeon-dark/40 p-2 custom-scrollbar"
               >
                 <div class="space-y-2">
                   <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
@@ -2694,7 +2954,7 @@
                       {{ floorLabel }}
                     </button>
                   </div>
-                  <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <div class="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
                     <button
                       v-for="enemy in filteredEnemyEntriesForTest"
                       :key="`enemy-${enemy.name}`"
@@ -2726,7 +2986,7 @@
                   <h4 class="font-heading text-dungeon-gold text-xs tracking-wider uppercase">圣遗物自选</h4>
                   <span class="text-[11px] text-dungeon-paper/60">将同步写入 MVU `携带的物品._圣遗物`</span>
                 </div>
-                <div class="max-h-[28vh] overflow-y-auto custom-scrollbar pr-1">
+                <div class="max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
                   <div class="space-y-2">
                     <div class="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar">
                       <button
@@ -2754,16 +3014,19 @@
                         </h5>
                         <span class="text-[10px] text-dungeon-paper/50">{{ group.relics.length }} 件</span>
                       </div>
-                      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-2">
                         <div
                           v-for="relic in group.relics"
                           :key="`test-relic-${group.category}-${relic.id}`"
                           class="rounded-sm border border-dungeon-brown/50 bg-[#1a0f08]/70 p-2"
                         >
                           <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                              <div class="text-xs font-heading text-dungeon-gold truncate">{{ relic.name }}</div>
-                              <div class="text-[10px] text-dungeon-paper/60">{{ relic.rarity }}</div>
+                            <div class="flex min-w-0 items-center gap-2">
+                              <img class="test-relic-orb" :src="getRelicOrbUrl(relic.rarity)" alt="" />
+                              <div class="min-w-0">
+                                <div class="truncate font-heading text-xs text-dungeon-gold">{{ relic.name }}</div>
+                                <div class="text-[10px] text-dungeon-paper/60">{{ relic.rarity }}</div>
+                              </div>
                             </div>
                             <div class="flex items-center gap-1 shrink-0">
                               <button
@@ -2851,410 +3114,194 @@
 
         <!-- Shop Overlay -->
         <Transition name="combat-fade">
-          <div
+          <ShopScene
             v-if="showShopView"
-            class="shop-scene absolute inset-0 z-94 bg-black"
-            :style="{ '--shop-frame-image': `url(${shopFrameUrl})`, '--shop-compass-image': `url(${shopCompassUrl})` }"
-          >
-            <img :src="shopBackgroundUrl" class="absolute inset-0 size-full object-cover" alt="商店背景" />
-            <div class="shop-scene-shade"></div>
-
-            <header class="shop-brand">
-              <span class="shop-brand-compass" aria-hidden="true"></span>
-              <div class="shop-brand-copy">
-                <h2>神秘商店</h2>
-                <div class="shop-brand-divider"></div>
-                <div class="shop-brand-name">沐芯兰</div>
-                <div class="shop-brand-subtitle">Mysterious Merchant</div>
-              </div>
-            </header>
-
-            <section class="shop-rules" aria-label="交易规则">
-              <h3>交易规则</h3>
-              <ul>
-                <li><Scan aria-hidden="true" />这里沐芯兰最大</li>
-                <li><Sparkles aria-hidden="true" />仅出售圣遗物</li>
-                <li><Coins aria-hidden="true" />自由交易</li>
-                <li><LogOut aria-hidden="true" />自由离开</li>
-                <li><Swords aria-hidden="true" />挑衅的话后果自负</li>
-              </ul>
-            </section>
-
-            <div class="shop-dialogue">
-              <div class="shop-dialogue-name">沐芯兰</div>
-              <p v-if="isMerchantDefeated">「……这里的东西，你想拿就拿吧。」</p>
-              <p v-else-if="shopDialogue === '（微笑）'">{{ shopDialogue }}</p>
-              <p v-else>「{{ shopDialogue }}」</p>
-            </div>
-
-            <div class="shop-gold" aria-label="当前金币">
-              <Coins aria-hidden="true" />
-              <span>{{ Math.max(0, Number(displayGold) - shopSpentGold) }}</span>
-            </div>
-
-            <div class="shop-layout">
-              <section class="shop-panel" aria-label="圣遗物商店">
-                <div class="shop-panel-ornament" aria-hidden="true"></div>
-                <header class="shop-panel-head">
-                  <span class="shop-panel-compass" aria-hidden="true"></span>
-                  <div>
-                    <h2>圣遗物商店</h2>
-                    <span>ARTIFACTS SHOP</span>
-                  </div>
-                </header>
-
-                <div class="shop-goods-grid custom-scrollbar">
-                  <button
-                    v-for="item in shopProducts"
-                    :key="item.key"
-                    type="button"
-                    class="shop-item-card"
-                    :class="{
-                      'is-sold': item.sold,
-                      'is-legendary': item.relic.rarity === '传奇',
-                      'is-rare': item.relic.rarity === '稀有',
-                      'is-awaiting-confirm': isTouchViewport && pendingShopProductKey === item.key && !item.sold,
-                    }"
-                    :aria-label="`${item.relic.name}，${item.sold ? '已售出' : `${item.finalPrice}金币`}`"
-                    :disabled="item.sold || shopBuying"
-                    @click="handleShopProductClick($event, item)"
-                    @mouseenter="showShopProductTooltip($event, item)"
-                    @mouseleave="hideRelicTooltip"
-                    @focus="showShopProductTooltip($event, item)"
-                    @blur="hideRelicTooltip"
-                  >
-                    <div class="shop-item-icon-wrap">
-                      <Box class="shop-item-icon" />
-                      <span class="shop-item-count">×1</span>
-                    </div>
-                    <div class="shop-item-name">{{ item.relic.name }}</div>
-                    <div class="shop-item-price">
-                      <Coins aria-hidden="true" />
-                      <span>{{ item.sold ? '已售出' : item.finalPrice === 0 ? '免费' : item.finalPrice }}</span>
-                    </div>
-                    <span
-                      v-if="isTouchViewport && pendingShopProductKey === item.key && !item.sold"
-                      class="shop-item-confirm-hint"
-                    >
-                      再次点击购买
-                    </span>
-                  </button>
-
-                  <div v-if="shopProducts.length === 0" class="shop-empty">
-                    暂无可售商品
-                  </div>
-                </div>
-
-                <div class="shop-panel-foot">
-                  <button
-                    type="button"
-                    class="shop-rob-btn"
-                    :disabled="shopBuying || gameStore.isGenerating || shopRobbing || isMerchantDefeated"
-                    :title="shopRobClickCount < 5 ? `再点击 ${6 - shopRobClickCount} 次发起抢夺` : '点击发起抢夺'"
-                    @click="handleShopRobClick"
-                  >
-                    抢夺
-                  </button>
-                  <button
-                    type="button"
-                    class="shop-exit-btn"
-                    :disabled="shopBuying || gameStore.isGenerating || shopRobbing"
-                    @click="exitShop"
-                  >
-                    离 开 <ArrowRight aria-hidden="true" />
-                  </button>
-                </div>
-              </section>
-            </div>
-          </div>
+            class="z-94"
+            :products="shopProducts"
+            :gold="Math.max(0, Number(displayGold) - shopSpentGold)"
+            :dialogue="shopDialogue"
+            :defeated="isMerchantDefeated"
+            :rob-click-count="shopRobClickCount"
+            :robbing="shopRobbing"
+            :busy="shopBuying || gameStore.isGenerating"
+            :compact="isCompactPortraitLayout"
+            :background-url="shopBackgroundUrl"
+            :gold-icon-url="STAT_ICON_URLS.gold"
+            @buy="handleShopBuy"
+            @rob="handleShopRobClick"
+            @exit="exitShop"
+          />
         </Transition>
 
         <!-- Treasure Chest Overlay -->
         <Transition name="combat-fade">
-          <div
+          <ChestRoomScene
             v-if="showChestView"
-            class="absolute inset-0 z-95 bg-black"
-            @contextmenu.prevent="handleChestContextMenu"
-            @touchstart.passive="handleChestTouchStart"
-            @touchend="handleChestTouchEnd"
-            @touchcancel="handleChestTouchEnd"
-          >
-            <img
-              :src="chestBackgroundUrl"
-              class="absolute inset-0 size-full object-cover"
-              alt="宝箱界面背景"
-              @load="handleChestBgLoaded"
-            />
-
-            <div v-if="chestStage === 'opened'" class="pointer-events-none absolute inset-0">
-              <div
-                v-if="chestRewardVisible && chestRewardRelics.length > 0"
-                class="chest-reward-anchor"
-                :class="{
-                  'is-multi': chestRewardRelics.length > 1,
-                  'is-intro': chestRewardIntro,
-                }"
-              >
-                <div
-                  v-for="(relic, i) in chestRewardRelics"
-                  :key="`chest-reward-${relic.id}-${i}`"
-                  class="chest-reward-slot"
-                  :class="{
-                    'is-collected': chestRewardCollectedFlags[i],
-                    'is-intro': chestRewardIntro,
-                    'is-common': relic.rarity === '普通',
-                    'is-rare': relic.rarity === '稀有',
-                    'is-legendary': relic.rarity === '传奇',
-                  }"
-                >
-                  <span class="chest-reward-pillar" aria-hidden="true"></span>
-                  <span class="chest-reward-ground-ring" aria-hidden="true"></span>
-                  <span class="chest-reward-dust-ring" aria-hidden="true"></span>
-                  <span
-                    v-for="particle in 7"
-                    :key="`chest-reward-particle-${particle}`"
-                    class="chest-reward-particle"
-                    :data-particle="particle"
-                    aria-hidden="true"
-                  ></span>
-                  <button
-                    type="button"
-                    class="pointer-events-auto chest-reward-btn"
-                    :aria-label="`${relic.name}，${formatRarityLabel(relic.rarity)}圣遗物`"
-                    :class="{
-                      'is-collected': chestRewardCollectedFlags[i],
-                      'is-intro': chestRewardIntro,
-                      'is-common': relic.rarity === '普通',
-                      'is-rare': relic.rarity === '稀有',
-                      'is-legendary': relic.rarity === '传奇',
-                      'is-awaiting-confirm':
-                        isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i],
-                    }"
-                    :disabled="chestCollecting || chestRewardCollectedFlags[i]"
-                    @click.stop="handleChestRewardClick($event, i)"
-                    @mouseenter="showChestRewardTooltip($event, i)"
-                    @mouseleave="hideRelicTooltip"
-                    @focus="showChestRewardTooltip($event, i)"
-                    @blur="hideRelicTooltip"
-                    @touchstart.stop.passive="handleChestRewardTouchStart($event, i)"
-                    @touchend.stop="handleRelicTouchEnd"
-                    @touchcancel.stop="handleRelicTouchEnd"
-                  >
-                    <Box
-                      class="chest-reward-icon"
-                      :class="{
-                        'is-common': relic.rarity === '普通',
-                        'is-rare': relic.rarity === '稀有',
-                        'is-legendary': relic.rarity === '传奇',
-                      }"
-                    />
-                    <span
-                      v-if="isTouchViewport && pendingChestRewardIndex === i && !chestRewardCollectedFlags[i]"
-                      class="chest-reward-confirm-hint"
-                    >
-                      再次点击获取
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <button
-                v-if="chestRoomCompletionReady"
-                type="button"
-                class="map-overlay-finish-btn pointer-events-auto"
-                :disabled="chestCollecting || gameStore.isGenerating"
-                @click="finishChestRoom"
-              >
-                打开地图，选择下一目的地
-              </button>
-            </div>
-
-            <button
-              v-if="chestStage === 'closed'"
-              type="button"
-              aria-label="开启宝箱"
-              class="absolute left-1/2 top-1/2 h-[42vh] max-h-[360px] min-h-[220px] w-[36vw] max-w-[540px] min-w-[260px] -translate-1/2 cursor-pointer rounded-2xl border-0 bg-transparent p-0 opacity-0"
-              :disabled="chestRolling"
-              @click="handleChestCenterClick"
-            ></button>
-          </div>
+            class="z-95"
+            :stage="chestStage"
+            :rewards="chestRewardRelics"
+            :collected-flags="chestRewardCollectedFlags"
+            :reward-visible="chestRewardVisible"
+            :close-count="chestCloseCount"
+            :rolling="chestRolling"
+            :collecting="chestCollecting"
+            :completion-ready="chestRoomCompletionReady"
+            :finish-disabled="chestCollecting || gameStore.isGenerating"
+            :is-touch="isTouchViewport"
+            :pending-reward-index="pendingChestRewardIndex"
+            @open="handleChestCenterClick"
+            @close-request="closeOpenedChestForRefresh"
+            @finish="finishChestRoom"
+            @reward-click="handleChestRewardClick"
+            @reward-enter="showChestRewardTooltip"
+            @reward-leave="hideRelicTooltip"
+            @reward-touchstart="handleChestRewardTouchStart"
+            @reward-touchend="handleRelicTouchEnd"
+          />
         </Transition>
 
         <!-- Idol Overlay -->
         <Transition name="combat-fade">
           <div
             v-if="showIdolView"
-            class="absolute inset-0 z-96 bg-black overflow-hidden"
+            class="idol-scene absolute inset-0 z-96 overflow-hidden bg-black"
+            :class="{ 'idol-scene--black': idolVariant === 'black', 'is-offering': idolOffering }"
             @pointermove="handleIdolDicePointerMove"
             @pointerup="handleIdolDicePointerUp"
             @pointercancel="handleIdolDicePointerUp"
           >
-            <img :src="idolBackgroundUrl" class="absolute inset-0 size-full object-cover" alt="神像界面背景" />
+            <img :src="idolBackgroundUrl" class="idol-scene__bg absolute inset-0 size-full object-cover" alt="神像界面背景" />
+
+            <!-- 神像苏醒：被供奉的神像亮起光柱与光晕（与背景同一 16:9 坐标系） -->
+            <div class="idol-fx" aria-hidden="true">
+              <div
+                v-for="(spot, column) in idolStatueSpots"
+                :key="`idol-spot-${idolVariant}-${column}`"
+                class="idol-statue-light"
+                :class="{ 'is-active': idolActiveColumns.includes(column) }"
+                :style="spot"
+              >
+                <span class="idol-statue-light__beam"></span>
+                <span class="idol-statue-light__halo"></span>
+              </div>
+            </div>
 
             <div class="idol-layout absolute inset-0 z-97" :class="{ 'idol-layout--black': idolVariant === 'black' }">
               <div class="idol-slots-row" :class="{ 'idol-slots-row--black': idolVariant === 'black' }">
-                <template v-if="idolVariant === 'white'">
-                  <div class="idol-slot-wrap">
-                    <div class="idol-slot-hint">生命上限 +1.5倍骰子点数</div>
+                <div
+                  v-for="(slot, column) in idolSlotColumns"
+                  :key="slot.target"
+                  class="idol-slot-wrap"
+                  :style="{ '--i': String(column) }"
+                >
+                  <div class="idol-slot-hint">{{ slot.hint }}</div>
+                  <div class="idol-slot-frame">
                     <div
-                      ref="idolSlotMaxHpRef"
+                      :ref="el => setIdolSlotElement(slot.target, el)"
                       class="idol-slot"
                       :class="{
-                        'is-preview': idolSlotIsPreview('maxHp'),
-                        'is-selected': idolSlotIsSelected('maxHp'),
+                        'is-preview': idolSlotIsPreview(slot.target),
+                        'is-selected': idolSlotIsSelected(slot.target),
                       }"
                     >
-                      <img class="idol-slot-art" :src="idolSlotAssetUrl('maxHp')" alt="" aria-hidden="true" />
+                      <img class="idol-slot-art" :src="idolSlotAssetUrl(slot.target)" alt="" aria-hidden="true" />
                     </div>
+                    <span
+                      v-if="idolSlotBurst[slot.target]"
+                      :key="`idol-burst-${slot.target}-${idolSlotBurst[slot.target]}`"
+                      class="idol-slot-burst"
+                      aria-hidden="true"
+                    ></span>
+                    <span
+                      v-if="idolSlotReject && idolSlotReject.target === slot.target"
+                      :key="`idol-reject-${idolSlotReject.key}`"
+                      class="idol-slot-reject"
+                      aria-hidden="true"
+                    ></span>
                   </div>
-                  <div class="idol-slot-wrap">
-                    <div class="idol-slot-hint">初始魔量 +骰子点数</div>
-                    <div
-                      ref="idolSlotMpRef"
-                      class="idol-slot"
-                      :class="{
-                        'is-preview': idolSlotIsPreview('mp'),
-                        'is-selected': idolSlotIsSelected('mp'),
-                      }"
-                    >
-                      <img class="idol-slot-art" :src="idolSlotAssetUrl('mp')" alt="" aria-hidden="true" />
-                    </div>
-                  </div>
-                  <div class="idol-slot-wrap">
-                    <div class="idol-slot-hint">金币 +2倍骰子点数</div>
-                    <div
-                      ref="idolSlotGoldRef"
-                      class="idol-slot"
-                      :class="{
-                        'is-preview': idolSlotIsPreview('gold'),
-                        'is-selected': idolSlotIsSelected('gold'),
-                      }"
-                    >
-                      <img class="idol-slot-art" :src="idolSlotAssetUrl('gold')" alt="" aria-hidden="true" />
-                    </div>
-                  </div>
-                </template>
-
-                <template v-else>
-                  <div class="idol-slot-wrap">
-                    <div class="idol-slot-hint">献祭骰子点数生命：初始法力+当前最大点数（{{ idolDiceMax }}）</div>
-                    <div
-                      ref="idolSlotMpRef"
-                      class="idol-slot"
-                      :class="{
-                        'is-preview': idolSlotIsPreview('blackMp'),
-                        'is-selected': idolSlotIsSelected('blackMp'),
-                      }"
-                    >
-                      <img class="idol-slot-art" :src="idolSlotAssetUrl('blackMp')" alt="" aria-hidden="true" />
-                    </div>
-                  </div>
-                  <div class="idol-slot-wrap">
-                    <div class="idol-slot-hint">献祭骰子点数生命上限：最小与最大点数各+1</div>
-                    <div
-                      ref="idolSlotMaxHpRef"
-                      class="idol-slot"
-                      :class="{
-                        'is-preview': idolSlotIsPreview('blackDice'),
-                        'is-selected': idolSlotIsSelected('blackDice'),
-                      }"
-                    >
-                      <img class="idol-slot-art" :src="idolSlotAssetUrl('blackDice')" alt="" aria-hidden="true" />
-                    </div>
-                  </div>
-                  <div class="idol-slot-wrap">
-                    <div class="idol-slot-hint">献祭骰子点数生命：金币+3倍骰子点数</div>
-                    <div
-                      ref="idolSlotGoldRef"
-                      class="idol-slot"
-                      :class="{
-                        'is-preview': idolSlotIsPreview('blackGold'),
-                        'is-selected': idolSlotIsSelected('blackGold'),
-                      }"
-                    >
-                      <img class="idol-slot-art" :src="idolSlotAssetUrl('blackGold')" alt="" aria-hidden="true" />
-                    </div>
-                  </div>
-                </template>
+                </div>
               </div>
 
               <div ref="idolDiceStageRef" class="idol-dice-stage">
                 <div
-                  ref="idolDiceRef"
+                  v-for="diceIndex in idolDiceIndexes"
+                  :key="`idol-dice-${diceIndex}`"
+                  :ref="el => setIdolDiceElement(diceIndex, el)"
                   class="idol-dice-draggable"
-                  :class="{ 'is-locked': idolDiceRolling, 'is-black-dice': idolVariant === 'black' }"
-                  :style="{ transform: `translate(${idolDicePosition.x}px, ${idolDicePosition.y}px)` }"
-                  @pointerdown="handleIdolDicePointerDown($event, 0)"
+                  :class="{
+                    'idol-dice-draggable--second': diceIndex === 1,
+                    'is-locked': idolDiceRolling,
+                    'is-casting': idolDiceRolling,
+                    'is-dragging': idolDragDiceIndex === diceIndex,
+                    'is-placed': Boolean(getIdolAssignedTarget(diceIndex)),
+                  }"
+                  :style="{
+                    transform: `translate(${getIdolDicePosition(diceIndex).x}px, ${getIdolDicePosition(diceIndex).y}px)`,
+                    '--cast-delay': `${diceIndex * 110}ms`,
+                  }"
+                  @pointerdown="handleIdolDicePointerDown($event, diceIndex)"
                 >
-                  <DungeonDice
-                    :value="idolDiceValue"
-                    :rolling="idolDiceRolling"
-                    color="gold"
-                    size="lg"
-                    :rolling-min="idolDiceMin"
-                    :rolling-max="idolDiceMax"
-                  />
-                </div>
-                <div
-                  v-if="idolVariant === 'black'"
-                  ref="idolDiceTwoRef"
-                  class="idol-dice-draggable idol-dice-draggable--second"
-                  :class="{ 'is-locked': idolDiceRolling }"
-                  :style="{ transform: `translate(${idolDiceTwoPosition.x}px, ${idolDiceTwoPosition.y}px)` }"
-                  @pointerdown="handleIdolDicePointerDown($event, 1)"
-                >
-                  <DungeonDice
-                    :value="idolDiceTwoValue"
-                    :rolling="idolDiceRolling"
-                    color="gold"
-                    size="lg"
-                    :rolling-min="idolDiceMin"
-                    :rolling-max="idolDiceMax"
-                  />
+                  <div class="idol-dice-body">
+                    <DungeonDice
+                      :value="getIdolDiceValue(diceIndex)"
+                      :rolling="idolDiceRolling"
+                      color="gold"
+                      size="lg"
+                      :rolling-min="idolDiceMin"
+                      :rolling-max="idolDiceMax"
+                    />
+                  </div>
+                  <span
+                    v-if="idolDiceRevealKey > 0"
+                    :key="`idol-reveal-${diceIndex}-${idolDiceRevealKey}`"
+                    class="idol-dice-reveal"
+                    aria-hidden="true"
+                  ></span>
                 </div>
               </div>
             </div>
 
-            <div v-if="!idolDiceRolling" class="idol-overlay-actions">
-              <button
-                v-if="idolHasAssignedDice"
-                type="button"
-                class="map-overlay-finish-btn"
-                :disabled="gameStore.isGenerating"
-                @click="finishIdolRoom"
-              >
-                供奉并打开地图
-              </button>
-              <button
-                type="button"
-                class="idol-leave-btn"
-                :disabled="gameStore.isGenerating"
-                @click="leaveIdolRoom"
-              >
-                不供奉，直接离开
-              </button>
-            </div>
+            <Transition name="idol-actions">
+              <div v-if="!idolDiceRolling && !idolOffering" class="idol-overlay-actions">
+                <button
+                  v-if="idolHasAssignedDice"
+                  type="button"
+                  class="map-overlay-finish-btn"
+                  :disabled="gameStore.isGenerating"
+                  @click="finishIdolRoom"
+                >
+                  供奉并打开地图
+                </button>
+                <button
+                  type="button"
+                  class="idol-leave-btn"
+                  :disabled="gameStore.isGenerating"
+                  @click="leaveIdolRoom"
+                >
+                  不供奉，直接离开
+                </button>
+              </div>
+            </Transition>
+
+            <div v-if="idolOffering" class="idol-offer-flash" aria-hidden="true"></div>
           </div>
         </Transition>
 
         <!-- Chest Mimic Relic Drop Overlay -->
         <Transition name="combat-fade">
-          <div v-if="showMimicRelicDropView" class="absolute inset-0 z-102 bg-black/90">
-            <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
-              <div
-                class="mimic-drop-panel w-full max-w-xl rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]"
-              >
-                <div class="mb-4 flex items-start justify-between gap-3">
-                  <div>
-                    <div class="font-heading text-xl text-dungeon-gold">宝箱怪掉落</div>
-                    <div class="text-xs text-dungeon-paper/65 mt-1">选择是否带走这件圣遗物</div>
-                  </div>
+          <div v-if="showMimicRelicDropView" class="mimic-drop-overlay absolute inset-0 z-102">
+            <div class="absolute inset-0 flex items-center justify-center p-6 md:p-10">
+              <div class="mimic-drop-panel">
+                <div class="mimic-drop-heading">
+                  <div class="mimic-drop-title">宝箱怪掉落</div>
+                  <div class="mimic-drop-subtitle">选择是否带走这件圣遗物</div>
                 </div>
 
                 <button
                   v-if="mimicRelicDropEntry"
                   type="button"
                   class="mimic-drop-relic"
+                  :class="mimicRelicDropToneClass"
                   @mouseenter="showRelicTooltip($event, mimicRelicDropEntry)"
                   @mouseleave="hideRelicTooltip"
                   @focus="showRelicTooltip($event, mimicRelicDropEntry)"
@@ -3263,7 +3310,9 @@
                   @touchend="handleRelicTouchEnd"
                   @touchcancel="handleRelicTouchEnd"
                 >
-                  <Box class="mimic-drop-icon" />
+                  <span class="mimic-drop-orb" aria-hidden="true">
+                    <img :src="getRelicOrbUrl(mimicRelicDropRelic?.rarity)" alt="" />
+                  </span>
                   <div class="mimic-drop-copy">
                     <div class="mimic-drop-name">{{ mimicRelicDropEntry.name }}</div>
                     <div class="mimic-drop-meta">
@@ -3274,10 +3323,10 @@
                   </div>
                 </button>
 
-                <div class="mt-5 flex justify-end gap-3">
+                <div class="mimic-drop-actions">
                   <button
                     type="button"
-                    class="px-4 py-2 rounded-sm border border-dungeon-brown text-dungeon-paper/75 hover:border-dungeon-gold/50 disabled:opacity-50"
+                    class="mimic-drop-skip"
                     :disabled="mimicRelicDropApplying"
                     @click="skipMimicRelicDrop"
                   >
@@ -3285,7 +3334,7 @@
                   </button>
                   <button
                     type="button"
-                    class="px-4 py-2 rounded-sm border border-dungeon-gold/55 bg-dungeon-gold/10 text-dungeon-gold hover:bg-dungeon-gold/15 disabled:opacity-50"
+                    class="mimic-drop-take"
                     :disabled="mimicRelicDropApplying || !mimicRelicDropRelic"
                     @click="acceptMimicRelicDrop"
                   >
@@ -3483,7 +3532,7 @@
                   <div>
                     <div class="font-heading text-xl text-fuchsia-200">诅咒替换</div>
                     <div class="text-xs text-dungeon-paper/65 mt-1">
-                      获得【{{ activeForcedCurseReplacement.relicName }}】后，必须选择 1 个卡组槽位替换为【{{
+                      {{ activeForcedCurseReplacement.sourceText ?? `获得【${activeForcedCurseReplacement.relicName}】后` }}，必须选择 1 个卡组槽位替换为【{{
                         activeForcedCurseReplacement.curseName
                       }}】。
                     </div>
@@ -3518,6 +3567,20 @@
                 </div>
 
                 <div
+                  v-else-if="!forcedCurseHasReplaceableSlot"
+                  class="rounded-sm border border-dungeon-brown/50 bg-black/20 p-4 text-center"
+                >
+                  <div class="text-sm text-dungeon-paper/70">卡组已被诅咒填满，诅咒牌无法被替换，这份诅咒无处容身。</div>
+                  <button
+                    type="button"
+                    class="mt-3 px-4 py-2 rounded-sm border border-fuchsia-300/45 text-fuchsia-100 hover:bg-fuchsia-500/10"
+                    @click="dismissUnplaceableForcedCurse"
+                  >
+                    确定
+                  </button>
+                </div>
+
+                <div
                   v-else
                   class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
                 >
@@ -3526,12 +3589,13 @@
                     :key="`forced-curse-replace-${entry.idx}`"
                     type="button"
                     class="rounded-sm border border-dungeon-brown/50 bg-[#160d08]/65 p-3 text-left transition-colors hover:border-fuchsia-300/60 disabled:opacity-50 disabled:cursor-not-allowed"
-                    :disabled="forcedCurseReplacing"
+                    :disabled="forcedCurseReplacing || entry.isCurse"
                     @click="replaceDeckCardWithForcedCurse(entry.idx)"
                   >
                     <div class="mb-2 flex items-center justify-between gap-2 text-[11px] text-dungeon-paper/65">
                       <span>槽位 {{ entry.idx + 1 }}</span>
-                      <span class="text-fuchsia-100">替换为诅咒</span>
+                      <span v-if="entry.isCurse" class="text-dungeon-paper/45">诅咒无法被替换</span>
+                      <span v-else class="text-fuchsia-100">替换为诅咒</span>
                     </div>
                     <div class="flex justify-center">
                       <DungeonCard v-if="entry.card" :card="entry.card" disabled />
@@ -3549,14 +3613,76 @@
           </div>
         </Transition>
 
+        <!-- 事件结算面板 -->
+        <Transition name="combat-fade">
+          <EventSettlementModal
+            v-if="eventSettlementSession"
+            :steps="eventSettlementSession.steps"
+            :draft="eventSettlementSession.draft"
+            :pools="eventSettlementSession.pools"
+            :header-label="eventSettlementSession.headerLabel"
+            @complete="completeEventSettlementSession"
+          />
+        </Transition>
+
+        <!-- 前端化事件：小游戏 -->
+        <Transition name="combat-fade">
+          <WheelMinigame
+            v-if="activeMinigame?.kind === '大转盘'"
+            :sectors="wheelSectors"
+            :spin-cost="wheelSpinCost"
+            :gold="displayGold"
+            :jackpot-taken="wheelJackpotTaken"
+            :busy="minigameBusy"
+            @spin="handleWheelSpin"
+            @exit="finishEventMinigame"
+          />
+        </Transition>
+        <Transition name="combat-fade">
+          <GachaMinigame
+            v-if="activeMinigame?.kind === '扭蛋机'"
+            :machines="GACHA_MACHINES"
+            :gold="displayGold"
+            :busy="minigameBusy"
+            @pull="handleGachaPull"
+            @exit="finishEventMinigame"
+          />
+        </Transition>
+        <Transition name="combat-fade">
+          <DivinationMinigame
+            v-if="activeMinigame?.kind === '占卜'"
+            :state="activeMinigame.state"
+            :busy="minigameBusy"
+            @update="handleDivinationUpdate"
+            @finish="handleDivinationFinish"
+          />
+        </Transition>
+
+        <!-- 温泉：恢复至满血 / 净化一个负面状态 / 净化诅咒 三选一 -->
+        <Transition name="combat-fade">
+          <HotSpringChoiceModal
+            v-if="showHotSpringChoice"
+            :hp="displayHp"
+            :max-hp="displayMaxHp"
+            :cleansable-statuses="hotSpringCleansableEntries"
+            :purifiable-curses="hotSpringPurifiableCurses"
+            :busy="hotSpringApplying"
+            @heal="chooseHotSpringHeal"
+            @cleanse="chooseHotSpringCleanse"
+            @purify="chooseHotSpringPurify"
+            @close="showHotSpringChoice = false"
+          />
+        </Transition>
+
         <!-- Combat Overlay -->
         <Transition name="combat-fade">
           <div v-if="showCombat" class="absolute inset-0 z-100 bg-black">
             <CombatView
               class="size-full"
               :enemy-name="combatEnemyName"
-              :player-deck="resolvedDeck"
+              :player-deck="combatPlayerDeck"
               :player-active-skills="resolvedActiveSkills"
+              :battle-modifiers="combatBattleModifiers"
               :player-relics="combatRelicMap"
               :player-portrait-override-url="playerBattlePortraitUrl"
               :test-start-at-999="combatTestStartAt999CurrentBattle"
@@ -3571,6 +3697,8 @@
                 effects: combatInitialPlayerEffects,
               }"
               @end-combat="handleCombatEnd"
+              @player-turn-damage-threshold-reached="handlePlayerTurnDamageThresholdReached"
+              @player-max-dice-threshold-reached="handlePlayerMaxDiceThresholdReached"
               @open-deck="activeModal = 'deck'"
               @open-relics="openInventoryModal('relics')"
               @open-glossary="isGlossaryReferenceOpen = true"
@@ -3578,7 +3706,7 @@
             <!-- Exit combat button -->
             <button
               v-if="canExitCurrentCombat"
-              class="absolute top-4 right-4 z-110 px-4 py-2 bg-red-950/80 border border-red-700/50 text-red-300 text-sm rounded-lg hover:bg-red-900/80 hover:border-red-600 transition-all backdrop-blur-sm"
+              class="combat-exit-btn absolute top-4 right-4 z-110 px-4 py-2"
               @click="exitCurrentCombatOverlay"
             >
               ✕ 退出战斗
@@ -3611,16 +3739,16 @@
 <script setup lang="ts">
 import {
   ArrowLeft,
-  ArrowRight,
   ArrowDown,
   ArrowUp,
   Box,
+  BookMarked,
+  BookOpen,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Coins,
   Copy,
-  Dices,
+  DatabaseZap,
   FileText,
   LockKeyhole,
   LogOut,
@@ -3641,6 +3769,7 @@ import {
   Upload,
   Users,
   Volume2,
+  Wrench,
   X,
   ZoomIn,
   ZoomOut,
@@ -3651,7 +3780,7 @@ import { hasAuthorTestAccess, unlockAuthorTestAccess, verifyAuthorTestPassword }
 import { getAllActiveSkills, resolveActiveSkillNames } from '../battle/activeSkillRegistry';
 import { getAllCards, getCardByName, resolveCardNames } from '../battle/cardRegistry';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
-import { getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
+import { PORTED_RELIC_ID, getAllRelics, getRelicById, getRelicByName, type RelicData } from '../battle/relicRegistry';
 import { recordEncounteredCards, recordEncounteredRelics } from '../codexStore';
 import {
   CUSTOM_DIFFICULTY_BASE_OPTIONS,
@@ -3665,7 +3794,82 @@ import {
   type CustomDifficultyInfluence,
   type DifficultyOption,
 } from '../difficulty';
-import { FINAL_AREA_NAME, FINAL_FLOOR_NAME, FLOOR_MAP, getFloorForArea, getNextFloor } from '../floor';
+import {
+  AREA_EVENT_POOL,
+  EVENT_VERDICTS,
+  FLOOR_EVENT_POOL,
+  GLOBAL_EVENT_POOL,
+  normalizeEventVerdict,
+  normalizeTriggeredEvents,
+  pickEventForArea,
+  type EventVerdict,
+} from '../eventRegistry';
+import { buildVariableMigration, findMissingVariables } from '../variableMigration';
+import { ALL_CARD_FRAME_URLS } from '../cardFrames';
+import { applyEnchantToCard, normalizeEnchantList } from '../battle/enchantRegistry';
+import {
+  createEmptyBattleModifiers,
+  describeCombatModifier,
+  expireFloorCombatModifiers,
+  getRoomEntryHealFromModifiers,
+  normalizeCombatModifiers,
+  resolveBattleModifiers,
+  consumeBattleModifiers,
+  type ResolvedBattleModifiers,
+} from '../combatModifiers';
+import { getEventOutcomeSpec, type OutcomeAction, type OutcomeContext } from '../events/eventOutcomes';
+import {
+  EMPTY_EVENT_ACTION_STATE,
+  SettlementDraft,
+  formatEventSettlementNotice,
+  normalizeDelayedRewards,
+  normalizeEventActionState,
+  normalizeNoticeList,
+  normalizeTemporaryReplacements,
+  pickRelics,
+  type EventActionPhase,
+  type SettlementPools,
+  type SettlementStep,
+} from '../events/eventSettlement';
+import {
+  GACHA_MACHINES,
+  buildWheelSectors,
+  createDivinationState,
+  getWheelSpinCost,
+  normalizeDivinationState,
+  rollGoldAmount,
+  type DivinationItem,
+  type DivinationState,
+  type GachaMachine,
+  type MinigamePrize,
+  type WeightedPrize,
+  type WheelSector,
+} from '../events/minigames';
+import {
+  EVENT_CARD_CATEGORY,
+  HOT_SPRING_CURSE_PURIFY_MAP,
+  SIN_REWARD_SLOT_CHANCE,
+  getSinRewardCandidates,
+} from '../battle/eventCards';
+import {
+  AUCTION_TAG_GOLD_PER_WIN,
+  EVENT_RELIC_ID,
+  GLUTTON_STOMACH_MAX_HP_BONUS,
+  UMBILICAL_CORD_HEAL_PER_ROOM,
+} from '../battle/eventRelics';
+import {
+  OVERDUE_BATTLE_CHANCE,
+  OVERDUE_FLOOR,
+  cleanseSingleNegativeStatus,
+  describeNegativeStatus,
+  getCleansableNegativeStatuses,
+  getHotSpringBehavior,
+  getRebirthRetainedNegativeStatuses,
+  hasNegativeStatus,
+  normalizeNegativeStatusList,
+  removeNegativeStatus,
+} from '../negativeStatusRegistry';
+import { FINAL_AREA_NAME, FINAL_FLOOR_NAME, FLOOR_MAP, getFloorForArea, getFloorNumberForArea, getNextFloor } from '../floor';
 import { toggleFullScreen } from '../fullscreen';
 import { useGameStore, type BigSummaryPromptRole, type BigSummaryPromptSegment } from '../gameStore';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
@@ -3675,22 +3879,34 @@ import {
   generateDungeonMap,
   normalizeDungeonMap,
   replaceFutureRoomsWithBattle,
+  replaceFutureRoomsWithBattleByChance,
   type DungeonMap,
   type MapRoomNode,
 } from '../map';
 import type { OpeningInfoSubmission } from '../openingProfile';
+import { getRelicOrbUrl, RELIC_ORB_URLS } from '../relicOrbs';
+import { isSceneTransitionActive, runSceneTransition } from '../sceneTransition';
 import { extractMainText, extractMainTextOnly, hasMainTextTag } from '../responseParser';
 import { CardType, EffectType, type ActiveSkillData, type CardData, type EffectInstance, type EntityStats } from '../types';
+import { CHEST_ROOM_PRELOAD_URLS } from '../chestRoomAssets';
 import ActiveSkillCard from './ActiveSkillCard.vue';
+import ChestRoomScene from './ChestRoomScene.vue';
 import CombatView from './CombatView.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonDice from './DungeonDice.vue';
 import DungeonModal from './DungeonModal.vue';
+import EventSettlementModal from './EventSettlementModal.vue';
+import HotSpringChoiceModal from './HotSpringChoiceModal.vue';
+import DivinationMinigame from './minigames/DivinationMinigame.vue';
+import GachaMinigame from './minigames/GachaMinigame.vue';
+import WheelMinigame from './minigames/WheelMinigame.vue';
 import SoundSettings from './SoundSettings.vue';
 import GlossaryReferenceModal from './GlossaryReferenceModal.vue';
 import MainButtonSkin from './MainButtonSkin.vue';
 import OpeningInfoEntryView from './OpeningInfoEntryView.vue';
 import SaveLoadPanel from './SaveLoadPanel.vue';
+import ShopScene from './ShopScene.vue';
+import SpotlightGuide, { type SpotlightGuideStep } from './SpotlightGuide.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -4008,14 +4224,13 @@ const chestRewardRelics = ref<RelicData[]>([]);
 const chestRewardCollectedFlags = ref<boolean[]>([]);
 const chestCollecting = ref(false);
 const chestRewardVisible = ref(false);
-const chestRewardIntro = ref(false);
+/** 旧版按背景图加载控制奖励显示；新场景无需等待，保留该字段以兼容存档 */
 const chestOpenedBgReady = ref(false);
 const chestRewardCountFixed = ref<number | null>(null);
 const chestCloseCount = ref(0);
 const chestForceMimicNextOpen = ref(false);
 const pendingChestRewardIndex = ref<number | null>(null);
 const chestRoomCompletionReady = computed(() => chestStage.value === 'opened');
-const pendingShopProductKey = ref<string | null>(null);
 const hotSpringCleanseMessage = ref<{ id: number; text: string } | null>(null);
 const gameFeedbackMessage = ref<{ id: number; text: string } | null>(null);
 const roomAssetLoading = ref(false);
@@ -4046,6 +4261,14 @@ const idolDragPointerId = ref<number | null>(null);
 const idolDragDiceIndex = ref<0 | 1 | null>(null);
 const idolDragStart = ref({ x: 0, y: 0 });
 const idolDragStartPos = ref({ x: 0, y: 0 });
+/** 供奉仪式进行中（播放献祭动画，之后才关闭神像房并提交） */
+const idolOffering = ref(false);
+/** 槽位点亮特效计数（递增以重播） */
+const idolSlotBurst = ref<Partial<Record<IdolSlotTarget, number>>>({});
+/** 无效放置时闪红的槽位 */
+const idolSlotReject = ref<{ target: IdolSlotTarget; key: number } | null>(null);
+/** 掷骰结束时的揭示光环 */
+const idolDiceRevealKey = ref(0);
 const combatTestStep = ref<'deck' | 'enemy'>('deck');
 const isCombatTestUnlocked = ref(hasAuthorTestAccess());
 const selectedTestDeck = ref<string[]>([]);
@@ -4054,12 +4277,12 @@ const selectedEnemyFloorForTest = ref('全部');
 const selectedTestRelicCounts = ref<Record<string, number>>({});
 const selectedCardCategoryTab = ref('全部');
 const selectedRelicCategoryTab = ref('全部');
-const activeCombatContext = ref<'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest'>('normal');
+const activeCombatContext = ref<'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest' | 'event'>('normal');
 const NO_COMBAT_EXIT_ENEMY_NAMES = new Set(['宝箱怪', '沐芯兰']);
 const canExitCurrentCombat = computed(() => !NO_COMBAT_EXIT_ENEMY_NAMES.has(combatEnemyName.value.trim()));
 const pendingCombatNarrative = ref<{
   id: string;
-  context: 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
+  context: 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest' | 'event';
   outcome: 'win' | 'lose' | 'escape';
   enemyName: string;
   text: string;
@@ -4078,7 +4301,7 @@ const rewardApplying = ref(false);
 const rewardDeckShakeIdx = ref<number | null>(null);
 const rewardRefreshUsedCount = ref(0);
 const rewardIsNormalEnemy = ref(false);
-const forcedCurseReplacementQueue = ref<Array<{ relicId: string; relicName: string; curseName: string }>>([]);
+const forcedCurseReplacementQueue = ref<Array<{ relicId: string; relicName: string; curseName: string; sourceText?: string }>>([]);
 const forcedCurseReplacing = ref(false);
 const relicTooltip = ref<{
   x: number;
@@ -4095,10 +4318,7 @@ const combatTestStartAt999CurrentBattle = ref(false);
 const selectedTestActiveSkills = ref<string[]>(['', '']);
 let chestMimicTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardFadeTimer: ReturnType<typeof setTimeout> | null = null;
-let chestCloseLongPressTimer: ReturnType<typeof setTimeout> | null = null;
 let chestRewardConfirmTimer: ReturnType<typeof setTimeout> | null = null;
-let chestRewardIntroFrame: number | null = null;
-let shopProductConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 let shopRobTimer: ReturnType<typeof setTimeout> | null = null;
 let hotSpringCleanseTimer: ReturnType<typeof setTimeout> | null = null;
 let gameFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -4132,7 +4352,7 @@ interface CarriedInventoryPayload {
   消耗品: InventoryConsumableEntry[];
 }
 
-type CombatContext = 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest';
+type CombatContext = 'normal' | 'shopRobbery' | 'chestMimic' | 'combatTest' | 'event';
 type CombatOutcome = 'win' | 'lose' | 'escape';
 type IdolVariant = 'white' | 'black';
 type IdolSlotTarget = 'maxHp' | 'mp' | 'gold' | 'blackMp' | 'blackDice' | 'blackGold';
@@ -4735,16 +4955,11 @@ const BG_OPACITY_KEY = 'dungeon.bg_overlay_opacity';
 const bgOverlayOpacity = ref(parseFloat(localStorage.getItem(BG_OPACITY_KEY) ?? '0.5'));
 watch(bgOverlayOpacity, v => localStorage.setItem(BG_OPACITY_KEY, String(v)));
 
-const CHEST_BG_CLOSED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF1.png`;
-const CHEST_BG_OPENED = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF2.png`;
-const CHEST_BG_MIMIC = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%AE%9D%E7%AE%B1%E6%88%BF3.png`;
 const SHOP_BG_URL = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF/%E5%95%86%E5%BA%97.png`;
 const IDOL_BG_WHITE_URL = toResolveUrl('地牢/背景/白神像.jpg');
 const IDOL_BG_BLACK_URL = toResolveUrl('地牢/背景/黑神像.jpg');
 const idolBackgroundUrl = computed(() => (idolVariant.value === 'black' ? IDOL_BG_BLACK_URL : IDOL_BG_WHITE_URL));
 const shopBackgroundUrl = SHOP_BG_URL;
-const shopFrameUrl = toResolveUrl('地牢/素材库/主界面/商店描金边框-透明.png');
-const shopCompassUrl = toResolveUrl('地牢/素材库/主界面/商店罗盘-透明.png');
 const IDOL_SLOT_ASSET_URLS: Record<IdolSlotTarget, string> = {
   maxHp: toResolveUrl('地牢/素材库/主界面/白神像槽位-生命.png'),
   mp: toResolveUrl('地牢/素材库/主界面/白神像槽位-灵魂.png'),
@@ -4839,11 +5054,6 @@ watch(
   },
   { immediate: true, flush: 'sync' },
 );
-const chestBackgroundUrl = computed(() => {
-  if (chestStage.value === 'opened') return CHEST_BG_OPENED;
-  if (chestStage.value === 'mimic') return CHEST_BG_MIMIC;
-  return CHEST_BG_CLOSED;
-});
 const IDOL_BLESSING_CONFIG: Record<IdolSlotTarget, IdolBlessingConfig> = {
   maxHp: {
     target: 'maxHp',
@@ -4861,13 +5071,13 @@ const IDOL_BLESSING_CONFIG: Record<IdolSlotTarget, IdolBlessingConfig> = {
     target: 'gold',
     slotLabel: '金币',
     statueName: '财富神像',
-    rewardText: dice => `金币+${dice * 2}`,
+    rewardText: dice => `金币+${dice * 2 + getOwnedRelicCountById('system_wealth_relic_10')}`,
   },
   blackMp: {
     target: 'blackMp',
-    slotLabel: '法力与点数',
-    statueName: '黑神像·法力',
-    rewardText: dice => `献祭生命-${dice}，初始法力+${idolDiceMax.value}`,
+    slotLabel: '魔力与点数',
+    statueName: '黑神像·魔力',
+    rewardText: dice => `献祭生命-${dice}，初始魔力+${idolDiceMax.value}`,
   },
   blackDice: {
     target: 'blackDice',
@@ -4879,7 +5089,7 @@ const IDOL_BLESSING_CONFIG: Record<IdolSlotTarget, IdolBlessingConfig> = {
     target: 'blackGold',
     slotLabel: '金币',
     statueName: '黑神像·金币',
-    rewardText: dice => `献祭生命-${dice}，金币+${dice * 3}`,
+    rewardText: dice => `献祭生命-${dice}，金币+${dice * 3 + getOwnedRelicCountById('system_wealth_relic_10')}`,
   },
 };
 const IDOL_SNAP_DISTANCE = 112;
@@ -4905,7 +5115,12 @@ const CATEGORY_ORDER: Record<string, number> = {
   燃烧: 2,
   严寒: 3,
   血池: 4,
-  炼金: 5,
+  腐化: 5,
+  雷霆: 6,
+  财富: 7,
+  暗影: 8,
+  破坏: 9,
+  炼金: 10,
 };
 const compareCategory = (a: string, b: string) => {
   const orderA = CATEGORY_ORDER[a] ?? 999;
@@ -4949,20 +5164,457 @@ const filteredCardCategoryGroupsForTest = computed<Array<{ category: string; car
   if (selectedCardCategoryTab.value === '全部') return cardCategoryGroupsForTest.value;
   return cardCategoryGroupsForTest.value.filter(group => group.category === selectedCardCategoryTab.value);
 });
-const MAGIC_BOOK_COVER_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E9%AD%94%E6%B3%95%E4%B9%A6%E5%B0%81%E9%9D%A2`;
-const getMagicBookCoverUrl = (bookName: string) => `${MAGIC_BOOK_COVER_BASE}/${encodeURIComponent(bookName)}.png`;
-const ALCHEMY_UNLOCK_KEY = 'dungeon.alchemy_system_unlocked';
-const readStoredAlchemyUnlocked = (): boolean => {
-  if (typeof localStorage === 'undefined') return false;
-  return localStorage.getItem(ALCHEMY_UNLOCK_KEY) === 'true';
+const MAGIC_BOOK_ART_BASE = toResolveUrl('地牢/素材库/主界面/魔法书');
+const getMagicBookArtUrl = (bookName: string) => `${MAGIC_BOOK_ART_BASE}/${encodeURIComponent(bookName)}.png`;
+const MAGIC_BOOK_UI_BASE = toResolveUrl('地牢/素材库/主界面/魔法书UI');
+const MAGIC_BOOK_UI_BOOK_URL = `${MAGIC_BOOK_UI_BASE}/魔法书本体.png`;
+/** 翻动书页的纸张（生成素材，边缘为透明毛边） */
+const MAGIC_BOOK_UI_LEAF_URL = `${MAGIC_BOOK_UI_BASE}/魔法书翻页.webp?v=20261117`;
+/** 底部导航铭牌（生成素材，右端为空宝石座） */
+const MAGIC_BOOK_UI_PLATE_URL = `${MAGIC_BOOK_UI_BASE}/魔法书铭牌.webp`;
+/** 书本金饰：从书本素材中抠出的装订线扣饰、宝石与四角护角（与书本同尺寸、像素一一对应） */
+const MAGIC_BOOK_UI_ORNAMENT_URL = `${MAGIC_BOOK_UI_BASE}/魔法书金饰.webp`;
+/** 书本与翻页纸张素材统一通过 CSS 变量传入 */
+const MAGIC_BOOK_SHELL_STYLE = {
+  '--mb-book-image': `url("${MAGIC_BOOK_UI_BOOK_URL}")`,
+  '--mb-leaf-image': `url("${MAGIC_BOOK_UI_LEAF_URL}")`,
 };
-const storedAlchemyUnlocked = ref(readStoredAlchemyUnlocked());
-const setStoredAlchemyUnlocked = () => {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(ALCHEMY_UNLOCK_KEY, 'true');
+const MAGIC_BOOK_NAV_TABS = [
+  { id: 'books', label: '附加魔法书', plateClass: 'magic-book-nav__plate--books' },
+  { id: 'active', label: '主动技能', plateClass: 'magic-book-nav__plate--active' },
+] as const;
+const MAGIC_BOOK_PAGE_CATEGORIES = ['魔导', '燃烧', '严寒', '血池', '腐化', '雷霆', '财富', '暗影', '破坏', '炼金'] as const;
+/** 体系介绍：依据 cardRegistry / relicRegistry 中各体系卡牌与圣遗物的实际机制撰写 */
+const MAGIC_BOOK_DESCRIPTIONS: Record<string, { keywords: string[]; text: string }> = {
+  魔导: {
+    keywords: ['魔力', '高点数', '爆发'],
+    text: '最纯粹的魔力暴力。点数倍率与魔力消耗叠在同一张牌上，以压倒性的点数赢下拼点。',
+  },
+  燃烧: {
+    keywords: ['燃烧层数', '引爆', '持续伤害'],
+    text: '先点燃，再引爆。燃烧在回合之间层层堆叠、持续灼烧，再一口气兑现成伤害。',
+  },
+  严寒: {
+    keywords: ['寒冷层数', '兑现', '控场'],
+    text: '把寒冷压进敌人的骨髓。层数越厚，冰锥越锋利、霜爆越致命；寒冷既是削弱也是储备，可以消耗来换取生命、护甲与真实伤害，必要时与燃烧碰撞出温差。',
+  },
+  血池: {
+    keywords: ['生命即资源', '流血', '自伤'],
+    text: '以自身生命为燃料的危险体系。自伤、放血、为自己施加流血来换取魔力与点数，再借汲取与临时生命上限回补；伤口越多、生命越低，反扑越凶狠。',
+  },
+  腐化: {
+    keywords: ['中毒', '敏感', '闪避'],
+    text: '缓慢而无法回避的侵蚀。在闪避与拼点之间埋下毒素；拖住对手，让毒液替你结束这场战斗。',
+  },
+  雷霆: {
+    keywords: ['尚未开放'],
+    text: '雷电仍在书页间低鸣。这一章尚未写完，等待以瞬间的爆发撕开战场。',
+  },
+  财富: {
+    keywords: ['金币', '护甲', '以守为攻'],
+    text: '金币与护甲就是一切。花钱换点数、把护甲垒成城墙，再让水晶之锤与水晶之镰把厚甲直接化作伤害；宝石圣遗物会让每一次回血、回魔都沉淀为护甲。',
+  },
+  暗影: {
+    keywords: ['满血斩杀', '无视闪避', '敏感'],
+    text: '刺客的技艺。趁敌人满血时背刺、以无视闪避的影术穿透防线，用闪避换取增伤，再借敏感把一次出手放大数倍——在对方察觉之前结束一切。',
+  },
+  破坏: {
+    keywords: ['拼点失败', '蓄力', '反击'],
+    text: '输掉拼点，赢下战斗。每一次拼点失败都会累积蓄力、护甲与点数，在失败之后轰然爆发，将把劣势碾成毁灭。',
+  },
+  炼金: {
+    keywords: ['多元素', '稀有牌', '诅咒'],
+    text: '一门讲究配方的学问。叠加多种负面状态、一次触发全部元素，或以不重复的牌组、稀有牌乃至诅咒牌为催化——让异况与稀有本身转化为力量。',
+  },
+};
+interface MagicBookPageEntry {
+  category: string;
+  description: string;
+  keywords: string[];
+  cardCount: number;
+  available: boolean;
+}
+const magicBookPages = computed<MagicBookPageEntry[]>(() => {
+  const groups = new Map(cardCategoryGroupsForTest.value.map(group => [group.category, group.cards.length]));
+  return MAGIC_BOOK_PAGE_CATEGORIES.map(category => ({
+    category,
+    description: MAGIC_BOOK_DESCRIPTIONS[category]?.text ?? '等待加入魔法书的神秘体系。',
+    keywords: MAGIC_BOOK_DESCRIPTIONS[category]?.keywords ?? [],
+    cardCount: groups.get(category) ?? 0,
+    available: groups.has(category),
+  }));
+});
+const magicBookPageIndex = ref(0);
+const magicBookPageTurning = ref(false);
+const magicBookTurningDirection = ref<-1 | 1 | 0>(0);
+const magicBookTurnTargetIndex = ref<number | null>(null);
+const currentMagicBookPage = computed<MagicBookPageEntry | null>(() =>
+  magicBookPages.value[magicBookPageIndex.value] ?? magicBookPages.value[0] ?? null,
+);
+const magicBookTurnTargetPage = computed<MagicBookPageEntry | null>(() => {
+  if (!magicBookPageTurning.value || magicBookTurnTargetIndex.value === null) return null;
+  return magicBookPages.value[magicBookTurnTargetIndex.value] ?? null;
+});
+/**
+ * 一组对开页 = 左页插画 + 右页文字（同一体系）。
+ * 向后翻（+1）：右页离开右侧绕装订线翻到左侧，背面是下一体系插画，下方露出下一体系文字。
+ * 向前翻（-1）：左页离开左侧绕装订线翻到右侧，背面是上一体系文字，下方露出上一体系插画。
+ */
+const magicBookLeftPageEntry = computed<MagicBookPageEntry | null>(() => {
+  const target = magicBookTurnTargetPage.value;
+  if (target && magicBookTurningDirection.value === -1) return target;
+  return currentMagicBookPage.value;
+});
+const magicBookRightPageEntry = computed<MagicBookPageEntry | null>(() => {
+  const target = magicBookTurnTargetPage.value;
+  if (target && magicBookTurningDirection.value === 1) return target;
+  return currentMagicBookPage.value;
+});
+/** 翻动书页正面（朝向右侧时可见）= 文字页 */
+const magicBookLeafFrontEntry = computed<MagicBookPageEntry | null>(() =>
+  magicBookTurningDirection.value === 1 ? currentMagicBookPage.value : magicBookTurnTargetPage.value,
+);
+/** 翻动书页背面（翻到左侧时可见）= 插画页 */
+const magicBookLeafBackEntry = computed<MagicBookPageEntry | null>(() =>
+  magicBookTurningDirection.value === 1 ? magicBookTurnTargetPage.value : currentMagicBookPage.value,
+);
+const magicBookPageImageUrls = computed(() =>
+  magicBookPages.value.map(entry => getMagicBookArtUrl(entry.category)),
+);
+const getMagicBookPageNumber = (entry: MagicBookPageEntry): number =>
+  magicBookPages.value.findIndex(page => page.category === entry.category) + 1;
+const getMagicBookStatusLabel = (entry: MagicBookPageEntry): string => {
+  if (!entry.available) return '尚未上线';
+  if (isMagicBookLocked(entry.category)) return '未解锁';
+  return carriedMagicBookSet.value.has(entry.category) ? '已携带' : '可携带';
+};
+const getMagicBookToggleLabel = (entry: MagicBookPageEntry): string => {
+  if (!entry.available) return '敬请期待';
+  if (isMagicBookLocked(entry.category)) return getMagicBookUnlockHint(entry.category);
+  return carriedMagicBookSet.value.has(entry.category) ? '取消携带' : '携带此体系';
+};
+const getMagicBookToggleIcon = (entry: MagicBookPageEntry) => {
+  if (isMagicBookLocked(entry.category)) return LockKeyhole;
+  return carriedMagicBookSet.value.has(entry.category) ? BookOpen : BookMarked;
+};
+
+/* ---------- 书本尺寸：把书本宽度的 1% 以无单位数写入 --mb-u，供技能卡按比例缩放 ---------- */
+let magicBookShellEl: HTMLElement | null = null;
+let magicBookShellObserver: ResizeObserver | null = null;
+const bindMagicBookShell = (el: unknown) => {
+  const next = el instanceof HTMLElement ? el : null;
+  if (next === magicBookShellEl) return;
+  magicBookShellObserver?.disconnect();
+  magicBookShellObserver = null;
+  magicBookShellEl = next;
+  if (!next) return;
+  const sync = () => {
+    const unit = next.clientWidth / 100;
+    if (unit > 0) next.style.setProperty('--mb-u', unit.toFixed(3));
+  };
+  sync();
+  if (typeof ResizeObserver !== 'undefined') {
+    magicBookShellObserver = new ResizeObserver(sync);
+    magicBookShellObserver.observe(next);
   }
-  storedAlchemyUnlocked.value = true;
 };
+
+/* ---------- 主动技能库排布：在右页可用区域内求最大卡宽（单位 cqw） ---------- */
+const MAGIC_BOOK_LIBRARY_AREA = { width: 31.5, height: 30, gap: 1.3, maxCard: 11, minCard: 7 } as const;
+/** ActiveSkillCard 的版面 120×176，卡框素材再外扩 1.1 倍 */
+const ACTIVE_SKILL_CARD_RATIO = 176 / 120;
+const ACTIVE_SKILL_CARD_FRAME_OVERFLOW = 1.1;
+const magicBookLibraryLayout = computed(() => {
+  const count = Math.max(1, startingActiveSkillOptions.value.length);
+  const { width: areaW, height: areaH, gap, maxCard, minCard } = MAGIC_BOOK_LIBRARY_AREA;
+  const visual = ACTIVE_SKILL_CARD_FRAME_OVERFLOW;
+  let best = { cols: 1, width: 0 };
+  for (let cols = 1; cols <= 5; cols += 1) {
+    const rows = Math.ceil(count / cols);
+    const byWidth = (areaW - (cols - 1) * gap) / cols / visual;
+    const byHeight = (areaH - (rows - 1) * gap) / rows / (ACTIVE_SKILL_CARD_RATIO * visual);
+    const width = Math.min(byWidth, byHeight, maxCard);
+    if (width > best.width + 0.01) best = { cols, width };
+  }
+  if (best.width >= minCard) return { cols: best.cols, width: Number(best.width.toFixed(2)), scroll: false };
+  const cols = Math.max(1, Math.floor((areaW + gap) / (minCard * visual + gap)));
+  return { cols, width: minCard, scroll: true };
+});
+
+/* ---------- 3D 翻页：分段书页 + 逐帧驱动（不经过 Vue 响应式，避免整组件重渲染） ---------- */
+const MAGIC_BOOK_TURN_DURATION_MS = 1150;
+/** 书页分段宽度（占单页宽度比例），靠近装订线更窄以表现根部弯曲 */
+const MAGIC_BOOK_LEAF_SEGMENT_WIDTHS = [0.1, 0.17, 0.22, 0.25, 0.26] as const;
+/** 相邻分段之间的弯折权重：越靠外缘弯折越明显 */
+const MAGIC_BOOK_LEAF_JOINT_WEIGHTS = [0.55, 0.85, 1.1, 1.35] as const;
+const MAGIC_BOOK_LEAF_MAX_BEND_DEG = 12;
+const MAGIC_BOOK_LEAF_SEGMENTS = (() => {
+  let start = 0;
+  return MAGIC_BOOK_LEAF_SEGMENT_WIDTHS.map(width => {
+    const segment = {
+      start,
+      width,
+      segmentStyle: { width: `calc(${(width * 50).toFixed(4)}% + 0.6px)` },
+      // 每段只是整页的一个“窗口”：整页内容在窗口内反向平移，正反两面分别按各自坐标对齐
+      frontSheetStyle: { width: `${(100 / width).toFixed(4)}%`, left: `${((-start / width) * 100).toFixed(4)}%` },
+      backSheetStyle: {
+        width: `${(100 / width).toFixed(4)}%`,
+        left: `${((-(1 - start - width) / width) * 100).toFixed(4)}%`,
+      },
+      // 明暗层放在整页坐标内，只覆盖本段窗口，便于随纸张毛边一起被遮罩
+      frontShadeStyle: {
+        left: `${(start * 100).toFixed(4)}%`,
+        width: `${(width * 100).toFixed(4)}%`,
+        '--mb-shade-offset': `${(-start * 39.5).toFixed(3)}cqw`,
+      },
+      backShadeStyle: {
+        left: `${((1 - start - width) * 100).toFixed(4)}%`,
+        width: `${(width * 100).toFixed(4)}%`,
+        // 背面纸张在整页内右移 3.5%（装订线在右侧）
+        '--mb-shade-offset': `${(39.5 * 0.035 - (1 - start - width) * 39.5).toFixed(3)}cqw`,
+      },
+    };
+    start += width;
+    return segment;
+  });
+})();
+const magicBookLeafStageEl = ref<HTMLElement | null>(null);
+const magicBookTurnShadowLeftEl = ref<HTMLElement | null>(null);
+const magicBookTurnShadowRightEl = ref<HTMLElement | null>(null);
+const magicBookLeafSegmentEls: Array<HTMLElement | null> = [];
+const setMagicBookLeafSegmentEl = (el: unknown, index: number) => {
+  magicBookLeafSegmentEls[index] = el instanceof HTMLElement ? el : null;
+};
+let magicBookTurnFrame: number | null = null;
+let magicBookTurnToken = 0;
+
+/** cubic-bezier 求值：x(t) 用牛顿迭代反解，再取 y */
+const createCubicBezier = (x1: number, y1: number, x2: number, y2: number) => {
+  const curve = (a: number, b: number, t: number) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+  const slope = (a: number, b: number, t: number) => 3 * a * (1 - t) ** 2 + 6 * (b - a) * t * (1 - t) + 3 * (1 - b) * t * t;
+  return (x: number) => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 6; i += 1) {
+      const d = slope(x1, x2, t);
+      if (Math.abs(d) < 1e-6) break;
+      t -= (curve(x1, x2, t) - x) / d;
+    }
+    return curve(y1, y2, Math.max(0, Math.min(1, t)));
+  };
+};
+/** 起翻稍慢、中段加速、落页长缓冲：纸张被空气托住后才贴合 */
+const easeMagicBookTurn = createCubicBezier(0.42, 0, 0.16, 1);
+const smoothstep = (edge0: number, edge1: number, x: number) => {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
+/** 正面朝上（角度 0）最亮，竖起（-90°）最暗；背面同理在 -180° 最亮 */
+const getMagicBookLeafShade = (angleDeg: number, face: 'front' | 'back') => {
+  const cos = Math.cos((angleDeg * Math.PI) / 180);
+  const raw = face === 'front' ? (1 - cos) * 0.52 : (1 + cos) * 0.52;
+  return Math.max(0, Math.min(0.6, raw)).toFixed(3);
+};
+const setMagicBookTurnShadow = (el: HTMLElement | null, edge: number, soft: number, alpha: number) => {
+  if (!el) return;
+  el.style.setProperty('--mb-shadow-edge', `${(edge * 100).toFixed(2)}%`);
+  el.style.setProperty('--mb-shadow-fade', `${((edge + soft) * 100).toFixed(2)}%`);
+  el.style.setProperty('--mb-shadow-alpha', alpha.toFixed(3));
+};
+
+const applyMagicBookLeafFrame = (t: number) => {
+  const stage = magicBookLeafStageEl.value;
+  if (!stage) return;
+  const direction = magicBookTurningDirection.value === -1 ? -1 : 1;
+  const leafWidth = stage.clientWidth / 2;
+  const eased = easeMagicBookTurn(t);
+  // 基础角：所有分段共享的装订线转角
+  const baseAngle = (direction === 1 ? 0 : -180) - 180 * eased * direction;
+  // 弯折：外缘被手指带起、始终领先，竖直时卷曲最明显（不会退化成一条线）；
+  // 落页前段改为外缘滞后，模拟纸张被空气托住后缓缓贴合。两项在起止时都为 0，保证平整对齐。
+  const lead = Math.sin(Math.PI * eased);
+  const settle = eased > 0.6 ? Math.sin((Math.PI * (eased - 0.6)) / 0.4) : 0;
+  const bend = -direction * MAGIC_BOOK_LEAF_MAX_BEND_DEG * (lead - 0.8 * settle);
+
+  const angles: number[] = [];
+  let angle = baseAngle;
+  MAGIC_BOOK_LEAF_SEGMENTS.forEach((_segment, index) => {
+    if (index > 0) angle += bend * MAGIC_BOOK_LEAF_JOINT_WEIGHTS[index - 1];
+    angles.push(angle);
+  });
+
+  let transform = `rotateY(${baseAngle.toFixed(3)}deg)`;
+  let edgeX = 0;
+  let edgeZ = 0;
+  const lastIndex = MAGIC_BOOK_LEAF_SEGMENTS.length - 1;
+  MAGIC_BOOK_LEAF_SEGMENTS.forEach((segment, index) => {
+    if (index > 0) {
+      const previous = MAGIC_BOOK_LEAF_SEGMENTS[index - 1];
+      const joint = bend * MAGIC_BOOK_LEAF_JOINT_WEIGHTS[index - 1];
+      transform += ` translateX(${(previous.width * leafWidth).toFixed(2)}px) rotateY(${joint.toFixed(3)}deg)`;
+    }
+    const radians = (angles[index] * Math.PI) / 180;
+    edgeX += segment.width * Math.cos(radians);
+    edgeZ += segment.width * -Math.sin(radians);
+
+    const el = magicBookLeafSegmentEls[index];
+    if (!el) return;
+    el.style.transform = transform;
+    const from = index > 0 ? (angles[index - 1] + angles[index]) / 2 : angles[index];
+    const to = index < lastIndex ? (angles[index] + angles[index + 1]) / 2 : angles[index];
+    el.style.setProperty('--mb-front-a', getMagicBookLeafShade(from, 'front'));
+    el.style.setProperty('--mb-front-b', getMagicBookLeafShade(to, 'front'));
+    el.style.setProperty('--mb-back-a', getMagicBookLeafShade(from, 'back'));
+    el.style.setProperty('--mb-back-b', getMagicBookLeafShade(to, 'back'));
+  });
+
+  // 书页离开时用羊皮纸底色补齐被书角/装订线宝石遮住的纸面；起止帧为 0 保证与静态书本像素一致
+  // 翻起约 14° 后才换成独立纸张，落到约 7° 内就换回书本原像素，避免平放时出现“另一张纸”
+  const patch = smoothstep(0.02, 0.2, t) * (1 - smoothstep(0.8, 0.97, t));
+  stage.style.setProperty('--mb-patch', patch.toFixed(3));
+  stage.classList.add('is-live');
+
+  // 投影：落在外缘投影点之外，离纸面越高越淡越软
+  const lift = Math.max(0, Math.min(1, edgeZ));
+  const soft = 0.05 + 0.32 * lift;
+  const alpha = 0.42 * (1 - 0.55 * lift) * smoothstep(0, 0.06, t) * (1 - smoothstep(0.94, 1, t));
+  const edge = Math.min(1, Math.abs(edgeX));
+  if (edgeX >= 0) {
+    setMagicBookTurnShadow(magicBookTurnShadowRightEl.value, edge, soft, alpha);
+    setMagicBookTurnShadow(magicBookTurnShadowLeftEl.value, 0, soft, 0);
+  } else {
+    setMagicBookTurnShadow(magicBookTurnShadowLeftEl.value, edge, soft, alpha);
+    setMagicBookTurnShadow(magicBookTurnShadowRightEl.value, 0, soft, 0);
+  }
+};
+
+const clearMagicBookTurnState = () => {
+  if (magicBookTurnFrame !== null) {
+    cancelAnimationFrame(magicBookTurnFrame);
+    magicBookTurnFrame = null;
+  }
+  magicBookTurnToken += 1;
+  magicBookPageTurning.value = false;
+  magicBookTurningDirection.value = 0;
+  magicBookTurnTargetIndex.value = null;
+  magicBookLeafSegmentEls.length = 0;
+  setMagicBookTurnShadow(magicBookTurnShadowLeftEl.value, 0, 0, 0);
+  setMagicBookTurnShadow(magicBookTurnShadowRightEl.value, 0, 0, 0);
+};
+/** 立即结束当前翻页并落到目标页（切换分栏/关闭弹窗时使用） */
+const completeMagicBookTurn = () => {
+  const target = magicBookTurnTargetIndex.value;
+  if (magicBookPageTurning.value && target !== null) magicBookPageIndex.value = target;
+  clearMagicBookTurnState();
+};
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+
+const flipMagicBookPage = async (direction: -1 | 1) => {
+  if (magicBookPageTurning.value) return;
+  const nextIndex = Math.max(0, Math.min(magicBookPages.value.length - 1, magicBookPageIndex.value + direction));
+  if (nextIndex === magicBookPageIndex.value) return;
+  if (prefersReducedMotion()) {
+    magicBookPageIndex.value = nextIndex;
+    return;
+  }
+  magicBookTurningDirection.value = direction;
+  magicBookTurnTargetIndex.value = nextIndex;
+  magicBookPageTurning.value = true;
+  const token = ++magicBookTurnToken;
+  await nextTick();
+  if (token !== magicBookTurnToken) return;
+  // DOM 更新后、首帧绘制前写入初始姿态，避免书页以默认姿态闪现
+  applyMagicBookLeafFrame(0);
+  const startedAt = performance.now();
+  const step = (now: number) => {
+    if (token !== magicBookTurnToken) return;
+    const progress = Math.min(1, (now - startedAt) / MAGIC_BOOK_TURN_DURATION_MS);
+    applyMagicBookLeafFrame(progress);
+    if (progress < 1) {
+      magicBookTurnFrame = requestAnimationFrame(step);
+      return;
+    }
+    magicBookTurnFrame = null;
+    completeMagicBookTurn();
+  };
+  magicBookTurnFrame = requestAnimationFrame(step);
+};
+type MagicBookUnlockCategory = '炼金' | '财富' | '腐化' | '暗影' | '破坏';
+const MAGIC_BOOK_UNLOCK_CATEGORIES: readonly MagicBookUnlockCategory[] = ['炼金', '财富', '腐化', '暗影', '破坏'];
+const MAGIC_BOOK_UNLOCKS_CHARACTER_KEY = 'dungeon.magic_book_unlocks';
+const LEGACY_ALCHEMY_UNLOCK_KEY = 'dungeon.alchemy_system_unlocked';
+const MAGIC_BOOK_UNLOCK_HINTS: Record<MagicBookUnlockCategory, string> = {
+  炼金: '挑战过商人后解锁',
+  财富: '曾拥有 30 枚金币后解锁',
+  腐化: '最大骰子点数达到 8 后解锁',
+  暗影: '单回合造成超过 50 点伤害后解锁',
+  破坏: '进入第四层后解锁',
+};
+type MagicBookUnlockState = Partial<Record<MagicBookUnlockCategory, boolean>>;
+
+const readCharacterMagicBookUnlocks = (): MagicBookUnlockState => {
+  try {
+    const variables = getVariables({ type: 'character' });
+    const raw = variables?.[MAGIC_BOOK_UNLOCKS_CHARACTER_KEY];
+    if (!raw || typeof raw !== 'object') return {};
+    const unlocks: MagicBookUnlockState = {};
+    for (const category of MAGIC_BOOK_UNLOCK_CATEGORIES) {
+      if ((raw as Record<string, unknown>)[category] === true) unlocks[category] = true;
+    }
+    return unlocks;
+  } catch (error) {
+    console.warn('[GameView] 读取角色级魔法书解锁状态失败:', error);
+    return {};
+  }
+};
+
+const characterMagicBookUnlocks = ref<MagicBookUnlockState>(readCharacterMagicBookUnlocks());
+let magicBookUnlockWriteQueue: Promise<void> = Promise.resolve();
+
+const persistMagicBookUnlock = (category: MagicBookUnlockCategory): Promise<boolean> => {
+  const operation = magicBookUnlockWriteQueue.then(async () => {
+    if (characterMagicBookUnlocks.value[category] === true) return true;
+    try {
+      await updateVariablesWith(
+        variables => {
+          const nextVariables = { ...(variables ?? {}) };
+          const current = nextVariables[MAGIC_BOOK_UNLOCKS_CHARACTER_KEY];
+          const currentUnlocks = current && typeof current === 'object'
+            ? (current as Record<string, unknown>)
+            : {};
+          nextVariables[MAGIC_BOOK_UNLOCKS_CHARACTER_KEY] = {
+            ...currentUnlocks,
+            [category]: true,
+          };
+          return nextVariables;
+        },
+        { type: 'character' },
+      );
+      characterMagicBookUnlocks.value = {
+        ...characterMagicBookUnlocks.value,
+        [category]: true,
+      };
+      return true;
+    } catch (error) {
+      console.warn(`[GameView] 保存${category}体系解锁状态失败:`, error);
+      return false;
+    }
+  });
+  magicBookUnlockWriteQueue = operation.then(() => undefined, () => undefined);
+  return operation;
+};
+
+const migrateLegacyAlchemyUnlock = () => {
+  if (typeof localStorage === 'undefined' || localStorage.getItem(LEGACY_ALCHEMY_UNLOCK_KEY) !== 'true') return;
+  void persistMagicBookUnlock('炼金').then(migrated => {
+    if (migrated) localStorage.removeItem(LEGACY_ALCHEMY_UNLOCK_KEY);
+  });
+};
+
 const parseMerchantDefeatedValue = (value: unknown): boolean => {
   if (value === true || value === 1) return true;
   if (typeof value === 'string') {
@@ -4974,47 +5626,105 @@ const parseMerchantDefeatedValue = (value: unknown): boolean => {
 const isMerchantDefeated = computed(() => parseMerchantDefeatedValue(gameStore.statData.$是否已击败商人));
 const alchemySystemUnlocked = computed(
   () =>
-    storedAlchemyUnlocked.value ||
+    characterMagicBookUnlocks.value.炼金 === true ||
     parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人) ||
     isMerchantDefeated.value,
 );
 const unlockAlchemySystem = async () => {
-  if (!storedAlchemyUnlocked.value) {
-    setStoredAlchemyUnlocked();
-  }
-  if (!parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人)) {
-    await gameStore.updateStatDataFields({ $是否已挑战过商人: true });
-  }
+  await persistMagicBookUnlock('炼金');
 };
 watch(
   alchemySystemUnlocked,
   unlocked => {
     if (!unlocked) return;
-    if (!storedAlchemyUnlocked.value) {
-      setStoredAlchemyUnlocked();
-    }
-    if (!parseMerchantDefeatedValue(gameStore.statData.$是否已挑战过商人)) {
-      void gameStore.updateStatDataFields({ $是否已挑战过商人: true });
-    }
+    void persistMagicBookUnlock('炼金');
+  },
+  { immediate: true },
+);
+const toUnlockInt = (value: unknown, fallback = 0): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
+};
+const getUnlockFloorNumber = (): number => {
+  const area = typeof gameStore.statData._当前区域 === 'string' ? gameStore.statData._当前区域.trim() : '';
+  const floorFromArea = area ? getFloorNumberForArea(area) : 1;
+  return Math.max(1, floorFromArea, toUnlockInt(gameStore.statData._楼层数, 1));
+};
+const isMagicBookUnlockConditionSatisfied = (category: MagicBookUnlockCategory): boolean => {
+  if (category === '炼金') return alchemySystemUnlocked.value;
+  if (category === '财富') return toUnlockInt(gameStore.statData._金币) >= 30;
+  if (category === '腐化') return toUnlockInt(gameStore.statData.$最大点数) >= 8;
+  if (category === '破坏') return getUnlockFloorNumber() >= 4;
+  return false;
+};
+const syncMagicBookUnlocks = async () => {
+  for (const category of MAGIC_BOOK_UNLOCK_CATEGORIES) {
+    if (characterMagicBookUnlocks.value[category] === true) continue;
+    if (isMagicBookUnlockConditionSatisfied(category)) await persistMagicBookUnlock(category);
+  }
+};
+const syncAuthorTestMagicBookUnlocks = async () => {
+  if (!isCombatTestUnlocked.value) return;
+  for (const category of MAGIC_BOOK_UNLOCK_CATEGORIES) {
+    await persistMagicBookUnlock(category);
+  }
+};
+watch(
+  () => [
+    gameStore.statData._金币,
+    gameStore.statData.$最大点数,
+    gameStore.statData._楼层数,
+    gameStore.statData._当前区域,
+    gameStore.statData.$是否已挑战过商人,
+    gameStore.statData.$是否已击败商人,
+  ],
+  () => {
+    void syncMagicBookUnlocks();
+  },
+  { immediate: true },
+);
+watch(
+  isCombatTestUnlocked,
+  unlocked => {
+    if (unlocked) void syncAuthorTestMagicBookUnlocks();
+  },
+  { immediate: true },
+);
+watch(
+  () => gameStore.isInitialized,
+  initialized => {
+    if (!initialized) return;
+    characterMagicBookUnlocks.value = readCharacterMagicBookUnlocks();
+    migrateLegacyAlchemyUnlock();
+    void syncMagicBookUnlocks();
+    void syncAuthorTestMagicBookUnlocks();
   },
   { immediate: true },
 );
 const carryableMagicBookNames = computed<string[]>(() =>
   cardCategoryGroupsForTest.value.map(group => group.category).filter(category => category !== '基础'),
 );
-const isMagicBookLocked = (bookName: string): boolean => bookName === '炼金' && !alchemySystemUnlocked.value;
+const isMagicBookLocked = (bookName: string): boolean => {
+  if (!MAGIC_BOOK_UNLOCK_CATEGORIES.includes(bookName as MagicBookUnlockCategory)) return false;
+  if (isCombatTestUnlocked.value) return false;
+  if (bookName === '炼金') return !alchemySystemUnlocked.value;
+  return characterMagicBookUnlocks.value[bookName as MagicBookUnlockCategory] !== true;
+};
+const getMagicBookUnlockHint = (bookName: string): string =>
+  MAGIC_BOOK_UNLOCK_HINTS[bookName as MagicBookUnlockCategory] ?? '尚未解锁';
 const rawCarriedMagicBooks = computed<string[]>(() => {
   const raw = gameStore.statData._携带的魔法书;
   if (!Array.isArray(raw)) return [];
   return raw.filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
 });
 const carriedMagicBooks = computed<string[]>(() => {
-  const available = new Set(carryableMagicBookNames.value);
+  const available = new Set(carryableMagicBookNames.value.filter(name => !isMagicBookLocked(name)));
   return rawCarriedMagicBooks.value.filter(name => available.has(name));
 });
 const carriedMagicBookSet = computed(() => new Set(carriedMagicBooks.value));
 const magicBookCarryCount = computed(() => carriedMagicBooks.value.length);
-const isSingleAcquisitionRelic = (relic: RelicData) => relic.rarity === '传奇' || relic.uniqueAcquisition === true;
+/** 已拥有后不再出现在圣遗物池中的圣遗物：稀有、传奇，以及显式标记为唯一获取的 */
+const isSingleAcquisitionRelic = (relic: RelicData) => relic.rarity === '传奇' || relic.rarity === '稀有' || relic.uniqueAcquisition === true;
 const ownedSingleAcquisitionRelicNameSet = computed<Set<string>>(() => {
   const rawInventory = inventoryRelicMap.value;
   const owned = new Set<string>();
@@ -5049,6 +5759,71 @@ const muxinlanFavor = computed<number>(() => {
 });
 const shopDiscountRate = computed(() => Math.max(0, Math.min(200, muxinlanFavor.value)) * 0.001);
 const canEditMagicBooks = computed(() => ((gameStore.statData._当前区域 as string) || '') === '魔女的小窝');
+
+// ── 初次进入的新手指引（设置 / 读档 / 魔法书） ──
+const MAIN_GUIDE_STORAGE_KEY = 'dungeon.onboarding.main.v1';
+const showMainGuide = ref(false);
+const mainGuideSteps = computed<SpotlightGuideStep[]>(() => [
+  {
+    title: '欢迎来到欲望地牢',
+    body: ['开始冒险之前，先认识三个最重要的按钮。', '指引可以随时跳过，之后也能在「设置」的系统区重新查看。'],
+  },
+  {
+    target: '.ui-buttons-left [aria-label="设置"]',
+    title: '设置 · 调整各项参数',
+    body: [
+      '正文字号与显示、声音特效、AI 回复与总结等参数都在这里，按自己的习惯调整即可。',
+      '切换全屏、退出到标题也在设置的系统区。',
+    ],
+  },
+  {
+    target: '.ui-buttons-right [aria-label="读档"]',
+    title: '读档 · 回看、编辑与重 roll',
+    body: [
+      '这里列出过往的每一层楼，可以回看当时的剧情，也能读档回到那一层。',
+      '对刚生成的正文不满意？在这里编辑正文，或者重新生成（重 roll）。',
+    ],
+  },
+  {
+    target: '.ui-buttons-right [aria-label^="魔法书"]',
+    title: '魔法书 · 开局必看',
+    body: [
+      '在魔法书里选择你的初始卡组与主动技能，它们决定了你在地牢中的战斗方式。',
+      canEditMagicBooks.value
+        ? '只有在起点「魔女的小窝」时可以修改，离开后就会锁定——出发前务必先来看一眼。'
+        : '只有在起点「魔女的小窝」时可以修改；现在已经离开起点，魔法书处于锁定状态。',
+    ],
+  },
+]);
+
+const hasSeenMainGuide = () => {
+  try {
+    return localStorage.getItem(MAIN_GUIDE_STORAGE_KEY) === '1';
+  } catch {
+    return true;
+  }
+};
+
+const markMainGuideSeen = () => {
+  try {
+    localStorage.setItem(MAIN_GUIDE_STORAGE_KEY, '1');
+  } catch {
+    // 存储不可用时本次会话内不再弹出即可
+  }
+};
+
+const finishMainGuide = (openMagicBook: boolean) => {
+  showMainGuide.value = false;
+  markMainGuideSeen();
+  if (openMagicBook && canEditMagicBooks.value) openMagicBookModal();
+};
+
+const replayMainGuide = () => {
+  activeModal.value = null;
+  void nextTick(() => {
+    showMainGuide.value = true;
+  });
+};
 const isUpdatingMagicBooks = ref(false);
 const magicBooksNavTab = ref<'books' | 'active'>('books');
 const selectedStartingActiveSlot = ref(0);
@@ -5149,6 +5924,10 @@ const getMagicHatDifficultyClass = (difficulty: DifficultyOption) => {
       return 'is-custom';
   }
 };
+/** 难度火漆印（图床：地牢/素材库/通用UI/难度印章），锁定时显示无纹样的素印 */
+const MAGIC_HAT_SEAL_BASE = toResolveUrl('地牢/素材库/通用UI/难度印章');
+const getMagicHatSealUrl = (difficulty: DifficultyOption, locked = false) =>
+  `${MAGIC_HAT_SEAL_BASE}/${encodeURIComponent(locked ? '素印' : difficulty)}.webp`;
 const getMagicHatCustomGroupClass = (title: string) => {
   switch (title) {
     case '诅咒类':
@@ -5298,9 +6077,26 @@ const magicHatResetRefund = computed(() => magicHatStartUpgradeRefund.value + ma
 const openMagicBookModal = () => {
   if (!canEditMagicBooks.value) return;
   magicBooksNavTab.value = 'books';
+  magicBookPageIndex.value = 0;
+  clearMagicBookTurnState();
   selectedStartingActiveSlot.value = 0;
   activeModal.value = 'magicBooks';
 };
+watch(magicBooksNavTab, () => {
+  if (magicBookPageTurning.value) completeMagicBookTurn();
+});
+watch(
+  () => activeModal.value,
+  modal => {
+    if (modal !== 'magicBooks' && magicBookPageTurning.value) completeMagicBookTurn();
+  },
+);
+onBeforeUnmount(() => {
+  clearMagicBookTurnState();
+  magicBookShellObserver?.disconnect();
+  magicBookShellObserver = null;
+  magicBookShellEl = null;
+});
 const openMagicHatModal = () => {
   if (!canEditMagicBooks.value) return;
   activeModal.value = 'magicHat';
@@ -5362,8 +6158,8 @@ const toggleMagicHatCustomInfluence = async (influence: CustomDifficultyInfluenc
 };
 const toggleMagicBook = async (bookName: string) => {
   if (isUpdatingMagicBooks.value) return;
-  if (bookName === '炼金' && !alchemySystemUnlocked.value) {
-    toastr.warning('炼金体系需要挑战过商人后解锁。');
+  if (isMagicBookLocked(bookName)) {
+    showGameFeedback(`${bookName}体系尚未解锁：${getMagicBookUnlockHint(bookName)}。`);
     return;
   }
   const current = rawCarriedMagicBooks.value;
@@ -5650,20 +6446,28 @@ const EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS = new Set<string>([
 const rewardCardPool = computed<CardData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
   const filtered = allCardsForTest.value.filter(
-    card => categorySet.has(card.category) && !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id),
+    card => categorySet.has(card.category)
+      && (card.requiredCategories ?? []).every(category => categorySet.has(category))
+      && !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id),
   );
   if (filtered.length > 0) return filtered;
-  return allCardsForTest.value.filter(card => !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id));
+  return allCardsForTest.value.filter(
+    card => card.category !== EVENT_CARD_CATEGORY && !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id),
+  );
+});
+/** 已装备的主动技（含旧名映射），不再出现在奖励池中，避免重复 */
+const ownedActiveSkillIds = computed(() => {
+  const raw = Array.isArray(gameStore.statData.$主动) ? (gameStore.statData.$主动 as string[]) : [];
+  return new Set(resolveActiveSkillNames(raw.map(name => String(name ?? '').trim())).map(skill => skill.id));
 });
 const rewardActiveSkillPool = computed<ActiveSkillData[]>(() => {
   const categorySet = new Set<string>(['基础', ...carriedMagicBooks.value]);
-  const filtered = activeSkillsForBattle.value.filter(
-    skill => categorySet.has(skill.category) && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id),
+  const isOffered = (skill: ActiveSkillData) => (
+    !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id) && !ownedActiveSkillIds.value.has(skill.id)
   );
+  const filtered = activeSkillsForBattle.value.filter(skill => categorySet.has(skill.category) && isOffered(skill));
   if (filtered.length > 0) return filtered;
-  return activeSkillsForBattle.value.filter(
-    skill => skill.category === '基础' && !EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS.has(skill.id),
-  );
+  return activeSkillsForBattle.value.filter(skill => skill.category === '基础' && isOffered(skill));
 });
 const rewardDeckReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
   const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
@@ -5688,14 +6492,17 @@ const activeForcedCurseCard = computed<CardData | null>(() => {
   if (!active) return null;
   return cardByNameForTest.value.get(active.curseName) ?? getCardByName(active.curseName) ?? null;
 });
-const forcedCurseDeckReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null }>>(() => {
+const forcedCurseDeckReplaceEntries = computed<Array<{ idx: number; name: string; card: CardData | null; isCurse: boolean }>>(() => {
   const raw = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
-  return raw.slice(0, 9).map((name, idx) => ({
-    idx,
-    name,
-    card: cardByNameForTest.value.get(name) ?? getCardByName(name) ?? null,
-  }));
+  return raw.slice(0, 9).map((name, idx) => {
+    const card = cardByNameForTest.value.get(name) ?? getCardByName(name) ?? null;
+    return { idx, name, card, isCurse: card?.type === CardType.CURSE };
+  });
 });
+/** 诅咒牌不能被任何卡（包括另一张诅咒）替换；卡组已被诅咒填满时，新的诅咒无处可去 */
+const forcedCurseHasReplaceableSlot = computed(() =>
+  forcedCurseDeckReplaceEntries.value.length === 0 || forcedCurseDeckReplaceEntries.value.some(entry => !entry.isCurse),
+);
 const testActiveSkillEntries = computed<Array<{ idx: number; name: string; skill: ActiveSkillData | null }>>(() => {
   const raw = [...selectedTestActiveSkills.value].slice(0, 2);
   while (raw.length < 2) raw.push('');
@@ -5923,7 +6730,22 @@ const ALCHEMY_RELIC_FORCED_CURSE: Record<string, string> = {
   alchemy_black_residue: '肮脏',
 };
 
+/** 色欲之书：可随机加入牌组的诅咒牌白名单（排除依赖特定首领机制的诅咒） */
+const LUST_BOOK_CURSE_WHITELIST = [
+  '虚无', '黑手印', '肮脏', '信息素', '炼金废料', '堕落的人格镜像', '脂肪块', '体内异物',
+  '性爱幻觉', '淫墨誓约', '档案污页', '大地精华', '极乐佳肴', '圣水', '陨', '再来一鞭', '扯断晶丝',
+] as const;
+const LUST_BOOK_CURSE_COUNT = 3;
+
 const enqueueForcedCurseReplacementForRelic = (relic: RelicData) => {
+  if (relic.id === PORTED_RELIC_ID.LUST_BOOK) {
+    const pool = LUST_BOOK_CURSE_WHITELIST.filter(name => Boolean(getCardByName(name)));
+    for (let i = 0; i < LUST_BOOK_CURSE_COUNT && pool.length > 0; i++) {
+      const curseName = pool[Math.floor(Math.random() * pool.length)]!;
+      forcedCurseReplacementQueue.value.push({ relicId: relic.id, relicName: relic.name, curseName });
+    }
+    return;
+  }
   const curseName = ALCHEMY_RELIC_FORCED_CURSE[relic.id];
   if (!curseName) return;
   forcedCurseReplacementQueue.value.push({
@@ -5931,6 +6753,24 @@ const enqueueForcedCurseReplacementForRelic = (relic: RelicData) => {
     relicName: relic.name,
     curseName,
   });
+};
+
+/** 圣遗物获得时立即生效的效果（金币、生命上限等），供商店、宝箱、宝箱怪掉落共用 */
+const buildRelicAcquisitionEffects = (relics: RelicData[]): { goldDelta: number; fields: Record<string, any> } => {
+  let goldDelta = 0;
+  const fields: Record<string, any> = {};
+  for (const relic of relics) {
+    if (relic.id === 'system_wealth_relic_16') {
+      // 沐芯兰的借据
+      goldDelta += 40;
+    } else if (relic.id === 'system_wealth_relic_15') {
+      const currentMaxHp = Math.max(1, toNonNegativeInt(gameStore.statData._血量上限, 1));
+      goldDelta += Math.max(0, currentMaxHp - 1);
+      fields._血量上限 = 1;
+      fields._血量 = 1;
+    }
+  }
+  return { goldDelta, fields };
 };
 
 const replaceDeckCardWithForcedCurse = async (idx: number) => {
@@ -5946,6 +6786,10 @@ const replaceDeckCardWithForcedCurse = async (idx: number) => {
   if (raw.length === 0) {
     raw.push(curseCard.name);
   } else if (idx >= 0 && idx < raw.length) {
+    if (forcedCurseDeckReplaceEntries.value[idx]?.isCurse) {
+      toastr.warning('诅咒牌无法被替换，请选择其它槽位。');
+      return;
+    }
     raw[idx] = curseCard.name;
   } else {
     return;
@@ -5960,7 +6804,15 @@ const replaceDeckCardWithForcedCurse = async (idx: number) => {
   }
 
   forcedCurseReplacementQueue.value = forcedCurseReplacementQueue.value.slice(1);
-  toastr.warning(`【${active.relicName}】已将一张卡替换为【${curseCard.name}】。`);
+  toastr.warning(`【${active.relicName}】已将第${idx + 1}槽替换为【${curseCard.name}】。`);
+};
+
+/** 卡组里已经没有可替换的非诅咒槽位：这份诅咒无法加入，直接跳过 */
+const dismissUnplaceableForcedCurse = () => {
+  const active = activeForcedCurseReplacement.value;
+  if (!active || forcedCurseHasReplaceableSlot.value) return;
+  forcedCurseReplacementQueue.value = forcedCurseReplacementQueue.value.slice(1);
+  toastr.info(`卡组已被诅咒填满，【${active.curseName}】无处容身，消散了。`);
 };
 
 const getCardCategoryStripClass = (category: string) => {
@@ -5977,15 +6829,39 @@ const getCardCategoryStripClass = (category: string) => {
       return 'bg-rose-500/85';
     case '炼金':
       return 'bg-lime-400/85';
+    case '财富':
+      return 'bg-amber-300/90';
+    case '腐化':
+      return 'bg-emerald-500/85';
+    case '暗影':
+      return 'bg-purple-500/85';
+    case '破坏':
+      return 'bg-slate-300/85';
     default:
       return 'bg-indigo-400/80';
   }
 };
 
-// ── Resolved deck from MVU _技能 via card registry ──
+// ── Resolved deck from MVU _技能 via card registry（附带 _附魔 中的槽位附魔）──
 const resolvedDeck = computed<CardData[]>(() => {
-  const skills: string[] = gameStore.statData._技能 ?? [];
-  return resolveCardNames(skills.filter(s => s !== ''));
+  const skills: string[] = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
+  const enchants = normalizeEnchantList(gameStore.statData._附魔);
+  const result: CardData[] = [];
+  skills.forEach((name, index) => {
+    if (!name) return;
+    const card = resolveCardNames([name])[0];
+    if (!card) return;
+    const enchant = enchants[index] ?? '';
+    result.push(enchant ? applyEnchantToCard(card, enchant) : card);
+  });
+  return result;
+});
+/** 本场战斗临时附魔【淫文】的卡（resolvedDeck 下标），由战斗修正在开战时抽取 */
+const combatTempYinwenIndexes = ref<number[]>([]);
+const combatPlayerDeck = computed<CardData[]>(() => {
+  const indexes = new Set(combatTempYinwenIndexes.value);
+  if (indexes.size === 0) return resolvedDeck.value;
+  return resolvedDeck.value.map((card, index) => (indexes.has(index) ? applyEnchantToCard(card, '淫文', { temporary: true }) : card));
 });
 const resolvedActiveSkills = computed<ActiveSkillData[]>(() => {
   const skills =
@@ -6044,6 +6920,7 @@ const BLOODPOOL_PASSIVE_MAX_HP_RELICS: Array<{ id: string; bonus: number }> = [
   { id: 'bloodpool_strawberry', bonus: 7 },
   { id: 'bloodpool_pear', bonus: 10 },
   { id: 'bloodpool_mango', bonus: 13 },
+  { id: EVENT_RELIC_ID.GLUTTON_STOMACH, bonus: GLUTTON_STOMACH_MAX_HP_BONUS },
 ];
 const RELIC_DICE_RANGE_BONUS_CONFIG = {
   min: [{ id: 'lucky_coin_small', bonus: 1 }],
@@ -6057,7 +6934,8 @@ const bloodpoolPassiveMaxHpBonus = computed(() =>
 const victoryRewardRefreshLimit = computed(() => {
   if (!rewardIsNormalEnemy.value) return 0;
   return (getOwnedRelicCountById('base_silver_card') > 0 ? 1 : 0)
-    + (isCustomDifficultyInfluenceActive('聪慧过人') ? 1 : 0);
+    + (isCustomDifficultyInfluenceActive('聪慧过人') ? 1 : 0)
+    + Math.max(0, combatBattleModifiers.value.rewardRefreshBonus);
 });
 const canRefreshVictoryReward = computed(
   () =>
@@ -6087,6 +6965,12 @@ const mimicRelicDropEntry = computed<RelicEntryView | null>(() => {
     effect: relic.effect,
     description: relic.description ?? relic.effect ?? '',
   };
+});
+const mimicRelicDropToneClass = computed(() => {
+  const rarity = mimicRelicDropRelic.value?.rarity;
+  if (rarity === '传奇') return 'is-legendary';
+  if (rarity === '稀有') return 'is-rare';
+  return 'is-common';
 });
 
 const clearRelicTooltipTimers = () => {
@@ -6171,31 +7055,6 @@ const clearChestRewardConfirmTimer = () => {
   chestRewardConfirmTimer = null;
 };
 
-const clearChestRewardIntroFrame = () => {
-  if (chestRewardIntroFrame === null) return;
-  cancelAnimationFrame(chestRewardIntroFrame);
-  chestRewardIntroFrame = null;
-};
-
-const scheduleChestRewardIntro = () => {
-  clearChestRewardIntroFrame();
-  chestRewardIntro.value = false;
-  void nextTick(() => {
-    chestRewardIntroFrame = requestAnimationFrame(() => {
-      chestRewardIntroFrame = null;
-      if (
-        !isRestoringOverlayState.value &&
-        showChestView.value &&
-        chestStage.value === 'opened' &&
-        chestRewardVisible.value &&
-        chestRewardRelics.value.length > 0
-      ) {
-        chestRewardIntro.value = true;
-      }
-    });
-  });
-};
-
 const resetChestRewardConfirmation = (hideTooltip = true) => {
   clearChestRewardConfirmTimer();
   pendingChestRewardIndex.value = null;
@@ -6256,6 +7115,16 @@ watch(
   cards => {
     if (!Array.isArray(cards) || cards.length === 0) return;
     recordEncounteredCards(cards.map(card => card.id));
+  },
+  { immediate: true },
+);
+
+// 已装备的主动技也计入图鉴（主动技与卡牌共用图鉴的卡牌发现记录）
+watch(
+  resolvedActiveSkills,
+  skills => {
+    if (!Array.isArray(skills) || skills.length === 0) return;
+    recordEncounteredCards(skills.map(skill => skill.id));
   },
   { immediate: true },
 );
@@ -6360,6 +7229,7 @@ type SettingsHelpKey =
   | 'buttonCompletion'
   | 'mapRebirthInputAppend'
   | 'fastMode'
+  | 'testMode'
   | 'autoSummaryEnabled'
   | 'summaryVisibleWindow'
   | 'manualSummary'
@@ -6381,9 +7251,9 @@ const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
 };
 const TEXT_FONT_FAMILY_OPTIONS = new Set<string>([
   "'Cinzel', serif",
+  "'Noto Serif SC', serif",
   "'Inter', sans-serif",
   "'MedievalSharp', cursive",
-  "'MaShanZheng', 'KaiTi', serif",
   "'MagicBookTitle', 'KaiTi', serif",
   'serif',
   'sans-serif',
@@ -6489,6 +7359,15 @@ const optionButtonFontSize = computed(() =>
   Math.round(clampTextSettingNumber(textSettings.fontSize * (14 / DEFAULT_TEXT_SETTINGS.fontSize), 11, 18, 14)),
 );
 
+/**
+ * 正文字体：在衬线类字体组合的通用族 serif 之前补上思源宋体，
+ * 让拉丁字体（如 Cinzel）中的中文不再回退到系统宋体；不改动玩家保存的设置值。
+ */
+const storyFontFamily = computed(() => {
+  const stack = textSettings.fontFamily;
+  if (/noto serif sc/i.test(stack) || !/(^|,\s*)serif\s*$/.test(stack)) return stack;
+  return stack.replace(/(^|,\s*)serif\s*$/, "$1'Noto Serif SC', serif");
+});
 const optionButtonTextStyle = computed(() => ({
   fontSize: `${optionButtonFontSize.value}px`,
   lineHeight: '1.6',
@@ -6549,7 +7428,16 @@ const isFastModeEnabled = computed<boolean>({
   set: value => gameStore.setFastModeEnabled(value),
 });
 
-const isFastModeLocked = computed(() => gameStore.fastModeBufferActive);
+const isFastModeLocked = computed(() => gameStore.fastModeBufferActive || gameStore.testModeEnabled);
+const isTestModeEnabled = computed<boolean>({
+  get: () => gameStore.testModeEnabled,
+  set: value => gameStore.setTestModeEnabled(value),
+});
+const toggleTestModeSetting = () => {
+  if (!isCombatTestUnlocked.value) return;
+  isTestModeEnabled.value = !isTestModeEnabled.value;
+  showGameFeedback(isTestModeEnabled.value ? '测试模式已开启：之后不会再调用AI。' : '测试模式已关闭。');
+};
 const toggleFastModeSetting = () => {
   if (isFastModeLocked.value) return;
   isFastModeEnabled.value = !isFastModeEnabled.value;
@@ -6753,7 +7641,9 @@ const settingsHelpText: Record<SettingsHelpKey, string> = {
   mapRebirthInputAppend:
     '开启后，点击地图节点或回溯重生时，若输入框已有内容，会把这段内容一并发送并清空输入框；关闭后保持原本只发送按钮行动。',
   fastMode:
-    '开启后，部分行动会进入剧情精简模式：除了陷阱房、商店房与领主房外剧情不会再请求LLM回复，而是记录并一起注入user楼层。',
+    '开启后，部分行动会进入剧情精简模式：除了事件房、商店房与领主房外剧情不会再请求LLM回复，而是记录并一起注入user楼层。',
+  testMode:
+    '作者测试用。开启后为纯打牌模式：商店、事件、领主房等所有房间与战斗结果都直接结算并记录到user楼层，全程不调用AI。开启时会同时锁定剧情精简模式。',
   autoSummaryEnabled:
     '关闭后不会再把每层楼的 <sum> 自动写入总结条目，并且会清空该条目内容，从而停止这部分提示词注入；重新打开后会按历史楼层重新生成。',
   summaryVisibleWindow:
@@ -7103,6 +7993,8 @@ type MapRoomVisual = {
 };
 type MapNodeKind = 'room' | 'boss' | 'floor' | 'start';
 type MapNodeView = {
+  /** 区域门牌上的罗马数字序号 */
+  gateNumeral: string;
   key: string;
   kind: MapNodeKind;
   y: number;
@@ -7127,8 +8019,20 @@ type MapLineView = {
   y1: number;
   x2: number;
   y2: number;
+  /** 水平切线的三次贝塞尔路径（横向地图里路线以柔和的 S 形相连） */
+  d: string;
   isVisited: boolean;
 };
+
+/** 横向地图：前进方向为 x（左→右），路线分布在 y 上 */
+const MAP_STEP_X = 62 + 70;
+const MAP_STEP_Y = 62 + 30;
+/** 领主房后的区域选择：右侧扇出的区域门牌 */
+const MAP_GATE_X = 300;
+const MAP_GATE_WIDTH = 330;
+const MAP_GATE_HEIGHT = 96;
+const MAP_GATE_GAP_Y = 124;
+const MAP_GATE_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
 const MAP_PATH_COLUMNS = 6;
 const MAP_CELL_SIZE = 62;
@@ -7136,15 +8040,22 @@ const MAP_CELL_GAP = 32;
 const MAP_MIN_SCALE = 0.44;
 const MAP_MAX_SCALE = 2.6;
 const MAP_SCALE_STEP = 0.14;
+/** 路线图四周留出的地图底图边距（场景坐标），拖到边缘时仍有底图 */
+const MAP_SCENE_MARGIN = 240;
+/** 固定在视口顶部的楼层信息占用的高度（屏幕像素），重置视图时路线图避开它 */
+const MAP_OVERLAY_TOP = 150;
+/** 固定在视口右上方的图例占用的宽度（屏幕像素），重置视图时两侧对称避开 */
+const MAP_OVERLAY_SIDE = 200;
 const MAP_DEFAULT_SCALE = 0.72;
-const MAP_VIEWPORT_STORAGE_KEY = 'dungeon.map.viewport.v1';
+// v2：地图改为横向布局，旧的竖向视口位置不再适用
+const MAP_VIEWPORT_STORAGE_KEY = 'dungeon.map.viewport.v2';
 const MAP_SCROLL_STORAGE_KEY = 'dungeon.map.scroll.v1';
 const MAP_ICON_SPRITE_URL =
   'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E5%9C%B0%E5%9B%BE%E5%9B%BE%E6%A0%87.png';
 const MAIN_UI_IMAGE_URLS = [
   'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E6%8C%89%E9%92%AE%E5%9B%BE%E6%A0%87.png?v=20261003-atlas16',
   'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E4%B8%BB%E7%95%8C%E9%9D%A2/%E8%8F%9C%E5%8D%95%E6%8C%89%E9%92%AE.png?v=20261008-menu-buttons',
-  'https://img.vinsimage.org/%E5%9C%B0%E7%89%A2/%E7%B4%A0%E6%9D%90%E5%BA%93/%E6%88%98%E6%96%97%E7%95%8C%E9%9D%A2/%E5%8D%A1%E7%89%8C%E8%BE%B9%E6%A1%86.png?v=20261003-six-frames',
+  ...ALL_CARD_FRAME_URLS,
   MAP_ICON_SPRITE_URL,
 ];
 const MAP_ROOM_VISUAL_BY_LABEL: Record<string, MapRoomVisual> = {
@@ -7155,7 +8066,6 @@ const MAP_ROOM_VISUAL_BY_LABEL: Record<string, MapRoomVisual> = {
   温泉: { icon: '', spritePosition: '100% 0%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
   神像: { icon: '', spritePosition: '66.667% 0%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
   事件: { icon: '', spritePosition: '33.333% 100%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
-  陷阱: { icon: '', spritePosition: '66.667% 100%', fill: 'transparent', border: '#1c1812', text: '#1c1812' },
 };
 const MAP_LEGEND_DEFINITIONS = [
   { roomType: '战斗房', label: '战斗' },
@@ -7164,7 +8074,6 @@ const MAP_LEGEND_DEFINITIONS = [
   { roomType: '温泉房', label: '温泉' },
   { roomType: '神像房', label: '神像' },
   { roomType: '事件房', label: '事件' },
-  { roomType: '陷阱房', label: '陷阱' },
   { roomType: '领主房', label: '领主' },
 ] as const;
 
@@ -7265,6 +8174,13 @@ const nextMapAreas = computed<string[]>(() => {
   if (nextFloor === FINAL_FLOOR_NAME) return [FINAL_AREA_NAME];
   return (FLOOR_MAP[nextFloor] ?? []).filter(area => area !== currentArea);
 });
+/** 区域选择时要前往的楼层名（第一层 / 第二层 … / 终极区域） */
+const mapNextFloorLabel = computed(() => {
+  const currentArea = ((gameStore.statData._当前区域 as string) || '').trim();
+  if (currentArea === '魔女的小窝') return '第一层';
+  const currentFloor = getFloorForArea(currentArea);
+  return (currentFloor ? getNextFloor(currentFloor) : null) ?? '';
+});
 const mapRoomVisual = (roomType: string): MapRoomVisual => {
   const label = roomType.endsWith('房') ? roomType.slice(0, -1) : roomType;
   return (
@@ -7289,13 +8205,26 @@ const mapLegendEntries = computed(() =>
     };
   }),
 );
+/**
+ * 节点中心（布局坐标）。y 为前进步数（0 起点 … MAP_HEIGHT+1 领主），x 为所在路线（1 起）。
+ * 区域选择时：起点在左侧居中，各区域门牌在右侧纵向排开。
+ */
+const mapGateCount = computed(() => Math.max(1, nextMapAreas.value.length));
 const mapRoomCenter = (x: number, y: number) => {
-  const step = MAP_CELL_SIZE + MAP_CELL_GAP;
-  const row = mapIsFloorTransition.value ? 1 - y : MAP_HEIGHT + 1 - y;
+  if (mapIsFloorTransition.value) {
+    const gatesHeight = (mapGateCount.value - 1) * MAP_GATE_GAP_Y + MAP_GATE_HEIGHT;
+    if (y === 0) return { x: 35, y: gatesHeight / 2 };
+    return { x: MAP_GATE_X + MAP_GATE_WIDTH / 2, y: (x - 1) * MAP_GATE_GAP_Y + MAP_GATE_HEIGHT / 2 };
+  }
   return {
-    x: (x - 1) * step + MAP_CELL_SIZE / 2,
-    y: row * step + MAP_CELL_SIZE / 2,
+    x: y * MAP_STEP_X + 35,
+    y: (x - 1) * MAP_STEP_Y + MAP_CELL_SIZE / 2,
   };
+};
+/** 两点之间的水平切线 S 形路径；终点为门牌时连到门牌左缘 */
+const mapCurvePath = (x1: number, y1: number, x2: number, y2: number) => {
+  const dx = (x2 - x1) * 0.5;
+  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 };
 
 const mapNextRoomEntries = computed<MapRoomNode[]>(() => {
@@ -7320,7 +8249,8 @@ const mapNextRoomNodes = computed<MapNodeView[]>(() =>
 
 const buildMapNodeView = (node: MapRoomNode, y: number, kind: MapNodeKind, areaName?: string): MapNodeView => {
   const step = MAP_CELL_SIZE + MAP_CELL_GAP;
-  const visual = mapRoomVisual(kind === 'start' ? '宝箱房' : kind === 'boss' ? '领主房' : node.房间类型);
+  const startIsLord = kind === 'start' && ((gameStore.statData._当前房间类型 as string) || '').trim() === '领主房';
+  const visual = mapRoomVisual(kind === 'start' ? (startIsLord ? '领主房' : '宝箱房') : kind === 'boss' ? '领主房' : node.房间类型);
   const center = mapRoomCenter(node.x, y);
   const visitedEntry = currentFloorPath.value[y - 1];
   const isVisited = Boolean(visitedEntry && visitedEntry.x === node.x && visitedEntry.房间类型 === node.房间类型);
@@ -7354,10 +8284,12 @@ const buildMapNodeView = (node: MapRoomNode, y: number, kind: MapNodeKind, areaN
       backgroundImage: `url("${MAP_ICON_SPRITE_URL}")`,
       backgroundPosition: visual.spritePosition,
     },
+    gateNumeral: kind === 'floor' ? (MAP_GATE_NUMERALS[node.x - 1] ?? String(node.x)) : '',
     style: {
-      width: kind === 'floor' ? '90px' : `${kind === 'start' || kind === 'boss' ? 70 : MAP_CELL_SIZE}px`,
-      left: `${center.x - (kind === 'floor' ? 45 : (kind === 'start' || kind === 'boss' ? 35 : MAP_CELL_SIZE / 2))}px`,
-      top: `${center.y - (kind === 'start' || kind === 'boss' ? 35 : MAP_CELL_SIZE / 2)}px`,
+      width: kind === 'floor' ? `${MAP_GATE_WIDTH}px` : `${kind === 'start' || kind === 'boss' ? 70 : MAP_CELL_SIZE}px`,
+      ...(kind === 'floor' ? { height: `${MAP_GATE_HEIGHT}px` } : {}),
+      left: `${center.x - (kind === 'floor' ? MAP_GATE_WIDTH / 2 : (kind === 'start' || kind === 'boss' ? 35 : MAP_CELL_SIZE / 2))}px`,
+      top: `${center.y - (kind === 'floor' ? MAP_GATE_HEIGHT / 2 : (kind === 'start' || kind === 'boss' ? 35 : MAP_CELL_SIZE / 2))}px`,
       background: visual.fill,
       borderColor: visual.border,
       color: visual.text,
@@ -7370,12 +8302,7 @@ const mapNodes = computed<MapNodeView[]>(() => {
     return [
       buildMapNodeView({ x: 3, 房间类型: '宝箱房' }, 0, 'start'),
       ...nextMapAreas.value.map((area, index) =>
-        buildMapNodeView(
-          { x: nextMapAreas.value.length === 1 ? 3 : index + 1, 房间类型: '宝箱房' },
-          1,
-          'floor',
-          area,
-        ),
+        buildMapNodeView({ x: index + 1, 房间类型: '宝箱房' }, 1, 'floor', area),
       ),
     ];
   }
@@ -7433,14 +8360,23 @@ const ensureDungeonMapForCurrentFloor = () => {
   void gameStore.ensureCurrentFloorMap();
 };
 
-const mapContentWidth = computed<number>(() => (MAP_PATH_COLUMNS - 1) * (MAP_CELL_SIZE + MAP_CELL_GAP) + MAP_CELL_SIZE);
-const mapContentHeight = computed<number>(() => (mapIsFloorTransition.value ? 3 : MAP_HEIGHT + 2) * (MAP_CELL_SIZE + MAP_CELL_GAP));
+const mapContentWidth = computed<number>(() =>
+  mapIsFloorTransition.value ? MAP_GATE_X + MAP_GATE_WIDTH : (MAP_HEIGHT + 1) * MAP_STEP_X + 70,
+);
+const mapContentHeight = computed<number>(() =>
+  mapIsFloorTransition.value
+    ? (mapGateCount.value - 1) * MAP_GATE_GAP_Y + MAP_GATE_HEIGHT
+    : (MAP_PATH_COLUMNS - 1) * MAP_STEP_Y + MAP_CELL_SIZE,
+);
 const mapSceneWidth = computed<number>(() => {
   const viewportWidth = mapViewportWidth.value / MAP_MIN_SCALE;
   const viewportHeight = (mapViewportHeight.value * (16 / 9)) / MAP_MIN_SCALE;
-  return Math.max(mapContentWidth.value, mapContentHeight.value * (16 / 9), viewportWidth, viewportHeight);
+  const contentWidth = mapContentWidth.value + MAP_SCENE_MARGIN * 2;
+  return Math.max(contentWidth, mapContentHeight.value * (16 / 9), viewportWidth, viewportHeight);
 });
-const mapSceneHeight = computed<number>(() => Math.max(mapContentHeight.value, mapSceneWidth.value * (9 / 16)));
+const mapSceneHeight = computed<number>(() =>
+  Math.max(mapContentHeight.value + MAP_SCENE_MARGIN * 2, mapSceneWidth.value * (9 / 16)),
+);
 const mapLayoutStyle = computed<Record<string, string>>(() => ({
   width: `${mapContentWidth.value}px`,
   height: `${mapContentHeight.value}px`,
@@ -7453,14 +8389,16 @@ const mapLines = computed<MapLineView[]>(() => {
   if (mapIsFloorTransition.value) {
     const startCenter = mapRoomCenter(3, 0);
     nextMapAreas.value.forEach((area, index) => {
-      const x = nextMapAreas.value.length === 1 ? 3 : index + 1;
-      const targetCenter = mapRoomCenter(x, 1);
+      const targetCenter = mapRoomCenter(index + 1, 1);
+      const x1 = startCenter.x + 30;
+      const x2 = targetCenter.x - MAP_GATE_WIDTH / 2 + 10;
       lines.push({
         key: `start:floor:${area}`,
-        x1: startCenter.x,
+        x1,
         y1: startCenter.y,
-        x2: targetCenter.x,
+        x2,
         y2: targetCenter.y,
+        d: mapCurvePath(x1, startCenter.y, x2, targetCenter.y),
         isVisited: false,
       });
     });
@@ -7478,6 +8416,7 @@ const mapLines = computed<MapLineView[]>(() => {
       y1: startCenter.y,
       x2: targetCenter.x,
       y2: targetCenter.y,
+      d: mapCurvePath(startCenter.x, startCenter.y, targetCenter.x, targetCenter.y),
       isVisited: currentFloorPath.value.length >= 1 && currentFloorPath.value[0]?.x === x,
     });
   }
@@ -7496,6 +8435,7 @@ const mapLines = computed<MapLineView[]>(() => {
         y1: fromCenter.y,
         x2: toCenter.x,
         y2: toCenter.y,
+        d: mapCurvePath(fromCenter.x, fromCenter.y, toCenter.x, toCenter.y),
         isVisited:
           currentFloorPath.value.length > index &&
           currentFloorPath.value[index - 1]?.x === from.x &&
@@ -7514,6 +8454,7 @@ const mapLines = computed<MapLineView[]>(() => {
         y1: fromCenter.y,
         x2: bossCenter.x,
         y2: bossCenter.y,
+        d: mapCurvePath(fromCenter.x, fromCenter.y, bossCenter.x, bossCenter.y),
         isVisited:
           currentFloorPath.value.length >= MAP_HEIGHT &&
           ((gameStore.statData._当前房间类型 as string) || '').trim() === '领主房' &&
@@ -7523,7 +8464,13 @@ const mapLines = computed<MapLineView[]>(() => {
   }
   return lines;
 });
+/**
+ * 缩小查看整张地图时，房间图标与路线按比例放大（反向补偿缩放），避免节点过小、路线显得突兀；
+ * 上限 1.5 倍以免相邻节点相碰。
+ */
+const mapNodeBoost = computed(() => Math.min(1.5, Math.max(1, 0.8 / Math.max(mapScale.value, 0.01))));
 const mapCanvasStyle = computed<Record<string, string>>(() => ({
+  '--map-node-boost': String(mapNodeBoost.value),
   width: `${mapSceneWidth.value}px`,
   height: `${mapSceneHeight.value}px`,
   transform: (() => {
@@ -7643,22 +8590,42 @@ const restoreMapViewportOrCenter = () => {
 const centerMapOnLatestNode = (resetScale: boolean = false) => {
   const viewport = mapViewportRef.value;
   if (!viewport) return;
-  if (resetScale) {
-    mapScale.value = clampMapScale(Math.min(
-      (viewport.clientWidth - 28) / mapSceneWidth.value,
-      (viewport.clientHeight - 28) / mapSceneHeight.value,
-      1,
-    ));
-  }
-  const latest = mapNodes.value.find(node => node.isLatest);
-  const shouldFocusLatest = !resetScale && (currentFloorPath.value.length > 0 || mapIsFloorTransition.value);
   const layoutOffsetX = (mapSceneWidth.value - mapContentWidth.value) / 2;
   const layoutOffsetY = (mapSceneHeight.value - mapContentHeight.value) / 2;
-  const focusX = shouldFocusLatest && latest ? layoutOffsetX + latest.centerX : mapSceneWidth.value / 2;
-  const focusY = shouldFocusLatest && latest ? layoutOffsetY + latest.centerY : mapSceneHeight.value / 2;
+  // 楼层信息（顶部）与图例（右侧）固定在视口上：实测它们占用的范围，路线图放在剩余区域中央
+  const viewportRect = viewport.getBoundingClientRect();
+  const toLayout = viewportRect.width > 0 ? viewport.clientWidth / viewportRect.width : 1;
+  const modalEl = viewport.parentElement;
+  const cartoucheRect = modalEl?.querySelector('.map-cartouche')?.getBoundingClientRect();
+  const legendRect = modalEl?.querySelector('.map-legend')?.getBoundingClientRect();
+  const overlayTop = cartoucheRect
+    ? Math.max(0, (cartoucheRect.bottom - viewportRect.top) * toLayout) + 16
+    : Math.min(MAP_OVERLAY_TOP, viewport.clientHeight * 0.25);
+  // 小屏图例在楼层信息下方、不占满整列时同样按其左缘让出
+  const overlayRight = legendRect
+    ? Math.max(0, (viewportRect.right - legendRect.left) * toLayout) + 24
+    : Math.min(MAP_OVERLAY_SIDE, viewport.clientWidth * 0.18);
+  const overlayLeft = 40;
+  const availableWidth = Math.max(120, viewport.clientWidth - overlayLeft - overlayRight);
+  const availableHeight = Math.max(120, viewport.clientHeight - overlayTop - 40);
+  if (resetScale) {
+    // 节点在缩小时会按 mapNodeBoost 放大，额外留出一圈边距
+    mapScale.value = clampMapScale(Math.min(
+      availableWidth / (mapContentWidth.value + 90),
+      availableHeight / (mapContentHeight.value + 90),
+      1.25,
+    ));
+  }
+  const regionCenterX = overlayLeft + availableWidth / 2;
+  const latest = mapNodes.value.find(node => node.isLatest);
+  const shouldFocusLatest = !resetScale && (currentFloorPath.value.length > 0 || mapIsFloorTransition.value);
+  const focusX = shouldFocusLatest && latest ? layoutOffsetX + latest.centerX : layoutOffsetX + mapContentWidth.value / 2;
+  const focusY = shouldFocusLatest && latest
+    ? layoutOffsetY + latest.centerY
+    : layoutOffsetY + mapContentHeight.value / 2;
   applyMapOffset(
-    viewport.clientWidth / 2 - focusX * mapScale.value,
-    viewport.clientHeight / 2 - focusY * mapScale.value,
+    regionCenterX - focusX * mapScale.value,
+    overlayTop + availableHeight / 2 - focusY * mapScale.value,
     true,
   );
 };
@@ -8144,56 +9111,6 @@ const effectiveDisplayMaxDice = computed(() => {
   const withRelic = baseMax + relicMaxDiceBonus.value;
   return Math.max(effectiveDisplayMinDice.value, withRelic);
 });
-const normalizeNegativeStatusList = (value: unknown): string[] => {
-  const normalizeArray = (arr: unknown[]): string[] => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const item of arr) {
-      if (typeof item !== 'string') continue;
-      const normalized = item.trim();
-      if (!normalized || seen.has(normalized)) continue;
-      seen.add(normalized);
-      result.push(normalized);
-    }
-    return result;
-  };
-
-  if (Array.isArray(value)) return normalizeArray(value);
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) return [];
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      if (Array.isArray(parsed)) return normalizeArray(parsed);
-    } catch {
-      // no-op
-    }
-    return normalizeArray(trimmed.split(/\r?\n|、|；|;|\|/g));
-  }
-
-  return [];
-};
-const REBIRTH_PERSISTENT_NEGATIVE_STATUSES = new Set<string>(['[淫乱知识]', '[血族印记]', '[灵魂受损]']);
-const HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES = new Set<string>(['[人格排泄]', '[灵魂受损]']);
-
-const NEGATIVE_STATUS_DESCRIPTION_MAP: Record<string, string> = {
-  '[信息素]': '每场战斗开始时向你的牌库随机插入3张【信息素】。',
-  '[淫纹]': '每场战斗开始时，你获得3层中毒。',
-  '[淫乱知识]': '每场战斗开始时向你的牌库随机插入1张【档案污页】。',
-  '[被标记]': '当前楼层后续最多3个非战斗节点会替换为战斗房；每场战斗开始时获得2层敏感。',
-  '[被寄生]': '每场战斗开始时，你获得1层性兴奋。',
-  '[鳞粉]': '每场战斗开始时，你获得1层鳞粉。',
-  '[沉沦]': '每场战斗第3回合开始时，你获得1层眩晕。',
-  '[败北]': '在地牢中战败，沦为俘虏。',
-  '[催淫]': '因中毒量hp归零，后续剧情会体现身体被药性支配。',
-  '[神经肌肉失调]': '因电击hp归零，后续剧情会体现神经损伤与痉挛。',
-  '[被侵蚀]': '曾因侵蚀hp归零，后续剧情会体现身体被操控。',
-  '[血族印记]': '被伊丽莎白支配后留下的烙印，后续剧情会体现其持续影响。',
-  '[蛾翼印记]': '被梦魔双子击败后的印记。',
-  '[灵魂受损]': '灵魂被梦魔双子所吞噬一部分，只有打败梦魔双子后才能净化。每场战斗开始时，你获得3层法力枯竭。',
-  '[人格排泄]': '被灌入人格排泄剂，理性与意识融化凝结为人格果冻，灵魂被禁锢于排泄出的果冻中，肉体沦为空壳。',
-};
 const parseStigmataNegativeStatus = (status: string): number => {
   const match = status.trim().match(/^\[(\d+)圣痕\]$/);
   if (!match) return 0;
@@ -8217,7 +9134,7 @@ const negativeStatusEntries = computed(() =>
       name,
       description: stigmataStacks > 0
         ? `每场战斗开始时，你获得${stigmataStacks}层圣痕。`
-        : NEGATIVE_STATUS_DESCRIPTION_MAP[name] ??
+        : describeNegativeStatus(name) ??
           '如果你看到了这串字，且你没有动变量，那么说明你遇到bug了，请反馈给作者。',
     };
   }),
@@ -8225,6 +9142,16 @@ const negativeStatusEntries = computed(() =>
 const idolDiceMin = computed(() => Math.max(1, toNonNegativeInt(effectiveDisplayMinDice.value, 1)));
 const idolDiceMax = computed(() => Math.max(idolDiceMin.value, toNonNegativeInt(effectiveDisplayMaxDice.value, 6)));
 
+/** 属性宝石图标（图床：地牢/素材库/通用UI/属性图标），状态块与后续详细状态栏共用 */
+const STAT_ICON_BASE = toResolveUrl('地牢/素材库/通用UI/属性图标');
+const STAT_ICON_URLS = {
+  hp: `${STAT_ICON_BASE}/${encodeURIComponent('生命')}.webp`,
+  mp: `${STAT_ICON_BASE}/${encodeURIComponent('法力')}.webp`,
+  gold: `${STAT_ICON_BASE}/${encodeURIComponent('金币')}.webp`,
+  dice: `${STAT_ICON_BASE}/${encodeURIComponent('骰子')}.webp`,
+  armor: `${STAT_ICON_BASE}/${encodeURIComponent('护甲')}.webp`,
+  curse: `${STAT_ICON_BASE}/${encodeURIComponent('负面状态')}.webp`,
+} as const;
 const hpPercent = computed(() => {
   const max = displayMaxHp.value;
   return max > 0 ? Math.min((displayHp.value / max) * 100, 100) : 100;
@@ -8304,6 +9231,57 @@ const idolRewardEntries = computed(() => {
 const idolRewardSummary = computed(() => idolRewardEntries.value[0] ?? null);
 const idolHasAssignedDice = computed(() => idolRewardEntries.value.length > 0);
 
+const idolDiceIndexes = computed<Array<0 | 1>>(() => (idolVariant.value === 'black' ? [0, 1] : [0]));
+/** 三个槽位从左到右，与背景中三座神像一一对应 */
+const idolSlotColumns = computed<Array<{ target: IdolSlotTarget; hint: string }>>(() =>
+  idolVariant.value === 'black'
+    ? [
+        { target: 'blackMp', hint: `献祭骰子点数生命：初始魔力+当前最大点数（${idolDiceMax.value}）` },
+        { target: 'blackDice', hint: '献祭骰子点数生命上限：最小与最大点数各+1' },
+        { target: 'blackGold', hint: '献祭骰子点数生命：金币+3倍骰子点数' },
+      ]
+    : [
+        { target: 'maxHp', hint: '生命上限 +1.5倍骰子点数' },
+        { target: 'mp', hint: '初始魔量 +骰子点数' },
+        { target: 'gold', hint: '金币 +2倍骰子点数' },
+      ],
+);
+/** 神像焦点（背景 16:9 坐标，百分比）与光色 */
+const IDOL_STATUE_SPOTS: Record<IdolVariant, Array<{ x: number; y: number; tint: string }>> = {
+  white: [
+    { x: 20.5, y: 30, tint: '255, 214, 196' },
+    { x: 50, y: 24, tint: '196, 222, 255' },
+    { x: 80, y: 31, tint: '255, 224, 150' },
+  ],
+  black: [
+    { x: 15, y: 33, tint: '170, 120, 255' },
+    { x: 50, y: 23, tint: '230, 60, 80' },
+    { x: 85, y: 33, tint: '255, 190, 90' },
+  ],
+};
+const idolStatueSpots = computed(() =>
+  IDOL_STATUE_SPOTS[idolVariant.value].map(spot => ({
+    '--x': String(spot.x),
+    '--y': String(spot.y),
+    '--tint': spot.tint,
+  })),
+);
+const idolActiveColumns = computed(() => {
+  const targets = idolSlotColumns.value.map(slot => slot.target);
+  return idolRewardEntries.value.map(entry => targets.indexOf(entry.target)).filter(index => index >= 0);
+});
+const toHtmlElement = (el: unknown): HTMLElement | null => (el instanceof HTMLElement ? el : null);
+const setIdolSlotElement = (target: IdolSlotTarget, el: unknown) => {
+  const element = toHtmlElement(el);
+  if (target === 'maxHp' || target === 'blackDice') idolSlotMaxHpRef.value = element;
+  else if (target === 'mp' || target === 'blackMp') idolSlotMpRef.value = element;
+  else idolSlotGoldRef.value = element;
+};
+const setIdolDiceElement = (diceIndex: 0 | 1, el: unknown) => {
+  if (diceIndex === 0) idolDiceRef.value = toHtmlElement(el);
+  else idolDiceTwoRef.value = toHtmlElement(el);
+};
+
 // ── Actions ──
 const isInFinalArea = computed(() => ((gameStore.statData._当前区域 as string) || '').trim() === FINAL_AREA_NAME);
 
@@ -8365,7 +9343,7 @@ const REBIRTH_STARTER_DECK = [
   '普通闪避',
   '普通闪避',
 ];
-const HOT_SPRING_CLEANSE_ACTION_TEXT = '<user>浸泡在暖泉中，污秽正悄然消融。（负面效果已全部消除）';
+const HOT_SPRING_CLEANSE_ACTION_TEXT_PREFIX = '<user>浸泡在暖泉中，污秽正悄然消融。';
 const HOT_SPRING_CLEANSE_LINES = [
   '泉水洗去了你身上的污秽，灵魂重获纯净。',
   '温热的泉水带走了不详的气息，你感到前所未有的轻松。',
@@ -8387,9 +9365,7 @@ const buildRebirthResetFields = (): Record<string, any> => {
   const currentFloor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
   const rebirthSkillPointGain = Math.floor((currentFloor * (currentFloor + 1)) / 2);
   const currentNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
-  const retainedNegativeStatuses = currentNegativeStatuses.filter((status: string) =>
-    REBIRTH_PERSISTENT_NEGATIVE_STATUSES.has(status),
-  );
+  const retainedNegativeStatuses = getRebirthRetainedNegativeStatuses(currentNegativeStatuses);
   if (currentNegativeStatuses.includes('[蛾翼印记]') && !retainedNegativeStatuses.includes('[灵魂受损]')) {
     retainedNegativeStatuses.push('[灵魂受损]');
   }
@@ -8400,7 +9376,13 @@ const buildRebirthResetFields = (): Record<string, any> => {
     _金币: initialGold,
     $技能点: currentSkillPoints + rebirthSkillPointGain,
     _技能: [...REBIRTH_STARTER_DECK],
+    _附魔: Array.from({ length: 9 }, () => ''),
     $负面状态: retainedNegativeStatuses,
+    $事件操作: { ...EMPTY_EVENT_ACTION_STATE },
+    $事件结算通知: [],
+    $战斗修正: [],
+    $延迟奖励: [],
+    $临时替换: [],
     $被动: '',
     $主动: ['', ''],
     携带的物品: {
@@ -8414,9 +9396,10 @@ const buildRebirthResetFields = (): Record<string, any> => {
     _当前区域: '魔女的小窝',
     _当前房间类型: '',
     $当前事件: '',
+    判定结果: '',
+    $已触发事件: [],
     _对手名称: '',
     $是否已击败商人: false,
-    $是否已挑战过商人: alchemySystemUnlocked.value,
     $统计: {
       当前层已过房间: 0,
       累计已过房间: 0,
@@ -8426,7 +9409,6 @@ const buildRebirthResetFields = (): Record<string, any> => {
       累计经过商店: 0,
       累计经过神像: 0,
       累计经过事件: 0,
-      累计经过陷阱: 0,
     },
     $路径: [],
     $地图: [],
@@ -8448,6 +9430,10 @@ const resetTransientUiState = () => {
   closeIdolView();
   idolRoomMapExitReady.value = false;
   pendingCombatNarrative.value = null;
+  eventSettlementSession.value = null;
+  activeMinigame.value = null;
+  activeEventBattle.value = null;
+  showHotSpringChoice.value = false;
   hideRelicTooltip();
   closeBondPortraitPreview();
   closeSettingsHelp();
@@ -8553,10 +9539,6 @@ const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
     label: '祭拜神像',
     skin: 'menuIdol',
   },
-  事件房: {
-    label: '打开事件',
-    skin: 'menuEvent',
-  },
 };
 
 const consumedSpecialRoomFingerprint = ref('');
@@ -8599,13 +9581,12 @@ const resolveCurrentRoomSpecialOptionConfig = (ignoreConsumed = false): RoomConf
   if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
   const roomType = gameStore.statData._当前房间类型 as string;
   if (!roomType) return null;
-  if (roomType === '陷阱房') return null;
   return ROOM_TYPE_CONFIG[roomType] ?? null;
 };
 
 const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => resolveCurrentRoomSpecialOptionConfig());
 
-// E option: 陷阱房 does not have a special action button.
+// E option: 事件房 has no special action button (free action, LLM judges the ending).
 const specialOptionConfig = computed<RoomConfig | null>(() => {
   if (!gameStore.hasOptionE) return null;
   return currentRoomSpecialOptionConfig.value;
@@ -8693,6 +9674,7 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
       : outcome === 'lose'
         ? `战斗结果：[败北]，被${enemyName}击败。`
         : '战斗结果：[脱离]，一方逃离战斗。';
+  const eventBattle = context === 'event' ? activeEventBattle.value : null;
   const contextLine =
     context === 'shopRobbery'
       ? '本次战斗发生在抢夺商店的冲突中。'
@@ -8700,7 +9682,15 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
         ? '本次战斗发生在宝箱怪伏击中。'
         : context === 'combatTest'
           ? '本次战斗来自战斗测试。'
-          : '本次战斗发生在地牢探索途中。';
+          : eventBattle
+            ? `本次战斗发生在事件【${eventBattle.eventName}】中。${
+                eventBattle.noPenalty
+                  ? '这是一场梦中之战：梦中的败北不会带入现实，若败北，醒来后身体毫发无伤。'
+                  : eventBattle.lord
+                    ? '对手离开了自己的领地，缺乏主场魔力的加持。'
+                    : ''
+              }`
+            : '本次战斗发生在地牢探索途中。';
   const followupLine =
     outcome === 'win'
       ? `请根据以下最近${COMBAT_LOG_TURN_LIMIT}个回合的完整战斗日志继续剧情，并体现胜利后的后续发展。`
@@ -8714,7 +9704,7 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
 const isFastModeSyncRoomType = (roomType: string): boolean =>
   roomType === '商店房' ||
   roomType === '领主房' ||
-  roomType === '陷阱房' ||
+  roomType === '事件房' ||
   roomType === FINAL_AREA_NAME;
 
 const submitGameAction = async (text: string, targetRoomType: string, type = 'action') => {
@@ -8760,26 +9750,33 @@ const queueCombatMvuSync = (
   negativeEffects: string[],
   negativeStatusesRemove: string[] = [],
   extraGoldDelta: number = 0,
+  options: { noPenalty?: boolean; preBattleHp?: number } = {},
 ) => {
   const win = outcome === 'win';
-  const lose = outcome === 'lose';
-  const hpRaw = Number((finalStats as { hp?: unknown } | null | undefined)?.hp);
+  // 梦中之战（共梦）：败北不带入现实——不加 [败北]、不留下战斗中的负面状态，生命回到战前
+  const dreamDefeat = outcome === 'lose' && options.noPenalty === true;
+  const lose = outcome === 'lose' && !dreamDefeat;
+  const effectiveNegativeEffects = dreamDefeat ? [] : negativeEffects;
+  const hpRaw = Number(dreamDefeat ? options.preBattleHp : (finalStats as { hp?: unknown } | null | undefined)?.hp);
   const hasHp = Number.isFinite(hpRaw);
   const finalMaxHpRaw = Number((finalStats as { maxHp?: unknown } | null | undefined)?.maxHp);
   const hasFinalMaxHp = Number.isFinite(finalMaxHpRaw);
   const floorRaw = Number(gameStore.statData._楼层数 ?? 1);
   const floor = Number.isFinite(floorRaw) ? Math.max(1, Math.floor(floorRaw)) : 1;
-  const goldReward = 2 + Math.floor(floor / 4);
+  const baseGoldReward = 2 + Math.floor(floor / 4) + getOwnedRelicCountById('system_wealth_relic_10')
+    + getOwnedRelicCountById(EVENT_RELIC_ID.AUCTION_TAG) * AUCTION_TAG_GOLD_PER_WIN;
+  // 发情季等战斗修正：金币倍率
+  const goldReward = Math.floor(baseGoldReward * Math.max(0, combatBattleModifiers.value.goldMultiplier));
   const bloodPoolCount = getOwnedRelicCountById('bloodpool_blood_pool');
   const stomachMarkCount = getOwnedRelicCountById('bloodpool_stomach_mark');
   const baseMaxHp = toNonNegativeInt(gameStore.statData._血量上限, 10);
   const stomachBonus = Math.max(0, stomachMarkCount);
   const passiveMaxHpBonus = bloodpoolPassiveMaxHpBonus.value;
-  const normalizedNegativeEffects = negativeEffects
+  const normalizedNegativeEffects = effectiveNegativeEffects
     .filter((item): item is string => typeof item === 'string')
     .map(item => item.trim())
     .filter(item => item.length > 0);
-  const normalizedNegativeStatusesRemove = negativeStatusesRemove
+  const normalizedNegativeStatusesRemove = (dreamDefeat ? [] : negativeStatusesRemove)
     .filter((item): item is string => typeof item === 'string')
     .map(item => item.trim())
     .filter(item => item.length > 0);
@@ -8808,10 +9805,11 @@ const queueCombatMvuSync = (
   gameStore.setPendingCombatMvuChanges({
     hp: nextHp,
     addDefeatMark: lose,
+    // 战斗中的金币变化（获得与消耗）均计入，负值表示战斗中花掉的金币
     goldDelta: win
-      ? goldReward + Math.max(0, Math.floor(extraGoldDelta))
-      : extraGoldDelta > 0
-        ? Math.max(0, Math.floor(extraGoldDelta))
+      ? goldReward + Math.floor(extraGoldDelta)
+      : Math.floor(extraGoldDelta) !== 0
+        ? Math.floor(extraGoldDelta)
         : undefined,
     negativeStatusesAdd: normalizedNegativeEffects,
     negativeStatusesRemove: normalizedNegativeStatusesRemove,
@@ -8833,8 +9831,10 @@ const pickUniqueRewardItem = (pool: VictoryRewardItem[], usedIds: Set<string>): 
 const buildVictoryRewardOptions = (): VictoryRewardItem[] => {
   const pool: VictoryRewardItem[] = [...rewardCardPool.value, ...rewardActiveSkillPool.value];
   const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
-  const isLordRoom = roomType === '领主房';
-  const isNormalEnemy = roomType === '战斗房';
+  // 事件战斗：漫游的领主按领主战奖励，其余按普通战斗奖励
+  const eventBattle = activeEventBattle.value;
+  const isLordRoom = roomType === '领主房' || eventBattle?.lord === true;
+  const isNormalEnemy = roomType === '战斗房' || (eventBattle !== null && !eventBattle.lord);
   rewardIsNormalEnemy.value = isNormalEnemy;
 
   const hasRainbowCard = isNormalEnemy && getOwnedRelicCountById('base_rainbow_card') > 0;
@@ -8847,7 +9847,19 @@ const buildVictoryRewardOptions = (): VictoryRewardItem[] => {
   const options: VictoryRewardItem[] = [];
   const usedIds = new Set<string>();
 
+  // 七原罪的隐藏卡池：领主战每个奖励槽有概率变为携带体系对应、且尚未拥有的原罪卡
+  const ownedSkillNames = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
+  const sinCandidates = isLordRoom ? getSinRewardCandidates(carriedMagicBooks.value, ownedSkillNames) : [];
+
   for (let i = 0; i < optionCount; i++) {
+    if (sinCandidates.length > 0 && Math.random() < SIN_REWARD_SLOT_CHANCE) {
+      const sinPick = pickUniqueRewardItem(sinCandidates, usedIds);
+      if (sinPick) {
+        options.push(sinPick);
+        usedIds.add(sinPick.id);
+        continue;
+      }
+    }
     const pickRare = isLordRoom || Math.random() < rareChance;
     const primaryPool = pickRare ? rarePool : normalPool;
     let picked = pickUniqueRewardItem(primaryPool, usedIds);
@@ -8862,10 +9874,35 @@ const buildVictoryRewardOptions = (): VictoryRewardItem[] => {
   return options;
 };
 
+/** 本次战斗胜利还可领取的卡牌奖励次数（棋盘卡牌：普通战斗可领取两次） */
+const victoryRewardClaimsRemaining = ref(1);
+
+/** 领取一次奖励后：若还有剩余次数则重新生成奖励，否则结束奖励流程 */
+const completeVictoryRewardClaim = (field: '_技能' | '$主动', nextValue: string[]) => {
+  if (victoryRewardClaimsRemaining.value > 1) {
+    victoryRewardClaimsRemaining.value -= 1;
+    // 同步到本地，确保第二次领取基于第一次领取后的卡组
+    gameStore.statData[field] = [...nextValue];
+    const options = buildVictoryRewardOptions();
+    if (options.length > 0) {
+      rewardRefreshUsedCount.value = 0;
+      victoryRewardOptions.value = options;
+      selectedVictoryRewardCard.value = null;
+      victoryRewardStage.value = 'pick';
+      rewardApplying.value = false;
+      showGameFeedback('棋盘卡牌：可以再领取一次卡牌奖励。');
+      return;
+    }
+  }
+  victoryRewardClaimsRemaining.value = 1;
+  finalizeVictoryRewardFlow();
+};
+
 const startVictoryRewardFlow = () => {
   const options = buildVictoryRewardOptions();
 
   if (options.length === 0) return false;
+  victoryRewardClaimsRemaining.value = rewardIsNormalEnemy.value && getOwnedRelicCountById(PORTED_RELIC_ID.CHECKERBOARD_CARD) > 0 ? 2 : 1;
   rewardRefreshUsedCount.value = 0;
   victoryRewardOptions.value = options;
   selectedVictoryRewardCard.value = null;
@@ -8885,18 +9922,22 @@ const refreshVictoryRewardOptions = () => {
 };
 
 const finalizeVictoryRewardFlow = () => {
-  showVictoryRewardView.value = false;
-  victoryRewardStage.value = 'pick';
-  victoryRewardOptions.value = [];
-  selectedVictoryRewardCard.value = null;
-  rewardApplying.value = false;
-  rewardRefreshUsedCount.value = 0;
-  rewardIsNormalEnemy.value = false;
-  const narrative = pendingCombatNarrative.value;
-  if (!narrative) return;
-  if (narrative.context === 'shopRobbery') return;
-  pendingCombatNarrative.value = null;
-  sendCombatNarrativeOnce(narrative, narrative.text);
+  // 在战斗结束的转场中被调用时直接执行；单独从奖励界面返回时播放转场
+  void runSceneTransition(() => {
+    showVictoryRewardView.value = false;
+    victoryRewardStage.value = 'pick';
+    victoryRewardOptions.value = [];
+    selectedVictoryRewardCard.value = null;
+    rewardApplying.value = false;
+    rewardRefreshUsedCount.value = 0;
+    rewardIsNormalEnemy.value = false;
+    activeEventBattle.value = null;
+    const narrative = pendingCombatNarrative.value;
+    if (!narrative) return;
+    if (narrative.context === 'shopRobbery') return;
+    pendingCombatNarrative.value = null;
+    sendCombatNarrativeOnce(narrative, narrative.text);
+  });
 };
 
 const continuePostCombatRewardFlow = () => {
@@ -9000,7 +10041,7 @@ const replaceDeckCardWithReward = (idx: number) => {
   }
   rewardApplying.value = true;
   gameStore.mergePendingStatDataChanges({ _技能: raw });
-  finalizeVictoryRewardFlow();
+  completeVictoryRewardClaim('_技能', raw);
 };
 
 const replaceActiveSkillWithReward = (idx: number) => {
@@ -9012,7 +10053,7 @@ const replaceActiveSkillWithReward = (idx: number) => {
   raw[idx] = selectedVictoryRewardCard.value.name;
   rewardApplying.value = true;
   gameStore.mergePendingStatDataChanges({ $主动: raw });
-  finalizeVictoryRewardFlow();
+  completeVictoryRewardClaim('$主动', raw);
 };
 
 const getRarityBasePrice = (rarity: RelicData['rarity']) => {
@@ -9028,64 +10069,6 @@ const rollShopRarity = (): RelicData['rarity'] => {
   if (r < 0.7) return '普通';
   if (r < 0.92) return '稀有';
   return '传奇';
-};
-
-const toRelicTooltipEntry = (relic: RelicData): RelicEntryView => ({
-  name: relic.name,
-  count: 1,
-  rarity: relic.rarity,
-  category: relic.category,
-  effect: relic.effect,
-  description: relic.description ?? relic.effect ?? '',
-});
-
-const showShopProductTooltip = (event: MouseEvent | FocusEvent, item: ShopProduct) => {
-  showRelicTooltip(event, toRelicTooltipEntry(item.relic));
-};
-
-const clearShopProductConfirmTimer = () => {
-  if (!shopProductConfirmTimer) return;
-  clearTimeout(shopProductConfirmTimer);
-  shopProductConfirmTimer = null;
-};
-
-const resetShopProductConfirmation = (hideTooltip = true) => {
-  clearShopProductConfirmTimer();
-  pendingShopProductKey.value = null;
-  if (hideTooltip) {
-    hideRelicTooltip();
-  }
-};
-
-const previewShopProductForTouch = (target: HTMLElement, item: ShopProduct) => {
-  clearShopProductConfirmTimer();
-  showRelicTooltipForTarget(target, toRelicTooltipEntry(item.relic));
-  pendingShopProductKey.value = item.key;
-  shopProductConfirmTimer = setTimeout(() => {
-    if (pendingShopProductKey.value === item.key) {
-      pendingShopProductKey.value = null;
-      hideRelicTooltip();
-    }
-    shopProductConfirmTimer = null;
-  }, 2200);
-};
-
-const handleShopProductClick = (event: MouseEvent, item: ShopProduct) => {
-  if (!isTouchViewport.value) {
-    buyShopProduct(item);
-    return;
-  }
-
-  const target = event.currentTarget as HTMLElement | null;
-  if (!target) return;
-
-  if (pendingShopProductKey.value === item.key) {
-    resetShopProductConfirmation(false);
-    buyShopProduct(item);
-    return;
-  }
-
-  previewShopProductForTouch(target, item);
 };
 
 const generateShopProducts = () => {
@@ -9104,6 +10087,8 @@ const generateShopProducts = () => {
   const count = Math.min(targetCount, pool.length);
   const usedNames = new Set<string>();
   const discountRate = shopDiscountRate.value;
+  const debtNoteCount = getOwnedRelicCountById('system_wealth_relic_16');
+  const regularBadgeCount = getOwnedRelicCountById(PORTED_RELIC_ID.REGULAR_BADGE);
   const next: ShopProduct[] = [];
 
   for (let i = 0; i < count; i++) {
@@ -9117,8 +10102,10 @@ const generateShopProducts = () => {
     if (!relic) break;
     usedNames.add(relic.name);
 
-    const basePrice = getRarityBasePrice(relic.rarity);
-    const finalPrice = isMerchantDefeated.value ? 0 : Math.max(1, Math.ceil(basePrice * (1 - discountRate)));
+    const basePrice = getRarityBasePrice(relic.rarity) + debtNoteCount * 5;
+    const finalPrice = isMerchantDefeated.value
+      ? 0
+      : Math.max(1, Math.ceil(basePrice * (1 - discountRate)) - regularBadgeCount);
     next.push({
       key: `${relic.id}-${i}`,
       relic,
@@ -9145,6 +10132,26 @@ const shopGreetingLines = [
   '来了啊。茶水免费，货架随便看。',
   '还活着呢，呵。',
 ];
+/** 成交：极简，不介绍功能，带一点等着看戏的恶趣味 */
+const shopPurchaseLines = [
+  '成交。怎么用？回去试试就知道了。',
+  '拿好。效果如何……下次来告诉我。',
+  '嗯，眼光不坏。',
+  '金币我收下了。货出门概不退换哦。',
+  '……这件啊。呵，祝你好运。',
+];
+/** 免费拿走（VIP 卡等） */
+const shopFreeItemLines = [
+  '这件不收钱。规矩而已，别多想。',
+  '拿去吧。卡上写着的，我照办。',
+];
+/** 金币不足 */
+const shopShortGoldLines = [
+  '钱不够哦。不议价，也不赊账。',
+  '……先数清楚你的金币再说。',
+  '金币不够的话，下次再来。不过到时候就不是这批货了。',
+];
+
 const shopRobDialogueLines = [
   [
     '嗯？',
@@ -9176,7 +10183,6 @@ const setShopDialogue = (robClickCount = 0) => {
 };
 
 const resetShopSession = () => {
-  resetShopProductConfirmation();
   shopSessionKey.value = null;
   shopProducts.value = [];
   shopSpentGold.value = 0;
@@ -9189,9 +10195,8 @@ const resetShopSession = () => {
 
 const openShopView = async (): Promise<boolean> => {
   if (gameStore.isGenerating) return false;
-  if (!(await preloadRoomImages('商店房', [SHOP_BG_URL, shopFrameUrl, shopCompassUrl]))) return false;
+  if (!(await preloadRoomImages('商店房', [SHOP_BG_URL, ...Object.values(RELIC_ORB_URLS)]))) return false;
   hideRelicTooltip();
-  resetShopProductConfirmation(false);
   clearShopRobTimer();
   shopBuying.value = false;
   const nextSessionKey = getCurrentShopSessionKey();
@@ -9205,6 +10210,13 @@ const openShopView = async (): Promise<boolean> => {
     shopRobClickCount.value = 0;
     shopRobbing.value = false;
     generateShopProducts();
+    const regularBadgeCount = getOwnedRelicCountById(PORTED_RELIC_ID.REGULAR_BADGE);
+    if (regularBadgeCount > 0 && !isMerchantDefeated.value) {
+      const bonusGold = 2 * regularBadgeCount;
+      const currentGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+      const ok = await gameStore.updateStatDataFields({ _金币: currentGold + bonusGold });
+      if (ok) showGameFeedback(`常客徽章：获得 ${bonusGold} 金币`);
+    }
   }
   // Record a per-opening baseline. Exit only commits purchases made after this point.
   shopEntrySpentGold.value = shopSpentGold.value;
@@ -9219,7 +10231,6 @@ const openShopView = async (): Promise<boolean> => {
 
 const closeShopView = () => {
   hideRelicTooltip();
-  resetShopProductConfirmation(false);
   clearShopRobTimer();
   shopBuying.value = false;
   shopRobbing.value = false;
@@ -9253,7 +10264,8 @@ const buyShopProduct = (item: ShopProduct) => {
   const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
   const currentGold = Math.max(0, baseGold - shopSpentGold.value);
   if (currentGold < item.finalPrice) {
-    showGameFeedback('金币不足，无法购买这件圣遗物。');
+    // 由沐芯兰本人回应，不再弹系统提示
+    shopDialogue.value = pickRandom(shopShortGoldLines) ?? '';
     return;
   }
 
@@ -9267,10 +10279,18 @@ const buyShopProduct = (item: ShopProduct) => {
   });
   enqueueForcedCurseReplacementForRelic(item.relic);
   hideRelicTooltip();
+  if (!isMerchantDefeated.value) {
+    shopDialogue.value = pickRandom(item.finalPrice === 0 ? shopFreeItemLines : shopPurchaseLines) ?? '';
+  }
   shopBuying.value = false;
 };
 
-const exitShop = () => {
+const handleShopBuy = (key: string) => {
+  const item = shopProducts.value.find(product => product.key === key);
+  if (item) buyShopProduct(item);
+};
+
+const exitShop = async () => {
   if (shopBuying.value || gameStore.isGenerating || shopRobbing.value) return;
   if (activeForcedCurseReplacement.value) {
     showGameFeedback('必须先完成诅咒替换。');
@@ -9281,7 +10301,14 @@ const exitShop = () => {
   const total = Math.max(0, shopSpentGold.value - shopEntrySpentGold.value);
   if (purchased.length > 0) {
     const baseGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
-    const nextGold = Math.max(0, baseGold - total);
+    const acquisition = buildRelicAcquisitionEffects(
+      purchased
+        .map(item => getRelicByName(item.name))
+        .filter((relic): relic is RelicData => Boolean(relic)),
+    );
+    const acquisitionGold = acquisition.goldDelta;
+    const fields: Record<string, any> = { ...acquisition.fields };
+    const nextGold = Math.max(0, baseGold - total + acquisitionGold);
     let nextRelics: Record<string, number> = inventoryRelicMap.value;
     for (const item of purchased) {
       const relic = getRelicByName(item.name);
@@ -9299,12 +10326,13 @@ const exitShop = () => {
       }
     }
     gameStore.mergePendingStatDataChanges({
-      ...(total > 0 ? { _金币: nextGold } : {}),
+      ...((total > 0 || acquisitionGold > 0) ? { _金币: nextGold } : {}),
+      ...fields,
       ...buildInventoryUpdateFields({ _圣遗物: nextRelics }),
     });
   }
   const narrative = pendingCombatNarrative.value;
-  closeShopView();
+  await runSceneTransition(() => closeShopView());
   if (narrative && narrative.context === 'shopRobbery' && narrative.outcome === 'win') {
     const lootedText =
       purchased.length > 0
@@ -9346,7 +10374,7 @@ const handleShopRobClick = async () => {
   clearShopRobTimer();
   shopRobTimer = setTimeout(() => {
     void (async () => {
-      const launched = await launchCombat('沐芯兰', 'shopRobbery');
+      const launched = await launchCombat('沐芯兰', 'shopRobbery', { onEnter: () => closeShopView() });
       if (launched) {
         void unlockAlchemySystem();
         closeShopView();
@@ -9383,12 +10411,17 @@ const preparePlayerForCombatStart = async (roomTypeOverride?: string): Promise<b
 };
 
 const exitCurrentCombatOverlay = () => {
-  showCombat.value = false;
-  combatTestStartAt999CurrentBattle.value = false;
-  if (activeCombatContext.value === 'normal' && isCombatRoomContext.value) {
-    restoreCurrentSpecialOption();
-  }
-  activeCombatContext.value = 'normal';
+  // 中途退出的事件战斗不算完成，结算按钮保留
+  activeEventBattle.value = null;
+  combatTempYinwenIndexes.value = [];
+  void runSceneTransition(() => {
+    showCombat.value = false;
+    combatTestStartAt999CurrentBattle.value = false;
+    if (activeCombatContext.value === 'normal' && isCombatRoomContext.value) {
+      restoreCurrentSpecialOption();
+    }
+    activeCombatContext.value = 'normal';
+  });
 };
 
 const canEnterCombat = () => {
@@ -9397,23 +10430,63 @@ const canEnterCombat = () => {
   return false;
 };
 
+/** 本场战斗生效的战斗修正快照（开战时计算，战斗结束后用于奖励刷新 / 金币倍率与修正递减） */
+const combatBattleModifiers = ref<ResolvedBattleModifiers>(createEmptyBattleModifiers());
+const combatIsLordBattle = ref(false);
+/** 漫游的领主：离开主场的领主生命系数 */
+const ROAMING_LORD_HP_MULTIPLIER = 0.75;
+
+const prepareCombatModifiers = (context: CombatContext, roomType: string, options?: { weakenedLord?: boolean }) => {
+  combatIsLordBattle.value = context === 'normal' && roomType === '领主房';
+  if (context === 'combatTest') {
+    combatBattleModifiers.value = createEmptyBattleModifiers();
+    combatTempYinwenIndexes.value = [];
+    return;
+  }
+  const resolved = resolveBattleModifiers(normalizeCombatModifiers(gameStore.statData.$战斗修正), {
+    isLordBattle: combatIsLordBattle.value,
+  });
+  if (options?.weakenedLord) {
+    resolved.enemy.hpMultiplier = ROAMING_LORD_HP_MULTIPLIER;
+    resolved.sources = [...resolved.sources, '离开主场'];
+  }
+  combatBattleModifiers.value = resolved;
+  const candidates = resolvedDeck.value
+    .map((card, index) => (card.type !== CardType.CURSE ? index : -1))
+    .filter(index => index >= 0);
+  const picked: number[] = [];
+  while (picked.length < resolved.tempYinwenCount && candidates.length > 0) {
+    picked.push(candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0]!);
+  }
+  combatTempYinwenIndexes.value = picked;
+};
+
 const launchCombat = async (
   enemyName: string,
   context: CombatContext,
   options?: {
     roomTypeOverride?: string;
     testStartAt999?: boolean;
+    /** 在转场遮住画面时执行（例如同时关闭宝箱房 / 商店） */
+    onEnter?: () => void;
+    /** 漫游的领主：离开主场，生命削弱 */
+    weakenedLord?: boolean;
   },
 ): Promise<boolean> => {
   if (!canEnterCombat()) return false;
   const ready = await preparePlayerForCombatStart(options?.roomTypeOverride);
   if (!ready) return false;
+  const roomType = (options?.roomTypeOverride ?? ((gameStore.statData._当前房间类型 as string) || '')).trim();
+  prepareCombatModifiers(context, roomType, { weakenedLord: options?.weakenedLord });
 
-  combatEnemyName.value = enemyName;
-  activeCombatContext.value = context;
-  combatTestStartAt999CurrentBattle.value = Boolean(options?.testStartAt999);
-  showCombat.value = true;
-  return true;
+  return await runSceneTransition(() => {
+    combatEnemyName.value = enemyName;
+    activeCombatContext.value = context;
+    combatTestStartAt999CurrentBattle.value = Boolean(options?.testStartAt999);
+    showCombat.value = true;
+    options?.onEnter?.();
+    return true;
+  });
 };
 
 const clearChestMimicTimer = () => {
@@ -9428,11 +10501,6 @@ const clearChestRewardFadeTimer = () => {
   chestRewardFadeTimer = null;
 };
 
-const clearChestCloseLongPressTimer = () => {
-  if (!chestCloseLongPressTimer) return;
-  clearTimeout(chestCloseLongPressTimer);
-  chestCloseLongPressTimer = null;
-};
 
 const clearHotSpringCleanseTimer = () => {
   if (!hotSpringCleanseTimer) return;
@@ -9495,14 +10563,76 @@ const preloadRoomImages = async (roomLabel: string, urls: readonly string[]): Pr
   }
 };
 
+// ── 温泉：恢复至满血 / 净化一个负面状态 二选一；持有可净化的诅咒牌（如【愧疚】）时多一个「净化诅咒」 ──
+const showHotSpringChoice = ref(false);
+const hotSpringApplying = ref(false);
+
+const hotSpringCleansableEntries = computed(() =>
+  getCleansableNegativeStatuses(normalizeNegativeStatusList(gameStore.statData.$负面状态)).map(raw => {
+    const behavior = getHotSpringBehavior(raw);
+    return {
+      raw,
+      description: describeNegativeStatus(raw) ?? '',
+      ...(typeof behavior === 'object' ? { degradeTo: behavior.degradeTo } : {}),
+    };
+  }),
+);
+
+const hotSpringPurifiableCurses = computed(() => {
+  const skills = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
+  const seen = new Set<string>();
+  const result: Array<{ from: string; to: string }> = [];
+  for (const name of skills) {
+    const key = String(name ?? '').trim();
+    const to = HOT_SPRING_CURSE_PURIFY_MAP[key];
+    if (!to || seen.has(key)) continue;
+    seen.add(key);
+    result.push({ from: key, to });
+  }
+  return result;
+});
+
 const useHotSpringCleanse = async () => {
-  showHotSpringCleanseText();
-  const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态).filter((status: string) =>
-    HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES.has(status),
+  showHotSpringChoice.value = true;
+};
+
+const finishHotSpringChoice = async (fields: Record<string, any>, actionText: string, showCleanseText: boolean) => {
+  if (hotSpringApplying.value) return;
+  hotSpringApplying.value = true;
+  try {
+    if (showCleanseText) showHotSpringCleanseText();
+    gameStore.setPendingStatDataChanges(fields);
+    showHotSpringChoice.value = false;
+    markCurrentSpecialConsumed();
+    await submitGameAction(actionText, '温泉房', 'spring');
+  } finally {
+    hotSpringApplying.value = false;
+  }
+};
+
+const chooseHotSpringHeal = () =>
+  finishHotSpringChoice(
+    { _血量: Math.max(1, displayMaxHp.value) },
+    '<user>浸泡在暖泉中疗伤，泉水抚平了一路积攒的伤痛。（选择了疗伤：生命已恢复至满）',
+    false,
   );
-  gameStore.setPendingStatDataChanges({ $负面状态: retainedNegativeStatuses });
-  await submitGameAction(HOT_SPRING_CLEANSE_ACTION_TEXT, '温泉房', 'spring');
-  markCurrentSpecialConsumed();
+
+const chooseHotSpringCleanse = (raw: string) =>
+  finishHotSpringChoice(
+    { $负面状态: cleanseSingleNegativeStatus(normalizeNegativeStatusList(gameStore.statData.$负面状态), raw) },
+    `${HOT_SPRING_CLEANSE_ACTION_TEXT_PREFIX}（选择了净化：负面状态${raw}已被净化，其余负面状态与生命不变）`,
+    true,
+  );
+
+const chooseHotSpringPurify = () => {
+  const currentSkills = Array.isArray(gameStore.statData._技能) ? [...(gameStore.statData._技能 as string[])] : [];
+  const purifiedSkills = currentSkills.map(name => HOT_SPRING_CURSE_PURIFY_MAP[String(name ?? '').trim()] ?? name);
+  const purifiedText = hotSpringPurifiableCurses.value.map(item => `【${item.from}】化为【${item.to}】`).join('、');
+  return finishHotSpringChoice(
+    { _技能: purifiedSkills },
+    `${HOT_SPRING_CLEANSE_ACTION_TEXT_PREFIX}（选择了净化诅咒：${purifiedText}，负面状态与生命不变）`,
+    true,
+  );
 };
 
 onUnmounted(() => {
@@ -9517,12 +10647,10 @@ onUnmounted(() => {
     mapScrollPersistTimer = null;
   }
   clearShopRobTimer();
-  clearShopProductConfirmTimer();
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
-  clearChestCloseLongPressTimer();
   clearChestRewardConfirmTimer();
-  clearChestRewardIntroFrame();
+  if (mainGuideTimer) clearTimeout(mainGuideTimer);
   clearHotSpringCleanseTimer();
   clearGameFeedbackTimer();
   clearIdolRollTimer();
@@ -9530,34 +10658,18 @@ onUnmounted(() => {
   closeSettingsHelp();
 });
 
-const handleChestBgLoaded = () => {
-  if (!showChestView.value) return;
-  if (chestStage.value !== 'opened') return;
-  if (chestBackgroundUrl.value !== CHEST_BG_OPENED) return;
-  chestOpenedBgReady.value = true;
-  const hasUncollectedReward = chestRewardRelics.value.some((_, idx) => !chestRewardCollectedFlags.value[idx]);
-  if (hasUncollectedReward) {
-    chestRewardVisible.value = true;
-    if (!isRestoringOverlayState.value) scheduleChestRewardIntro();
-  }
-};
-
 const openChestView = async (): Promise<boolean> => {
   if (gameStore.isGenerating) return false;
-  if (!(await preloadRoomImages('宝箱房', [CHEST_BG_CLOSED, CHEST_BG_OPENED, CHEST_BG_MIMIC]))) return false;
+  if (!(await preloadRoomImages('宝箱房', CHEST_ROOM_PRELOAD_URLS))) return false;
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
-  clearChestCloseLongPressTimer();
   clearChestRewardConfirmTimer();
-  clearChestRewardIntroFrame();
   chestStage.value = 'closed';
   chestRolling.value = false;
   chestRewardRelics.value = [];
   chestRewardCollectedFlags.value = [];
   chestCollecting.value = false;
   chestRewardVisible.value = false;
-  chestRewardIntro.value = false;
-  clearChestRewardIntroFrame();
   chestOpenedBgReady.value = false;
   chestRewardCountFixed.value = null;
   chestCloseCount.value = 0;
@@ -9574,13 +10686,10 @@ const closeChestView = () => {
   }
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
-  clearChestCloseLongPressTimer();
   resetChestRewardConfirmation();
   showChestView.value = false;
   chestRolling.value = false;
   chestRewardVisible.value = false;
-  chestRewardIntro.value = false;
-  clearChestRewardIntroFrame();
   chestOpenedBgReady.value = false;
 };
 
@@ -9599,6 +10708,8 @@ const rollIdolDiceValue = () => {
   const min = idolDiceMin.value;
   const max = idolDiceMax.value;
   if (max <= min) return min;
+  // 白神像碎片：白神像祈愿时投掷点数必为最大点数
+  if (idolVariant.value === 'white' && getOwnedRelicCountById(PORTED_RELIC_ID.WHITE_IDOL_SHARD) > 0) return max;
   return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
@@ -9777,20 +10888,31 @@ const openIdolView = async (): Promise<boolean> => {
   idolDragDiceIndex.value = null;
   idolDiceValue.value = idolDiceMin.value;
   idolDiceTwoValue.value = idolDiceMin.value;
+  idolOffering.value = false;
+  idolSlotBurst.value = {};
+  idolSlotReject.value = null;
   idolDiceRolling.value = true;
   showIdolView.value = true;
-  idolRollTimer = setTimeout(() => {
-    idolDiceValue.value = rollIdolDiceValue();
-    idolDiceTwoValue.value = rollIdolDiceValue();
-    idolDiceRolling.value = false;
-    idolRollTimer = null;
-    requestAnimationFrame(() => placeIdolDiceAtStart());
-  }, 520);
+  // 先把骰子放到起始位置，再播放掷落动画（避免掷骰期间停在左上角）
+  await nextTick();
+  placeIdolDiceAtStart();
+  idolRollTimer = setTimeout(
+    () => {
+      idolDiceValue.value = rollIdolDiceValue();
+      idolDiceTwoValue.value = rollIdolDiceValue();
+      idolDiceRolling.value = false;
+      idolDiceRevealKey.value += 1;
+      idolRollTimer = null;
+      requestAnimationFrame(() => placeIdolDiceAtStart());
+    },
+    prefersReducedMotion() ? 520 : 980,
+  );
   return true;
 };
 
 const closeIdolView = () => {
   clearIdolRollTimer();
+  idolOffering.value = false;
   idolDragPointerId.value = null;
   idolDragDiceIndex.value = null;
   showIdolView.value = false;
@@ -9801,11 +10923,25 @@ const resetIdolDiceAfterInvalidDrop = (diceIndex: 0 | 1, target: IdolSlotTarget 
   setIdolPreviewTarget(diceIndex, null);
   const start = getIdolDiceStartPosition(diceIndex);
   if (start) setIdolDicePosition(diceIndex, start);
+  if (target) idolSlotReject.value = { target, key: (idolSlotReject.value?.key ?? 0) + 1 };
+  const body = getIdolDiceElement(diceIndex)?.querySelector('.idol-dice-body');
+  if (body instanceof HTMLElement && !prefersReducedMotion()) {
+    body.animate(
+      [
+        { transform: 'translateX(0)' },
+        { transform: 'translateX(-7px) rotate(-4deg)' },
+        { transform: 'translateX(7px) rotate(4deg)' },
+        { transform: 'translateX(-4px) rotate(-2deg)' },
+        { transform: 'translateX(0)' },
+      ],
+      { duration: 380, easing: 'ease-out' },
+    );
+  }
   showGameFeedback(getIdolPlacementWarning(target, diceIndex));
 };
 
 const handleIdolDicePointerDown = (event: PointerEvent, diceIndex: 0 | 1) => {
-  if (!showIdolView.value || idolDiceRolling.value) return;
+  if (!showIdolView.value || idolDiceRolling.value || idolOffering.value) return;
   if (diceIndex === 1 && idolVariant.value !== 'black') return;
   const diceEl = getIdolDiceElement(diceIndex);
   if (!diceEl) return;
@@ -9854,6 +10990,10 @@ const handleIdolDicePointerUp = (event: PointerEvent) => {
     setIdolAssignedTarget(diceIndex, candidate.target);
     setIdolPreviewTarget(diceIndex, candidate.target);
     setIdolDicePosition(diceIndex, { x: candidate.snapX, y: candidate.snapY });
+    idolSlotBurst.value = {
+      ...idolSlotBurst.value,
+      [candidate.target]: (idolSlotBurst.value[candidate.target] ?? 0) + 1,
+    };
   } else {
     const nearest = getIdolSnapCandidate(diceIndex, position.x, position.y, true);
     resetIdolDiceAfterInvalidDrop(diceIndex, nearest?.target ?? null);
@@ -9881,7 +11021,7 @@ const buildIdolPendingFields = () => {
       currentInitialMp += dice;
       currentMp = Math.max(currentMp, currentInitialMp);
     }
-    if (target === 'gold') currentGold += dice * 2;
+    if (target === 'gold') currentGold += dice * 2 + getOwnedRelicCountById('system_wealth_relic_10');
     if (target === 'blackMp') {
       currentHp -= dice;
       currentInitialMp += idolDiceMax.value;
@@ -9894,7 +11034,7 @@ const buildIdolPendingFields = () => {
     }
     if (target === 'blackGold') {
       currentHp -= dice;
-      currentGold += dice * 3;
+      currentGold += dice * 3 + getOwnedRelicCountById('system_wealth_relic_10');
     }
   }
 
@@ -9932,7 +11072,9 @@ const rollChestMimicRelicDropRarity = (): RelicData['rarity'] => {
 const rollChestRewardCount = (): number => {
   if (isCustomDifficultyInfluenceActive('资源稀缺')) return 1;
   if (isCustomDifficultyInfluenceActive('资源丰盛')) return 2;
-  return Math.random() < 0.8 ? 1 : 2;
+  // 四叶草宝石：出现两件圣遗物的概率翻倍（20% → 40%）
+  const doubleChance = getOwnedRelicCountById(PORTED_RELIC_ID.FOUR_LEAF_GEM) > 0 ? 0.4 : 0.2;
+  return Math.random() < doubleChance ? 2 : 1;
 };
 
 const pickChestRewardRelics = (count: number): RelicData[] => {
@@ -9995,7 +11137,12 @@ const acceptMimicRelicDrop = () => {
 
   mimicRelicDropApplying.value = true;
   const nextRelics = buildNextRelicInventory(relic);
-  gameStore.mergePendingStatDataChanges(buildInventoryUpdateFields({ _圣遗物: nextRelics }));
+  const acquisition = buildRelicAcquisitionEffects([relic]);
+  if (acquisition.goldDelta > 0) gameStore.addPendingCombatGoldDelta(acquisition.goldDelta);
+  gameStore.mergePendingStatDataChanges({
+    ...acquisition.fields,
+    ...buildInventoryUpdateFields({ _圣遗物: nextRelics }),
+  });
   mimicRelicDropApplying.value = false;
   enqueueForcedCurseReplacementForRelic(relic);
   if (pendingCombatNarrative.value) {
@@ -10018,17 +11165,20 @@ const queueChestMimicCombatTransition = () => {
   clearChestMimicTimer();
   chestMimicTimer = setTimeout(() => {
     void (async () => {
-      const launched = await launchCombat('宝箱怪', 'chestMimic');
+      const launched = await launchCombat('宝箱怪', 'chestMimic', {
+        onEnter: () => {
+          showChestView.value = false;
+        },
+      });
       if (launched) {
         showChestView.value = false;
         chestRolling.value = false;
         chestRewardVisible.value = false;
-        chestRewardIntro.value = false;
-        clearChestRewardIntroFrame();
       }
       chestMimicTimer = null;
     })();
-  }, 1000);
+    // 留出宝箱怪现身动画（约 1.3s）的时间再进入战斗
+  }, 1600);
 };
 
 const closeOpenedChestForRefresh = () => {
@@ -10046,8 +11196,6 @@ const closeOpenedChestForRefresh = () => {
   chestRolling.value = false;
   chestCollecting.value = false;
   chestRewardVisible.value = false;
-  chestRewardIntro.value = false;
-  clearChestRewardIntroFrame();
   chestOpenedBgReady.value = false;
   chestRewardRelics.value = [];
   chestRewardCollectedFlags.value = [];
@@ -10062,28 +11210,13 @@ const getChestMimicChance = (refreshCount: number) => {
   return 1;
 };
 
-const handleChestContextMenu = () => {
-  closeOpenedChestForRefresh();
-};
-
-const handleChestTouchStart = () => {
-  if (chestStage.value !== 'opened') return;
-  clearChestCloseLongPressTimer();
-  chestCloseLongPressTimer = setTimeout(() => {
-    closeOpenedChestForRefresh();
-    chestCloseLongPressTimer = null;
-  }, 2000);
-};
-
-const handleChestTouchEnd = () => {
-  clearChestCloseLongPressTimer();
-};
-
 const collectChestReward = (index: number) => {
   if (chestCollecting.value) return;
   if (index < 0 || index >= chestRewardRelics.value.length) return;
   if (chestRewardCollectedFlags.value[index]) return;
   resetChestRewardConfirmation(false);
+  // 光球即将飞走，悬停提示不再有锚点
+  hideRelicTooltip();
   chestCollecting.value = true;
   chestRewardCollectedFlags.value[index] = true;
   const relic = chestRewardRelics.value[index];
@@ -10097,11 +11230,11 @@ const collectChestReward = (index: number) => {
   if (!allCollected) return;
 
   clearChestRewardFadeTimer();
+  // 等待最后一颗光球飞入状态栏（ChestRoomScene 中约 0.7s）
   chestRewardFadeTimer = setTimeout(() => {
     chestRewardVisible.value = false;
-    hideRelicTooltip();
     chestRewardFadeTimer = null;
-  }, 260);
+  }, 760);
 };
 
 const handleChestCenterClick = async () => {
@@ -10113,25 +11246,16 @@ const handleChestCenterClick = async () => {
   const openSuccess = Math.random() >= mimicChance;
 
   if (openSuccess) {
-    chestStage.value = 'opened';
-    chestOpenedBgReady.value = false;
-    chestRewardVisible.value = false;
-    chestRewardIntro.value = false;
-    clearChestRewardIntroFrame();
     const rewardCount = chestRewardCountFixed.value ?? rollChestRewardCount();
     chestRewardCountFixed.value = rewardCount;
     const rewards = pickChestRewardRelics(rewardCount);
-    if (rewards.length === 0) {
-      chestRolling.value = false;
-      return;
-    }
+    // 奖励与开箱状态同一时刻提交，开箱动画（ChestRoomScene）负责光球的抛出时序
+    chestStage.value = 'opened';
+    chestOpenedBgReady.value = true;
     chestRewardRelics.value = rewards;
     chestRewardCollectedFlags.value = rewards.map(() => false);
     chestCollecting.value = false;
-    if (chestOpenedBgReady.value) {
-      chestRewardVisible.value = true;
-      scheduleChestRewardIntro();
-    }
+    chestRewardVisible.value = rewards.length > 0;
     chestRolling.value = false;
     return;
   }
@@ -10140,8 +11264,6 @@ const handleChestCenterClick = async () => {
   chestStage.value = 'mimic';
   chestCollecting.value = false;
   chestRewardVisible.value = false;
-  chestRewardIntro.value = false;
-  clearChestRewardIntroFrame();
   await gameStore.updateStatDataFields({ _对手名称: '宝箱怪' });
   queueChestMimicCombatTransition();
 };
@@ -10169,20 +11291,20 @@ const handleSpecialOption = async () => {
   specialRoomOpening.value = true;
   try {
     if (isShopContext.value) {
-      await openShopView();
+      await runSceneTransition(() => openShopView());
       return;
     }
     if (isTreasureRoomContext.value) {
-      if (await openChestView()) markCurrentSpecialConsumed();
+      if (await runSceneTransition(() => openChestView())) markCurrentSpecialConsumed();
       return;
     }
     if (isHotSpringRoomContext.value) {
-      markCurrentSpecialConsumed();
+      // 选择完成后才标记为已使用；关闭面板可稍后再选
       await useHotSpringCleanse();
       return;
     }
     if (isIdolRoomContext.value) {
-      if (await openIdolView()) markCurrentSpecialConsumed();
+      if (await runSceneTransition(() => openIdolView())) markCurrentSpecialConsumed();
       return;
     }
     if (isCombatRoomContext.value) {
@@ -10312,7 +11434,7 @@ const restoreOverlaySnapshot = async () => {
   isRestoringOverlayState.value = true;
   try {
     if (parsed.active === 'chest' && parsed.chest) {
-      await preloadImages([CHEST_BG_CLOSED, CHEST_BG_OPENED, CHEST_BG_MIMIC]);
+      await preloadImages(CHEST_ROOM_PRELOAD_URLS);
       const relics = parsed.chest.rewardRelicIds
         .map(id => relicByIdMap.value.get(id) ?? getRelicById(id))
         .filter((relic): relic is RelicData => Boolean(relic));
@@ -10322,9 +11444,11 @@ const restoreOverlaySnapshot = async () => {
       chestRewardRelics.value = relics;
       chestRewardCollectedFlags.value = relics.map((_, idx) => Boolean(parsed.chest?.rewardCollectedFlags[idx]));
       chestCollecting.value = false;
-      chestRewardVisible.value = Boolean(parsed.chest.rewardVisible);
-      chestRewardIntro.value = false;
-      chestOpenedBgReady.value = Boolean(parsed.chest.openedBgReady);
+      // 旧存档可能在“等待开箱背景加载”时保存（rewardVisible=false），此时仍应显示未领取的奖励
+      const hasUncollectedChestReward = chestRewardCollectedFlags.value.some(flag => !flag);
+      chestRewardVisible.value =
+        Boolean(parsed.chest.rewardVisible) || (chestStage.value === 'opened' && hasUncollectedChestReward);
+      chestOpenedBgReady.value = chestStage.value === 'opened' || Boolean(parsed.chest.openedBgReady);
       chestRewardCountFixed.value =
         parsed.chest.rewardCountFixed === null
           ? null
@@ -10338,7 +11462,7 @@ const restoreOverlaySnapshot = async () => {
     }
 
     if (parsed.active === 'shop' && parsed.shop) {
-      await preloadImages([SHOP_BG_URL, shopFrameUrl, shopCompassUrl]);
+      await preloadImages([SHOP_BG_URL, ...Object.values(RELIC_ORB_URLS)]);
       const products: ShopProduct[] = [];
       for (const [idx, product] of parsed.shop.products.entries()) {
         const relic = relicByIdMap.value.get(product.relicId) ?? getRelicById(product.relicId);
@@ -10545,7 +11669,13 @@ watch(
           await Promise.all(bondRoleEntries.value.map(entry => ensureBondPortraitLoaded(entry.name)));
           urls = bondEntries.value.filter(entry => !bondPortraitErrors.value[entry.name]).map(entry => entry.portraitUrl);
         } else if (modal === 'magicBooks') {
-          urls = carryableMagicBookNames.value.map(getMagicBookCoverUrl);
+          urls = [
+            MAGIC_BOOK_UI_BOOK_URL,
+            MAGIC_BOOK_UI_LEAF_URL,
+            MAGIC_BOOK_UI_PLATE_URL,
+            MAGIC_BOOK_UI_ORNAMENT_URL,
+            ...magicBookPageImageUrls.value,
+          ];
         }
         if (urls.length > 0) {
           await preloadImages(urls);
@@ -10766,45 +11896,570 @@ function pickLordMonsterByArea(area: string): string | null {
   return lordName;
 }
 
-const TRAP_POOL_BY_AREA: Record<string, string[]> = {
-  粘液之沼: ['粘液深坑', '史莱姆的温床'],
-  发情迷雾森林: ['迷雾漩涡', '活体树洞', '树精的共生茧'],
-  喷精泉眼: ['间歇性喷泉', '深水陷阱', '圣泉倒灌'],
-  肉欲食人花圃: ['诱惑陷阱', '粘性花蜜池'],
-  触手菌窟: ['孢子爆炸', '活体陷阱'],
+// ── 事件房：离开时清空当前事件、判定结果与结算进度（含旧存档中的陷阱房） ──
+const EVENT_ROOM_EXIT_FIELDS: Record<string, any> = { $当前事件: '', 判定结果: '', $事件操作: { ...EMPTY_EVENT_ACTION_STATE } };
+const isLeavingEventRoom = (roomType: string): boolean => roomType === '事件房' || roomType === '陷阱房';
 
-  禁忌图书馆: ['幻境之书', '禁言束缚'],
-  // 呻吟阅览室：无陷阱
-  催情墨染湖: ['强制纹身', '墨汁洗礼', '沉溺之爱'],
-  性癖记录馆: ['公开处刑'],
-  淫乱教职工宿舍: ['催眠广播', '强制派对'],
+// ════════ 事件结算（配置见 events/eventOutcomes.ts） ════════
+// 判定写入后 $事件操作.阶段 = 待结算 → 这里执行 apply（立即结算）→ 需要操作的进入「待操作」，
+// 在选项区显示结算按钮 → 结算面板 / 事件战斗 / 小游戏完成后标记「已完成」。
+// 每次结算的说明写入 $事件结算通知，随下一条 user 楼层注入给 LLM。
 
-  欲望监狱: ['自动拘束床', '审讯室陷阱', '矫正项圈'],
-  吸血鬼古堡: ['魅惑血雾', '血契房间'],
-  调教审判庭: ['真言之椅', '雷霆忏悔席'],
-  触手水牢: ['伪装平台', '嵌墙活体标本'],
-  人偶工坊: ['丝线操控', '强制装配台'],
+const BASIC_CARD_NAMES = ['普通物理攻击', '普通魔法攻击', '普通护盾', '普通闪避'] as const;
 
-  虚空宫殿: ['重力反转', '维度分割展台'],
-  镜之舞厅: ['镜像置换', '自我对峙', '无尽回廊'],
-  双子寝宫: ['永恒春梦', '梦境具现', '双子的探访'],
-  春梦回廊: ['记忆囚笼', '梦魇骑行'],
-  极乐宴会厅: ['欲望之酒', '暴食者的终宴'],
-
-  交媾祭坛: ['神圣跪拜', '献祭仪式'],
-  圣水之海: ['圣水灌注', '溺亡的极乐', '依赖成瘾'],
-  苦修之路: ['感官过载', '镜中诱惑', '跌倒的代价'],
-  神谕淫纹室: ['强制烙印', '欲望显现', '连锁反应'],
-  女神的产房: ['强制受孕', '母性陷阱', '子宫回归'],
+const countRelicInMap = (relics: Record<string, number>, id: string): number => {
+  const relic = getRelicById(id);
+  if (!relic) return 0;
+  const names = [relic.name, relic.id, ...(LEGACY_RELIC_NAMES_BY_ID[id] ?? [])];
+  return names.reduce((max, name) => Math.max(max, Math.max(0, Math.floor(Number(relics[name] ?? 0)) || 0)), 0);
 };
 
-const ALL_TRAPS = Object.values(TRAP_POOL_BY_AREA).flat();
+/** 与 displayMaxHp 相同的口径：基础上限经难度修正 + 圣遗物被动加成 */
+const computeEffectiveMaxHp = (baseMaxHp: number, relics: Record<string, number>): number => {
+  const adjusted = adjustBaseMaxHpForCustomDifficulty(Math.max(1, Math.floor(baseMaxHp)));
+  const bonus = BLOODPOOL_PASSIVE_MAX_HP_RELICS.reduce((sum, item) => sum + countRelicInMap(relics, item.id) * item.bonus, 0);
+  return Math.max(1, adjusted + bonus);
+};
 
-const pickTrapByArea = (area: string): string | null => {
-  const pool = TRAP_POOL_BY_AREA[area] ?? [];
-  if (pool.length > 0) return pickOne(pool);
-  if (ALL_TRAPS.length > 0) return pickOne(ALL_TRAPS);
+const currentFloorNumber = () => getFloorNumberForArea(((gameStore.statData._当前区域 as string) || '').trim());
+
+const createSettlementDraft = (base?: Record<string, any>): SettlementDraft =>
+  reactive(
+    new SettlementDraft(base ?? (gameStore.statData as Record<string, any>), {
+      floor: currentFloorNumber(),
+      effectiveMaxHp: computeEffectiveMaxHp,
+    }),
+  ) as unknown as SettlementDraft;
+
+/** 事件可给出的卡牌：非敌人、非事件、非诅咒、非起始基础牌；多体系卡需已携带全部所需魔法书 */
+const eventRewardableCards = computed<CardData[]>(() => {
+  const carried = new Set<string>(['基础', ...carriedMagicBooks.value]);
+  return allCardsForTest.value.filter(
+    card =>
+      card.category !== EVENT_CARD_CATEGORY &&
+      card.type !== CardType.CURSE &&
+      !EXCLUDED_VICTORY_REWARD_CARD_IDS.has(card.id) &&
+      (card.requiredCategories ?? []).every(category => carried.has(category)),
+  );
+});
+
+const buildSettlementPools = (): SettlementPools => {
+  const floor = currentFloorNumber();
+  return {
+    floor,
+    carriedCategories: ['基础', ...carriedMagicBooks.value],
+    rewardableCards: eventRewardableCards.value,
+    rewardActiveSkills: rewardActiveSkillPool.value,
+    relicPool: selectableRelicPool.value,
+    curseNames: [...LUST_BOOK_CURSE_WHITELIST],
+    basicCardNames: BASIC_CARD_NAMES.filter(name => Boolean(getCardByName(name))),
+    resolveCard: name => cardByNameForTest.value.get(name) ?? getCardByName(name),
+    resolveRelic: key => getRelicByName(key) ?? getRelicById(key),
+    resolveActive: name => activeSkillByNameMap.value.get(name) ?? undefined,
+    getEnemyDeck: name => getEnemyByName(name, floor)?.deck ?? [],
+  };
+};
+
+const eventActionState = computed(() => normalizeEventActionState(gameStore.statData.$事件操作));
+const eventActionSpec = computed(() => {
+  const state = eventActionState.value;
+  const verdict = normalizeEventVerdict(state.结局);
+  return state.事件 && verdict ? getEventOutcomeSpec(state.事件, verdict) : null;
+});
+const isEventRoomContext = computed(() => ((gameStore.statData._当前房间类型 as string) || '').trim() === '事件房');
+const pendingEventAction = computed<OutcomeAction | null>(() =>
+  isEventRoomContext.value && eventActionState.value.阶段 === '待操作' ? (eventActionSpec.value?.action ?? null) : null,
+);
+
+interface EventActionData {
+  memo: Record<string, unknown>;
+  minigame?: unknown;
+  /** 小游戏过程中的所得记录（退出时汇总为一条结算说明） */
+  log?: string[];
+}
+
+const parseEventActionData = (raw: string): EventActionData => {
+  if (!raw) return { memo: {} };
+  try {
+    const parsed = JSON.parse(raw) as Partial<EventActionData> | null;
+    return {
+      memo: parsed && typeof parsed.memo === 'object' && parsed.memo ? parsed.memo : {},
+      minigame: parsed?.minigame,
+      log: Array.isArray(parsed?.log) ? parsed.log.filter((item): item is string => typeof item === 'string') : [],
+    };
+  } catch {
+    return { memo: {} };
+  }
+};
+
+const buildOutcomeContext = (draft: SettlementDraft, memo?: Record<string, unknown>): OutcomeContext => ({
+  draft,
+  pools: buildSettlementPools(),
+  floor: currentFloorNumber(),
+  opponent: String(gameStore.statData._对手名称 ?? '').trim(),
+  random: Math.random,
+  memo: memo ?? parseEventActionData(eventActionState.value.数据).memo,
+});
+
+const eventSettlementBusy = ref(false);
+// shallowRef：草稿本身已是 reactive，避免 ref 深层解包改变 SettlementDraft 的类型
+const eventSettlementSession = shallowRef<{
+  draft: SettlementDraft;
+  steps: SettlementStep[];
+  pools: SettlementPools;
+  headerLabel: string;
+} | null>(null);
+
+/**
+ * 事件结算在解析回复之后才写入，gameStore 的解析期地图钩子看不到这些新状态，
+ * 这里对新获得的 [被标记] / [逾期] 补上同样的地图改写。
+ */
+const applyNewStatusMapEffects = (fields: Record<string, any>, previousStatuses: readonly string[]) => {
+  if (!Array.isArray(fields.$负面状态)) return;
+  const nextStatuses = normalizeNegativeStatusList(fields.$负面状态);
+  const newlyMarked = !previousStatuses.includes('[被标记]') && nextStatuses.includes('[被标记]');
+  const newlyOverdue =
+    !hasNegativeStatus(previousStatuses, '逾期') && hasNegativeStatus(nextStatuses, '逾期') && currentFloorNumber() === OVERDUE_FLOOR;
+  if (!newlyMarked && !newlyOverdue) return;
+  let nextMap = normalizeDungeonMap(fields.$地图 ?? gameStore.statData.$地图);
+  if (nextMap.length !== MAP_ROUTE_COUNT) return;
+  const currentY = Array.isArray(gameStore.statData.$路径) ? gameStore.statData.$路径.length : 0;
+  if (newlyMarked) nextMap = replaceFutureRoomsWithBattle(nextMap, currentY);
+  if (newlyOverdue) nextMap = replaceFutureRoomsWithBattleByChance(nextMap, currentY, OVERDUE_BATTLE_CHANCE);
+  fields.$地图 = nextMap;
+};
+
+/** 把一次结算的草稿写入变量：获得圣遗物的即时效果、结算说明、进度；提交后再排入强制诅咒替换 */
+const commitSettlementDraft = async (
+  draft: SettlementDraft,
+  options: { phase?: EventActionPhase; data?: string; extraNotices?: string[] } = {},
+): Promise<boolean> => {
+  const state = eventActionState.value;
+  const fields = draft.toFields();
+  if (draft.addedRelics.length > 0) {
+    const acquisition = buildRelicAcquisitionEffects(draft.addedRelics);
+    if (acquisition.goldDelta > 0) {
+      fields._金币 = Math.max(0, Math.floor(Number(fields._金币 ?? draft.gold))) + acquisition.goldDelta;
+    }
+    Object.assign(fields, acquisition.fields);
+  }
+  applyNewStatusMapEffects(fields, normalizeNegativeStatusList(gameStore.statData.$负面状态));
+  const lines = [...(options.extraNotices ?? []), ...draft.notices];
+  const notice = formatEventSettlementNotice(state.事件 || '事件', state.结局, lines);
+  if (notice) fields.$事件结算通知 = [...normalizeNoticeList(gameStore.statData.$事件结算通知), notice];
+  if (options.phase !== undefined || options.data !== undefined) {
+    fields.$事件操作 = { ...state, 阶段: options.phase ?? state.阶段, 数据: options.data ?? state.数据 };
+  }
+  const ok = await gameStore.updateStatDataFields(fields);
+  if (!ok) {
+    toastr.warning('事件结算写入失败，请重试。');
+    return false;
+  }
+  if (draft.addedRelics.length > 0) {
+    recordEncounteredRelics(draft.addedRelics.map(relic => relic.id));
+    for (const relic of draft.addedRelics) enqueueForcedCurseReplacementForRelic(relic);
+  }
+  for (const curseName of draft.curses) {
+    forcedCurseReplacementQueue.value.push({
+      relicId: '',
+      relicName: state.事件 || '事件',
+      curseName,
+      sourceText: `事件【${state.事件 || '事件'}】的代价降临`,
+    });
+  }
+  return true;
+};
+
+// ── 判定后的立即结算 ──
+let eventApplyRunning = false;
+const runEventApplyPhase = async () => {
+  const state = eventActionState.value;
+  if (state.阶段 !== '待结算' || eventApplyRunning || gameStore.isGenerating) return;
+  eventApplyRunning = true;
+  try {
+    const spec = eventActionSpec.value;
+    const memo: Record<string, unknown> = {};
+    const draft = createSettlementDraft();
+    const ctx = buildOutcomeContext(draft, memo);
+    spec?.apply?.(ctx);
+    const needsAction = Boolean(spec?.action) && (spec?.actionWhen ? spec.actionWhen(ctx) : true);
+    const ok = await commitSettlementDraft(draft, { phase: needsAction ? '待操作' : '已完成', data: JSON.stringify({ memo }) });
+    if (ok && needsAction && spec?.action) showGameFeedback(`事件结算：${spec.action.label}`);
+  } catch (error) {
+    console.error('[Event] 事件结算失败', error);
+  } finally {
+    eventApplyRunning = false;
+  }
+};
+
+watch(
+  () => [eventActionState.value.阶段, eventActionState.value.事件, eventActionState.value.结局, gameStore.isGenerating] as const,
+  () => {
+    void runEventApplyPhase();
+  },
+  { immediate: true },
+);
+
+// ── 结算按钮 ──
+const eventActionDisabled = computed(
+  () =>
+    gameStore.isGenerating ||
+    eventSettlementBusy.value ||
+    Boolean(eventSettlementSession.value) ||
+    Boolean(activeMinigame.value) ||
+    showCombat.value,
+);
+
+const openSettlementSession = (draft: SettlementDraft, steps: SettlementStep[], pools: SettlementPools) => {
+  const state = eventActionState.value;
+  eventSettlementSession.value = { draft, steps, pools, headerLabel: `事件【${state.事件}】${state.结局}` };
+};
+
+const handleEventActionClick = async () => {
+  const action = pendingEventAction.value;
+  if (!action || eventActionDisabled.value) return;
+  if (activeForcedCurseReplacement.value) {
+    showGameFeedback('必须先完成诅咒替换。');
+    return;
+  }
+  if (action.type === 'steps') {
+    const draft = createSettlementDraft();
+    const ctx = buildOutcomeContext(draft);
+    const steps = action.build(ctx);
+    if (steps.length === 0) {
+      await commitSettlementDraft(draft, { phase: '已完成' });
+      return;
+    }
+    openSettlementSession(draft, steps, ctx.pools);
+    return;
+  }
+  if (action.type === 'battle') {
+    await launchEventBattle(action);
+    return;
+  }
+  await openEventMinigame(action);
+};
+
+const completeEventSettlementSession = async () => {
+  const session = eventSettlementSession.value;
+  if (!session || eventSettlementBusy.value) return;
+  eventSettlementBusy.value = true;
+  try {
+    const ok = await commitSettlementDraft(session.draft, { phase: '已完成' });
+    if (ok) eventSettlementSession.value = null;
+  } finally {
+    eventSettlementBusy.value = false;
+  }
+};
+
+const abandonEventAction = async () => {
+  const action = pendingEventAction.value;
+  if (!action || eventActionDisabled.value) return;
+  const draft = createSettlementDraft();
+  draft.notice(`<user>放弃了「${action.label}」，没有进行这一步结算`);
+  await commitSettlementDraft(draft, { phase: '已完成' });
+};
+
+// ── 事件战斗 ──
+const activeEventBattle = ref<{ eventName: string; lord: boolean; noPenalty: boolean; preBattleHp: number } | null>(null);
+
+/** 漫游的领主：本层其它区域的领主（排除本区域领主与沉睡的梦魔双子） */
+const pickRoamingLord = (area: string): string | null => {
+  const floorName = getFloorForArea(area) ?? '';
+  const candidates = (FLOOR_MAP[floorName] ?? [])
+    .filter(name => name !== area)
+    .map(name => LORD_MONSTER_BY_AREA[name])
+    .filter((name): name is string => Boolean(name) && name !== '梦魔双子');
+  return pickOne(candidates);
+};
+
+/** 进入事件房时为需要出场对象的事件抽定 _对手名称 */
+const pickEventOpponent = (eventName: string, area: string): string | null => {
+  if (eventName === '漫游的领主') return pickRoamingLord(area);
+  if (eventName === '借梦' || eventName === '发情季' || eventName === '共梦') return pickBattleMonsterByArea(area);
   return null;
+};
+
+const launchEventBattle = async (action: Extract<OutcomeAction, { type: 'battle' }>) => {
+  const area = ((gameStore.statData._当前区域 as string) || '').trim();
+  let opponent = String(gameStore.statData._对手名称 ?? '').trim();
+  if (!opponent) {
+    opponent = (action.lord ? pickRoamingLord(area) : pickBattleMonsterByArea(area)) ?? '';
+    if (!opponent) {
+      toastr.warning('当前未找到可战斗的对手。');
+      return;
+    }
+    if (!(await gameStore.updateStatDataFields({ _对手名称: opponent }))) return;
+  }
+  activeEventBattle.value = {
+    eventName: eventActionState.value.事件,
+    lord: action.lord === true,
+    noPenalty: action.noPenalty === true,
+    preBattleHp: displayHp.value,
+  };
+  const launched = await launchCombat(opponent, 'event', { weakenedLord: action.lord === true });
+  if (!launched) activeEventBattle.value = null;
+};
+
+/** 事件战斗结束（胜负均算完成）：直接写入进度，战斗叙事照常注入 */
+const markEventBattleFinished = async (outcome: CombatOutcome) => {
+  const state = eventActionState.value;
+  if (state.阶段 !== '待操作') return;
+  await gameStore.updateStatDataFields({ $事件操作: { ...state, 阶段: '已完成' } });
+  if (outcome === 'escape') showGameFeedback('事件战斗已结束。');
+};
+
+// ── 小游戏 ──
+type ActiveMinigame = { kind: '大转盘' } | { kind: '扭蛋机' } | { kind: '占卜'; state: DivinationState };
+const activeMinigame = ref<ActiveMinigame | null>(null);
+const minigameBusy = ref(false);
+
+const wheelSectors = computed<WheelSector[]>(() => buildWheelSectors(currentFloorNumber()));
+const wheelSpinCost = computed(() => getWheelSpinCost(currentFloorNumber()));
+const wheelJackpotTaken = computed(() => {
+  const minigame = parseEventActionData(eventActionState.value.数据).minigame as { jackpotTaken?: boolean } | undefined;
+  return minigame?.jackpotTaken === true;
+});
+
+const buildEventActionData = (patch: Partial<EventActionData>): string => {
+  const current = parseEventActionData(eventActionState.value.数据);
+  return JSON.stringify({ ...current, ...patch });
+};
+
+const openEventMinigame = async (action: Extract<OutcomeAction, { type: 'minigame' }>) => {
+  if (action.game === '占卜') {
+    const saved = normalizeDivinationState(parseEventActionData(eventActionState.value.数据).minigame);
+    const state = saved && !saved.finished ? saved : createDivinationState(currentFloorNumber(), action.plays ?? 3);
+    if (!saved) {
+      // 先保存布局，避免刷新后重新随机
+      const ok = await gameStore.updateStatDataFields({
+        $事件操作: { ...eventActionState.value, 数据: buildEventActionData({ minigame: state }) },
+      });
+      if (!ok) return;
+    }
+    activeMinigame.value = { kind: '占卜', state };
+    return;
+  }
+  activeMinigame.value = { kind: action.game };
+};
+
+/** 应用一次小游戏所得：费用与奖品同一次写入，所得记入日志 */
+const applyMinigamePrize = async (prize: MinigamePrize, cost: number, label: string, minigamePatch?: unknown) => {
+  if (minigameBusy.value) return;
+  minigameBusy.value = true;
+  try {
+    const draft = createSettlementDraft();
+    if (cost > 0) draft.gold = Math.max(0, draft.gold - cost);
+    const pools = buildSettlementPools();
+    switch (prize.kind) {
+      case 'gold':
+        draft.changeGold(rollGoldAmount(prize));
+        break;
+      case 'heal':
+        draft.healPercentOfMax(prize.ratio);
+        break;
+      case 'loseHp':
+        draft.loseHpPercentOfCurrent(prize.ratio);
+        break;
+      case 'maxHp':
+        draft.changeMaxHp(prize.amount);
+        break;
+      case 'mana':
+        draft.changeMana(prize.amount);
+        break;
+      case 'maxDice': {
+        const before = draft.maxDice;
+        draft.maxDice += prize.amount;
+        draft.notice(`最大点数 ${before} → ${draft.maxDice}`);
+        break;
+      }
+      case 'relic': {
+        const relic = pickRelics(pools, prize.rarity, 1)[0];
+        if (relic) draft.addRelic(relic);
+        else draft.changeGold(10);
+        break;
+      }
+      case 'consumable':
+        draft.addConsumable(prize.name, prize.description, prize.heal);
+        break;
+      case 'curse': {
+        const curseName = pickOne(pools.curseNames.filter(name => Boolean(getCardByName(name))));
+        if (curseName) draft.queueCurse(curseName);
+        break;
+      }
+      case 'nothing':
+        break;
+    }
+    const current = parseEventActionData(eventActionState.value.数据);
+    const resultText = draft.notices.length > 0 ? draft.notices.join('，') : '一无所获';
+    const logLine = `${label}${cost > 0 ? `（花费${cost}金币）` : ''}：${resultText}`;
+    const data = JSON.stringify({
+      ...current,
+      ...(minigamePatch !== undefined ? { minigame: minigamePatch } : {}),
+      log: [...(current.log ?? []), logLine],
+    });
+    // 小游戏中途只写变量与日志，说明在离开时汇总注入
+    draft.notices = [];
+    await commitSettlementDraft(draft, { data });
+  } finally {
+    minigameBusy.value = false;
+  }
+};
+
+const handleWheelSpin = (sector: WheelSector) => {
+  const minigame = parseEventActionData(eventActionState.value.数据).minigame as Record<string, unknown> | undefined;
+  const patch = sector.jackpot ? { ...(minigame ?? {}), jackpotTaken: true } : undefined;
+  void applyMinigamePrize(sector.prize, wheelSpinCost.value, `转盘转到「${sector.label}」`, patch);
+};
+
+const handleGachaPull = (machine: GachaMachine, prize: WeightedPrize) => {
+  void applyMinigamePrize(prize.prize, machine.cost, `${machine.label}扭出「${prize.label}」`);
+};
+
+const handleDivinationUpdate = async (state: DivinationState) => {
+  if (activeMinigame.value?.kind !== '占卜') return;
+  activeMinigame.value = { kind: '占卜', state };
+  await gameStore.updateStatDataFields({
+    $事件操作: { ...eventActionState.value, 数据: buildEventActionData({ minigame: state }) },
+  });
+};
+
+const handleDivinationFinish = async (items: DivinationItem[]) => {
+  const draft = createSettlementDraft();
+  const pools = buildSettlementPools();
+  const steps: SettlementStep[] = [];
+  const found = items.map(item =>
+    item.kind === 'jackpot' ? '大奖' : item.kind === 'card' ? `${item.cardRarity}卡牌` : `${item.gold ?? 0}金币`,
+  );
+  draft.notice(found.length > 0 ? `水晶球中被完全揭开的：${found.join('、')}` : '水晶球中没有任何物品被完全揭开');
+  for (const item of items) {
+    if (item.kind === 'gold') {
+      draft.changeGold(item.gold ?? 0);
+    } else if (item.kind === 'jackpot') {
+      const relics = pickRelics(pools, '稀有', 1);
+      if (relics.length > 0) steps.push({ kind: 'relic', title: '占卜：水晶球中的大奖', relics });
+    } else if (item.cardRarity === '诅咒') {
+      const curseName = pickOne(pools.curseNames.filter(name => Boolean(getCardByName(name))));
+      if (curseName) steps.push({ kind: 'curse', title: '占卜：揭开的诅咒', curseName });
+    } else {
+      const rarity = item.cardRarity === '稀有' ? '稀有' : '普通';
+      const options = rewardCardPool.value.filter(card => card.rarity === rarity && card.type !== CardType.CURSE);
+      const picked: CardData[] = [];
+      const pool = [...options];
+      while (picked.length < 3 && pool.length > 0) picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!);
+      if (picked.length > 0) steps.push({ kind: 'cardPick', title: `占卜：${rarity}卡牌奖励`, options: picked });
+    }
+  }
+  const log = parseEventActionData(eventActionState.value.数据).log ?? [];
+  activeMinigame.value = null;
+  if (steps.length === 0) {
+    await commitSettlementDraft(draft, { phase: '已完成', extraNotices: log });
+    return;
+  }
+  openSettlementSession(draft, steps, pools);
+};
+
+/** 离开转盘 / 扭蛋机：把过程日志汇总为一条结算说明 */
+const finishEventMinigame = async () => {
+  if (minigameBusy.value) return;
+  const log = parseEventActionData(eventActionState.value.数据).log ?? [];
+  const draft = createSettlementDraft();
+  if (log.length === 0) draft.notice('<user>最终没有投币，离开了');
+  activeMinigame.value = null;
+  await commitSettlementDraft(draft, { phase: '已完成', extraNotices: log });
+};
+
+// ── 进入房间时的系统结算：延迟奖励、逐房间回复、离开本层时归还借来的招式 ──
+const applyRoomEntryEffects = (
+  pendingFields: Record<string, any> | undefined,
+  options: { floorTransition: boolean },
+): Record<string, any> | undefined => {
+  const base = { ...(gameStore.statData as Record<string, any>), ...(pendingFields ?? {}) };
+  const hasModifiers = normalizeCombatModifiers(base.$战斗修正).length > 0;
+  const hasDelayed = normalizeDelayedRewards(base.$延迟奖励).length > 0;
+  const hasTemporary = normalizeTemporaryReplacements(base.$临时替换).length > 0;
+  if (!hasModifiers && !hasDelayed && !hasTemporary) return pendingFields;
+
+  const draft = createSettlementDraft(base);
+  const lines: string[] = [];
+  if (options.floorTransition) {
+    draft.modifiers = expireFloorCombatModifiers(draft.modifiers);
+    for (const entry of draft.tempReplacements) {
+      if (entry.字段 === '_技能') {
+        if (draft.skills[entry.槽位] !== entry.现名) continue;
+        draft.skills = draft.skills.map((name, index) => (index === entry.槽位 ? entry.原名 : name));
+        draft.enchants = draft.enchants.map((enchant, index) => (index === entry.槽位 ? entry.原附魔 : enchant));
+      } else {
+        if (draft.actives[entry.槽位] !== entry.现名) continue;
+        draft.actives = draft.actives.map((name, index) => (index === entry.槽位 ? entry.原名 : name));
+      }
+      lines.push(`离开本层，借来的【${entry.现名}】被收回，换回了【${entry.原名 || '空槽位'}】`);
+    }
+    draft.tempReplacements = [];
+  }
+
+  const heal = getRoomEntryHealFromModifiers(draft.modifiers);
+  if (heal > 0) draft.heal(heal);
+
+  const remaining: typeof draft.delayed = [];
+  for (const reward of draft.delayed) {
+    const left = reward.剩余房间 - 1;
+    if (left > 0) {
+      remaining.push({ ...reward, 剩余房间: left });
+      continue;
+    }
+    const rarity = reward.奖励.startsWith('传奇') ? '传奇' : reward.奖励.startsWith('稀有') ? '稀有' : '普通';
+    lines.push(`【${reward.来源}】的孕育期满，<user>分娩出了神赐之物`);
+    const relic = pickRelics(buildSettlementPools(), rarity, 1)[0];
+    if (relic) draft.addRelic(relic);
+    if (reward.移除状态) draft.removeStatusByKey(reward.移除状态);
+  }
+  draft.delayed = remaining;
+
+  const fields = draft.toFields();
+  if (draft.addedRelics.length > 0) {
+    const acquisition = buildRelicAcquisitionEffects(draft.addedRelics);
+    if (acquisition.goldDelta > 0) fields._金币 = Math.max(0, Math.floor(Number(fields._金币 ?? draft.gold))) + acquisition.goldDelta;
+    Object.assign(fields, acquisition.fields);
+    recordEncounteredRelics(draft.addedRelics.map(relic => relic.id));
+    for (const relic of draft.addedRelics) enqueueForcedCurseReplacementForRelic(relic);
+  }
+  const allLines = [...lines, ...draft.notices];
+  if (allLines.length > 0) {
+    fields.$事件结算通知 = [
+      ...normalizeNoticeList(base.$事件结算通知),
+      ['进入新房间时的系统结算：', ...allLines.map(line => `- ${line}`)].join('\n'),
+    ];
+  }
+  return { ...(pendingFields ?? {}), ...fields };
+};
+
+/** 状态面板：限时效果、延迟奖励、借来的招式 */
+const timedEffectEntries = computed(() => [
+  ...normalizeCombatModifiers(gameStore.statData.$战斗修正).map(modifier => ({
+    name: modifier.来源 || '限时效果',
+    description: describeCombatModifier(modifier),
+  })),
+  ...normalizeDelayedRewards(gameStore.statData.$延迟奖励).map(reward => ({
+    name: reward.来源 || '延迟奖励',
+    description: `${reward.剩余房间}个房间后获得${reward.奖励}`,
+  })),
+  ...normalizeTemporaryReplacements(gameStore.statData.$临时替换).map(entry => ({
+    name: entry.来源 || '借来的招式',
+    description: `【${entry.现名}】离开本层时归还，换回【${entry.原名 || '空槽位'}】`,
+  })),
+]);
+
+/** 脐带：每进入一个房间回复生命（叠加在本次移动已写入的生命值之上，不超过生命上限） */
+const withUmbilicalCordHeal = (fields: Record<string, any> | undefined): Record<string, any> | undefined => {
+  const count = getOwnedRelicCountById(EVENT_RELIC_ID.UMBILICAL_CORD);
+  if (count <= 0) return fields;
+  const pendingHp = Number(fields?._血量);
+  const baseHp = Number.isFinite(pendingHp) ? pendingHp : toNonNegativeInt(gameStore.statData._血量, 0);
+  return {
+    ...(fields ?? {}),
+    _血量: Math.min(displayMaxHp.value, Math.max(0, Math.floor(baseHp)) + UMBILICAL_CORD_HEAL_PER_ROOM * count),
+  };
 };
 
 // ── Room type → $统计 field mapping ──
@@ -10815,7 +12470,6 @@ const ROOM_STAT_KEY: Record<string, string> = {
   温泉房: '累计经过温泉',
   神像房: '累计经过神像',
   事件房: '累计经过事件',
-  陷阱房: '累计经过陷阱',
 };
 const normalizePendingStatDataFields = (fields: Record<string, any>): Record<string, any> | undefined =>
   Object.keys(fields).length > 0 ? fields : undefined;
@@ -10860,7 +12514,7 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
     }
     const pendingStatDataFields: Record<string, any> = {
       ...(currentRoomType === '领主房' ? { _血量: nextFloorRecoveryHpAfterLord.value } : {}),
-      ...(currentRoomType === '陷阱房' ? { $当前事件: '' } : {}),
+      ...(isLeavingEventRoom(currentRoomType) ? EVENT_ROOM_EXIT_FIELDS : {}),
       ...(currentArea === '魔女的小窝'
         ? buildInventoryUpdateFields({
             _圣遗物: buildStartingRelicInventoryForMetaGrowths(inventoryRelicMap.value),
@@ -10891,8 +12545,17 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
     }
 
     const generatedMap = generateDungeonMap(Math.random, nextArea);
-    const statuses = Array.isArray(gameStore.statData.$负面状态) ? gameStore.statData.$负面状态 : [];
-    const nextMap = statuses.includes('[被标记]') ? replaceFutureRoomsWithBattle(generatedMap, 0) : generatedMap;
+    const statuses = normalizeNegativeStatusList(gameStore.statData.$负面状态);
+    const markedMap = statuses.includes('[被标记]') ? replaceFutureRoomsWithBattle(generatedMap, 0) : generatedMap;
+    const nextFloorNumber = getFloorNumberForArea(nextArea);
+    const isOverdue = hasNegativeStatus(statuses, '逾期');
+    const nextMap = isOverdue && nextFloorNumber === OVERDUE_FLOOR
+      ? replaceFutureRoomsWithBattleByChance(markedMap, 0, OVERDUE_BATTLE_CHANCE)
+      : markedMap;
+    // 离开第二层后，[逾期] 自动解除
+    if (isOverdue && nextFloorNumber > OVERDUE_FLOOR) {
+      pendingStatDataFields.$负面状态 = removeNegativeStatus(statuses, '逾期');
+    }
     gameStore.setPendingRoomChanges({
       area: nextArea,
       roomType: '宝箱房',
@@ -10905,7 +12568,10 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
     return {
       targetRoomType: '宝箱房',
       actionText: `<user>选择了继续前进，进入了${nextArea}的起点宝箱房。`,
-      pendingStatDataFields: normalizePendingStatDataFields(pendingStatDataFields) ?? undefined,
+      pendingStatDataFields:
+        normalizePendingStatDataFields(
+          applyRoomEntryEffects(withUmbilicalCordHeal(pendingStatDataFields), { floorTransition: true }) ?? {},
+        ) ?? undefined,
     };
   }
 
@@ -10937,39 +12603,43 @@ const buildQueuedMapAction = (node: MapNodeView): QueuedMapAction | null => {
   const statKey = ROOM_STAT_KEY[roomType];
   if (statKey) incrementKeys.push(statKey);
   const encounterMonster = roomType === '领主房' ? pickLordMonsterByArea(currentArea) : roomType === '战斗房' ? pickBattleMonsterByArea(currentArea) : null;
-  const trapName = roomType === '陷阱房' ? pickTrapByArea(currentArea) : null;
-  let pendingStatDataFields: Record<string, any> | undefined =
-    currentRoomType === '陷阱房' ? { $当前事件: '' } : undefined;
-  if (roomType === '陷阱房') {
+  const triggeredEvents = normalizeTriggeredEvents(gameStore.statData.$已触发事件);
+  const eventName = roomType === '事件房' ? pickEventForArea(currentArea, triggeredEvents) : null;
+  // 需要出场对象的事件（漫游的领主 / 借梦 / 发情季 / 共梦）在进房时抽定，与战斗房一样写入 _对手名称
+  const eventOpponent = eventName ? pickEventOpponent(eventName, currentArea) : null;
+  let pendingStatDataFields: Record<string, any> | undefined = isLeavingEventRoom(currentRoomType)
+    ? { ...EVENT_ROOM_EXIT_FIELDS }
+    : undefined;
+  if (roomType === '事件房') {
     pendingStatDataFields = {
       ...(pendingStatDataFields ?? {}),
-      $当前事件: trapName ?? '',
-      _血量: Math.max(1, toNonNegativeInt(gameStore.statData._血量, 1) - 5),
-    };
-  } else if (roomType === '温泉房') {
-    pendingStatDataFields = {
-      ...(pendingStatDataFields ?? {}),
-      _血量: Math.max(1, displayMaxHp.value),
+      $当前事件: eventName ?? '',
+      判定结果: '',
+      $事件操作: { ...EMPTY_EVENT_ACTION_STATE },
+      ...(eventName && !triggeredEvents.includes(eventName)
+        ? { $已触发事件: [...triggeredEvents, eventName] }
+        : {}),
     };
   }
   if (worldGrowthPendingFields) {
     pendingStatDataFields = { ...(pendingStatDataFields ?? {}), ...worldGrowthPendingFields };
   }
+  pendingStatDataFields = applyRoomEntryEffects(withUmbilicalCordHeal(pendingStatDataFields), { floorTransition: false });
 
   gameStore.setPendingRoomChanges({
     roomType,
     incrementKeys,
     pathEntry: node.kind === 'room' ? { x: node.x, 房间类型: roomType } : undefined,
     ...(mapWithIdolVariant ? { map: mapWithIdolVariant } : {}),
-    enemyName: encounterMonster ?? '',
+    enemyName: encounterMonster ?? eventOpponent ?? '',
   });
   const enterText =
     roomType === '神像房' && idolTypeAtEntry
       ? `进入了神像房，本房间为${idolTypeAtEntry}`
       : (roomType === '战斗房' || roomType === '领主房') && encounterMonster
       ? `进入了${roomType}并遭遇了${roomType === '领主房' && encounterMonster === '梦魔双子' ? '沉睡的梦魔双子' : encounterMonster}`
-      : roomType === '陷阱房' && trapName
-        ? `进入了${roomType}的房间，当前陷阱房为${trapName}`
+      : roomType === '事件房' && eventName
+        ? `进入了${roomType}的房间，当前事件为${eventName}${eventOpponent ? `，出场的对象为${eventOpponent}` : ''}`
         : `进入了${roomType}的房间`;
   return {
     targetRoomType: roomType,
@@ -10982,6 +12652,10 @@ const handleMapNodeClick = async (node: MapNodeView) => {
   if (gameStore.isGenerating || !node.isAvailable) return;
   if (activeForcedCurseReplacement.value) {
     toastr.warning('必须先完成诅咒替换。');
+    return;
+  }
+  if (pendingEventAction.value) {
+    toastr.warning(`请先完成事件结算：${pendingEventAction.value.label}`);
     return;
   }
   resetShopSession();
@@ -11001,10 +12675,16 @@ const finishChestRoom = async () => {
     nextRelics = buildNextRelicInventory(relic, nextRelics);
   }
   if (collectedRelics.length > 0) {
-    gameStore.setPendingStatDataChanges(buildInventoryUpdateFields({ _圣遗物: nextRelics }));
+    const acquisition = buildRelicAcquisitionEffects(collectedRelics);
+    const currentGold = Math.max(0, Math.floor(Number(gameStore.statData._金币 ?? 0)));
+    gameStore.setPendingStatDataChanges({
+      ...(acquisition.goldDelta > 0 ? { _金币: currentGold + acquisition.goldDelta } : {}),
+      ...acquisition.fields,
+      ...buildInventoryUpdateFields({ _圣遗物: nextRelics }),
+    });
   }
   const relicNameText = collectedRelics.map(relic => relic.name).join('、');
-  closeChestView();
+  await runSceneTransition(() => closeChestView());
   const rewardText = relicNameText ? `并从中获取了圣遗物${relicNameText}` : '，没有带走任何圣遗物';
   await submitGameAction(
     appendInputToMapRebirthAction(`<user>打开了箱子${rewardText}，完成了当前房间的探索。`),
@@ -11016,16 +12696,21 @@ const finishChestRoom = async () => {
 
 const finishIdolRoom = async () => {
   if (gameStore.isGenerating || !showIdolView.value || idolDiceRolling.value || !idolHasAssignedDice.value) return;
+  if (idolOffering.value) return;
   const rewards = idolRewardEntries.value;
   const invalidReward = rewards.find(reward => !canAssignIdolTarget(reward.target, reward.diceIndex));
   if (invalidReward) {
     resetIdolDiceAfterInvalidDrop(invalidReward.diceIndex, invalidReward.target);
     return;
   }
+  // 供奉仪式：骰子化光融入神像、神像光柱涌起、全屏圣光（黑神像为血光）后再离开
+  idolOffering.value = true;
+  await new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 200 : 1500));
+  if (!showIdolView.value) return;
   const pendingFields = buildIdolPendingFields();
   if (pendingFields) gameStore.setPendingStatDataChanges(pendingFields);
   idolRoomMapExitReady.value = true;
-  closeIdolView();
+  await runSceneTransition(() => closeIdolView());
   const rewardText = `选择膜拜了${idolVariant.value === 'black' ? '黑神像' : '白神像'}，${rewards
     .map(reward => `${reward.statueName}（${reward.rewardText}）`)
     .join('，')}`;
@@ -11038,10 +12723,10 @@ const finishIdolRoom = async () => {
 };
 
 const leaveIdolRoom = async () => {
-  if (gameStore.isGenerating || !showIdolView.value || idolDiceRolling.value) return;
+  if (gameStore.isGenerating || !showIdolView.value || idolDiceRolling.value || idolOffering.value) return;
   idolRoomMapExitReady.value = true;
   const statueName = idolVariant.value === 'black' ? '黑神像' : '白神像';
-  closeIdolView();
+  await runSceneTransition(() => closeIdolView());
   await submitGameAction(
     appendInputToMapRebirthAction(`<user>进入了${statueName}房，但没有膜拜任何神像，直接离开并打开地图选择下一目的地。`),
     '神像房',
@@ -11096,7 +12781,7 @@ const buildSelectedRelicPayload = (): Record<string, number> => {
 
 const handleCombatTestButtonClick = async () => {
   if (isCombatTestUnlocked.value) {
-    openCombatTestBuilder();
+    openGmPanel();
     return;
   }
 
@@ -11105,15 +12790,149 @@ const handleCombatTestButtonClick = async () => {
 
   const verified = await verifyAuthorTestPassword(password);
   if (!verified) {
-    toastr.error('密码错误。');
+    showGameFeedback('密码错误。');
     return;
   }
 
   unlockAuthorTestAccess();
   isCombatTestUnlocked.value = true;
-  toastr.success('作者测试已解锁，魔女的收藏现已开放全图鉴。');
+  showGameFeedback('作者测试已解锁，全部体系卡组已开放。');
+  openGmPanel();
+};
+
+// ════════ GM 界面：战斗测试入口 + 全部事件结局触发 ════════
+const gmEventFilter = ref('');
+
+interface GmEventGroup {
+  label: string;
+  events: Array<{ name: string; area?: string }>;
+}
+
+const gmEventGroups = computed<GmEventGroup[]>(() => {
+  const keyword = gmEventFilter.value.trim();
+  const matches = (name: string, area?: string) => !keyword || name.includes(keyword) || Boolean(area?.includes(keyword));
+  const groups: GmEventGroup[] = [
+    { label: '全楼层', events: GLOBAL_EVENT_POOL.map(name => ({ name })) },
+    ...Object.entries(FLOOR_EVENT_POOL).map(([floor, events]) => ({ label: floor, events: events.map(name => ({ name })) })),
+    {
+      label: '区域',
+      events: Object.entries(AREA_EVENT_POOL).flatMap(([area, events]) => events.map(name => ({ name, area }))),
+    },
+  ];
+  return groups
+    .map(group => ({ ...group, events: group.events.filter(event => matches(event.name, event.area)) }))
+    .filter(group => group.events.length > 0);
+});
+
+/** 结局按钮：有配置的高亮，没有配置的（只描写剧情、不结算）置灰但仍可触发 */
+const getGmVerdictState = (eventName: string, verdict: EventVerdict) => {
+  const spec = getEventOutcomeSpec(eventName, verdict);
+  if (!spec) return { configured: false, label: '无结算' };
+  const parts = [spec.apply ? '立即' : '', spec.action ? spec.action.label : ''].filter(Boolean);
+  return { configured: true, label: parts.join(' + ') || '结算' };
+};
+
+const gmCurrentEventSummary = computed(() => {
+  const state = eventActionState.value;
+  const event = String(gameStore.statData.$当前事件 ?? '').trim();
+  if (!event && !state.事件) return '当前不在事件中';
+  return `当前事件：${event || state.事件}；判定：${String(gameStore.statData.判定结果 ?? '') || '未判定'}；结算阶段：${state.阶段 || '无'}${
+    gameStore.statData._对手名称 ? `；出场对象：${gameStore.statData._对手名称}` : ''
+  }`;
+});
+
+const gmPendingNoticeCount = computed(() => normalizeNoticeList(gameStore.statData.$事件结算通知).length);
+
+const openGmPanel = () => {
+  gameStore.loadStatData();
+  activeModal.value = 'gmPanel';
+};
+
+const openCombatTestFromGm = () => {
   openCombatTestBuilder();
 };
+
+/**
+ * 直接触发某事件的某个结局：切到事件房、按真实流程抽定出场对象、写入判定，
+ * 随后由正常的结算流程（立即结算 + 结算按钮）接手，便于检查结算与前端表现。
+ */
+const gmTriggerEventOutcome = async (eventName: string, verdict: EventVerdict) => {
+  if (gameStore.isGenerating || eventSettlementBusy.value) return;
+  const area = ((gameStore.statData._当前区域 as string) || '').trim();
+  const opponent = pickEventOpponent(eventName, area);
+  eventSettlementSession.value = null;
+  activeMinigame.value = null;
+  const ok = await gameStore.updateStatDataFields({
+    _当前房间类型: '事件房',
+    $当前事件: eventName,
+    判定结果: verdict,
+    _对手名称: opponent ?? '',
+    $事件操作: { 事件: eventName, 结局: verdict, 阶段: '待结算', 数据: '' },
+  });
+  if (!ok) return;
+  activeModal.value = null;
+  showGameFeedback(`GM：已触发【${eventName}】${verdict}${opponent ? `（出场对象：${opponent}）` : ''}`);
+};
+
+const gmClearEventNotices = async () => {
+  if (await gameStore.updateStatDataFields({ $事件结算通知: [] })) showGameFeedback('GM：已清空待注入的事件结算说明。');
+};
+
+const gmResetEventState = async () => {
+  eventSettlementSession.value = null;
+  activeMinigame.value = null;
+  if (await gameStore.updateStatDataFields({ $当前事件: '', 判定结果: '', $事件操作: { ...EMPTY_EVENT_ACTION_STATE } })) {
+    showGameFeedback('GM：已重置事件状态。');
+  }
+};
+
+// ════════ 一键更新变量结构 ════════
+const variableMigrationApplying = ref(false);
+/** 当前最新楼层相比最新变量结构缺少的变量 */
+const missingVariablePaths = computed(() => (gameStore.isInitialized ? findMissingVariables(gameStore.statData) : []));
+
+const VARIABLE_CACHE_REMINDER =
+  '变量结构脚本通过 CDN 加载，浏览器可能仍在使用旧版缓存：如果更新后仍提示缺少变量，或新变量在下一轮回复后又消失，请清除浏览器缓存（或 Ctrl+F5 强制刷新）后重新打开酒馆。';
+
+const runVariableMigration = async () => {
+  if (variableMigrationApplying.value || gameStore.isGenerating) return;
+  const migration = buildVariableMigration(gameStore.statData);
+  if (migration.added.length === 0) {
+    toastr.info(`当前存档已是最新变量结构。${VARIABLE_CACHE_REMINDER}`, '', { timeOut: 9000 });
+    return;
+  }
+  const preview = migration.added.slice(0, 12).join('、') + (migration.added.length > 12 ? ' 等' : '');
+  const confirmed = window.confirm(
+    `检测到旧版变量结构，将在最新楼层补上 ${migration.added.length} 个新变量（已有数据不会被修改）：\n${preview}\n\n${VARIABLE_CACHE_REMINDER}\n\n是否立即更新？`,
+  );
+  if (!confirmed) return;
+  variableMigrationApplying.value = true;
+  try {
+    const ok = await gameStore.updateStatDataFields(migration.fields);
+    if (!ok) {
+      toastr.warning('变量结构更新失败，请稍后重试。');
+      return;
+    }
+    toastr.success(`已补上 ${migration.added.length} 个新变量。${VARIABLE_CACHE_REMINDER}`, '变量结构已更新', { timeOut: 12000 });
+    if (migration.issues.length > 0) {
+      console.warn('[VariableMigration] 补全后仍有不符合最新结构的旧值：', migration.issues);
+    }
+  } finally {
+    variableMigrationApplying.value = false;
+  }
+};
+
+/** 读档 / 进入游戏后若检测到旧版变量结构，提示一次 */
+let variableMigrationHintShown = false;
+watch(
+  () => missingVariablePaths.value.length,
+  count => {
+    if (count <= 0 || variableMigrationHintShown) return;
+    variableMigrationHintShown = true;
+    toastr.info(`检测到旧版变量结构（缺少 ${count} 个新变量），可在「设置 → 系统 → 更新变量结构」中一键更新。`, '', { timeOut: 8000 });
+  },
+  { immediate: true },
+);
 
 const openCombatTestBuilder = () => {
   gameStore.loadStatData();
@@ -11205,12 +13024,21 @@ const confirmCombatTestEnemyAndStart = async () => {
   });
 };
 
+const handlePlayerTurnDamageThresholdReached = () => {
+  void persistMagicBookUnlock('暗影');
+};
+
+const handlePlayerMaxDiceThresholdReached = () => {
+  void persistMagicBookUnlock('腐化');
+};
+
 const handleCombatEnd = async (
   outcome: CombatOutcome,
   finalStats: unknown,
   logs: string[],
   negativeEffects: string[],
   goldDelta: number = 0,
+  consumedRelicIds: string[] = [],
 ) => {
   const context = activeCombatContext.value;
   const enemyName = combatEnemyName.value || (gameStore.statData._对手名称 as string) || '未知敌人';
@@ -11232,6 +13060,7 @@ const handleCombatEnd = async (
     ...(outcome === 'win' && enemyName === '梦魔双子' ? ['[灵魂受损]'] : []),
     ...oldStigmataNegativeStatuses,
   ];
+  const eventBattle = context === 'event' ? activeEventBattle.value : null;
   pendingCombatNarrative.value = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     context,
@@ -11240,50 +13069,113 @@ const handleCombatEnd = async (
     text: buildCombatNarrative(outcome, enemyName, context, logs ?? []),
   };
 
-  queueCombatMvuSync(outcome, finalStats, combatNegativeEffects, negativeStatusesRemove, goldDelta);
+  queueCombatMvuSync(outcome, finalStats, combatNegativeEffects, negativeStatusesRemove, goldDelta, {
+    noPenalty: eventBattle?.noPenalty === true,
+    preBattleHp: eventBattle?.preBattleHp,
+  });
+  // 限时修正：本场生效的计数类修正递减，领主战修正在领主战后移除
+  if (context !== 'combatTest') {
+    const modifiers = normalizeCombatModifiers(gameStore.statData.$战斗修正);
+    if (modifiers.length > 0) {
+      gameStore.mergePendingStatDataChanges({
+        $战斗修正: consumeBattleModifiers(modifiers, { isLordBattle: combatIsLordBattle.value }),
+      });
+    }
+  }
+  combatTempYinwenIndexes.value = [];
+  if (eventBattle) {
+    await markEventBattleFinished(outcome);
+    if (outcome !== 'win') activeEventBattle.value = null;
+  }
+  if (Array.isArray(consumedRelicIds) && consumedRelicIds.length > 0) {
+    let nextRelics: Record<string, number> = inventoryRelicMap.value;
+    for (const relicId of consumedRelicIds) {
+      nextRelics = removeOneRelicByIdFromInventory(relicId, nextRelics);
+    }
+    gameStore.mergePendingStatDataChanges(buildInventoryUpdateFields({ _圣遗物: nextRelics }));
+  }
   if (context === 'shopRobbery' && enemyName === '沐芯兰') {
     await unlockAlchemySystem();
   }
 
-  showCombat.value = false;
-  showVictoryRewardView.value = false;
-  combatTestStartAt999CurrentBattle.value = false;
-  activeCombatContext.value = 'normal';
+  // 离开战斗：墨迹遮住画面后再切回主界面 / 奖励界面 / 商店
+  await runSceneTransition(async () => {
+    showCombat.value = false;
+    showVictoryRewardView.value = false;
+    combatTestStartAt999CurrentBattle.value = false;
+    activeCombatContext.value = 'normal';
 
-  if (outcome !== 'win') {
-    closeShopView();
-    const narrative = pendingCombatNarrative.value;
-    pendingCombatNarrative.value = null;
-    if (narrative) {
-      sendCombatNarrativeOnce(narrative, narrative.text);
-    }
-    console.log('[Combat] Result:', outcome.toUpperCase());
-    return;
-  }
-
-  if (context === 'shopRobbery' && enemyName === '沐芯兰') {
-    const ok = await gameStore.updateStatDataFields({ $是否已击败商人: true });
-    if (ok) {
-      shopRobbing.value = false;
-      await openShopView();
-      applyMerchantDefeatedShopState();
-    } else if (pendingCombatNarrative.value) {
-      pendingCombatNarrative.value.context = 'normal';
-    }
-  }
-
-  if (context === 'chestMimic' && enemyName === '宝箱怪') {
-    const droppedRelic = pickChestMimicRelicDrop();
-    if (droppedRelic) {
-      startMimicRelicDropFlow(droppedRelic);
-      console.log('[Combat] Result:', 'WIN');
+    if (outcome !== 'win') {
+      closeShopView();
+      const narrative = pendingCombatNarrative.value;
+      pendingCombatNarrative.value = null;
+      if (narrative) {
+        sendCombatNarrativeOnce(narrative, narrative.text);
+      }
+      console.log('[Combat] Result:', outcome.toUpperCase());
       return;
     }
-  }
 
-  continuePostCombatRewardFlow();
-  console.log('[Combat] Result:', 'WIN');
+    if (context === 'shopRobbery' && enemyName === '沐芯兰') {
+      const ok = await gameStore.updateStatDataFields({ $是否已击败商人: true });
+      if (ok) {
+        shopRobbing.value = false;
+        await openShopView();
+        applyMerchantDefeatedShopState();
+      } else if (pendingCombatNarrative.value) {
+        pendingCombatNarrative.value.context = 'normal';
+      }
+    }
+
+    if (context === 'chestMimic' && enemyName === '宝箱怪') {
+      const droppedRelic = pickChestMimicRelicDrop();
+      if (droppedRelic) {
+        startMimicRelicDropFlow(droppedRelic);
+        console.log('[Combat] Result:', 'WIN');
+        return;
+      }
+    }
+
+    continuePostCombatRewardFlow();
+    console.log('[Combat] Result:', 'WIN');
+  });
 };
+
+/** 主界面空闲（无弹窗、无房间场景、无战斗）时才弹出新手指引 */
+const mainGuideReady = computed(
+  () =>
+    gameStore.isInitialized &&
+    !props.showOpeningEntry &&
+    activeModal.value === null &&
+    !gameStore.isSaveLoadOpen &&
+    !showCombat.value &&
+    !showChestView.value &&
+    !showShopView.value &&
+    !showIdolView.value &&
+    !showVictoryRewardView.value &&
+    !showMimicRelicDropView.value,
+);
+let mainGuideTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+  mainGuideReady,
+  ready => {
+    if (mainGuideTimer) clearTimeout(mainGuideTimer);
+    mainGuideTimer = null;
+    if (!ready || showMainGuide.value || hasSeenMainGuide()) return;
+    const tryOpen = () => {
+      mainGuideTimer = null;
+      if (!mainGuideReady.value || hasSeenMainGuide()) return;
+      // 等墨迹转场散开后再出现
+      if (isSceneTransitionActive()) {
+        mainGuideTimer = setTimeout(tryOpen, 400);
+        return;
+      }
+      showMainGuide.value = true;
+    };
+    mainGuideTimer = setTimeout(tryOpen, 1200);
+  },
+  { immediate: true },
+);
 
 onBeforeUnmount(() => {
   viewportResizeObserver?.disconnect();
@@ -11312,7 +13204,6 @@ onBeforeUnmount(() => {
   clearShopRobTimer();
   clearChestMimicTimer();
   clearChestRewardFadeTimer();
-  clearChestCloseLongPressTimer();
   clearHotSpringCleanseTimer();
   clearGameFeedbackTimer();
   clearIdolRollTimer();
@@ -11441,8 +13332,14 @@ onBeforeUnmount(() => {
   padding: 0 0.75rem calc(5.45rem + env(safe-area-inset-bottom)) !important;
 }
 
+.ui-viewport--compact-portrait .ui-story-frame,
+.ui-viewport--compact-portrait .ui-input-shell {
+  --ui-frame-width: 40px;
+  --ui-frame-outset: 8px;
+  --ui-frame-bridge: 0.15rem;
+}
+
 .ui-viewport--compact-portrait .ui-story-panel {
-  border-radius: 0.75rem;
   padding: 1.05rem !important;
 }
 
@@ -11470,8 +13367,6 @@ onBeforeUnmount(() => {
 }
 
 .ui-viewport--compact-portrait .ui-input-shell {
-  border: 1px solid rgba(120, 85, 56, 0.92);
-  border-radius: 0.75rem;
   padding: 0.55rem;
 }
 
@@ -11491,6 +13386,16 @@ onBeforeUnmount(() => {
   overflow: visible;
 }
 
+/* 选项上方：花饰分隔线（通用UI/花饰分隔线） */
+.ui-ornate-divider {
+  width: 100%;
+  height: 18px;
+  margin-bottom: 0.5rem;
+  background: var(--dg-img-divider) center / min(80%, 520px) auto no-repeat;
+  opacity: 0.85;
+}
+
+/* ---------- 选项点击行为：宝石扣按钮 + 黑铁菜单 ---------- */
 .option-action-mode-control {
   position: absolute;
   top: -1.05rem;
@@ -11504,33 +13409,24 @@ onBeforeUnmount(() => {
   height: 2.25rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(212, 175, 55, 0.58);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 32% 24%, rgba(255, 236, 179, 0.2), transparent 42%),
-    rgba(19, 12, 8, 0.96);
-  color: rgba(251, 191, 36, 0.92);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 5px 14px rgba(0, 0, 0, 0.36),
-    0 0 12px rgba(251, 191, 36, 0.12);
-  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  border: 1px solid rgba(201, 161, 96, 0.6);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a2c22, #16100c 70%);
+  color: var(--dg-gold);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 220, 160, 0.14), 0 3px 8px rgba(0, 0, 0, 0.45);
+  transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .option-action-mode-orb:hover,
 .option-action-mode-orb:focus-visible,
 .option-action-mode-orb[aria-expanded='true'] {
-  border-color: rgba(251, 191, 36, 0.96);
-  color: rgba(255, 246, 207, 0.98);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 7px 16px rgba(0, 0, 0, 0.44),
-    0 0 18px rgba(251, 191, 36, 0.26);
+  border-color: var(--dg-gold-bright);
+  color: var(--dg-gold-bright);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 220, 160, 0.2), 0 0 10px rgba(232, 170, 70, 0.3);
 }
 
 .option-action-mode-orb:focus-visible {
-  outline: 2px solid rgba(251, 191, 36, 0.78);
+  outline: 2px solid var(--dg-gold);
   outline-offset: 0.2rem;
 }
 
@@ -11540,17 +13436,12 @@ onBeforeUnmount(() => {
   display: flex;
   width: min(13.5rem, calc(100vw - 2rem));
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.42rem;
-  border: 1px solid rgba(212, 175, 55, 0.42);
-  border-radius: 0.75rem;
-  background:
-    linear-gradient(180deg, rgba(25, 16, 9, 0.98), rgba(12, 9, 8, 0.98)),
-    radial-gradient(circle at 82% 14%, rgba(251, 191, 36, 0.1), transparent 48%);
-  box-shadow:
-    0 14px 28px rgba(0, 0, 0, 0.46),
-    0 0 18px rgba(251, 191, 36, 0.1);
-  backdrop-filter: blur(14px);
+  gap: 0.25rem;
+  padding: 0.4rem;
+  border: 1px solid rgba(201, 161, 96, 0.5);
+  border-radius: 2px;
+  background: var(--dg-bg-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.08), 0 14px 28px rgba(0, 0, 0, 0.55);
 }
 
 .option-action-mode-item {
@@ -11560,34 +13451,38 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.55rem;
   border: 1px solid transparent;
-  border-radius: 0.5rem;
-  background: rgba(49, 30, 14, 0.72);
-  color: rgba(236, 225, 200, 0.86);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--dg-text);
   padding: 0.5rem 0.6rem;
   text-align: left;
-  font-family: var(--font-ui, inherit);
-  font-size: 0.78rem;
-  font-weight: 700;
-  transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  font-family: var(--dg-font-ui);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
 }
 
 .option-action-mode-item:hover,
-.option-action-mode-item:focus-visible,
+.option-action-mode-item:focus-visible {
+  border-color: rgba(201, 161, 96, 0.35);
+  background: var(--dg-surface-hover);
+  color: var(--dg-text-strong);
+}
+
 .option-action-mode-item.is-active {
-  border-color: rgba(251, 191, 36, 0.54);
-  background: rgba(93, 57, 20, 0.78);
-  color: rgba(255, 247, 224, 0.98);
-  transform: translateX(1px);
+  border-color: rgba(201, 161, 96, 0.6);
+  background: var(--dg-surface-active);
+  color: var(--dg-gold-bright);
 }
 
 .option-action-mode-item:focus-visible {
-  outline: 2px solid rgba(251, 191, 36, 0.6);
+  outline: 2px solid var(--dg-gold);
   outline-offset: 1px;
 }
 
 .option-action-mode-item__arrow {
   margin-left: auto;
-  color: rgba(251, 191, 36, 0.56);
+  color: rgba(201, 161, 96, 0.6);
 }
 
 .option-action-mode-menu-enter-active,
@@ -11602,73 +13497,60 @@ onBeforeUnmount(() => {
   transform: translateX(-6px) scale(0.98);
 }
 
+/* ---------- 剧情选项：黑铁条 + 金色细边 + 菱形宝石座字母 ---------- */
 .option-action-btn {
   position: relative;
   display: flex;
   width: 100%;
   min-width: 0;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.95rem;
   overflow: hidden;
-  border: 1px solid rgba(125, 92, 48, 0.5);
-  border-radius: 0.48rem;
+  border: 1px solid rgba(201, 161, 96, 0.3);
+  border-radius: 2px;
   background:
-    linear-gradient(110deg, rgba(48, 29, 15, 0.88), rgba(20, 17, 14, 0.9) 72%),
-    rgba(9, 9, 9, 0.8);
-  color: rgba(235, 226, 208, 0.86);
-  padding: 0.78rem 1rem 0.78rem 0.82rem;
+    linear-gradient(90deg, rgba(201, 161, 96, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(47, 36, 28, 0.9), rgba(22, 16, 13, 0.92));
+  color: var(--dg-text);
+  padding: 0.78rem 1rem 0.78rem 0.85rem;
   text-align: left;
-  font-family: var(--font-ui, inherit);
-  font-weight: 650;
-  letter-spacing: 0.025em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 5px 14px rgba(0, 0, 0, 0.18);
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    color 0.18s ease,
-    box-shadow 0.18s ease;
+  font-family: var(--dg-font-serif);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
+/* 左缘金线 */
 .option-action-btn::before {
-  content: '';
   position: absolute;
   inset: 0 auto 0 0;
-  width: 0.18rem;
-  background: linear-gradient(180deg, rgba(251, 191, 36, 0.84), rgba(180, 83, 9, 0.52));
-  opacity: 0.78;
-  transition: width 0.18s ease, opacity 0.18s ease;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, var(--dg-gold) 20%, var(--dg-gold) 80%, transparent);
+  opacity: 0.6;
+  transition: opacity 0.18s ease;
+  content: '';
 }
 
 .option-action-btn:hover,
 .option-action-btn:focus-visible {
-  border-color: rgba(212, 175, 55, 0.68);
-  background:
-    linear-gradient(110deg, rgba(76, 46, 20, 0.92), rgba(26, 21, 15, 0.94) 72%),
-    rgba(14, 12, 10, 0.88);
-  color: rgba(255, 247, 224, 0.98);
-  transform: translateX(0.28rem);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 7px 18px rgba(0, 0, 0, 0.28),
-    0 0 14px rgba(212, 175, 55, 0.1);
+  border-color: rgba(240, 208, 138, 0.7);
+  color: var(--dg-text-strong);
+  transform: translateX(0.22rem);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.45), 0 0 12px rgba(232, 170, 70, 0.14);
 }
 
 .option-action-btn:hover::before,
-.option-action-btn:focus-visible::before {
-  width: 0.32rem;
-  opacity: 1;
-}
+.option-action-btn:focus-visible::before { opacity: 1; }
 
 .option-action-btn:focus-visible {
-  outline: 2px solid rgba(251, 191, 36, 0.58);
+  outline: 2px solid var(--dg-gold);
   outline-offset: 2px;
 }
 
-.option-action-btn:active {
-  transform: translateX(0.14rem) scale(0.995);
-}
+.option-action-btn:active { transform: translateX(0.12rem); }
 
+/* 字母座：旋转 45° 的金边黑铁菱形，字母保持正向 */
 .option-action-btn__marker {
   position: relative;
   display: inline-flex;
@@ -11677,15 +13559,29 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(212, 175, 55, 0.38);
-  border-radius: 0.38rem;
-  background: rgba(251, 191, 36, 0.08);
-  color: rgba(251, 220, 144, 0.96);
-  font-family: var(--font-heading, inherit);
-  font-size: 0.84rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-data);
+  font-size: 0.86rem;
+  font-weight: 700;
+  isolation: isolate;
+}
+
+.option-action-btn__marker::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0.28rem;
+  border: 1px solid var(--dg-gold);
+  background: radial-gradient(circle at 35% 30%, #3d2c1f, #140e0b 75%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 6px rgba(232, 170, 70, 0.18);
+  transform: rotate(45deg);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+  content: '';
+}
+
+.option-action-btn:hover .option-action-btn__marker::before,
+.option-action-btn:focus-visible .option-action-btn__marker::before {
+  background: radial-gradient(circle at 35% 30%, #6a3fa8, #24123c 75%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 8px var(--dg-arcane-glow);
 }
 
 .option-action-btn__text {
@@ -11696,13 +13592,13 @@ onBeforeUnmount(() => {
 
 .option-action-btn__arrow {
   flex: 0 0 auto;
-  color: rgba(212, 175, 55, 0.48);
+  color: rgba(201, 161, 96, 0.5);
   transition: transform 0.18s ease, color 0.18s ease;
 }
 
 .option-action-btn:hover .option-action-btn__arrow,
 .option-action-btn:focus-visible .option-action-btn__arrow {
-  color: rgba(251, 191, 36, 0.92);
+  color: var(--dg-gold-bright);
   transform: translateX(0.16rem);
 }
 
@@ -11753,6 +13649,167 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 
+/* ═════════ GM 界面 ═════════ */
+.gm-panel {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 1rem;
+  font-family: var(--dg-font-ui);
+}
+
+.gm-section {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--dg-line);
+  background: rgba(10, 7, 9, 0.45);
+}
+
+.gm-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.gm-section__title {
+  margin-bottom: 0.5rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.14em;
+}
+
+.gm-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.gm-hint {
+  margin-top: 0.45rem;
+  color: var(--dg-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.gm-search {
+  min-width: 14rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--dg-line-strong);
+  background: rgba(10, 7, 9, 0.7);
+  color: var(--dg-text);
+  font-size: 0.85rem;
+}
+
+.gm-group {
+  margin-top: 0.8rem;
+}
+
+.gm-group__label {
+  margin-bottom: 0.4rem;
+  color: var(--dg-gold);
+  font-family: var(--dg-font-title);
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+}
+
+.gm-event-list {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+}
+
+.gm-event {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(201, 161, 96, 0.22);
+  background: rgba(34, 24, 18, 0.55);
+}
+
+.gm-event__name {
+  color: var(--dg-text-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.gm-event__area {
+  margin-left: 0.4rem;
+  color: var(--dg-text-faint);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.gm-event__verdicts {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gm-verdict {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  background: rgba(60, 40, 18, 0.55);
+  color: var(--dg-gold-bright);
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.gm-verdict:hover:not(:disabled) {
+  border-color: rgba(240, 208, 138, 0.85);
+  background: rgba(90, 60, 24, 0.65);
+}
+
+.gm-verdict.is-empty {
+  border-color: rgba(120, 110, 100, 0.35);
+  background: rgba(30, 26, 24, 0.5);
+  color: var(--dg-text-faint);
+}
+
+.gm-verdict__name {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.gm-verdict__label {
+  width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.7rem;
+  opacity: 0.8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 事件结算按钮：沿用选项按钮外观，金色描边以示区别 */
+.event-action-btn {
+  border-color: rgba(232, 196, 104, 0.6);
+  box-shadow: 0 0 14px rgba(232, 196, 104, 0.18);
+}
+
+.event-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.event-action-abandon {
+  align-self: flex-end;
+  padding: 0.15rem 0.4rem;
+  color: rgba(242, 230, 208, 0.5);
+  font-size: 0.75rem;
+  text-decoration: underline;
+}
+
+.event-action-abandon:hover:not(:disabled) {
+  color: rgba(252, 165, 165, 0.85);
+}
+
 .map-selection-section {
   display: flex;
   flex-direction: column;
@@ -11767,118 +13824,146 @@ onBeforeUnmount(() => {
 .action-divider-label {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.8rem;
   margin-bottom: 0.7rem;
-  color: rgba(251, 191, 36, 0.72);
-  font-family: var(--font-ui, inherit);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
+  color: var(--dg-gold);
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.4em;
+  text-indent: 0.4em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
 }
 
 .action-divider-label::before,
 .action-divider-label::after {
-  content: '';
   height: 1px;
   flex: 1;
-  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.34));
+  background: linear-gradient(90deg, transparent, var(--dg-line-strong));
+  content: '';
 }
 
 .action-divider-label::after {
-  background: linear-gradient(90deg, rgba(251, 191, 36, 0.34), transparent);
+  background: linear-gradient(90deg, var(--dg-line-strong), transparent);
 }
 
-.action-divider-label--danger {
-  color: rgba(252, 165, 165, 0.82);
-}
+.action-divider-label--danger { color: #e08f7e; }
+.action-divider-label--danger::before { background: linear-gradient(90deg, transparent, rgba(192, 80, 63, 0.5)); }
+.action-divider-label--danger::after { background: linear-gradient(90deg, rgba(192, 80, 63, 0.5), transparent); }
 
-.action-divider-label--danger::before {
-  background: linear-gradient(90deg, transparent, rgba(248, 113, 113, 0.36));
-}
-
-.action-divider-label--danger::after {
-  background: linear-gradient(90deg, rgba(248, 113, 113, 0.36), transparent);
-}
-
-.ui-input-shell {
-  background: radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.06), transparent 46%), #0f0f0f;
-}
-
+/* ---------- 输入栏：典籍外框的下半部分（两侧 + 底边） ---------- */
 .ui-input-anchor {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
 }
 
-.ui-input-field::placeholder {
-  color: rgba(213, 197, 170, 0.74);
+.ui-input-shell {
+  --ui-frame-width: 60px;
+  --ui-frame-outset: 14px;
+  /* 正文布局底部留白（7.8rem）减去输入栏自身高度（4.5rem + 1.5rem + 0.5rem），用于衔接两段外框 */
+  --ui-frame-bridge: 1.3rem;
+  position: relative;
+  background: linear-gradient(180deg, rgba(17, 12, 9, 0.92), rgba(13, 9, 7, 0.97));
 }
 
+/* 桥接段：填平正文区与输入栏之间的缝隙 */
+.ui-input-shell::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: var(--ui-frame-bridge);
+  background: rgba(17, 12, 9, 0.9);
+  content: '';
+}
+
+.ui-input-shell__border {
+  position: absolute;
+  z-index: 3;
+  inset: calc(var(--ui-frame-bridge) * -1) calc(var(--ui-frame-outset) * -1) calc(var(--ui-frame-outset) * -1);
+  border-style: solid;
+  border-width: 0 var(--ui-frame-width) var(--ui-frame-width);
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
+  pointer-events: none;
+}
+
+/* 输入槽：凹陷的皮革底 + 金色细边，聚焦时金线亮起 */
+.ui-input-field {
+  border: 1px solid rgba(201, 161, 96, 0.28);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 30%), var(--dg-leather);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.55);
+  color: var(--dg-text);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ui-input-field:focus {
+  border-color: rgba(240, 208, 138, 0.7);
+  outline: none;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(201, 161, 96, 0.25), 0 0 10px rgba(232, 170, 70, 0.12);
+}
+
+.ui-input-field::placeholder {
+  color: var(--dg-text-faint);
+}
+
+/* ---------- 按钮补全 / 发送：主要按钮框（三段切片，两端红宝石） ---------- */
 .ui-option-completion-wrap {
   position: relative;
   flex-shrink: 0;
 }
 
-.ui-option-completion-trigger {
-  min-width: 8.75rem;
-  border-radius: 0.72rem;
-  border: 1px solid rgba(212, 175, 55, 0.34);
-  background:
-    linear-gradient(180deg, rgba(62, 38, 15, 0.92), rgba(27, 16, 9, 0.96)),
-    radial-gradient(circle at 20% 18%, rgba(251, 191, 36, 0.12), transparent 48%);
-  color: rgba(246, 219, 144, 0.94);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 6px 16px rgba(0, 0, 0, 0.34);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease;
+.ui-option-completion-trigger,
+.ui-send-button {
+  border-style: solid;
+  border-width: 0 22px;
+  border-image-source: var(--dg-img-button);
+  border-image-slice: 0 80 fill;
+  border-image-repeat: stretch;
+  border-radius: 0;
+  background: none;
+  color: var(--dg-gold-bright);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+  transition: filter 0.18s ease;
 }
+
+.ui-option-completion-trigger { min-width: 9rem; }
 
 .ui-option-completion-trigger:hover:not(:disabled),
-.ui-option-completion-trigger:focus-visible {
-  border-color: rgba(251, 191, 36, 0.82);
-  color: rgba(254, 243, 199, 0.98);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 0 14px rgba(251, 191, 36, 0.24),
-    0 8px 18px rgba(0, 0, 0, 0.4);
+.ui-option-completion-trigger:focus-visible,
+.ui-send-button:hover:not(:disabled),
+.ui-send-button:focus-visible {
+  outline: none;
+  filter: brightness(1.15) drop-shadow(0 0 6px rgba(232, 170, 70, 0.3));
 }
 
-.ui-option-completion-trigger:disabled {
-  opacity: 0.4;
+.ui-option-completion-trigger:disabled,
+.ui-send-button:disabled {
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
+  filter: grayscale(0.6) brightness(0.7);
 }
 
 .ui-option-completion-trigger__label {
-  font-size: 0.96rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-family: var(--dg-font-title);
+  font-size: 1.05rem;
+  letter-spacing: 0.18em;
   white-space: nowrap;
 }
 
 .ui-option-completion-menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 0.55rem);
+  bottom: calc(100% + 0.7rem);
   z-index: 10;
   display: flex;
   min-width: 14.5rem;
   flex-direction: column;
-  gap: 0.35rem;
-  border-radius: 0.95rem;
-  border: 1px solid rgba(212, 175, 55, 0.34);
-  background:
-    linear-gradient(180deg, rgba(22, 14, 8, 0.98), rgba(14, 10, 8, 0.98)),
-    radial-gradient(circle at 18% 14%, rgba(251, 191, 36, 0.1), transparent 46%);
+  gap: 0.3rem;
+  border: 1px solid rgba(201, 161, 96, 0.5);
+  border-radius: 2px;
+  background: var(--dg-bg-panel);
   padding: 0.45rem;
-  box-shadow:
-    0 16px 30px rgba(0, 0, 0, 0.44),
-    0 0 22px rgba(251, 191, 36, 0.1);
-  backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.08), 0 16px 30px rgba(0, 0, 0, 0.55);
 }
 
 .ui-option-completion-item {
@@ -11887,53 +13972,44 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.9rem;
-  border-radius: 0.75rem;
-  border: 1px solid transparent;
-  background: rgba(44, 26, 12, 0.72);
-  color: rgba(236, 225, 200, 0.92);
-  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(201, 161, 96, 0.18);
+  border-radius: 2px;
+  background: var(--dg-surface);
+  color: var(--dg-text);
+  padding: 0.8rem 0.95rem;
   text-align: left;
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    background-color 0.16s ease,
-    color 0.16s ease,
-    box-shadow 0.16s ease;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
 }
 
 .ui-option-completion-item:hover:not(:disabled),
 .ui-option-completion-item:focus-visible {
-  border-color: rgba(251, 191, 36, 0.5);
-  background: rgba(74, 43, 17, 0.88);
-  color: rgba(255, 247, 224, 0.98);
-  transform: translateX(-1px);
-  box-shadow: 0 0 12px rgba(251, 191, 36, 0.12);
+  border-color: rgba(240, 208, 138, 0.6);
+  background: var(--dg-surface-hover);
+  color: var(--dg-text-strong);
 }
 
 .ui-option-completion-item.is-disabled,
 .ui-option-completion-item:disabled {
   cursor: not-allowed;
-  background: rgba(33, 22, 15, 0.58);
-  color: rgba(189, 171, 135, 0.48);
-  box-shadow: none;
+  background: rgba(20, 14, 10, 0.5);
+  color: var(--dg-text-faint);
 }
 
 .ui-option-completion-item__label {
   font-size: 0.92rem;
-  font-weight: 600;
   line-height: 1.35;
 }
 
 .ui-option-completion-item__tag {
   flex-shrink: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(251, 191, 36, 0.26);
-  background: rgba(251, 191, 36, 0.08);
-  color: rgba(251, 220, 144, 0.96);
-  padding: 0.2rem 0.55rem;
+  border: 1px solid rgba(201, 161, 96, 0.4);
+  border-radius: 2px;
+  background: rgba(201, 161, 96, 0.08);
+  color: var(--dg-gold-bright);
+  padding: 0.15rem 0.5rem;
+  font-family: var(--dg-font-data);
   font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .option-completion-menu-enter-active,
@@ -11949,44 +14025,12 @@ onBeforeUnmount(() => {
   transform: translateY(6px) scale(0.98);
 }
 
-.ui-send-button {
-  transform: none;
-  border-radius: 0.72rem;
-  border: 1px solid rgba(212, 175, 55, 0.4);
-  background: radial-gradient(circle at 28% 18%, rgba(251, 191, 36, 0.12), transparent 52%), rgba(28, 15, 8, 0.94);
-  color: rgba(251, 191, 36, 0.94);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 6px 16px rgba(0, 0, 0, 0.34);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease;
-}
-
-.ui-send-button:hover:not(:disabled),
-.ui-send-button:focus-visible {
-  border-color: rgba(251, 191, 36, 0.82);
-  color: rgba(254, 243, 199, 0.98);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 0 14px rgba(251, 191, 36, 0.24),
-    0 8px 18px rgba(0, 0, 0, 0.4);
-}
-
-.ui-send-button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
+.ui-send-button { transform: none; }
 
 .ui-status-hud {
-  width: min(13.5rem, calc(100vw - 2rem));
-  transform: scale(1.05);
-  transform-origin: bottom left;
+  /* 与正文框左缘留出约 10px：左移 1rem、取消放大（原 13.5rem × 1.05 会压到正文框边饰） */
+  left: 1rem;
+  width: min(13rem, calc(100vw - 2rem));
 }
 
 .status-hud-actions {
@@ -12015,51 +14059,79 @@ onBeforeUnmount(() => {
   filter: brightness(1.18) drop-shadow(0 0 7px rgba(245, 170, 45, 0.5));
 }
 
+/* ---------- 状态块：与侧边栏徽章同一套金属语言的小型典籍框 ---------- */
 .status-hud-panel {
   position: relative;
-  overflow: hidden;
   width: 100%;
-  padding: 0.72rem;
-  border-radius: 0.55rem;
-  border: 1px solid rgba(212, 175, 55, 0.28);
-  background:
-    radial-gradient(circle at 10% 8%, rgba(248, 113, 113, 0.14), transparent 30%),
-    radial-gradient(circle at 86% 16%, rgba(96, 165, 250, 0.13), transparent 34%),
-    linear-gradient(145deg, rgba(18, 18, 22, 0.96), rgba(8, 7, 8, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 18px 36px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(12px);
+  padding: 0.85rem 0.8rem 0.8rem;
+  background: var(--dg-bg-panel);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
 
-.status-hud-panel-glint {
+.status-hud-panel__border {
   position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.58), transparent);
+  z-index: 2;
+  inset: -8px;
+  border-style: solid;
+  border-width: 34px;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
   pointer-events: none;
 }
 
 .status-hud-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.6rem;
   margin-bottom: 0.55rem;
-  font-size: 0.66rem;
-  letter-spacing: 0.14em;
-  color: rgba(245, 222, 179, 0.62);
+  padding-bottom: 0.4rem;
 }
 
-.status-hud-header span:first-child {
-  color: rgba(253, 230, 138, 0.92);
-  font-weight: 800;
+.status-hud-header::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--dg-line-strong) 20%, var(--dg-line-strong) 80%, transparent);
+  content: '';
 }
+
+.status-hud-title {
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1rem;
+  letter-spacing: 0.3em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+.status-hud-curse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #d9a6f2;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+}
+
+.status-hud-curse img {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.status-hud-curse.is-empty {
+  color: var(--dg-text-faint);
+}
+
+.status-hud-curse.is-empty img { filter: grayscale(1) brightness(0.6); }
 
 .status-hud-vitals {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .status-hud-vital {
@@ -12067,33 +14139,44 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem;
+  gap: 0.2rem;
   min-height: 5.1rem;
-  padding: 0.5rem 0.4rem 0.45rem;
-  border-radius: 0.48rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(255, 255, 255, 0.035);
+  padding: 0.45rem 0.35rem 0.4rem;
+  border: 1px solid rgba(201, 161, 96, 0.2);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.12));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-.status-hud-vital--hp {
-  border-color: rgba(248, 113, 113, 0.24);
-  background: linear-gradient(180deg, rgba(69, 10, 10, 0.42), rgba(255, 255, 255, 0.035));
-}
-
-.status-hud-vital--mp {
-  border-color: rgba(96, 165, 250, 0.24);
-  background: linear-gradient(180deg, rgba(30, 58, 138, 0.32), rgba(255, 255, 255, 0.035));
-}
-
-.status-hud-vital-icon {
-  display: flex;
-  justify-content: center;
-}
-
-.status-hud-svg {
+/* 宝石灌注：底层为暗化的空宝石，上层彩色宝石按 --fill 从下往上显露 */
+.status-hud-gem {
+  --fill: 100%;
+  position: relative;
+  display: block;
   width: 3.25rem;
   height: 3.25rem;
 }
+
+.status-hud-gem img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.status-hud-gem__empty {
+  filter: grayscale(0.85) brightness(0.38) contrast(1.1);
+}
+
+.status-hud-gem__full {
+  clip-path: inset(calc(100% - var(--fill)) 0 0 0);
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+  transition: clip-path 0.7s ease-out;
+}
+
+.status-hud-vital--hp .status-hud-gem__full { filter: drop-shadow(0 0 5px rgba(196, 55, 47, 0.45)); }
+.status-hud-vital--mp .status-hud-gem__full { filter: drop-shadow(0 0 5px rgba(79, 143, 224, 0.45)); }
 
 .status-hud-vital-value {
   display: flex;
@@ -12105,81 +14188,79 @@ onBeforeUnmount(() => {
 }
 
 .status-hud-vital-value span {
+  color: var(--dg-text-faint);
+  font-family: var(--dg-font-data);
   font-size: 0.6rem;
+  font-weight: 700;
   letter-spacing: 0.1em;
-  font-weight: 800;
-  color: rgba(214, 211, 209, 0.58);
 }
 
 .status-hud-vital-value strong {
   min-width: 0;
   overflow: hidden;
-  color: rgba(250, 250, 249, 0.95);
-  font-family: var(--font-heading, inherit);
-  font-size: 0.88rem;
+  color: var(--dg-text-strong);
+  font-family: var(--dg-font-data);
+  font-size: 0.9rem;
+  font-weight: 700;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.status-hud-vital--hp .status-hud-vital-value span { color: rgba(226, 120, 108, 0.85); }
+.status-hud-vital--mp .status-hud-vital-value span { color: rgba(125, 170, 235, 0.85); }
+
 .status-hud-minor-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.45rem;
-  margin-top: 0.5rem;
+  margin-top: 0.45rem;
 }
 
 .status-hud-minor {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   min-width: 0;
   min-height: 2.35rem;
-  padding: 0.42rem 0.5rem;
-  border-radius: 0.48rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background: rgba(0, 0, 0, 0.24);
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba(201, 161, 96, 0.2);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.12));
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-.status-hud-minor svg {
+.status-hud-minor img {
+  width: 1.55rem;
+  height: 1.55rem;
   flex: 0 0 auto;
+  object-fit: contain;
 }
 
 .status-hud-minor span {
   display: block;
-  color: rgba(214, 211, 209, 0.58);
+  color: var(--dg-text-faint);
   font-size: 0.6rem;
   letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .status-hud-minor strong {
   display: block;
   margin-top: 0.08rem;
   overflow: hidden;
-  color: rgba(250, 250, 249, 0.96);
-  font-family: var(--font-heading, inherit);
-  font-size: 0.82rem;
+  color: var(--dg-text-strong);
+  font-family: var(--dg-font-data);
+  font-size: 0.84rem;
+  font-weight: 700;
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.status-hud-minor--dice {
-  border-color: rgba(167, 139, 250, 0.22);
-}
+.status-hud-minor--gold strong { color: var(--dg-coin); }
 
-.status-hud-minor--dice svg {
-  color: rgba(196, 181, 253, 0.92);
-}
-
-.status-hud-minor--gold {
-  border-color: rgba(251, 191, 36, 0.25);
-}
-
-.status-hud-minor--gold svg,
-.status-hud-minor--gold strong {
-  color: rgba(253, 224, 71, 0.96);
+@media (prefers-reduced-motion: reduce) {
+  .status-hud-gem__full { transition: none; }
 }
 
 @media (max-width: 900px) {
@@ -12206,17 +14287,77 @@ onBeforeUnmount(() => {
   }
 }
 
+/* ---------- 正文区：典籍外框的上半部分（顶边 + 两侧），与下方输入栏外框衔接 ---------- */
+.ui-story-frame {
+  --ui-frame-width: 60px;
+  --ui-frame-outset: 14px;
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.ui-story-panel {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% 0%, rgba(120, 76, 36, 0.12), transparent 60%),
+    linear-gradient(180deg, rgba(17, 12, 9, 0.84), rgba(17, 12, 9, 0.9));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  scrollbar-color: rgba(201, 161, 96, 0.4) transparent;
+}
+
+.ui-story-frame__border {
+  position: absolute;
+  z-index: 3;
+  inset: calc(var(--ui-frame-outset) * -1) calc(var(--ui-frame-outset) * -1) 0;
+  border-style: solid;
+  border-width: var(--ui-frame-width) var(--ui-frame-width) 0;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
+  pointer-events: none;
+}
+
+/* 消息楼层：页眉式页码 */
 .story-floor-indicator {
   position: absolute;
-  top: 0.9rem;
-  right: 1.55rem;
+  top: 1rem;
+  right: 1.8rem;
   z-index: 8;
-  color: rgba(251, 191, 36, 0.95);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0;
-  font-size: 0.82rem;
-  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: 0.08em;
+}
+
+.story-floor-indicator__label {
+  color: var(--dg-text-faint);
+  font-size: 0.68rem;
+  letter-spacing: 0.24em;
+}
+
+.story-floor-indicator__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--dg-gold);
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+}
+
+.story-floor-indicator__value::before {
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--dg-gold);
+  background: var(--dg-arcane);
+  transform: rotate(45deg);
+  content: '';
 }
 
 .story-main-text-warning {
@@ -12296,528 +14437,1098 @@ onBeforeUnmount(() => {
   }
 }
 
-@font-face {
-  font-family: 'MaShanZheng';
-  src: url('../font/MaShanZheng-Regular.ttf') format('truetype');
-  font-display: swap;
-}
+/* 标题字体（江湖琅琊体）改为图床分片加载，见 theme/fonts.css */
 
-@font-face {
-  font-family: 'MagicBookTitle';
-  src: url('../font/平方赖江湖琅琊体.ttf') format('truetype');
-  font-display: swap;
-}
-
-.magic-book-title {
-  font-family: 'MaShanZheng', 'KaiTi', serif;
-  color: rgba(253, 230, 138, 0.95);
-  letter-spacing: 0.04em;
-  text-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.9),
-    0 0 10px rgba(212, 175, 55, 0.35);
-}
-
-.deck-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--panel-divider); color: var(--panel-muted); font-size: 12px; }
-.deck-panel-head span:last-child { color: var(--panel-accent); font-variant-numeric: tabular-nums; }
 .deck-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); justify-items: center; gap: 28px 20px; padding: 24px 0 8px; }
 
-.magic-books-layout {
+/* =====================================================================
+   魔法书（附加魔法书 / 主动技能）
+   坐标系：.magic-book-shell 与书本素材同为 3:2，并作为 inline-size 容器。
+   - 书页、导航、翻页舞台：以书本百分比定位（与素材像素严格对齐）；
+   - 书页内部排版：使用 cqw（= 书本宽度的 1%），任何分辨率下等比缩放。
+   素材测量（1536×1024）：装订线 x=50%；纸面 x 10.5%–89.5%、y 7.6%–80%；
+   中央红宝石扣 x 42%–58%、y 77%–95%。
+   ===================================================================== */
+.magic-book-world {
+  position: relative;
   width: 100%;
-  max-width: 90rem;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
 }
 
-.magic-books-hero,
-.magic-books-active-panel {
+.magic-book-shell {
+  --mb-u: 15;
+  --mb-ink: rgb(58, 33, 16);
+  --mb-ink-soft: rgba(74, 45, 22, 0.88);
+  --mb-ink-faint: rgba(104, 68, 36, 0.66);
+  --mb-ink-line: rgba(118, 78, 38, 0.42);
+  --mb-rubric: rgb(124, 34, 22);
+  --mb-gold: rgb(236, 196, 120);
+  --mb-gold-deep: rgb(150, 102, 42);
+  --mb-page-top: 7.6%;
+  --mb-page-height: 72.4%;
+  --mb-page-width: 39.5%;
+  --mb-page-left: 10.5%;
   position: relative;
+  width: min(100%, 112rem, calc(96vh * 1.5));
+  width: min(100%, 112rem, calc(96dvh * 1.5));
+  aspect-ratio: 3 / 2;
+  margin: 0 auto;
+  container: magic-book / inline-size;
+  isolation: isolate;
+  color: var(--mb-ink);
+}
+
+.magic-book-shell__book {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 1.6cqw 2.4cqw rgba(0, 0, 0, 0.5));
+}
+
+/* ---------- 书页盒：左右页关于装订线对称，静态页与翻动页共用同一尺寸 ---------- */
+.magic-book-page {
+  position: absolute;
+  top: var(--mb-page-top);
+  left: var(--mb-page-left);
+  width: var(--mb-page-width);
+  height: var(--mb-page-height);
   min-width: 0;
 }
 
-.magic-books-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
-  padding: 1.2rem 1.25rem;
-}
+.magic-book-page--right { left: 50%; }
 
-.magic-books-hero__eyebrow {
-  color: rgba(251, 191, 36, 0.8);
-  font-family: 'Cinzel', serif;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.magic-books-hero__title {
-  margin-top: 0.35rem;
-  color: rgba(255, 229, 184, 0.98);
-  font-family: 'Cinzel', serif;
-  font-size: clamp(1.5rem, 2vw, 2rem);
-  letter-spacing: 0.04em;
-}
-
-.magic-books-hero__desc {
-  margin-top: 0.55rem;
-  max-width: 38rem;
-  color: rgba(237, 226, 205, 0.76);
-  font-size: 0.88rem;
-  line-height: 1.65;
-}
-
-.magic-books-hero__chips {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
-.magic-books-hero__chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 4px 16px;
-  border-left: 1px solid var(--panel-divider);
-}
-
-.magic-books-hero__chip-label {
-  color: rgba(214, 211, 209, 0.7);
-  font-size: 0.74rem;
-}
-
-.magic-books-hero__chip-value {
-  color: var(--panel-accent);
-  font-family: inherit;
-  font-size: 1rem;
-  letter-spacing: 0;
-}
-
-.magic-books-tabs {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-.magic-books-tab {
-  min-width: 8.2rem;
-  padding: 0.7rem 1rem;
-  border-radius: 999px;
-  border: 1px solid rgba(120, 85, 56, 0.68);
-  background: rgba(22, 13, 8, 0.72);
-  color: rgba(231, 223, 212, 0.7);
-  font-size: 0.77rem;
-  letter-spacing: 0.08em;
-  transition:
-    border-color 0.18s ease,
-    color 0.18s ease,
-    background-color 0.18s ease,
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.magic-books-tab:hover,
-.magic-books-tab:focus-visible {
-  outline: none;
-  transform: translateY(-1px);
-  border-color: rgba(251, 191, 36, 0.46);
-  color: rgba(255, 236, 201, 0.94);
-}
-
-.magic-books-tab.is-active {
-  border-color: rgba(251, 191, 36, 0.78);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)), rgba(22, 13, 8, 0.8);
-  color: rgba(255, 224, 163, 0.98);
-  box-shadow:
-    inset 0 0 0 1px rgba(251, 191, 36, 0.16),
-    0 10px 20px rgba(0, 0, 0, 0.18);
-}
-
-.magic-books-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
-  justify-content: center;
-  align-items: start;
-  gap: 0.9rem;
-  max-height: 64vh;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-
-.magic-books-skill-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, 10rem);
-  justify-content: center;
-  gap: 1rem;
-  max-height: 60vh;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-
-.magic-book-card,
-.magic-books-skill-card,
-.magic-books-slot-card {
-  position: relative;
-  overflow: hidden;
-  text-align: left;
-  transition:
-    transform 0.22s ease,
-    border-color 0.22s ease,
-    box-shadow 0.22s ease;
-}
-
-.magic-book-card {
-  width: min(100%, 13.2rem);
-  justify-self: center;
-  padding: 0.55rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(120, 85, 56, 0.72);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%), rgba(18, 12, 8, 0.84);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 236, 201, 0.04),
-    0 14px 24px rgba(0, 0, 0, 0.24);
-}
-
-.magic-book-card:hover,
-.magic-book-card:focus-visible,
-.magic-books-skill-card:hover,
-.magic-books-skill-card:focus-visible,
-.magic-books-slot-card:hover,
-.magic-books-slot-card:focus-visible {
-  outline: none;
-  transform: translateY(-3px);
-}
-
-.magic-book-card:hover,
-.magic-book-card:focus-visible {
-  border-color: rgba(251, 191, 36, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 236, 201, 0.04),
-    0 16px 28px rgba(0, 0, 0, 0.28);
-}
-
-.magic-book-card.is-locked {
-  border-color: rgba(148, 163, 184, 0.45);
-}
-
-.magic-book-card.is-locked:hover,
-.magic-book-card.is-locked:focus-visible {
-  border-color: rgba(216, 180, 254, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 236, 201, 0.03),
-    0 16px 28px rgba(0, 0, 0, 0.28),
-    0 0 18px rgba(168, 85, 247, 0.16);
-}
-
-.magic-book-card.is-equipped,
-.magic-books-skill-card.is-equipped,
-.magic-books-slot-card.is-selected {
-  border-color: rgba(251, 191, 36, 0.76);
-  box-shadow:
-    inset 0 0 0 1px rgba(251, 191, 36, 0.16),
-    0 0 0 1px rgba(251, 191, 36, 0.08),
-    0 16px 28px rgba(0, 0, 0, 0.3);
-}
-
-.magic-book-card__cover {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 832 / 1216;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.85rem;
-  border: 1px solid rgba(120, 85, 56, 0.6);
-  background: radial-gradient(circle at 50% 22%, rgba(255, 245, 200, 0.08), transparent 30%), rgba(4, 5, 8, 0.88);
-}
-
-.magic-book-card__image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  transition:
-    transform 0.28s ease,
-    filter 0.28s ease;
-}
-
-.magic-book-card:hover .magic-book-card__image,
-.magic-book-card:focus-visible .magic-book-card__image {
-  transform: scale(1.03);
-}
-
-.magic-book-card__shade {
+.magic-book-folio {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.08) 45%, rgba(0, 0, 0, 0.42));
-}
-
-.magic-book-card__title-wrap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  z-index: 1;
-}
-
-.magic-book-card__badge {
-  flex-shrink: 0;
-  padding: 3px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--panel-border);
-  background: #ffffff04;
-  color: var(--panel-muted);
-  font-size: 0.68rem;
-  letter-spacing: 0;
-}
-
-.magic-book-card__title-wrap {
-  top: 0.65rem;
-  padding: 0 0.8rem;
-}
-
-.magic-book-card__lock {
-  position: absolute;
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: 0.9rem;
-  z-index: 2;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(216, 180, 254, 0.28);
-  background: rgba(15, 23, 42, 0.78);
-  color: rgba(237, 233, 254, 0.92);
-  font-size: 0.76rem;
-  line-height: 1.35;
-  padding: 0.52rem 0.65rem;
-  text-align: center;
-}
-
-.magic-book-card__footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.72rem;
-  padding: 0 0.2rem;
-}
-
-.magic-book-card__footer-title {
-  color: rgba(255, 239, 205, 0.92);
-  font-family: inherit;
-  font-size: 0.86rem;
-}
-
-.magic-book-card__footer-action {
-  color: rgba(212, 175, 55, 0.84);
-  font-size: 0.72rem;
-}
-
-.magic-books-empty {
-  border-radius: 0.95rem;
-  border: 1px dashed rgba(120, 85, 56, 0.66);
-  background: rgba(18, 10, 7, 0.72);
-  color: rgba(214, 211, 209, 0.58);
-  text-align: center;
-  font-size: 0.86rem;
-  padding: 3rem 1rem;
-}
-
-.magic-books-active-panel {
-  padding: 1rem 1.05rem 1.1rem;
-}
-
-.magic-books-active-panel__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.9rem;
-}
-
-.magic-books-active-panel__title {
-  color: rgba(255, 224, 163, 0.95);
-  font-family: 'Cinzel', serif;
-  font-size: 1rem;
-  letter-spacing: 0.05em;
-}
-
-.magic-books-active-panel__desc {
-  margin-top: 0.3rem;
-  color: rgba(231, 223, 212, 0.65);
-  font-size: 0.8rem;
-  line-height: 1.55;
-}
-
-.magic-books-active-panel__badge {
-  flex-shrink: 0;
-  padding: 0.48rem 0.78rem;
-  border-radius: 999px;
-  border: 1px solid rgba(212, 175, 55, 0.18);
-  background: rgba(0, 0, 0, 0.24);
-  color: rgba(241, 225, 186, 0.82);
-  font-size: 0.74rem;
-}
-
-.magic-books-slot-grid {
-  margin-top: 0.95rem;
-  display: grid;
-  grid-template-columns: repeat(2, 10rem);
-  justify-content: center;
-  gap: 1rem;
-}
-
-.magic-books-slot-card,
-.magic-books-skill-card {
-  width: 10rem;
-  height: 15rem;
-  min-height: 15rem;
-  justify-self: center;
-  border-radius: 1rem;
-  border: 1px solid rgba(120, 85, 56, 0.72);
-  background:
-    radial-gradient(circle at top right, rgba(147, 51, 234, 0.16), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%), rgba(18, 14, 24, 0.95);
-  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.24);
-}
-
-.magic-books-slot-card__top,
-.magic-books-skill-card__top {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 0.75rem;
-  z-index: 1;
-}
-
-.magic-books-slot-card__mana,
-.magic-books-skill-card__mana {
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(216, 180, 254, 0.35);
-  background: rgba(109, 40, 217, 0.76);
-  color: rgba(255, 255, 255, 0.96);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.magic-books-slot-card__tag,
-.magic-books-skill-card__tag {
-  padding: 0.25rem 0.58rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.34);
-  color: rgba(244, 244, 245, 0.86);
-  font-size: 0.66rem;
-}
-
-.magic-books-slot-card__art,
-.magic-books-skill-card__art {
-  position: relative;
-  height: 5.6rem;
-  margin: 2.7rem 0.6rem 0;
-  border-radius: 0.9rem;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.32);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.magic-books-slot-card__art-glow,
-.magic-books-skill-card__art-glow {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(245, 245, 245, 0.34), rgba(145, 145, 168, 0.08) 58%, rgba(11, 9, 16, 0.84));
-}
-
-.magic-books-slot-card__art-letter,
-.magic-books-skill-card__art-letter {
-  position: relative;
-  color: rgba(255, 255, 255, 0.2);
-  font-family: 'Cinzel', serif;
-  font-size: 2.15rem;
-  line-height: 1;
-}
-
-.magic-books-slot-card__body,
-.magic-books-skill-card__body {
-  display: flex;
+  min-height: 0;
   flex-direction: column;
-  gap: 0.42rem;
-  padding: 0.72rem;
+  align-items: center;
+  padding: 4.4cqw 3.2cqw 3.3cqw 4.4cqw;
+  color: var(--mb-ink);
+  animation: magic-book-ink-in 380ms ease-out both;
 }
 
-.magic-books-slot-card__name,
-.magic-books-skill-card__name {
-  color: rgba(255, 239, 205, 0.96);
-  font-family: 'Cinzel', serif;
-  font-size: 0.84rem;
+.magic-book-folio--recto { padding: 4.4cqw 4.4cqw 3.3cqw 3.2cqw; }
+
+.magic-book-folio__foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 0.8cqw;
+}
+
+.magic-book-folio__number {
+  color: var(--mb-ink-faint);
+  font-family: 'Cinzel', 'Microsoft YaHei', serif;
+  font-size: max(9px, 0.78cqw);
+  letter-spacing: 0.24em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.magic-book-folio__spacer { display: block; }
+
+/* ---------- 标题层级：眉题 → 标题 → 花饰分隔线 → 注释 ---------- */
+.magic-book-heading {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
 
-.magic-books-slot-card__desc,
-.magic-books-skill-card__desc {
-  min-height: 3rem;
-  border-radius: 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(13, 13, 16, 0.78);
-  color: rgba(212, 212, 216, 0.84);
-  font-size: 0.62rem;
-  line-height: 1.45;
-  padding: 0.55rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+.magic-book-heading__eyebrow {
+  color: var(--mb-ink-faint);
+  font-family: 'Cinzel', 'Microsoft YaHei', serif;
+  font-size: max(8px, 0.74cqw);
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
 }
 
-.magic-books-slot-card__state,
-.magic-books-skill-card__meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 0.6rem;
+.magic-book-heading__title {
+  margin: 0.45cqw 0 0;
+  color: var(--mb-ink);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: max(16px, 2.7cqw);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.1em;
+  text-indent: 0.1em;
+  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.55);
 }
 
-.magic-books-slot-card__state {
-  justify-content: center;
+.magic-book-heading--compact .magic-book-heading__title { font-size: max(14px, 2cqw); }
+
+.magic-book-heading__note {
+  margin: 0.5cqw 0 0;
+  color: var(--mb-ink-faint);
+  font-size: max(9px, 0.84cqw);
+  line-height: 1.5;
   letter-spacing: 0.06em;
 }
 
-.magic-books-active-panel__actions {
+.magic-book-rule {
+  position: relative;
+  display: block;
+  width: 62%;
+  height: 1cqw;
+  margin-top: 0.55cqw;
+  background: linear-gradient(
+      90deg,
+      transparent,
+      var(--mb-ink-line) 22%,
+      var(--mb-ink-line) 44%,
+      transparent 47%,
+      transparent 53%,
+      var(--mb-ink-line) 56%,
+      var(--mb-ink-line) 78%,
+      transparent
+    )
+    center / 100% 1px no-repeat;
+}
+
+.magic-book-rule::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.55cqw;
+  height: 0.55cqw;
+  border: 1px solid var(--mb-ink-faint);
+  background: rgba(150, 102, 42, 0.22);
+  transform: translate(-50%, -50%) rotate(45deg);
+  content: '';
+}
+
+/* ---------- 附加魔法书 · 右页文字 ----------
+   纵向分布：标题区（顶部）→ 关键词 + 正文（紧随标题）→ 状态 / 携带按钮 / 提示（下三分之一）→ 页脚 */
+.magic-book-text-page__keywords {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 0.8rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3cqw 0;
+  margin: 1.1cqw 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--mb-rubric);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: max(10px, 0.98cqw);
+  letter-spacing: 0.18em;
 }
 
-.magic-books-clear-btn {
-  padding: 0.58rem 0.9rem;
-  border-radius: 0.7rem;
-  border: 1px solid rgba(120, 85, 56, 0.68);
-  background: rgba(22, 13, 8, 0.68);
-  color: rgba(231, 223, 212, 0.74);
-  font-size: 0.76rem;
-  transition:
-    border-color 0.18s ease,
-    color 0.18s ease,
-    background-color 0.18s ease;
+.magic-book-text-page__keywords li { display: inline-flex; align-items: center; }
+
+.magic-book-text-page__keywords li + li::before {
+  display: inline-block;
+  width: 0.36cqw;
+  height: 0.36cqw;
+  margin: 0 1cqw 0 0.8cqw;
+  background: var(--mb-gold-deep);
+  opacity: 0.65;
+  transform: rotate(45deg);
+  content: '';
 }
 
-.magic-books-clear-btn:hover,
-.magic-books-clear-btn:focus-visible {
+.magic-book-text-page__description {
+  flex: 0 1 auto;
+  width: 100%;
+  max-width: 29.5cqw;
+  min-height: 0;
+  margin: 1.9cqw 0 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  color: var(--mb-ink-soft);
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'Microsoft YaHei', serif;
+  font-size: max(11px, 1.24cqw);
+  line-height: 1.95;
+  letter-spacing: 0.05em;
+  text-align: justify;
+}
+
+.magic-book-text-page__actions {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  margin-top: auto;
+  padding: 1.4cqw 0 0.8cqw;
+}
+
+.magic-book-text-page__description::-webkit-scrollbar { display: none; }
+
+.magic-book-text-page__description::first-letter {
+  float: left;
+  margin: 0.45cqw 0.55cqw 0 0;
+  color: var(--mb-rubric);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: 3.05em;
+  line-height: 1;
+}
+
+.magic-book-text-page__meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9cqw;
+  color: var(--mb-ink-faint);
+  font-size: max(9px, 0.9cqw);
+  letter-spacing: 0.12em;
+}
+
+.magic-book-text-page__meta-sep {
+  width: 0.42cqw;
+  height: 0.42cqw;
+  background: var(--mb-gold-deep);
+  opacity: 0.7;
+  transform: rotate(45deg);
+}
+
+.magic-book-text-page.is-equipped .magic-book-text-page__meta > span:last-child { color: rgb(110, 66, 18); font-weight: 600; }
+.magic-book-text-page.is-locked .magic-book-text-page__meta > span:last-child { color: rgba(88, 52, 110, 0.9); }
+
+.magic-book-text-page__hint {
+  max-width: 29cqw;
+  margin: 0.9cqw 0 0;
+  color: var(--mb-ink-faint);
+  font-size: max(9px, 0.8cqw);
+  font-style: italic;
+  line-height: 1.55;
+  text-align: center;
+}
+
+/* 携带按钮：羊皮纸上的压印铭框，携带后变为深色皮革金字 */
+.magic-book-seal-button {
+  position: relative;
+  display: inline-flex;
+  min-width: 15cqw;
+  max-width: 100%;
+  min-height: max(26px, 3.2cqw);
+  align-items: center;
+  justify-content: center;
+  gap: 0.6cqw;
+  margin-top: 1.2cqw;
+  padding: 0.5cqw 1.8cqw;
+  border: 1px solid rgba(110, 70, 30, 0.55);
+  border-radius: 1px;
+  background: linear-gradient(180deg, rgba(255, 240, 205, 0.22), rgba(150, 102, 42, 0.1));
+  color: var(--mb-ink);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: max(11px, 1.12cqw);
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.magic-book-seal-button::before {
+  position: absolute;
+  inset: 0.28cqw;
+  border: 1px solid rgba(110, 70, 30, 0.26);
+  pointer-events: none;
+  content: '';
+}
+
+.magic-book-seal-button svg {
+  width: max(12px, 1.1cqw);
+  height: max(12px, 1.1cqw);
+  flex-shrink: 0;
+}
+
+.magic-book-seal-button:hover:not(:disabled):not([aria-disabled='true']),
+.magic-book-seal-button:focus-visible {
   outline: none;
-  border-color: rgba(251, 191, 36, 0.46);
-  color: rgba(255, 236, 201, 0.92);
+  border-color: rgba(150, 98, 40, 0.88);
+  background: linear-gradient(180deg, rgba(255, 236, 196, 0.3), rgba(130, 82, 30, 0.18));
+  color: rgb(36, 18, 6);
+}
+
+.magic-book-seal-button.is-active {
+  border-color: rgba(150, 102, 42, 0.92);
+  background: linear-gradient(180deg, rgb(78, 44, 24), rgb(44, 24, 14));
+  color: var(--mb-gold);
+}
+
+.magic-book-seal-button.is-active::before { border-color: rgba(236, 196, 120, 0.32); }
+
+.magic-book-seal-button.is-active:hover:not(:disabled):not([aria-disabled='true']),
+.magic-book-seal-button.is-active:focus-visible {
+  background: linear-gradient(180deg, rgb(96, 54, 28), rgb(54, 30, 16));
+  color: rgb(255, 226, 160);
+}
+
+.magic-book-seal-button:disabled,
+.magic-book-seal-button.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.magic-book-seal-button[aria-disabled='true'] { cursor: default; }
+
+.magic-book-text-page.is-locked .magic-book-seal-button,
+.magic-book-text-page.is-unavailable .magic-book-seal-button {
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: max(10px, 0.92cqw);
+  letter-spacing: 0.06em;
+}
+
+/* 翻页按钮：页脚的墨水箭头 */
+.magic-book-turn-button {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 0.3cqw;
+  padding: 0.3cqw 0.4cqw;
+  border: 0;
+  background: transparent;
+  color: var(--mb-ink-soft);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: max(10px, 0.98cqw);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+.magic-book-turn-button--next { justify-self: end; }
+
+.magic-book-turn-button svg {
+  width: max(12px, 1.1cqw);
+  height: max(12px, 1.1cqw);
+  transition: transform 0.2s ease;
+}
+
+.magic-book-turn-button:hover:not(:disabled),
+.magic-book-turn-button:focus-visible {
+  outline: none;
+  color: var(--mb-rubric);
+}
+
+.magic-book-turn-button--prev:hover:not(:disabled) svg { transform: translateX(-0.2cqw); }
+.magic-book-turn-button--next:hover:not(:disabled) svg { transform: translateX(0.2cqw); }
+.magic-book-turn-button:focus-visible span { text-decoration: underline; text-underline-offset: 0.3em; }
+
+.magic-book-turn-button:disabled,
+.magic-book-turn-button.is-disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+/* ---------- 附加魔法书 · 左页插画：手绘圆形插图，边缘晕入羊皮纸 ---------- */
+.magic-book-illumination {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.magic-book-illumination__plate {
+  position: relative;
+  width: min(100%, 29cqw);
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+
+.magic-book-illumination__plate::after {
+  position: absolute;
+  inset: 3%;
+  border: 1px solid rgba(110, 70, 30, 0.3);
+  border-radius: 50%;
+  outline: 1px solid rgba(110, 70, 30, 0.16);
+  outline-offset: 0.45cqw;
+  pointer-events: none;
+  content: '';
+}
+
+.magic-book-illumination__art,
+.magic-book-illumination__grain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 50%, rgba(0, 0, 0, 0.8) 66%, rgba(0, 0, 0, 0.34) 84%, transparent 100%);
+  mask-image: radial-gradient(circle closest-side, #000 50%, rgba(0, 0, 0, 0.8) 66%, rgba(0, 0, 0, 0.34) 84%, transparent 100%);
+}
+
+.magic-book-illumination__art {
+  object-fit: contain;
+  filter: sepia(0.16) saturate(0.9) contrast(1.03);
+  transition: filter 0.4s ease;
+}
+
+/* 纸纹叠加：取书本素材的纸面区域正片叠底，让插画像画在纸上 */
+.magic-book-illumination__grain {
+  background: var(--mb-book-image) 32% 46% / 420% auto no-repeat;
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.magic-book-art-page.is-locked .magic-book-illumination__art { filter: grayscale(0.85) sepia(0.35) brightness(0.72) contrast(0.95); }
+.magic-book-art-page.is-unavailable .magic-book-illumination__art { filter: grayscale(0.9) sepia(0.3) brightness(0.62) contrast(0.9); }
+
+.magic-book-illumination__caption {
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+  margin-top: 1.1cqw;
+  color: var(--mb-ink-soft);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: max(12px, 1.5cqw);
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+}
+
+.magic-book-illumination__caption::before,
+.magic-book-illumination__caption::after {
+  width: 3cqw;
+  height: 1px;
+  background: var(--mb-ink-line);
+  content: '';
+}
+
+.magic-book-empty {
+  justify-content: center;
+  color: var(--mb-ink-faint);
+  font-size: max(11px, 1.1cqw);
+  letter-spacing: 0.12em;
+}
+
+/* ---------- 3D 翻页 ---------- */
+/* 翻页投影：正片叠底到书页上，位置/浓度由 JS 写入的变量驱动 */
+.magic-book-turn-shadow {
+  --mb-shadow-edge: 0%;
+  --mb-shadow-fade: 0%;
+  --mb-shadow-alpha: 0;
+  position: absolute;
+  top: var(--mb-page-top);
+  width: var(--mb-page-width);
+  height: var(--mb-page-height);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.magic-book-turn-shadow--left {
+  left: var(--mb-page-left);
+  background: linear-gradient(
+    to left,
+    rgba(40, 20, 6, var(--mb-shadow-alpha)) 0,
+    rgba(40, 20, 6, var(--mb-shadow-alpha)) var(--mb-shadow-edge),
+    rgba(40, 20, 6, 0) var(--mb-shadow-fade)
+  );
+}
+
+.magic-book-turn-shadow--right {
+  left: 50%;
+  background: linear-gradient(
+    to right,
+    rgba(40, 20, 6, var(--mb-shadow-alpha)) 0,
+    rgba(40, 20, 6, var(--mb-shadow-alpha)) var(--mb-shadow-edge),
+    rgba(40, 20, 6, 0) var(--mb-shadow-fade)
+  );
+}
+
+/* 舞台横跨两页，水平中心 = 装订线；所有分段以此为原点旋转 */
+.magic-book-leaf-stage {
+  position: absolute;
+  z-index: 3;
+  top: var(--mb-page-top);
+  right: var(--mb-page-left);
+  left: var(--mb-page-left);
+  height: var(--mb-page-height);
+  perspective: 150cqw;
+  perspective-origin: 50% 46%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.magic-book-leaf-stage:not(.is-live) { visibility: hidden; }
+
+.magic-book-leaf-seg {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  transform-origin: 0 50%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.magic-book-leaf-face {
+  position: absolute;
+  inset: 0 -0.4px;
+  overflow: hidden;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.magic-book-leaf-face--back { transform: rotateY(180deg); }
+
+/* 每段都放置一整页（宽 39.5cqw = 单页宽），由 left 偏移只露出本段 */
+.magic-book-leaf-sheet {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 39.5cqw;
+}
+
+.magic-book-leaf-sheet .magic-book-folio { animation: none; }
+.magic-book-leaf-sheet .magic-book-text-page__description { overflow: hidden; }
+
+/*
+  翻动纸张（生成素材 魔法书翻页.webp，毛边透明）：书页离开书面后淡入，取代裁切自书本的纸面，
+  避免出现直角矩形与被裁掉的书角。
+*/
+/* 纸张略小于书页盒（外缘与上下各内收），与书本中可见纸面的范围一致，不会盖到页边与护角 */
+.magic-book-leaf-sheet__paper {
+  position: absolute;
+  inset: 1.2% 3.5% 1.2% 0;
+  background: var(--mb-leaf-image) center / 100% 100% no-repeat;
+  opacity: var(--mb-patch, 0);
+}
+
+.magic-book-leaf-sheet--back .magic-book-leaf-sheet__paper { inset: 1.2% 0 1.2% 3.5%; }
+
+/* 装订线一侧的根部阴影：纸张在书脊处弯入，越靠近装订线越暗 */
+.magic-book-leaf-sheet::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(60, 32, 10, 0.42), rgba(60, 32, 10, 0.12) 6%, transparent 16%);
+  -webkit-mask: var(--mb-leaf-image) left center / 96.5% 97.6% no-repeat;
+  mask: var(--mb-leaf-image) left center / 96.5% 97.6% no-repeat;
+  opacity: var(--mb-patch, 0);
+  pointer-events: none;
+  content: '';
+}
+
+.magic-book-leaf-sheet--back::after {
+  background: linear-gradient(to left, rgba(60, 32, 10, 0.42), rgba(60, 32, 10, 0.12) 6%, transparent 16%);
+  -webkit-mask-position: right center;
+  mask-position: right center;
+}
+
+/*
+  纸面印刷层：直接裁取书本素材中对应书页的像素，保证翻页起止帧与静态书本完全一致。
+  background-size = 100% / 页宽(39.5%)、100% / 页高(72.4%)；
+  背景定位按 “素材点对齐盒子左上角” 推导：右页 82.645%，左页 17.355%，纵向 27.536%。
+  遮罩剔除装订线宝石、书角金属件与纸张毛边。
+*/
+.magic-book-leaf-sheet__print {
+  position: absolute;
+  inset: 0;
+  background-image: var(--mb-book-image);
+  background-position: 82.645% 27.536%;
+  background-repeat: no-repeat;
+  background-size: 253.165% 138.122%;
+  opacity: calc(1 - var(--mb-patch, 0));
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, transparent 4%, #000 8.5%, #000 98%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 3.2%, #000 97%, transparent 100%),
+    radial-gradient(ellipse 30% 13% at 100% 0, transparent 62%, #000 100%),
+    radial-gradient(ellipse 15% 11% at 0 0, transparent 60%, #000 100%),
+    radial-gradient(ellipse 9% 13% at 100% 100%, transparent 60%, #000 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, transparent 4%, #000 8.5%, #000 98%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 3.2%, #000 97%, transparent 100%),
+    radial-gradient(ellipse 30% 13% at 100% 0, transparent 62%, #000 100%),
+    radial-gradient(ellipse 15% 11% at 0 0, transparent 60%, #000 100%),
+    radial-gradient(ellipse 9% 13% at 100% 100%, transparent 60%, #000 100%);
+  mask-composite: intersect;
+}
+
+.magic-book-leaf-sheet--back .magic-book-leaf-sheet__print {
+  background-position: 17.355% 27.536%;
+  -webkit-mask-image:
+    linear-gradient(to left, transparent 0, transparent 4%, #000 8.5%, #000 98%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 3.2%, #000 97%, transparent 100%),
+    radial-gradient(ellipse 30% 13% at 0 0, transparent 62%, #000 100%),
+    radial-gradient(ellipse 15% 11% at 100% 0, transparent 60%, #000 100%),
+    radial-gradient(ellipse 9% 13% at 0 100%, transparent 60%, #000 100%);
+  mask-image:
+    linear-gradient(to left, transparent 0, transparent 4%, #000 8.5%, #000 98%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 3.2%, #000 97%, transparent 100%),
+    radial-gradient(ellipse 30% 13% at 0 0, transparent 62%, #000 100%),
+    radial-gradient(ellipse 15% 11% at 100% 0, transparent 60%, #000 100%),
+    radial-gradient(ellipse 9% 13% at 0 100%, transparent 60%, #000 100%);
+}
+
+/*
+  随角度变化的明暗：JS 按每段两端的角度写入 a/b，段内线性过渡以消除分段色阶。
+  明暗层位于整页坐标内、只覆盖本段窗口（left/width 由分段样式给出），
+  遮罩使用纸张素材本身，并以 cqw 偏移对齐整页，因此暗部只落在纸面上。
+*/
+.magic-book-leaf-face__shade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(to right, rgba(30, 15, 4, var(--mb-front-a, 0)), rgba(30, 15, 4, var(--mb-front-b, 0)));
+  -webkit-mask: var(--mb-leaf-image) no-repeat;
+  mask: var(--mb-leaf-image) no-repeat;
+  -webkit-mask-size: calc(39.5cqw * 0.965) 97.6%;
+  mask-size: calc(39.5cqw * 0.965) 97.6%;
+  -webkit-mask-position: var(--mb-shade-offset, 0) 50%;
+  mask-position: var(--mb-shade-offset, 0) 50%;
+  pointer-events: none;
+}
+
+.magic-book-leaf-sheet--back .magic-book-leaf-face__shade {
+  background: linear-gradient(to right, rgba(30, 15, 4, var(--mb-back-b, 0)), rgba(30, 15, 4, var(--mb-back-a, 0)));
+}
+
+/* ---------- 主动技能 ---------- */
+.magic-book-active-slots {
+  --mb-card-w: 12.6;
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqw;
+}
+
+.magic-book-active-library {
+  --mb-card-w: 9;
+  display: grid;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(var(--mb-lib-cols, 3), max-content);
+  align-content: center;
+  justify-content: center;
+  gap: calc(1.3cqw + var(--mb-card-w) * 0.147cqw) calc(1.3cqw + var(--mb-card-w) * 0.1cqw);
+  padding: 1.6cqw 0 0.6cqw;
+}
+
+.magic-book-active-library.is-scrollable {
+  align-content: start;
+  overflow-y: auto;
+  scrollbar-color: rgba(118, 78, 38, 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+/* 卡牌按钮：按钮占位按 cqw 计算，内部固定像素的 ActiveSkillCard 按书本实际宽度等比缩放 */
+.magic-book-active-card-button {
+  --mb-seat: rgba(118, 78, 38, 0.5);
+  position: relative;
+  display: block;
+  width: calc(var(--mb-card-w) * 1cqw);
+  height: calc(var(--mb-card-w) * 1cqw * 176 / 120);
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.magic-book-active-card-button > .active-skill-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-shadow: none;
+  transform: translate(-50%, -50%) scale(calc(var(--mb-card-w) * var(--mb-u) / 120));
+  transform-origin: center;
+  transition: filter 0.22s ease;
+}
+
+/* 槽位刻痕：四角墨线，选中时转为鎏金 */
+.magic-book-active-card-button::before {
+  --mb-corner: 1.5cqw;
+  position: absolute;
+  inset: -0.95cqw -0.75cqw;
+  background:
+    linear-gradient(var(--mb-seat), var(--mb-seat)) left top / var(--mb-corner) 1px,
+    linear-gradient(var(--mb-seat), var(--mb-seat)) left top / 1px var(--mb-corner),
+    linear-gradient(var(--mb-seat), var(--mb-seat)) right top / var(--mb-corner) 1px,
+    linear-gradient(var(--mb-seat), var(--mb-seat)) right top / 1px var(--mb-corner),
+    linear-gradient(var(--mb-seat), var(--mb-seat)) left bottom / var(--mb-corner) 1px,
+    linear-gradient(var(--mb-seat), var(--mb-seat)) left bottom / 1px var(--mb-corner),
+    linear-gradient(var(--mb-seat), var(--mb-seat)) right bottom / var(--mb-corner) 1px,
+    linear-gradient(var(--mb-seat), var(--mb-seat)) right bottom / 1px var(--mb-corner);
+  background-repeat: no-repeat;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+  content: '';
+}
+
+.magic-book-active-card-button--slot::before { opacity: 0.75; }
+
+/* 状态宝石：选中/已装备时点亮 */
+.magic-book-active-card-button__gem {
+  position: absolute;
+  z-index: 2;
+  top: -1.45cqw;
+  left: 50%;
+  width: 0.8cqw;
+  height: 0.8cqw;
+  border: 1px solid rgba(150, 102, 42, 0.75);
+  background: radial-gradient(circle at 35% 35%, rgb(124, 92, 140), rgb(52, 28, 66) 70%);
+  opacity: 0;
+  transform: translateX(-50%) rotate(45deg);
+  transition: opacity 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+}
+
+.magic-book-active-card-button--slot .magic-book-active-card-button__gem { opacity: 0.7; }
+
+.magic-book-active-card-button:hover:not(:disabled) > .active-skill-card,
+.magic-book-active-card-button:focus-visible > .active-skill-card {
+  filter: brightness(1.07) saturate(1.04);
+}
+
+.magic-book-active-card-button:hover:not(:disabled)::before,
+.magic-book-active-card-button:focus-visible::before { opacity: 1; }
+
+.magic-book-active-card-button:focus-visible { outline: none; }
+
+.magic-book-active-card-button.is-selected,
+.magic-book-active-card-button.is-equipped { --mb-seat: rgba(196, 140, 52, 0.95); }
+
+.magic-book-active-card-button.is-selected::before,
+.magic-book-active-card-button.is-equipped::before { opacity: 1; }
+
+.magic-book-active-card-button > .active-skill-card { z-index: 1; }
+
+/* 选中槽位：卡牌背后极轻的暖光呼吸，只动 opacity，不触发重绘 */
+.magic-book-active-card-button.is-selected::after {
+  position: absolute;
+  inset: -12% -16%;
+  background: radial-gradient(ellipse 50% 46% at 50% 50%, rgba(240, 186, 90, 0.36), transparent 72%);
+  pointer-events: none;
+  animation: magic-book-card-breathe 3.8s ease-in-out infinite;
+  content: '';
+}
+
+.magic-book-active-card-button.is-selected > .active-skill-card {
+  filter: drop-shadow(0 0 0.5cqw rgba(232, 176, 72, 0.55)) brightness(1.04);
+}
+
+.magic-book-active-card-button.is-equipped > .active-skill-card {
+  filter: drop-shadow(0 0 0.36cqw rgba(232, 176, 72, 0.42));
+}
+
+.magic-book-active-card-button.is-selected .magic-book-active-card-button__gem,
+.magic-book-active-card-button.is-equipped .magic-book-active-card-button__gem {
+  background: radial-gradient(circle at 35% 30%, rgb(255, 236, 255), rgb(206, 140, 255) 28%, rgb(128, 56, 206) 62%, rgb(52, 14, 92));
+  box-shadow: 0 0 0.7cqw rgba(186, 110, 255, 0.6);
+  opacity: 1;
+}
+
+.magic-book-active-card-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.magic-book-active-card-button:disabled > .active-skill-card { filter: saturate(0.7); }
+
+.magic-book-active-slot-caption {
+  display: flex;
+  width: 100%;
+  max-width: 26cqw;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4cqw;
+  margin-top: 1cqw;
+  padding-top: 0.7cqw;
+  border-top: 1px solid var(--mb-ink-line);
+  color: var(--mb-ink-soft);
+  font-size: max(10px, 0.92cqw);
+  letter-spacing: 0.12em;
+}
+
+.magic-book-active-clear {
+  padding: 0.25cqw 0.9cqw;
+  border: 1px solid rgba(124, 34, 22, 0.45);
+  border-radius: 1px;
+  background: transparent;
+  color: var(--mb-rubric);
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: max(10px, 0.98cqw);
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.magic-book-active-clear:hover:not(:disabled),
+.magic-book-active-clear:focus-visible {
+  outline: none;
+  border-color: rgba(124, 34, 22, 0.85);
+  background: rgba(124, 34, 22, 0.08);
+}
+
+.magic-book-active-clear:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* ---------- 底部导航：铆在书脚页边上的铭牌 ----------
+   铭牌素材右端为空宝石座；内端插入中央红宝石扣金属臂之下（装订金饰层在其上方），
+   视觉上由扣饰“夹住”铭牌。选中时宝石座内的紫宝石点亮。
+   素材内框（文字区）x 16.6%–83.2%，y 25%–74%；宝石座中心 x 91.3%。 */
+.magic-book-nav {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  pointer-events: none;
+}
+
+.magic-book-nav__plate {
+  position: absolute;
+  top: 86.6%;
+  left: 27%;
+  width: 16.6%;
+  aspect-ratio: 1006 / 368;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(214, 176, 116, 0.62);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.3s ease;
+}
+
+.magic-book-nav__plate--active { left: 56.4%; }
+
+/* 接触阴影：铭牌压在页边与皮革上的暗部，让它“贴”在书上而不是浮在上方 */
+.magic-book-nav__seat {
+  position: absolute;
+  inset: 14% 3% -6% 3%;
+  background: radial-gradient(ellipse 52% 50% at 50% 54%, rgba(12, 6, 2, 0.62), rgba(12, 6, 2, 0.28) 62%, transparent 100%);
+  pointer-events: none;
+}
+
+.magic-book-nav__metal {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0.16cqw 0.18cqw rgba(8, 4, 2, 0.7)) brightness(0.9) saturate(0.92);
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.3s ease;
+}
+
+.magic-book-nav__plate--active .magic-book-nav__metal { transform: scaleX(-1); }
+
+/* 选中时内框里的幽紫微光，从宝石一侧渗入 */
+.magic-book-nav__glow {
+  position: absolute;
+  top: 26%;
+  bottom: 27%;
+  left: 17%;
+  right: 17%;
+  border-radius: 0.3cqw;
+  background: radial-gradient(ellipse 70% 120% at 100% 50%, rgba(160, 90, 230, 0.32), transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.magic-book-nav__plate--active .magic-book-nav__glow {
+  background: radial-gradient(ellipse 70% 120% at 0% 50%, rgba(160, 90, 230, 0.32), transparent 70%);
+}
+
+.magic-book-nav__label {
+  position: absolute;
+  top: 25%;
+  bottom: 26%;
+  left: 16.6%;
+  right: 16.8%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-size: max(11px, 1.34cqw);
+  letter-spacing: 0.26em;
+  text-indent: 0.26em;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
+
+/* 宝石座里的宝石：未选中为暗淡的紫水晶，选中后点亮 */
+.magic-book-nav__gem {
+  position: absolute;
+  top: 50%;
+  left: 91.3%;
+  width: 1.12cqw;
+  height: 1.12cqw;
+  background: radial-gradient(circle at 34% 30%, rgb(110, 84, 128), rgb(48, 28, 62) 55%, rgb(18, 10, 24));
+  box-shadow: inset 0 0 0.25cqw rgba(0, 0, 0, 0.7);
+  transform: translate(-50%, -50%) rotate(45deg);
+  pointer-events: none;
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+}
+
+.magic-book-nav__plate--active .magic-book-nav__gem { left: 8.7%; }
+
+.magic-book-nav__plate:hover:not(.is-active) { color: rgba(236, 204, 140, 0.9); }
+
+.magic-book-nav__plate:hover:not(.is-active) .magic-book-nav__metal {
+  filter: drop-shadow(0 0.16cqw 0.18cqw rgba(8, 4, 2, 0.7)) brightness(1) saturate(1);
+}
+
+.magic-book-nav__plate:focus-visible { outline: none; }
+
+.magic-book-nav__plate:focus-visible .magic-book-nav__label {
+  text-decoration: underline;
+  text-decoration-color: rgba(236, 196, 120, 0.7);
+  text-underline-offset: 0.3em;
+}
+
+.magic-book-nav__plate.is-active { color: rgb(250, 222, 156); }
+
+.magic-book-nav__plate.is-active .magic-book-nav__label {
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85), 0 0 0.7cqw rgba(232, 170, 70, 0.4);
+}
+
+.magic-book-nav__plate.is-active .magic-book-nav__metal {
+  filter: drop-shadow(0 0.16cqw 0.18cqw rgba(8, 4, 2, 0.7)) brightness(1.06) saturate(1.05);
+}
+
+.magic-book-nav__plate.is-active .magic-book-nav__glow { opacity: 1; }
+
+.magic-book-nav__plate.is-active .magic-book-nav__gem {
+  background: radial-gradient(circle at 34% 28%, rgb(255, 238, 255), rgb(212, 150, 255) 26%, rgb(132, 60, 210) 60%, rgb(52, 14, 92));
+  box-shadow: 0 0 0.8cqw rgba(186, 110, 255, 0.55), inset 0 0 0.22cqw rgba(255, 255, 255, 0.35);
+}
+
+/* ---------- 装订线金饰与宝石动效 ---------- */
+/* 金饰层：与书本同尺寸的抠图（装订线扣饰、宝石、四角护角），叠在翻页与铭牌之上，静止时与书本像素重合 */
+.magic-book-shell__ornaments {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.magic-book-gem-fx {
+  position: absolute;
+  z-index: 6;
+  width: 3.45cqw;
+  height: 3.45cqw;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+/* 呼吸光：缓慢起伏的外晕 */
+.magic-book-gem-fx::before {
+  position: absolute;
+  inset: -55%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--mb-gem-glow) 0%, transparent 62%);
+  opacity: 0.2;
+  animation: magic-book-gem-breathe 6.4s ease-in-out infinite;
+  content: '';
+}
+
+/* 宝石内部的魔力流动：裁切在宝石轮廓内、缓慢旋转的光带 */
+.magic-book-gem-fx > span {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: var(--mb-gem-shape);
+  opacity: 0.4;
+}
+
+.magic-book-gem-fx > span::before {
+  position: absolute;
+  inset: -30%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    var(--mb-gem-flow) 50deg,
+    transparent 110deg,
+    transparent 180deg,
+    var(--mb-gem-flow) 230deg,
+    transparent 290deg
+  );
+  animation: magic-book-gem-flow 18s linear infinite;
+  content: '';
+}
+
+.magic-book-gem-fx--crown {
+  --mb-gem-glow: rgba(178, 96, 255, 0.5);
+  --mb-gem-flow: rgba(236, 196, 255, 0.55);
+  --mb-gem-shape: polygon(50% 4%, 92% 48%, 50% 96%, 8% 48%);
+  top: 6.64%;
+  left: 49.97%;
+}
+
+.magic-book-gem-fx--clasp {
+  --mb-gem-glow: rgba(255, 70, 60, 0.42);
+  --mb-gem-flow: rgba(255, 196, 170, 0.5);
+  --mb-gem-shape: circle(40% at 50% 50%);
+  top: 89.84%;
+  left: 50.13%;
+  width: 3.25cqw;
+  height: 3.25cqw;
+}
+
+.magic-book-gem-fx--clasp::before { animation-duration: 8.2s; animation-delay: -3s; }
+.magic-book-gem-fx--clasp > span::before { animation-duration: 24s; animation-direction: reverse; }
+
+@keyframes magic-book-gem-breathe {
+  0%, 100% { opacity: 0.16; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes magic-book-gem-flow {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes magic-book-card-breathe {
+  0%, 100% { opacity: 0.38; }
+  50% { opacity: 0.72; }
+}
+
+@keyframes magic-book-ink-in {
+  from { opacity: 0; filter: blur(2px); }
+  to { opacity: 1; filter: none; }
+}
+
+/* ---------- 响应式：书本始终保持 3:2，仅按书本宽度调整信息密度 ---------- */
+@container magic-book (max-width: 760px) {
+  .magic-book-text-page__hint,
+  .magic-book-text-page__keywords,
+  .magic-book-heading__note { display: none; }
+
+  .magic-book-folio { padding-top: 3.6cqw; padding-bottom: 2.6cqw; }
+  .magic-book-text-page__description { margin-top: 1.2cqw; line-height: 1.7; }
+  .magic-book-seal-button { margin-top: 1.1cqw; }
+}
+
+@container magic-book (max-width: 540px) {
+  .magic-book-heading__eyebrow,
+  .magic-book-rule,
+  .magic-book-text-page__meta,
+  .magic-book-illumination__caption { display: none; }
+
+  .magic-book-heading__title { font-size: max(13px, 2.7cqw); }
+  .magic-book-heading--compact .magic-book-heading__title { font-size: max(11px, 2cqw); }
+  .magic-book-text-page__description { font-size: max(10px, 1.2cqw); line-height: 1.6; }
+  .magic-book-text-page__description::first-letter { float: none; margin: 0; color: inherit; font-family: inherit; font-size: 1em; }
+  .magic-book-nav__label { font-size: max(9px, 1.34cqw); letter-spacing: 0.08em; text-indent: 0.08em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magic-book-folio,
+  .magic-book-gem-fx::before,
+  .magic-book-gem-fx > span::before,
+  .magic-book-active-card-button.is-selected::after { animation: none; }
 }
 
 .story-rich-text {
@@ -12903,11 +15614,7 @@ onBeforeUnmount(() => {
 }
 
 .story-segment-quote {
-  color: #1d4ed8;
-}
-
-.story-tucao-section-list {
-  margin-top: 0.66rem;
+  color: #8fb2ff;
 }
 
 .story-tucao-wrap {
@@ -12930,20 +15637,22 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  border-radius: 9999px;
-  border: 1px solid rgba(251, 191, 36, 0.45);
-  background: rgba(48, 31, 20, 0.84);
-  color: rgba(252, 211, 77, 0.96);
+  border: 1px solid rgba(201, 161, 96, 0.55);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2f241c, #1a1310);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.12), 0 1px 3px rgba(0, 0, 0, 0.45);
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-ui);
   font-size: 0.72em;
-  letter-spacing: 0.02em;
-  padding: 0.22rem 0.64rem;
-  transition: all 0.2s ease;
+  letter-spacing: 0.08em;
+  padding: 0.24rem 0.7rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
 .story-tucao-toggle:hover {
-  color: rgba(254, 240, 138, 0.98);
-  border-color: rgba(252, 211, 77, 0.78);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.32);
+  border-color: var(--dg-gold-bright);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.16), 0 0 8px rgba(232, 170, 70, 0.3);
+  color: var(--dg-text-strong);
 }
 
 .story-tucao-panel {
@@ -13005,96 +15714,6 @@ onBeforeUnmount(() => {
   transform: translateY(10px);
 }
 
-.status-negative-screen {
-  width: 24rem;
-  max-width: min(72vw, 24rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.status-negative-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.1rem 0.1rem 0.2rem;
-}
-
-.status-negative-title {
-  color: rgba(245, 222, 179, 0.92);
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-}
-
-.status-negative-count {
-  color: rgba(156, 163, 175, 0.95);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-}
-
-.status-negative-empty {
-  border-radius: 0.52rem;
-  border: 1px dashed rgba(156, 163, 175, 0.45);
-  background: rgba(17, 24, 39, 0.45);
-  color: rgba(209, 213, 219, 0.85);
-  text-align: center;
-  font-size: 0.75rem;
-  padding: 0.65rem 0.6rem;
-}
-
-.status-negative-list {
-  max-height: 12.5rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding-right: 0.15rem;
-}
-
-.status-negative-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  border-radius: 0.56rem;
-  border: 1px solid rgba(251, 113, 133, 0.5);
-  background: linear-gradient(120deg, rgba(69, 10, 10, 0.82), rgba(31, 41, 55, 0.72));
-  padding: 0.46rem 0.56rem;
-}
-
-.status-negative-name {
-  min-width: 5.6rem;
-  flex-shrink: 0;
-  color: rgba(253, 186, 116, 0.98);
-  font-size: 0.73rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-}
-
-.status-negative-desc {
-  color: rgba(229, 231, 235, 0.92);
-  font-size: 0.7rem;
-  line-height: 1.35;
-}
-
-/* Heart container glow effect */
-.stat-container-heart {
-  filter: drop-shadow(0 0 6px rgba(180, 20, 20, 0.4));
-  transition: filter 0.3s ease;
-}
-.stat-container-heart:hover {
-  filter: drop-shadow(0 0 12px rgba(200, 30, 30, 0.7));
-}
-
-/* Mana container glow effect */
-.stat-container-mana {
-  filter: drop-shadow(0 0 6px rgba(50, 50, 200, 0.4));
-  transition: filter 0.3s ease;
-}
-.stat-container-mana:hover {
-  filter: drop-shadow(0 0 12px rgba(60, 60, 230, 0.7));
-}
-
 .player-detail-modal {
   display: grid;
   grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
@@ -13103,6 +15722,7 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-portrait-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -13110,9 +15730,20 @@ onBeforeUnmount(() => {
   height: 100%;
   min-width: 0;
   padding-right: 24px;
-  border-right: 1px solid var(--panel-divider);
 }
 
+/* 立绘与资料区之间：竖向渐隐金线 */
+.player-detail-portrait-panel::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--dg-line-strong) 15%, var(--dg-line-strong) 85%, transparent);
+  content: '';
+}
+
+/* 立绘：九宫格金角铁框（与弹窗同一素材）+ 暗色拱顶光晕 */
 .player-detail-portrait-shell {
   position: relative;
   display: flex;
@@ -13123,10 +15754,22 @@ onBeforeUnmount(() => {
   max-width: 100%;
   aspect-ratio: 3 / 5;
   max-height: min(56vh, 34rem);
-  border-radius: 0.5rem;
-  overflow: hidden;
-  border: 1px solid var(--panel-border);
-  background: #1c2220;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 30%, rgba(154, 92, 240, 0.14), transparent 70%),
+    linear-gradient(180deg, #1d1510, #0d0907);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.7);
+}
+
+.player-detail-portrait-frame {
+  position: absolute;
+  z-index: 2;
+  inset: -8px;
+  border-style: solid;
+  border-width: 40px;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
+  pointer-events: none;
 }
 
 .player-detail-portrait-image {
@@ -13143,71 +15786,50 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: rgba(201, 161, 96, 0.25);
+  font-family: var(--dg-font-title);
   font-size: 6rem;
-  font-family: var(--font-heading, inherit);
-  color: rgba(251, 191, 36, 0.22);
 }
 
 .player-detail-nameplate {
-  padding: 8px 0;
+  padding: 6px 0 0;
+  text-align: center;
 }
 
 .player-detail-name {
-  font-family: var(--font-heading, inherit);
-  font-size: 18px;
-  letter-spacing: 0;
-  color: #ece6d8;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85), 0 0 12px rgba(232, 170, 70, 0.25);
 }
 
 .player-detail-subtitle {
-  margin-top: 0.2rem;
-  font-size: 0.75rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: rgba(245, 222, 179, 0.55);
+  margin-top: 0.15rem;
+  color: var(--dg-text-faint);
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
 }
 
 .player-detail-upload-actions {
   display: flex;
+  justify-content: center;
   gap: 0.6rem;
   flex-wrap: wrap;
 }
 
-.player-detail-upload-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 2.5rem;
-  padding: 0.7rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(251, 191, 36, 0.42);
-  background: linear-gradient(180deg, rgba(91, 57, 23, 0.92), rgba(35, 27, 22, 0.96));
-  color: rgba(254, 243, 199, 0.96);
-  transition: all 0.18s ease;
-}
-
-.player-detail-upload-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(252, 211, 77, 0.78);
-  color: rgba(255, 251, 235, 0.98);
-}
-
-.player-detail-upload-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.player-detail-upload-btn--ghost {
-  background: rgba(20, 16, 13, 0.88);
-  border-color: rgba(245, 158, 11, 0.2);
-  color: rgba(245, 222, 179, 0.82);
-}
+.player-detail-upload-btn { min-height: 2.4rem; }
 
 .player-detail-upload-hint {
   margin-top: auto;
-  font-size: 0.76rem;
+  color: var(--dg-text-faint);
+  font-family: var(--dg-font-serif);
+  font-size: 0.74rem;
+  font-style: italic;
   line-height: 1.55;
-  color: rgba(214, 211, 209, 0.7);
+  text-align: center;
 }
 
 .player-detail-data-panel {
@@ -13220,209 +15842,150 @@ onBeforeUnmount(() => {
   padding: 0.05rem 0.35rem 0.05rem 0.05rem;
 }
 
+/* 分栏吸顶：底色与弹窗面板一致 */
 .player-detail-tabbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 0 0 0.2rem;
-  background: var(--panel-bg);
+  background: #17110d;
 }
 
-.player-detail-tab,
-.player-detail-subtab {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(180, 83, 9, 0.35);
-  background: rgba(16, 16, 19, 0.9);
-  color: rgba(231, 229, 228, 0.78);
-  transition: all 0.18s ease;
-}
-
-.player-detail-tab {
-  min-height: 2.4rem;
-  padding: 0.55rem 1rem;
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-}
-
-.player-detail-subtab {
-  min-height: 2.15rem;
-  padding: 0.45rem 0.85rem;
-  font-size: 0.76rem;
-}
-
-.player-detail-tab:hover,
-.player-detail-subtab:hover {
-  border-color: rgba(245, 158, 11, 0.62);
-  color: rgba(255, 251, 235, 0.94);
-}
-
-.player-detail-tab--active,
-.player-detail-subtab--active {
-  border-color: rgba(245, 158, 11, 0.75);
-  background:
-    linear-gradient(180deg, rgba(120, 53, 15, 0.86), rgba(32, 28, 25, 0.96)),
-    rgba(12, 12, 14, 0.9);
-  color: rgba(254, 243, 199, 0.98);
-  box-shadow: 0 0 18px rgba(245, 158, 11, 0.14);
-}
-
-.player-detail-section {
-  min-width: 0;
-}
+.player-detail-section { min-width: 0; }
 
 .player-detail-section-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
+/* 分区标题：金色标题字体（与 panel-caption 一致） */
 .player-detail-section-title {
-  font-family: var(--font-heading, inherit);
-  font-size: 13px;
-  letter-spacing: 0;
-  color: var(--panel-accent);
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
 }
 
 .player-detail-section-meta {
-  font-size: 0.75rem;
-  color: rgba(245, 222, 179, 0.52);
+  padding: 1px 9px;
+  border: 1px solid rgba(201, 161, 96, 0.4);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2a1f18, #15100c);
+  color: var(--dg-gold);
+  font-family: var(--dg-font-data);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
 }
 
-.player-detail-subtabbar {
-  margin-top: 0.95rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-}
+.player-detail-subtabbar { margin-top: 0.95rem; }
 
+/* ---------- 基础数值：宝石图标 + 凹陷铁槽 ---------- */
 .player-detail-stat-grid {
   margin-top: 0.8rem;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  gap: 0.75rem;
 }
 
 .player-detail-stat-card {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid var(--panel-divider);
-  background: #ffffff03;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 0.85rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid rgba(201, 161, 96, 0.22);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.12));
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
-.player-detail-stat-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: var(--detail-stat-accent, rgba(212, 175, 55, 0.8));
-}
-
-.player-detail-stat-card:nth-child(1) {
-  --detail-stat-accent: rgba(248, 113, 113, 0.9);
-}
-
-.player-detail-stat-card:nth-child(2) {
-  --detail-stat-accent: rgba(96, 165, 250, 0.9);
-}
-
-.player-detail-stat-card:nth-child(3) {
-  --detail-stat-accent: rgba(250, 204, 21, 0.9);
-}
-
-.player-detail-stat-card:nth-child(4) {
-  --detail-stat-accent: rgba(167, 139, 250, 0.9);
+.player-detail-stat-icon {
+  grid-row: 1 / 3;
+  width: 2.8rem;
+  height: 2.8rem;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
 
 .player-detail-stat-label {
-  font-size: 0.72rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: rgba(212, 212, 216, 0.58);
+  color: var(--dg-text-muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
 }
 
 .player-detail-stat-value {
-  font-family: var(--font-heading, inherit);
+  color: var(--dg-text-strong);
+  font-family: var(--dg-font-data);
   font-size: 1.3rem;
-  color: rgba(250, 245, 230, 0.96);
+  font-weight: 700;
+  line-height: 1.25;
 }
 
-.player-detail-stat-value--hp {
-  color: rgba(252, 165, 165, 0.96);
-}
-
-.player-detail-stat-value--mp {
-  color: rgba(147, 197, 253, 0.98);
-}
-
-.player-detail-stat-value--gold {
-  color: rgba(253, 224, 71, 0.98);
-}
-
-.rare-active-skill-card {
-  position: relative;
-}
-
-.rare-active-skill-card::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  border: 1px solid rgba(250, 204, 21, 0.56);
-  box-shadow:
-    0 0 8px rgba(250, 204, 21, 0.38),
-    0 0 18px rgba(245, 158, 11, 0.22);
-  pointer-events: none;
-}
+.player-detail-stat-value--hp { color: #f0a097; }
+.player-detail-stat-value--mp { color: #a3c4f5; }
+.player-detail-stat-value--gold { color: var(--dg-coin); }
 
 .player-detail-empty {
   margin-top: 0.8rem;
-  border: 0;
-  background: none;
   padding: 0.95rem 1rem;
-  color: rgba(212, 212, 216, 0.72);
+  color: var(--dg-text-faint);
+  font-family: var(--dg-font-serif);
+  font-style: italic;
+  letter-spacing: 0.06em;
   text-align: center;
 }
 
+/* ---------- 负面状态：诅咒印记条目 ---------- */
 .player-detail-negative-list {
   margin-top: 0.8rem;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.6rem;
 }
 
 .player-detail-negative-item {
-  border-radius: 4px;
-  border-left: 2px solid #b17771;
-  background: #b177710b;
-  padding: 0.85rem 0.95rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(154, 92, 240, 0.32);
+  border-radius: 2px;
+  background:
+    radial-gradient(ellipse 60% 120% at 0% 50%, rgba(154, 92, 240, 0.14), transparent 70%),
+    rgba(20, 12, 24, 0.6);
+}
+
+.player-detail-negative-icon {
+  grid-row: 1 / 3;
+  width: 2.2rem;
+  height: 2.2rem;
+  margin-top: 0.1rem;
+  object-fit: contain;
 }
 
 .player-detail-negative-name {
-  color: rgba(253, 186, 116, 0.98);
-  font-size: 0.84rem;
-  font-weight: 700;
+  color: #d9a6f2;
+  font-family: var(--dg-font-title);
+  font-size: 0.98rem;
+  letter-spacing: 0.08em;
 }
 
 .player-detail-negative-desc {
-  margin-top: 0.35rem;
-  color: rgba(228, 228, 231, 0.88);
+  margin-top: 0.3rem;
+  color: var(--dg-text);
   font-size: 0.8rem;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
+/* ---------- 背包 ---------- */
 .player-detail-bag-list {
   margin-top: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.7rem;
 }
 
 .player-detail-bag-card {
@@ -13430,16 +15993,10 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(135deg, rgba(25, 21, 18, 0.92), rgba(10, 10, 12, 0.96));
-  padding: 0.95rem 1rem;
+  padding: 0.9rem 1rem;
 }
 
-.player-detail-bag-card--consumable {
-  border-color: rgba(59, 130, 246, 0.22);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.78), rgba(28, 25, 23, 0.94));
-}
+.dungeon-modal .dungeon-modal-body .player-detail-bag-card--consumable.panel-item { border-left: 2px solid rgba(79, 143, 224, 0.55); }
 
 .player-detail-bag-copy {
   min-width: 0;
@@ -13454,15 +16011,16 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-bag-name {
-  color: rgba(253, 230, 138, 0.96);
-  font-family: var(--font-heading, inherit);
-  font-size: 0.95rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
   line-height: 1.35;
 }
 
 .player-detail-bag-desc {
   margin-top: 0.4rem;
-  color: rgba(231, 229, 228, 0.84);
+  color: var(--dg-text);
   font-size: 0.82rem;
   line-height: 1.6;
   white-space: pre-wrap;
@@ -13477,23 +16035,18 @@ onBeforeUnmount(() => {
 }
 
 .player-detail-bag-tag {
-  border-radius: 999px;
-  padding: 0.24rem 0.58rem;
+  border: 1px solid rgba(201, 161, 96, 0.3);
+  border-radius: 2px;
+  padding: 0.18rem 0.55rem;
+  font-family: var(--dg-font-data);
   font-size: 0.68rem;
   line-height: 1.3;
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .player-detail-bag-tag--heal {
-  border-color: rgba(16, 185, 129, 0.38);
-  background: rgba(6, 78, 59, 0.34);
-  color: rgba(167, 243, 208, 0.96);
-}
-
-.player-detail-bag-tag--cleanse {
-  border-color: rgba(96, 165, 250, 0.38);
-  background: rgba(30, 41, 59, 0.54);
-  color: rgba(191, 219, 254, 0.96);
+  border-color: rgba(127, 179, 106, 0.5);
+  background: rgba(40, 64, 32, 0.45);
+  color: #bfe0ae;
 }
 
 .player-detail-bag-actions {
@@ -13504,80 +16057,59 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.player-detail-bag-btn {
-  min-width: 4.5rem;
-  min-height: 2.15rem;
-  padding: 0.45rem 0.8rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(245, 158, 11, 0.38);
-  background: rgba(18, 12, 10, 0.92);
-  color: rgba(254, 243, 199, 0.92);
-  font-size: 0.76rem;
-  transition: all 0.18s ease;
-}
+.player-detail-bag-btn { min-width: 4.5rem; min-height: 2.15rem; }
 
-.player-detail-bag-btn:hover:not(:disabled) {
-  border-color: rgba(252, 211, 77, 0.72);
-  color: rgba(255, 251, 235, 0.98);
-}
-
-.player-detail-bag-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.player-detail-bag-btn--danger {
-  border-color: rgba(248, 113, 113, 0.32);
-  color: rgba(254, 202, 202, 0.92);
-}
-
-.player-detail-bag-btn--danger:hover:not(:disabled) {
-  border-color: rgba(248, 113, 113, 0.64);
-}
-
+/* ---------- 主角信息 ---------- */
 .player-detail-info-grid {
   margin-top: 0.8rem;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 0.2rem 1.2rem;
 }
 
 .player-detail-info-item {
-  border-bottom: 1px solid var(--panel-divider);
-  padding: 0.85rem 0.95rem;
+  position: relative;
+  padding: 0.75rem 0.2rem;
+}
+
+.player-detail-info-item::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--dg-line), transparent);
+  content: '';
 }
 
 .player-detail-info-label {
+  color: var(--dg-text-faint);
   font-size: 0.72rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: rgba(245, 222, 179, 0.54);
+  letter-spacing: 0.14em;
 }
 
 .player-detail-info-value {
-  margin-top: 0.4rem;
-  color: rgba(245, 245, 244, 0.95);
-  font-size: 0.92rem;
+  margin-top: 0.3rem;
+  color: var(--dg-text-strong);
+  font-family: var(--dg-font-serif);
+  font-size: 0.95rem;
   line-height: 1.55;
   word-break: break-word;
 }
 
-.player-detail-info-value--multiline {
-  white-space: pre-wrap;
-}
-
-.player-detail-info-item--multiline {
-  grid-column: 1 / -1;
-}
+.player-detail-info-value--multiline { white-space: pre-wrap; }
+.player-detail-info-item--multiline { grid-column: 1 / -1; }
 
 @media (max-width: 960px) {
   .player-detail-modal {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .player-detail-portrait-panel { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: start; gap: 12px 20px; height: auto; padding-right: 0; padding-bottom: 20px; border-right: 0; border-bottom: 1px solid var(--panel-divider); }
-  .player-detail-nameplate, .player-detail-upload-actions { grid-column: 2; }
+  .player-detail-portrait-panel { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: start; gap: 12px 20px; height: auto; padding-right: 0; padding-bottom: 20px; }
+  .player-detail-portrait-panel::after { top: auto; right: 0; bottom: 0; left: 0; width: auto; height: 1px; background: linear-gradient(90deg, transparent, var(--dg-line-strong) 15%, var(--dg-line-strong) 85%, transparent); }
+  .player-detail-nameplate, .player-detail-upload-actions { grid-column: 2; text-align: left; justify-content: flex-start; }
   .player-detail-nameplate { padding: 0; }
+  .player-detail-name { text-indent: 0; }
   .player-detail-upload-actions { flex-direction: column; align-items: flex-start; }
   .player-detail-upload-hint { grid-column: 1 / -1; margin: 0; }
   .player-detail-data-panel { max-height: none; overflow-y: visible; }
@@ -13590,6 +16122,8 @@ onBeforeUnmount(() => {
     aspect-ratio: 3 / 4;
     max-height: none;
   }
+
+  .player-detail-portrait-frame { border-width: 28px; inset: -5px; }
 
   .player-detail-stat-grid,
   .player-detail-info-grid {
@@ -13612,7 +16146,26 @@ onBeforeUnmount(() => {
   .player-detail-portrait-shell { aspect-ratio: 3 / 5; }
   .player-detail-tabbar { position: static; }
   .player-detail-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .player-detail-stat-card { padding: 12px; }
+  .player-detail-stat-card { padding: 10px; column-gap: 0.6rem; }
+  .player-detail-stat-icon { width: 2.1rem; height: 2.1rem; }
+}
+
+/* 退出战斗：暗红危险铭牌（与 panel-action--danger 同一语言） */
+.combat-exit-btn {
+  border: 1px solid rgba(192, 80, 63, 0.65);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #3a1d17, #22100c);
+  box-shadow: inset 0 1px 0 rgba(255, 200, 180, 0.12), 0 2px 8px rgba(0, 0, 0, 0.55);
+  color: #ecb4a6;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+}
+
+.combat-exit-btn:hover {
+  border-color: #e07a66;
+  box-shadow: inset 0 1px 0 rgba(255, 200, 180, 0.16), 0 0 10px rgba(192, 80, 63, 0.4);
+  color: #f6cdc2;
 }
 
 /* Combat overlay transition */
@@ -13635,7 +16188,21 @@ onBeforeUnmount(() => {
   padding: 0.5rem 0.6rem;
 }
 
+.relic-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.relic-tooltip-orb {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
 .relic-tooltip-name {
+  min-width: 0;
   color: rgba(255, 255, 255, 0.95);
   font-size: 11px;
   font-weight: 700;
@@ -13649,205 +16216,41 @@ onBeforeUnmount(() => {
   line-height: 1.35;
 }
 
+/* ---------- 地图：无外框整张地图（DungeonModal bare 变体） ---------- */
+/* 宽度设在插槽内容上（GameView 作用域样式无法选中 DungeonModal 内部的面板元素） */
 .map-modal {
+  position: relative;
   display: flex;
+  width: min(96vw, 112rem);
   flex-direction: column;
-  gap: 0.6rem;
-}
-
-.map-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.2rem;
-  padding: 0.25rem 0.2rem 0.55rem;
-  border-bottom: 1px solid rgba(220, 203, 163, 0.18);
-}
-
-.map-hero__eyebrow {
-  color: rgba(226, 205, 160, 0.66);
-  font-family: 'Cinzel', serif;
-  font-size: 0.62rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.map-hero__title {
-  margin-top: 0.35rem;
-  color: rgba(247, 232, 198, 0.98);
-  font-family: 'Cinzel', serif;
-  font-size: clamp(1.2rem, 2vw, 1.6rem);
-}
-
-.map-hero__desc {
-  margin-top: 0.52rem;
-  color: rgba(237, 226, 205, 0.62);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
-
-.map-hero__aside {
-  display: flex;
-  min-width: min(100%, 24rem);
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.55rem;
-}
-
-.map-hero__chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 0.4rem;
-}
-
-.map-hero__chip {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.15rem;
-  min-width: 4.2rem;
-  padding: 0.38rem 0.5rem;
-  border-left: 1px solid rgba(220, 203, 163, 0.16);
-}
-
-.map-hero__chip-label {
-  color: rgba(214, 211, 209, 0.54);
-  font-size: 0.62rem;
-}
-
-.map-hero__chip-value {
-  color: var(--panel-accent);
-  font-family: inherit;
-  font-size: 14px;
-}
-
-.map-legend {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: center;
-  gap: 0.26rem 0.42rem;
-  border: 1px solid rgba(28, 24, 18, 0.22);
-  border-radius: 0.28rem;
-  padding: 0.36rem 0.45rem;
-  background: #e9e4cf;
-  color: #1c1812;
-}
-
-.map-legend__title {
-  grid-column: 1 / -1;
-  color: rgba(28, 24, 18, 0.64);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.map-legend__item {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.12rem;
-  white-space: nowrap;
-}
-
-.map-legend__icon {
-  display: block;
-  width: 1.55rem;
-  height: 1.55rem;
-  flex: 0 0 1.55rem;
-  background-repeat: no-repeat;
-  background-size: 400% 200%;
-}
-
-.map-legend__label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.65rem;
-  font-weight: 600;
-}
-
-.map-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  padding: 0.15rem 0.1rem 0;
-}
-
-.map-summary {
-  color: rgba(245, 222, 179, 0.64);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  line-height: 1.55;
-}
-
-.map-summary-highlight {
-  color: rgba(251, 191, 36, 0.95);
-  font-weight: 700;
-}
-
-.map-summary-divider {
-  margin: 0 0.4rem;
-  color: rgba(245, 222, 179, 0.4);
-}
-
-.map-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.map-control-btn {
-  height: 1.9rem;
-  min-width: 1.9rem;
-  border-radius: 0.35rem;
-  border: 1px solid rgba(220, 203, 163, 0.28);
-  background: rgba(40, 32, 23, 0.72);
-  color: rgba(247, 232, 198, 0.86);
-  font-size: 12px;
-  padding: 0 0.7rem;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.map-control-btn:hover {
-  transform: translateY(-1px);
-  border-color: rgba(247, 232, 198, 0.7);
-  color: rgba(254, 243, 199, 0.98);
-  background: rgba(70, 56, 40, 0.88);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
-}
-
-.map-control-btn--wide {
-  min-width: 5.4rem;
 }
 
 .map-empty {
-  height: 17rem;
-  border: 1px dashed rgba(220, 203, 163, 0.35);
-  background: rgba(18, 14, 10, 0.76);
-  color: rgba(245, 222, 179, 0.55);
   display: flex;
+  height: 17rem;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  border: 1px solid rgba(154, 106, 42, 0.6);
+  background: var(--dg-bg-parchment);
+  color: var(--dg-ink-soft);
+  font-family: var(--dg-font-serif);
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0.08em;
 }
 
+/* 视口即整张地图：没有边框 UI，只用内阴影让边缘自然暗下去 */
 .map-viewport {
   position: relative;
-  height: min(68vh, 42rem);
+  width: 100%;
+  height: min(92vh, 64rem);
   min-height: 24rem;
-  border-radius: 0.45rem;
-  border: 1px solid var(--panel-border);
   background: #e9e4cf;
   overflow: hidden;
   touch-action: none;
   user-select: none;
   cursor: grab;
-  box-shadow: none;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
 }
 
 .map-viewport:active {
@@ -13855,8 +16258,205 @@ onBeforeUnmount(() => {
 }
 
 .map-viewport::before {
-  display: none;
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  box-shadow: inset 0 0 70px rgba(40, 22, 8, 0.6);
+  pointer-events: none;
+  content: '';
 }
+
+/* 楼层信息：固定在视口顶部居中（不随地图缩放与拖动） */
+.map-cartouche {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  left: 50%;
+  display: flex;
+  min-width: 26rem;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 56px 18px;
+  color: var(--dg-ink-text);
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.map-cartouche__floor {
+  color: var(--dg-rubric);
+  font-family: var(--dg-font-title);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  line-height: 1.1;
+  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.55);
+}
+
+.map-cartouche__area {
+  margin-top: 4px;
+  color: var(--dg-ink-text);
+  font-family: var(--dg-font-serif);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+}
+
+.map-cartouche__rule {
+  width: 18rem;
+  height: 14px;
+  margin: 6px 0 4px;
+  background: var(--dg-img-divider) center / 100% auto no-repeat;
+  filter: sepia(0.6) brightness(0.55) contrast(1.3);
+}
+
+.map-cartouche__stats {
+  display: flex;
+  gap: 26px;
+  margin: 0;
+}
+
+.map-cartouche__stats > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.map-cartouche__stats > div + div::before {
+  width: 6px;
+  height: 6px;
+  margin-right: 18px;
+  align-self: center;
+  background: var(--dg-rubric);
+  transform: rotate(45deg);
+  content: '';
+}
+
+.map-cartouche__stats dt {
+  color: var(--dg-ink-soft);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+.map-cartouche__stats dd {
+  margin: 0;
+  color: var(--dg-ink-text);
+  font-family: var(--dg-font-data);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* 图例：固定在视口右上方（不随地图缩放与拖动），墨线双框 */
+.map-legend {
+  position: absolute;
+  z-index: 8;
+  /* 让出右上角的关闭按钮 */
+  top: 4.6rem;
+  right: 1.1rem;
+  display: flex;
+  width: 188px;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px 18px 18px;
+  border: 1px solid rgba(92, 58, 30, 0.55);
+  background: rgba(240, 228, 196, 0.88);
+  box-shadow:
+    inset 0 0 0 3px rgba(240, 228, 196, 0.5),
+    inset 0 0 0 4px rgba(92, 58, 30, 0.35),
+    0 6px 16px rgba(40, 22, 8, 0.25);
+  color: var(--dg-ink-text);
+  pointer-events: none;
+}
+
+.map-legend__title {
+  margin-bottom: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(92, 58, 30, 0.4);
+  color: var(--dg-rubric);
+  font-family: var(--dg-font-title);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  text-align: center;
+}
+
+.map-legend__item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.map-legend__icon {
+  display: block;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  background-repeat: no-repeat;
+  background-size: 400% 200%;
+  opacity: 0.85;
+}
+
+.map-legend__label {
+  color: var(--dg-ink-text);
+  font-family: var(--dg-font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* 缩放控制：固定在视口左下角（右侧留给图例），不随地图移动 */
+.map-controls {
+  position: absolute;
+  z-index: 10;
+  bottom: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.map-controls__zoom {
+  margin-right: 0.3rem;
+  padding: 2px 9px;
+  border: 1px solid rgba(201, 161, 96, 0.5);
+  border-radius: 2px;
+  background: rgba(17, 12, 9, 0.8);
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-data);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.map-control-btn {
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  padding: 0;
+  border: 1px solid rgba(201, 161, 96, 0.6);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a2c22, #16100c 70%);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.5);
+  color: var(--dg-gold);
+  transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.map-control-btn:hover,
+.map-control-btn:focus-visible {
+  outline: none;
+  border-color: var(--dg-gold-bright);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 10px rgba(232, 170, 70, 0.35);
+  color: var(--dg-gold-bright);
+}
+
+.map-control-btn svg { width: 1.05rem; height: 1.05rem; }
 
 .map-canvas {
   position: absolute;
@@ -13882,6 +16482,8 @@ onBeforeUnmount(() => {
   position: absolute;
   width: 62px;
   height: 62px;
+  /* 与缩放反向补偿（见 mapNodeBoost），独立于 hover 时的 transform */
+  scale: var(--map-node-boost, 1);
   border-radius: 50%;
   border: 0;
   display: flex;
@@ -13945,14 +16547,119 @@ onBeforeUnmount(() => {
   box-shadow: none;
 }
 
+/* ---------- 区域门牌：领主房之后选择下一片区域 ---------- */
 .map-room-cell--floor {
-  height: 86px;
-  border-radius: 0.35rem;
-  background: transparent !important;
-  border-color: transparent;
-  color: #3d3427 !important;
-  gap: 0.18rem;
-  padding: 0.35rem 0.3rem;
+  scale: 1;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 0 18px 0 14px;
+  overflow: visible;
+  border: 1px solid rgba(92, 58, 30, 0.7) !important;
+  border-radius: 48px 6px 6px 48px;
+  background:
+    linear-gradient(90deg, rgba(240, 226, 192, 0.96), rgba(226, 206, 164, 0.92)) !important;
+  box-shadow:
+    inset 0 0 0 4px rgba(240, 226, 192, 0.9),
+    inset 0 0 0 5px rgba(92, 58, 30, 0.45),
+    0 6px 14px rgba(40, 22, 8, 0.28);
+  color: var(--dg-ink-text) !important;
+  font-family: var(--dg-font-serif);
+  text-align: left;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+
+.map-gate__seal {
+  display: grid;
+  flex: none;
+  width: 60px;
+  height: 60px;
+  place-items: center;
+  border: 2px solid rgba(122, 28, 22, 0.85);
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #a8322a, #6d1510 70%);
+  box-shadow:
+    inset 0 0 0 3px rgba(240, 206, 170, 0.25),
+    0 2px 5px rgba(40, 10, 6, 0.4);
+  color: #f6e2bf;
+  font-family: var(--dg-font-title);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.map-gate__text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.map-gate__text b {
+  overflow: hidden;
+  color: var(--dg-ink-text);
+  font-family: var(--dg-font-title);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.map-gate__text small {
+  color: var(--dg-rubric);
+  font-size: 13px;
+  letter-spacing: 0.3em;
+}
+
+.map-gate__arrow {
+  flex: none;
+  color: rgba(92, 58, 30, 0.55);
+  font-family: Georgia, serif;
+  font-size: 30px;
+  line-height: 1;
+  transition:
+    transform 0.22s ease,
+    color 0.22s ease;
+}
+
+.map-room-cell--floor.map-room-cell--available:hover,
+.map-room-cell--floor.map-room-cell--available:focus-visible {
+  transform: translateX(6px);
+  border-color: rgba(122, 28, 22, 0.9) !important;
+  outline: none;
+  background:
+    linear-gradient(90deg, rgba(246, 234, 204, 0.98), rgba(232, 212, 170, 0.95)) !important;
+  box-shadow:
+    inset 0 0 0 4px rgba(246, 234, 204, 0.95),
+    inset 0 0 0 5px rgba(122, 28, 22, 0.5),
+    0 8px 18px rgba(40, 22, 8, 0.35),
+    0 0 0 3px rgba(168, 50, 42, 0.18);
+}
+
+.map-room-cell--floor.map-room-cell--available:hover .map-gate__arrow,
+.map-room-cell--floor.map-room-cell--available:focus-visible .map-gate__arrow {
+  color: var(--dg-rubric);
+  transform: translateX(4px);
+}
+
+/* 区域选择的路线：更粗的墨线，缓缓流动 */
+.map-links path.map-link--gate {
+  stroke: rgba(92, 58, 30, 0.6);
+  stroke-width: 2.4px;
+  stroke-dasharray: 2 9;
+  stroke-linecap: round;
+  animation: map-gate-flow 1.6s linear infinite;
+}
+
+@keyframes map-gate-flow {
+  to {
+    stroke-dashoffset: -22;
+  }
 }
 
 .map-room-cell--available:hover,
@@ -14029,38 +16736,61 @@ onBeforeUnmount(() => {
 .bond-list {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.4rem;
 }
 
 .bond-row {
+  position: relative;
   display: flex;
   align-items: stretch;
-  gap: 0.9rem;
+  gap: 1.1rem;
   min-width: 0;
-  border-bottom: 1px solid var(--panel-divider);
-  padding: 16px 0;
+  padding: 14px 0;
 }
 
+.bond-row:not(:last-child)::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--dg-line-strong) 15%, var(--dg-line-strong) 85%, transparent);
+  content: '';
+}
+
+/* 头像：小号九宫格金角框 */
 .bond-portrait-frame {
+  position: relative;
   width: clamp(4.9rem, 16vw, 6.3rem);
   min-width: clamp(4.9rem, 16vw, 6.3rem);
   height: clamp(4.9rem, 15vw, 6.3rem);
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid var(--panel-border);
-  background: var(--panel-surface);
+  padding: 0;
+  border: 0;
+  background: linear-gradient(180deg, #1d1510, #0d0907);
+}
+
+.bond-portrait-border {
+  position: absolute;
+  z-index: 2;
+  inset: -5px;
+  border-style: solid;
+  border-width: 26px;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  border-image-repeat: stretch;
+  pointer-events: none;
 }
 
 .bond-portrait-frame--clickable {
   cursor: zoom-in;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+  transition: filter 0.2s ease;
 }
 
-.bond-portrait-frame--clickable:hover {
-  border-color: var(--panel-accent);
+.bond-portrait-frame--clickable:hover { filter: brightness(1.12); }
+
+.bond-portrait-frame--clickable:focus-visible {
+  outline: 2px solid var(--dg-gold);
+  outline-offset: 4px;
 }
 
 .bond-portrait-image {
@@ -14075,10 +16805,9 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(212, 175, 55, 0.88);
-  font-size: 1.3rem;
-  font-family: 'MagicBookTitle', 'KaiTi', serif;
-  background: var(--panel-surface);
+  color: var(--dg-gold);
+  font-family: var(--dg-font-title);
+  font-size: 1.6rem;
 }
 
 .bond-affection-wrap {
@@ -14086,68 +16815,87 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.44rem;
+  gap: 0.55rem;
   min-width: 0;
 }
 
 .bond-affection-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: 0.8rem;
 }
 
 .bond-role-name {
-  color: rgba(255, 243, 214, 0.95);
-  font-size: 1rem;
-  letter-spacing: 0;
-  font-family: inherit;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
 }
 
 .bond-affection-value {
-  font-size: 0.9rem;
+  font-family: var(--dg-font-data);
+  font-size: 0.92rem;
   font-weight: 700;
-  font-family: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
-.bond-affection-value--positive {
-  color: rgba(253, 186, 116, 0.95);
-}
+.bond-affection-value--positive { color: #f0b98a; }
+.bond-affection-value--negative { color: #9fcbe8; }
 
-.bond-affection-value--negative {
-  color: rgba(125, 211, 252, 0.96);
-}
-
+/* 好感条：黑铁凹槽 + 每 50 点一道刻度，填充末端嵌一颗宝石 */
 .bond-affection-track {
   position: relative;
-  height: 5px;
-  border-radius: 9999px;
-  overflow: hidden;
-  background: #3b4241;
+  height: 8px;
+  border: 1px solid rgba(201, 161, 96, 0.4);
+  border-radius: 1px;
+  background:
+    linear-gradient(90deg, transparent calc(25% - 1px), rgba(201, 161, 96, 0.35) calc(25% - 1px), rgba(201, 161, 96, 0.35) 25%, transparent 25%),
+    linear-gradient(90deg, transparent calc(50% - 1px), rgba(201, 161, 96, 0.35) calc(50% - 1px), rgba(201, 161, 96, 0.35) 50%, transparent 50%),
+    linear-gradient(90deg, transparent calc(75% - 1px), rgba(201, 161, 96, 0.35) calc(75% - 1px), rgba(201, 161, 96, 0.35) 75%, transparent 75%),
+    linear-gradient(180deg, #0a0705, #1e1610);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.75);
 }
 
 .bond-affection-fill {
+  position: relative;
   height: 100%;
-  border-radius: inherit;
-  transition: width 0.25s ease;
+  transition: width 0.4s ease;
+}
+
+.bond-affection-fill::after {
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--dg-gold-bright);
+  background: radial-gradient(circle at 35% 30%, #fff1dc, var(--bond-gem, #e0954a) 45%, #3a1c08);
+  box-shadow: 0 0 6px var(--bond-gem, #e0954a);
+  transform: translateY(-50%) rotate(45deg);
+  content: '';
 }
 
 .bond-affection-fill--positive {
-  background: #c6ae76;
+  --bond-gem: #e0954a;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 50%, rgba(0, 0, 0, 0.25)), linear-gradient(90deg, #8a4e22, #d99a5a);
 }
 
 .bond-affection-fill--negative {
-  background: #79a4b8;
+  --bond-gem: #6fb4e0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 50%, rgba(0, 0, 0, 0.25)), linear-gradient(90deg, #22506e, #79b6d8);
 }
 
+/* 立绘大图预览：典籍外框 */
 .bond-preview-panel {
   width: min(86vw, 1100px);
   max-height: 90vh;
-  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #716249;
-  background: #151918;
-  box-shadow: 0 28px 90px #000a;
+  border: 1px solid rgba(201, 161, 96, 0.6);
+  border-radius: 2px;
+  background: var(--dg-bg-panel);
+  box-shadow: inset 0 0 0 3px rgba(17, 12, 9, 0.9), inset 0 0 0 4px rgba(201, 161, 96, 0.3), var(--dg-shadow-deep);
 }
 
 .bond-preview-image {
@@ -14155,24 +16903,34 @@ onBeforeUnmount(() => {
   width: 100%;
   max-height: calc(90vh - 3.2rem);
   object-fit: contain;
-  background: #151918;
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(154, 92, 240, 0.12), transparent 70%), #0d0907;
 }
 
 .bond-preview-footer {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
-  border-top: 1px solid #ffffff12;
-  padding: 0.52rem 0.72rem;
-  background: #1a1f1e;
+  padding: 0.55rem 0.8rem;
+  background: linear-gradient(180deg, #221812, #150f0b);
+}
+
+.bond-preview-footer::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--dg-line-strong), transparent);
+  content: '';
 }
 
 .bond-preview-name {
-  color: rgba(255, 243, 214, 0.94);
-  font-size: 0.96rem;
-  font-family: 'MagicBookTitle', 'KaiTi', serif;
-  letter-spacing: 0.03em;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1.1rem;
+  letter-spacing: 0.16em;
 }
 
 .bond-preview-close-btn {
@@ -14180,874 +16938,259 @@ onBeforeUnmount(() => {
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 4px;
-  border: 0;
-  background: transparent;
-  color: #a7b1aa;
   padding: 0;
-  font-size: 0.78rem;
-  transition:
-    border-color 0.2s ease,
-    transform 0.2s ease,
-    color 0.2s ease;
+  border: 1px solid rgba(201, 161, 96, 0.55);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a2c22, #16100c 70%);
+  color: var(--dg-gold);
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .bond-preview-close-btn:hover {
-  border-color: rgba(251, 191, 36, 0.82);
-  color: rgba(254, 240, 138, 0.98);
-  transform: translateY(-1px);
+  border-color: var(--dg-gold-bright);
+  color: var(--dg-gold-bright);
 }
 
-.chest-reward-anchor {
-  position: absolute;
-  left: 51%;
-  top: 60%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.72rem;
-  z-index: 2;
-}
-
-.chest-reward-anchor.is-multi {
-  gap: 4.6rem;
-}
-
+/* 房间完成按钮（神像房等）：与宝箱房一致的主要按钮框 */
 .map-overlay-finish-btn {
   position: absolute;
   left: 50%;
   bottom: clamp(2.5rem, 10vh, 6rem);
   z-index: 98;
-  min-width: 14rem;
+  min-width: 24rem;
   transform: translateX(-50%);
-  border: 1px solid rgba(251, 191, 36, 0.72);
-  border-radius: 0.55rem;
-  background:
-    linear-gradient(180deg, rgba(67, 38, 16, 0.94), rgba(25, 15, 9, 0.96)),
-    rgba(15, 10, 6, 0.94);
-  color: rgba(255, 239, 187, 0.98);
-  padding: 0.7rem 1.25rem;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  border-style: solid;
+  border-width: 0 30px;
+  border-image-source: var(--dg-img-button);
+  border-image-slice: 0 80 fill;
+  border-image-repeat: stretch;
+  background: none;
+  color: var(--dg-gold-bright);
+  padding: 1rem 2rem;
+  font-family: var(--dg-font-title);
+  font-size: 1.3rem;
+  letter-spacing: 0.16em;
   line-height: 1.25;
   text-align: center;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
   pointer-events: auto;
-  box-shadow:
-    0 0 0 1px rgba(255, 243, 199, 0.1),
-    0 8px 24px rgba(0, 0, 0, 0.45),
-    0 0 20px rgba(251, 191, 36, 0.14);
-  transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: filter 0.18s ease;
 }
 
 .map-overlay-finish-btn:hover:not(:disabled),
 .map-overlay-finish-btn:focus-visible {
-  transform: translateX(-50%) translateY(-2px) scale(1.03);
-  border-color: rgba(255, 243, 199, 0.98);
-  background:
-    linear-gradient(180deg, rgba(103, 58, 20, 0.98), rgba(39, 22, 11, 0.98)),
-    rgba(15, 10, 6, 0.96);
-  box-shadow:
-    0 0 0 3px rgba(251, 191, 36, 0.15),
-    0 10px 26px rgba(0, 0, 0, 0.5),
-    0 0 24px rgba(251, 191, 36, 0.25);
+  outline: none;
+  filter: brightness(1.15) drop-shadow(0 0 6px rgba(232, 170, 70, 0.35));
 }
 
 .map-overlay-finish-btn:disabled {
   cursor: wait;
-  opacity: 0.56;
+  filter: grayscale(0.6) brightness(0.7);
 }
 
-.chest-reward-icon {
-  --chest-reward-color: rgba(96, 165, 250, 0.98);
-  --chest-reward-glow-strong: rgba(96, 165, 250, 0.95);
-  --chest-reward-glow-medium: rgba(59, 130, 246, 0.72);
-  --chest-reward-glow-soft: rgba(37, 99, 235, 0.4);
-  width: 6.5rem;
-  height: 6.5rem;
-  color: var(--chest-reward-color);
-  transition:
-    transform 0.2s ease,
-    opacity 0.2s ease,
-    filter 0.2s ease;
-  filter: drop-shadow(0 0 14px var(--chest-reward-glow-medium))
-    drop-shadow(0 0 28px var(--chest-reward-glow-soft))
-    drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
-  position: relative;
-  z-index: 3;
-}
-
-.chest-reward-icon.is-common {
-  --chest-reward-color: rgba(96, 165, 250, 0.98);
-  --chest-reward-glow-strong: rgba(96, 165, 250, 0.95);
-  --chest-reward-glow-medium: rgba(59, 130, 246, 0.72);
-  --chest-reward-glow-soft: rgba(37, 99, 235, 0.4);
-}
-
-.chest-reward-icon.is-rare {
-  --chest-reward-color: rgba(192, 132, 252, 0.98);
-  --chest-reward-glow-strong: rgba(216, 180, 254, 0.95);
-  --chest-reward-glow-medium: rgba(168, 85, 247, 0.72);
-  --chest-reward-glow-soft: rgba(126, 34, 206, 0.42);
-}
-
-.chest-reward-icon.is-legendary {
-  --chest-reward-color: rgba(252, 211, 77, 0.98);
-  --chest-reward-glow-strong: rgba(254, 240, 138, 0.95);
-  --chest-reward-glow-medium: rgba(251, 191, 36, 0.8);
-  --chest-reward-glow-soft: rgba(245, 158, 11, 0.55);
-}
-
-.chest-reward-slot {
-  --pillar-height: 14rem;
-  --launch-x: 0rem;
-  --launch-mid-x: 0rem;
-  --launch-apex-x: 0rem;
-  --chest-reward-color: rgba(96, 165, 250, 0.98);
-  --chest-reward-glow-strong: rgba(96, 165, 250, 0.95);
-  --chest-reward-glow-medium: rgba(59, 130, 246, 0.72);
-  --chest-reward-glow-soft: rgba(37, 99, 235, 0.4);
-  width: 8.1rem;
-  height: 8.9rem;
-  flex: 0 0 8.1rem;
-  position: relative;
-}
-
-.chest-reward-btn {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  border-radius: 9999px;
-  background: transparent;
-  padding: 0.25rem;
-  overflow: visible;
-  animation: chest-reward-float 3.6s ease-in-out infinite;
-  transition:
-    transform 0.2s ease,
-    opacity 0.2s ease;
-}
-
-.chest-reward-slot.is-rare {
-  --pillar-height: 19.6rem;
-  --chest-reward-color: rgba(192, 132, 252, 0.98);
-  --chest-reward-glow-strong: rgba(216, 180, 254, 0.95);
-  --chest-reward-glow-medium: rgba(168, 85, 247, 0.72);
-  --chest-reward-glow-soft: rgba(126, 34, 206, 0.42);
-}
-
-.chest-reward-slot.is-legendary {
-  --pillar-height: 36.4rem;
-  --chest-reward-color: rgba(252, 211, 77, 0.98);
-  --chest-reward-glow-strong: rgba(254, 240, 138, 0.95);
-  --chest-reward-glow-medium: rgba(251, 191, 36, 0.8);
-  --chest-reward-glow-soft: rgba(245, 158, 11, 0.55);
-}
-
-.chest-reward-pillar,
-.chest-reward-ground-ring,
-.chest-reward-dust-ring,
-.chest-reward-particle {
-  position: absolute;
-  pointer-events: none;
-}
-
-.chest-reward-pillar {
-  left: 50%;
-  bottom: 1.1rem;
-  width: 1.35rem;
-  height: var(--pillar-height);
-  transform: translateX(-50%);
-  transform-origin: 50% 100%;
+/* ---------- 宝箱怪掉落：魔典面板 + 稀有度光球 ---------- */
+.mimic-drop-overlay {
   background:
-    linear-gradient(90deg, transparent 0%, var(--chest-reward-glow-medium) 22%, var(--chest-reward-glow-strong) 50%, var(--chest-reward-glow-medium) 78%, transparent 100%),
-    linear-gradient(180deg, transparent 0%, var(--chest-reward-color) 68%, var(--chest-reward-glow-strong) 100%);
-  border-radius: 9999px;
-  filter: blur(0.08rem) drop-shadow(0 0 0.85rem var(--chest-reward-glow-medium));
-  opacity: 0.72;
-  z-index: 0;
-  animation: chest-reward-pillar-pulse 2.4s ease-in-out infinite;
-}
-
-.chest-reward-slot.is-intro .chest-reward-pillar {
-  opacity: 0;
-  animation:
-    chest-reward-pillar-rise 360ms cubic-bezier(0.22, 0.8, 0.28, 1) 450ms both,
-    chest-reward-pillar-pulse 2.4s ease-in-out 810ms infinite;
-}
-
-.chest-reward-ground-ring {
-  left: 50%;
-  bottom: 0.22rem;
-  width: 6.7rem;
-  height: 1.25rem;
-  transform: translateX(-50%);
-  border: 2px solid var(--chest-reward-color);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0.45rem var(--chest-reward-glow-strong),
-    0 0 1.25rem var(--chest-reward-glow-medium),
-    inset 0 0 0.5rem var(--chest-reward-glow-soft);
-  opacity: 0.92;
-  z-index: 1;
-}
-
-.chest-reward-slot.is-intro .chest-reward-ground-ring {
-  opacity: 0;
-  animation: chest-reward-ground-ring-reveal 260ms ease-out 450ms both;
-}
-
-.chest-reward-dust-ring {
-  left: 50%;
-  bottom: 0.05rem;
-  width: 4.1rem;
-  height: 0.92rem;
-  transform: translate(-50%, 0) scale(0.32);
-  border: 2px solid rgba(201, 201, 193, 0.72);
-  border-radius: 50%;
-  box-shadow: 0 0 0.75rem rgba(193, 193, 181, 0.32);
-  opacity: 0;
-  z-index: 2;
-}
-
-.chest-reward-particle {
-  left: 50%;
-  bottom: 2.2rem;
-  width: 0.25rem;
-  height: 0.25rem;
-  border-radius: 50%;
-  background: var(--chest-reward-glow-strong);
-  box-shadow: 0 0 0.45rem var(--chest-reward-glow-strong);
-  --particle-delay: 0s;
-  opacity: 0;
-  z-index: 2;
-  animation: chest-reward-particle-rise 2.2s ease-in-out infinite;
-}
-
-.chest-reward-particle[data-particle='1'] {
-  --particle-x: -1.8rem;
-  --particle-rise: -7rem;
-  --particle-delay: -0.2s;
-}
-
-.chest-reward-particle[data-particle='2'] {
-  --particle-x: 1.6rem;
-  --particle-rise: -9rem;
-  --particle-delay: -0.9s;
-}
-
-.chest-reward-particle[data-particle='3'] {
-  --particle-x: -0.8rem;
-  --particle-rise: -11rem;
-  --particle-delay: -1.45s;
-}
-
-.chest-reward-particle[data-particle='4'] {
-  --particle-x: 2.3rem;
-  --particle-rise: -5.6rem;
-  --particle-delay: -0.55s;
-}
-
-.chest-reward-particle[data-particle='5'] {
-  --particle-x: -2.5rem;
-  --particle-rise: -4.8rem;
-  --particle-delay: -1.85s;
-}
-
-.chest-reward-particle[data-particle='6'] {
-  --particle-x: 0.55rem;
-  --particle-rise: -13rem;
-  --particle-delay: -1.15s;
-}
-
-.chest-reward-particle[data-particle='7'] {
-  --particle-x: -1.2rem;
-  --particle-rise: -8.2rem;
-  --particle-delay: -1.7s;
-}
-
-.chest-reward-slot:not(.is-intro) .chest-reward-particle {
-  opacity: 0.72;
-  animation-delay: var(--particle-delay);
-}
-
-.chest-reward-btn.is-intro {
-  animation:
-    chest-reward-entry 1170ms linear both,
-    chest-reward-float 3.6s ease-in-out 1170ms infinite;
-}
-
-.chest-reward-anchor.is-multi .chest-reward-slot:first-child {
-  --launch-x: 5.1rem;
-  --launch-mid-x: 3.876rem;
-  --launch-apex-x: 1.785rem;
-}
-
-.chest-reward-anchor.is-multi .chest-reward-slot:nth-child(2) {
-  --launch-x: -5.1rem;
-  --launch-mid-x: -3.876rem;
-  --launch-apex-x: -1.785rem;
-}
-
-.chest-reward-slot.is-intro .chest-reward-dust-ring {
-  animation: chest-reward-dust 520ms ease-out 450ms both;
-}
-
-.chest-reward-slot.is-intro .chest-reward-particle {
-  animation-delay: calc(810ms + var(--particle-delay));
-  animation-fill-mode: both;
-}
-
-@keyframes chest-reward-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-0.5rem);
-  }
-}
-
-@keyframes chest-reward-entry {
-  0% {
-    opacity: 0;
-    transform: translate3d(var(--launch-x), -8rem, 0) rotate(-11deg) scale(0.72);
-  }
-
-  7.7% {
-    opacity: 1;
-    transform: translate3d(var(--launch-mid-x), -6rem, 0) rotate(-8deg) scale(0.9);
-  }
-
-  18.5% {
-    opacity: 1;
-    transform: translate3d(var(--launch-apex-x), -15rem, 0) rotate(7deg) scale(1.02);
-  }
-
-  29.2% {
-    transform: translate3d(0, -4rem, 0) rotate(-3deg) scale(1.04);
-  }
-
-  38.5% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) rotate(0deg) scaleX(1.15) scaleY(0.85);
-  }
-
-  52% {
-    transform: translate3d(0, -2.3rem, 0) scaleX(0.92) scaleY(1.06);
-  }
-
-  66.8% {
-    transform: translate3d(0, 0, 0) scaleX(1) scaleY(0.94);
-  }
-
-  77.3% {
-    transform: translate3d(0, -0.78rem, 0) scaleX(0.97) scaleY(1.02);
-  }
-
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes chest-reward-dust {
-  0% {
-    opacity: 0.82;
-    transform: translate(-50%, 0) scale(0.32);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -0.3rem) scale(2.5);
-  }
-}
-
-@keyframes chest-reward-pillar-rise {
-  0% {
-    opacity: 0;
-    transform: translateX(-50%) scaleY(0);
-  }
-
-  100% {
-    opacity: 0.72;
-    transform: translateX(-50%) scaleY(1);
-  }
-}
-
-@keyframes chest-reward-ground-ring-reveal {
-  0% {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.46);
-  }
-
-  100% {
-    opacity: 0.92;
-    transform: translateX(-50%) scale(1);
-  }
-}
-
-@keyframes chest-reward-pillar-pulse {
-  0%,
-  100% {
-    opacity: 0.62;
-  }
-
-  50% {
-    opacity: 0.86;
-  }
-}
-
-@keyframes chest-reward-particle-rise {
-  0%,
-  100% {
-    opacity: 0;
-    transform: translate(-50%, 0) scale(0.4);
-  }
-
-  20% {
-    opacity: 0.8;
-  }
-
-  72% {
-    opacity: 0.64;
-  }
-
-  88% {
-    opacity: 0;
-    transform: translate(calc(-50% + var(--particle-x)), var(--particle-rise)) scale(0.22);
-  }
-}
-
-.chest-reward-btn.is-awaiting-confirm .chest-reward-icon {
-  transform: scale(1.08);
-  filter: drop-shadow(0 0 18px var(--chest-reward-glow-strong))
-    drop-shadow(0 0 34px var(--chest-reward-glow-medium))
-    drop-shadow(0 8px 24px rgba(0, 0, 0, 0.65));
-}
-
-.chest-reward-btn:hover .chest-reward-icon {
-  transform: scale(1.05);
-}
-
-.chest-reward-confirm-hint {
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translate(-50%, 0.35rem);
-  white-space: nowrap;
-  border-radius: 9999px;
-  border: 1px solid rgba(251, 191, 36, 0.55);
-  background: rgba(15, 10, 6, 0.92);
-  color: rgba(255, 235, 170, 0.98);
-  padding: 0.16rem 0.52rem;
-  font-size: 0.7rem;
-  line-height: 1.2;
-  box-shadow:
-    0 0 12px rgba(245, 158, 11, 0.3),
-    0 4px 14px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-}
-
-.chest-reward-btn.is-collected {
-  opacity: 1;
-}
-
-.chest-reward-slot.is-collected .chest-reward-pillar,
-.chest-reward-slot.is-collected .chest-reward-ground-ring,
-.chest-reward-slot.is-collected .chest-reward-particle,
-.chest-reward-slot.is-collected .chest-reward-dust-ring {
-  opacity: 0;
-}
-
-.chest-reward-btn.is-collected .chest-reward-icon {
-  opacity: 0;
-  transform: scale(0.82);
-  filter: drop-shadow(0 0 8px var(--chest-reward-glow-medium))
-    drop-shadow(0 0 16px var(--chest-reward-glow-soft))
-    drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+    radial-gradient(ellipse 70% 70% at 50% 50%, rgba(60, 4, 12, 0.55), transparent 70%),
+    rgba(4, 2, 6, 0.9);
 }
 
 .mimic-drop-panel {
-  transform: scale(1.18);
+  position: relative;
+  width: 100%;
+  max-width: 50rem;
+  border-style: solid;
+  border-width: 36px;
+  border-color: transparent;
+  border-image-source: var(--dg-img-frame);
+  border-image-slice: 120;
+  /* 金线位于切片外侧，外推 0.3 倍框宽让金线压在底色边缘，避免露出空隙 */
+  border-image-outset: 11px;
+  border-image-repeat: stretch;
+  background: var(--dg-bg-panel);
+  background-clip: border-box;
+  background-origin: border-box;
+  padding: 0.6rem 0.9rem 0.4rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+}
+
+.mimic-drop-heading {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.mimic-drop-title {
+  font-family: var(--dg-font-title);
+  font-size: 1.8rem;
+  letter-spacing: 0.22em;
+  color: var(--dg-gold-bright);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9), 0 0 12px rgba(200, 30, 40, 0.35);
+}
+
+.mimic-drop-heading::after {
+  content: '';
+  display: block;
+  width: min(20rem, 80%);
+  height: 1.2rem;
+  margin: 0.55rem auto 0;
+  background: var(--dg-img-divider) center / contain no-repeat;
+}
+
+.mimic-drop-subtitle {
+  margin-top: 0.35rem;
+  color: var(--dg-text-muted);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
 }
 
 .mimic-drop-relic {
+  --orb-glow: rgba(255, 150, 60, 0.45);
   width: 100%;
   display: grid;
-  grid-template-columns: 4.6rem minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 1.1rem;
   align-items: center;
-  border: 1px solid rgba(120, 75, 34, 0.62);
-  border-radius: 0.65rem;
+  border: 1px solid rgba(201, 161, 96, 0.38);
   background:
-    linear-gradient(145deg, rgba(26, 15, 8, 0.88), rgba(14, 9, 6, 0.9)),
-    radial-gradient(circle at 18% 10%, rgba(251, 191, 36, 0.14), transparent 58%);
-  padding: 1rem;
+    radial-gradient(circle at 12% 50%, var(--orb-glow), transparent 42%),
+    linear-gradient(180deg, rgba(20, 12, 10, 0.82), rgba(10, 7, 9, 0.9));
+  padding: 0.9rem 1.1rem;
   text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.06);
   transition:
     border-color 0.2s ease,
-    transform 0.2s ease,
     filter 0.2s ease;
+}
+
+.mimic-drop-relic.is-rare {
+  --orb-glow: rgba(150, 80, 255, 0.42);
+}
+
+.mimic-drop-relic.is-legendary {
+  --orb-glow: rgba(255, 190, 60, 0.5);
 }
 
 .mimic-drop-relic:hover,
 .mimic-drop-relic:focus-visible {
-  border-color: rgba(251, 191, 36, 0.72);
-  filter: brightness(1.05);
-  transform: translateY(-1px);
+  border-color: rgba(232, 190, 110, 0.75);
+  filter: brightness(1.06);
   outline: none;
 }
 
-.mimic-drop-icon {
-  width: 4.2rem;
-  height: 4.2rem;
-  color: rgba(252, 211, 77, 0.95);
-  filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.48)) drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+.mimic-drop-orb {
+  display: block;
+  width: 7rem;
+  aspect-ratio: 1;
+  animation: mimic-drop-orb-float 3.6s ease-in-out infinite;
+}
+
+.mimic-drop-orb img {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
 }
 
 .mimic-drop-copy {
   min-width: 0;
 }
 
+.test-relic-orb {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
 .mimic-drop-name {
-  font-family: 'MagicBookTitle', 'KaiTi', serif;
-  color: rgba(251, 191, 36, 0.98);
-  font-size: 1.2rem;
+  font-family: var(--dg-font-title);
+  color: var(--dg-gold-bright);
+  font-size: 1.45rem;
   line-height: 1.25;
 }
 
 .mimic-drop-meta {
-  margin-top: 0.18rem;
-  color: rgba(255, 243, 214, 0.62);
-  font-size: 0.76rem;
+  margin-top: 0.2rem;
+  color: var(--dg-text-muted);
+  font-size: 0.9rem;
 }
 
 .mimic-drop-effect {
-  margin-top: 0.55rem;
-  color: rgba(255, 243, 214, 0.88);
-  font-size: 0.84rem;
-  line-height: 1.5;
+  margin-top: 0.6rem;
+  color: var(--dg-text);
+  font-size: 1.02rem;
+  line-height: 1.55;
 }
 
-.shop-scene-shade {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(3, 3, 5, 0.1), transparent 46%, rgba(1, 1, 3, 0.12));
-  pointer-events: none;
-}
-
-.shop-brand {
-  position: absolute;
-  z-index: 2;
-  top: 5%;
-  left: 1.5%;
+.mimic-drop-actions {
   display: flex;
-  align-items: flex-start;
-  color: #f6dfb1;
-  text-shadow: 0 2px 8px #000;
-}
-
-.shop-brand-compass,
-.shop-panel-compass {
-  flex: none;
-  background: var(--shop-compass-image) center / contain no-repeat;
-}
-
-.shop-brand-compass {
-  width: 105px;
-  height: 105px;
-  margin: -9px -15px 0 -12px;
-}
-
-.shop-brand-copy h2 {
-  margin: 0;
-  font: 48px/1.15 'MagicBookTitle', 'KaiTi', serif;
-  color: #ffdfaa;
-}
-
-.shop-brand-divider {
-  height: 1px;
-  margin: 8px 0 8px;
-  background: linear-gradient(90deg, #ae7c40, rgba(174, 124, 64, 0));
-}
-
-.shop-brand-divider::after {
-  display: block;
-  width: 6px;
-  height: 6px;
-  margin-left: 68%;
-  transform: translateY(-3px) rotate(45deg);
-  border: 1px solid #c59861;
-  content: '';
-}
-
-.shop-brand-name {
-  font: 24px/1.2 'MagicBookTitle', 'KaiTi', serif;
-}
-
-.shop-brand-subtitle {
-  margin-top: 2px;
-  font: 12px/1.3 Georgia, serif;
-  color: #bfa17b;
-}
-
-.shop-rules {
-  position: absolute;
-  z-index: 2;
-  top: 22%;
-  left: 3.2%;
-  width: 220px;
-  padding: 10px 13px 14px;
-  background: rgba(4, 4, 6, 0.13);
-  border-left: 1px solid rgba(185, 132, 66, 0.22);
-  border-top: 1px solid rgba(185, 132, 66, 0.46);
-  border-bottom: 1px solid rgba(185, 132, 66, 0.46);
-  color: #e9ded0;
-  text-shadow: 0 2px 4px #000;
-}
-
-.shop-rules h3 {
-  margin: 0 0 9px;
-  padding-left: 9px;
-  font: 23px/1.3 'MagicBookTitle', 'KaiTi', serif;
-  color: #fff0d0;
-  border-bottom: 1px solid rgba(173, 124, 69, 0.46);
-}
-
-.shop-rules ul {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.shop-rules li {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  white-space: nowrap;
-  font: 17px/1.4 'MagicBookTitle', 'KaiTi', serif;
-}
-
-.shop-rules svg {
-  flex: none;
-  width: 22px;
-  height: 22px;
-  color: #d9a75f;
-}
-
-.shop-dialogue {
-  position: absolute;
-  z-index: 2;
-  left: 14%;
-  bottom: 10%;
-  width: 32%;
-  padding: 30px 37px 19px;
-  background: rgba(5, 5, 7, 0.36);
-  border: 1px solid rgba(175, 123, 59, 0.62);
-  color: #f4eee4;
-  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.12);
-}
-
-.shop-dialogue::after {
-  position: absolute;
-  inset: -15px;
-  background: var(--shop-frame-image) center / 100% 100% no-repeat;
-  pointer-events: none;
-  content: '';
-}
-
-.shop-dialogue-name {
-  position: absolute;
-  top: -18px;
-  left: 32px;
-  min-width: 120px;
-  padding: 2px 22px;
-  background: rgba(11, 9, 9, 0.35);
-  border: 1px solid #875b30;
-  color: #e6b976;
-  text-align: center;
-  font: 23px/1.2 'MagicBookTitle', 'KaiTi', serif;
-}
-
-.shop-dialogue p {
-  margin: 0;
-  font: 19px/1.6 'MagicBookTitle', 'KaiTi', serif;
-  white-space: normal;
-  text-shadow: 0 1px 4px #000, 0 1px 10px #000;
-}
-
-.shop-gold {
-  position: absolute;
-  z-index: 3;
-  top: 2.6%;
-  right: 7.4%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 16px;
-  min-width: 150px;
-  height: 47px;
-  padding: 5px 17px;
-  border: 1px solid #a57843;
-  border-radius: 24px;
-  background: rgba(6, 6, 8, 0.28);
-  box-shadow: inset 0 0 9px rgba(140, 89, 40, 0.16);
-  font: 21px/1 Georgia, serif;
-  color: #f5e8d4;
-}
-
-.shop-gold > svg {
-  flex: none;
-  width: 25px;
-  height: 25px;
-  color: #e9c48c;
-}
-
-.shop-gold span {
-  min-width: 3ch;
-  text-align: right;
-  text-shadow: 0 1px 4px #000;
-}
-
-.shop-layout {
-  position: absolute;
-  z-index: 2;
-  top: 10%;
-  right: 2.4%;
-  width: 46%;
-  height: 84%;
-}
-
-.shop-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  padding: 43px 52px 28px;
-  border: 1px solid rgba(159, 106, 50, 0.76);
-  background: rgba(5, 5, 7, 0.56);
-  box-shadow: inset 0 0 75px rgba(0, 0, 0, 0.12);
-  color: #f3dfb8;
-}
-
-.shop-panel-ornament {
-  position: absolute;
-  inset: -20px;
-  background: var(--shop-frame-image) center / 100% 100% no-repeat;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.shop-panel-head {
-  position: relative;
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 15px;
-  height: 86px;
-  border-bottom: 1px solid rgba(195, 143, 74, 0.58);
-}
-
-.shop-panel-head::after,
-.shop-panel-foot::before {
-  position: absolute;
-  left: 50%;
-  bottom: -4px;
-  width: 7px;
-  height: 7px;
-  transform: translateX(-50%) rotate(45deg);
-  border: 1px solid rgba(222, 167, 91, 0.88);
-  background: rgba(32, 19, 12, 0.55);
-  content: '';
-}
-
-.shop-panel-compass {
-  width: 92px;
-  height: 92px;
-  margin-left: -24px;
-}
-
-.shop-panel-head h2 {
-  margin: 0 0 4px;
-  font: 36px/1.2 'MagicBookTitle', 'KaiTi', serif;
-  color: #f8d39c;
-  text-shadow: 0 0 10px rgba(182, 107, 30, 0.33);
-}
-
-.shop-panel-head span:not(.shop-panel-compass) {
-  font: 12px/1.1 Georgia, serif;
-  color: #bc9161;
-}
-
-.shop-goods-grid {
-  display: grid;
-  flex: 1;
-  min-height: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(180px, 1fr);
-  align-content: start;
-  gap: 16px 18px;
-  overflow-y: auto;
-  margin: 16px -5px 10px;
-  padding: 7px 10px 8px 5px;
-}
-
-.shop-item-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: flex-end;
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  padding: 19px 11px 17px;
-  border: 1px solid rgba(180, 123, 61, 0.42);
-  border-radius: 2px;
-  background: linear-gradient(180deg, rgba(22, 15, 14, 0.16), rgba(2, 2, 4, 0.35));
-  color: #eee5d6;
-  cursor: pointer;
-  transition: transform 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.2rem;
 }
 
-.shop-item-card::after {
-  position: absolute;
-  inset: -7px;
-  background: var(--shop-frame-image) center / 100% 100% no-repeat;
-  opacity: 0.8;
-  pointer-events: none;
-  content: '';
+.mimic-drop-skip {
+  border: 1px solid rgba(201, 161, 96, 0.35);
+  background: rgba(10, 7, 9, 0.6);
+  color: var(--dg-text-muted);
+  font-family: var(--dg-font-title);
+  font-size: 1.05rem;
+  letter-spacing: 0.16em;
+  padding: 0.65rem 1.5rem;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
-.shop-item-card:hover:not(:disabled),
-.shop-item-card:focus-visible {
-  transform: translateY(-2px);
-  filter: brightness(1.24);
+.mimic-drop-skip:hover:not(:disabled),
+.mimic-drop-skip:focus-visible {
+  border-color: rgba(232, 190, 110, 0.7);
+  color: var(--dg-text);
+  outline: none;
 }
 
-.shop-item-card.is-sold {
-  opacity: 0.38;
+.mimic-drop-take {
+  min-width: 10rem;
+  border-style: solid;
+  border-width: 0 24px;
+  border-image-source: var(--dg-img-button);
+  border-image-slice: 0 80 fill;
+  border-image-repeat: stretch;
+  background: none;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1.15rem;
+  letter-spacing: 0.2em;
+  padding: 0.75rem 1.2rem;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+  transition: filter 0.18s ease;
+}
+
+.mimic-drop-take:hover:not(:disabled),
+.mimic-drop-take:focus-visible {
+  outline: none;
+  filter: brightness(1.15) drop-shadow(0 0 6px rgba(232, 170, 70, 0.35));
+}
+
+.mimic-drop-skip:disabled,
+.mimic-drop-take:disabled {
   cursor: not-allowed;
+  filter: grayscale(0.6) brightness(0.7);
+}
+
+@keyframes mimic-drop-orb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 .inventory-relic {
   min-width: 0;
-  color: #a6bad8;
+  color: #b8a88c;
 }
 
 .inventory-relic-icon-wrap {
@@ -15061,19 +17204,26 @@ onBeforeUnmount(() => {
 
 .inventory-relic-icon-wrap::before {
   position: absolute;
-  inset: 2px;
-  border: 1px solid currentColor;
+  inset: -6px;
   border-radius: 50%;
-  opacity: 0.25;
-  box-shadow: 0 0 10px currentColor, inset 0 0 10px currentColor;
+  background: radial-gradient(closest-side, currentColor, transparent);
+  opacity: 0.32;
   content: '';
 }
 
+/* 圣遗物光球（按稀有度），与宝箱房共用 */
 .inventory-relic-icon {
-  width: 36px;
-  height: 36px;
-  stroke-width: 1.1;
-  filter: drop-shadow(0 0 6px currentColor);
+  position: relative;
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.6));
+  transition: transform 0.2s ease;
+}
+
+.inventory-relic:hover .inventory-relic-icon,
+.inventory-relic:focus-visible .inventory-relic-icon {
+  transform: translateY(-2px) scale(1.05);
 }
 
 .inventory-relic-count {
@@ -15091,367 +17241,19 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 3em;
   margin-top: 6px;
-  font: 11px/1.5 var(--font-heading);
+  color: var(--dg-text);
+  font: 12px/1.5 var(--dg-font-title);
+  letter-spacing: 0.04em;
   text-align: center;
   overflow-wrap: anywhere;
 }
 
-.shop-item-icon-wrap {
-  position: relative;
-  display: grid;
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-  place-items: center;
-  color: #a6bad8;
-}
-
-.shop-item-icon-wrap::before {
-  position: absolute;
-  width: 118px;
-  height: 118px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  opacity: 0.25;
-  box-shadow: 0 0 14px currentColor, inset 0 0 14px currentColor;
-  content: '';
-}
-
-.inventory-relic.is-rare,
-.shop-item-card.is-rare .shop-item-icon-wrap {
+.inventory-relic.is-rare {
   color: #c59dbd;
 }
 
-.inventory-relic.is-legendary,
-.shop-item-card.is-legendary .shop-item-icon-wrap {
+.inventory-relic.is-legendary {
   color: #e7bb76;
-}
-
-.shop-item-icon {
-  width: 79px;
-  height: 79px;
-  stroke-width: 1.1;
-  filter: drop-shadow(0 0 13px currentColor);
-}
-
-.shop-item-count {
-  position: absolute;
-  right: 3px;
-  bottom: 8px;
-  font: 16px/1 Georgia, serif;
-  color: #f4ede1;
-}
-
-.shop-item-name {
-  flex: none;
-  width: 100%;
-  display: grid;
-  height: 2.8em;
-  margin: 4px 0 8px;
-  padding: 0 2px;
-  place-items: center;
-  font: 15px/1.25 'MagicBookTitle', 'KaiTi', serif;
-  text-align: center;
-  overflow-wrap: anywhere;
-  text-shadow: 0 1px 4px #000;
-}
-
-.shop-item-price {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 78%;
-  height: 34px;
-  border: 1px solid rgba(184, 132, 65, 0.62);
-  border-radius: 2px;
-  background: rgba(12, 9, 7, 0.23);
-  color: #e8bb7b;
-  font: 16px/1 Georgia, serif;
-}
-
-.shop-item-price svg {
-  width: 18px;
-  height: 18px;
-}
-
-.shop-item-confirm-hint {
-  position: absolute;
-  z-index: 1;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: 90%;
-  padding: 4px 8px;
-  border: 1px solid #d5ac74;
-  background: #0c0a09;
-  color: #f8dab0;
-  font: 12px/1.2 'MagicBookTitle', 'KaiTi', serif;
-  pointer-events: none;
-}
-
-.shop-empty {
-  grid-column: 1 / -1;
-  align-self: center;
-  text-align: center;
-  font: 22px/1.5 'MagicBookTitle', 'KaiTi', serif;
-  color: #c3a987;
-}
-
-.shop-panel-foot {
-  position: relative;
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 20px;
-  height: 84px;
-  padding: 5px 38px 17px 0;
-  border-top: 1px solid rgba(195, 143, 74, 0.58);
-}
-
-.shop-panel-foot::before {
-  top: -4px;
-  bottom: auto;
-}
-
-.shop-rob-btn,
-.shop-exit-btn {
-  position: relative;
-  z-index: 1;
-  height: 50px;
-  border: 1px solid #9f6e37;
-  border-radius: 3px;
-  background: linear-gradient(90deg, rgba(21, 14, 10, 0.26), rgba(74, 48, 25, 0.44) 50%, rgba(21, 14, 10, 0.26));
-  box-shadow: inset 0 0 10px rgba(154, 99, 43, 0.18);
-  color: #f1c384;
-  font: 23px/1 'MagicBookTitle', 'KaiTi', serif;
-  cursor: pointer;
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.shop-rob-btn {
-  width: 160px;
-}
-
-.shop-exit-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 17px;
-  width: 245px;
-}
-
-.shop-exit-btn svg {
-  width: 22px;
-  height: 22px;
-}
-
-.shop-rob-btn:hover:not(:disabled),
-.shop-exit-btn:hover:not(:disabled) {
-  background-color: rgba(163, 99, 41, 0.18);
-  box-shadow: inset 0 0 12px rgba(213, 153, 79, 0.35);
-}
-
-.shop-rob-btn:disabled,
-.shop-exit-btn:disabled {
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-}
-
-.ui-viewport--compact-portrait .shop-brand {
-  top: 2%;
-  left: 2%;
-}
-
-.ui-viewport--compact-portrait .shop-brand-compass {
-  width: 49px;
-  height: 49px;
-  margin: 0 2px 0 0;
-}
-
-.ui-viewport--compact-portrait .shop-brand-copy h2 {
-  font-size: 25px;
-}
-
-.ui-viewport--compact-portrait .shop-brand-divider,
-.ui-viewport--compact-portrait .shop-brand-subtitle {
-  display: none;
-}
-
-.ui-viewport--compact-portrait .shop-brand-name {
-  font-size: 13px;
-}
-
-.ui-viewport--compact-portrait .shop-gold {
-  top: 2%;
-  right: 3%;
-  min-width: 88px;
-  height: 36px;
-  gap: 5px;
-  padding: 2px 9px;
-  font-size: 15px;
-}
-
-.ui-viewport--compact-portrait .shop-gold > svg {
-  width: 17px;
-  height: 17px;
-}
-
-.ui-viewport--compact-portrait .shop-rules {
-  top: 9%;
-  left: 3%;
-  width: 94%;
-  padding: 4px 7px 6px;
-}
-
-.ui-viewport--compact-portrait .shop-rules h3 {
-  margin-bottom: 3px;
-  font-size: 15px;
-}
-
-.ui-viewport--compact-portrait .shop-rules ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-}
-
-.ui-viewport--compact-portrait .shop-rules li {
-  gap: 3px;
-  font-size: 11px;
-}
-
-.ui-viewport--compact-portrait .shop-rules svg {
-  width: 12px;
-  height: 12px;
-}
-
-.ui-viewport--compact-portrait .shop-dialogue {
-  top: 19%;
-  bottom: auto;
-  left: 5%;
-  width: 90%;
-  padding: 16px 14px 7px;
-}
-
-.ui-viewport--compact-portrait .shop-dialogue-name {
-  top: -13px;
-  left: 13px;
-  min-width: 78px;
-  padding: 1px 6px;
-  font-size: 15px;
-}
-
-.ui-viewport--compact-portrait .shop-dialogue p {
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.ui-viewport--compact-portrait .shop-dialogue p br {
-  display: none;
-}
-
-.ui-viewport--compact-portrait .shop-layout {
-  top: 34%;
-  right: 3%;
-  width: 94%;
-  height: 63%;
-}
-
-.ui-viewport--compact-portrait .shop-panel {
-  padding: 13px 14px 10px;
-}
-
-.ui-viewport--compact-portrait .shop-panel-ornament {
-  inset: -7px;
-}
-
-.ui-viewport--compact-portrait .shop-panel-head {
-  height: 42px;
-  gap: 2px;
-}
-
-.ui-viewport--compact-portrait .shop-panel-compass {
-  width: 47px;
-  height: 47px;
-  margin-left: -8px;
-}
-
-.ui-viewport--compact-portrait .shop-panel-head h2 {
-  margin-bottom: 0;
-  font-size: 23px;
-}
-
-.ui-viewport--compact-portrait .shop-panel-head span:not(.shop-panel-compass) {
-  font-size: 9px;
-}
-
-.ui-viewport--compact-portrait .shop-goods-grid {
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(120px, 1fr);
-  gap: 7px;
-  margin: 8px -3px 0;
-  padding: 4px 5px;
-}
-
-.ui-viewport--compact-portrait .shop-item-card {
-  padding: 9px 3px 8px;
-}
-
-.ui-viewport--compact-portrait .shop-item-card::after {
-  inset: -3px;
-}
-
-.ui-viewport--compact-portrait .shop-item-icon-wrap::before {
-  width: 55px;
-  height: 55px;
-}
-
-.ui-viewport--compact-portrait .shop-item-icon {
-  width: 43px;
-  height: 43px;
-}
-
-.ui-viewport--compact-portrait .shop-item-count {
-  right: 3px;
-  bottom: 0;
-  font-size: 11px;
-}
-
-.ui-viewport--compact-portrait .shop-item-name {
-  margin: 2px 0 4px;
-  font-size: 12px;
-}
-
-.ui-viewport--compact-portrait .shop-item-price {
-  height: 24px;
-  gap: 3px;
-  font-size: 11px;
-}
-
-.ui-viewport--compact-portrait .shop-item-price svg {
-  width: 12px;
-  height: 12px;
-}
-
-.ui-viewport--compact-portrait .shop-panel-foot {
-  height: 52px;
-  gap: 8px;
-  padding: 3px 30px 12px 0;
-}
-
-.ui-viewport--compact-portrait .shop-rob-btn,
-.ui-viewport--compact-portrait .shop-exit-btn {
-  width: 92px;
-  height: 30px;
-  font-size: 16px;
-}
-
-.ui-viewport--compact-portrait .shop-exit-btn svg {
-  width: 14px;
-  height: 14px;
 }
 
 .spring-cleanse-float {
@@ -15461,7 +17263,7 @@ onBeforeUnmount(() => {
   max-width: min(90%, 860px);
   transform: translateX(-50%);
   color: rgba(255, 255, 255, 0.96);
-  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-family: var(--dg-font-title);
   font-size: clamp(1rem, 1.9vw, 1.35rem);
   line-height: 1.45;
   text-align: center;
@@ -15484,7 +17286,7 @@ onBeforeUnmount(() => {
   border-radius: 3px;
   background: rgba(10, 8, 7, 0.88);
   color: rgba(255, 242, 206, 0.98);
-  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-family: var(--dg-font-title);
   font-size: 1.08rem;
   line-height: 1.4;
   text-align: center;
@@ -15515,7 +17317,7 @@ onBeforeUnmount(() => {
   gap: 1rem;
   background: rgba(3, 3, 4, 0.94);
   color: rgba(245, 225, 184, 0.96);
-  font-family: 'MagicBookTitle', 'KaiTi', serif;
+  font-family: var(--dg-font-title);
   font-size: 1.15rem;
   text-align: center;
   text-shadow: 0 1px 5px #000;
@@ -15760,8 +17562,14 @@ onBeforeUnmount(() => {
   touch-action: none;
   user-select: none;
   will-change: transform;
-  transition: transform 0.08s linear;
+  /* 吸附到槽位 / 无效放置弹回：平滑过渡；拖拽与掷落时即时跟随 */
+  transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.3, 1);
   pointer-events: auto;
+}
+
+.idol-dice-draggable.is-dragging,
+.idol-dice-draggable.is-casting {
+  transition: none;
 }
 
 .idol-dice-draggable:active {
@@ -15770,11 +17578,69 @@ onBeforeUnmount(() => {
 
 .idol-dice-draggable.is-locked {
   cursor: default;
-  opacity: 0.88;
 }
 
 .idol-dice-draggable--second {
   z-index: 2;
+}
+
+.idol-dice-body {
+  transform-origin: 50% 60%;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
+  transition:
+    transform 0.22s ease,
+    filter 0.22s ease;
+}
+
+/* 拖起：抬高 + 投影拉远 */
+.idol-dice-draggable.is-dragging .idol-dice-body {
+  transform: scale(1.12) rotate(-3deg);
+  filter: drop-shadow(0 22px 18px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 14px rgba(255, 226, 150, 0.45));
+}
+
+/* 已放入槽位：轻微浮动 */
+.idol-dice-draggable.is-placed:not(.is-dragging) .idol-dice-body {
+  animation: idol-dice-hover 2.8s ease-in-out infinite;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 12px rgba(255, 236, 180, 0.55));
+}
+
+/* 掷落：从高处旋转落下、触地回弹 */
+.idol-dice-draggable.is-casting .idol-dice-body {
+  animation: idol-dice-cast 0.9s cubic-bezier(0.3, 0.6, 0.4, 1) var(--cast-delay, 0ms) both;
+}
+
+/* 揭示点数：一圈光环 */
+.idol-dice-reveal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 236, 170, 0.9);
+  box-shadow:
+    0 0 18px rgba(255, 220, 140, 0.7),
+    inset 0 0 18px rgba(255, 220, 140, 0.45);
+  translate: -50% -50%;
+  pointer-events: none;
+  animation: idol-ring-out 0.7s ease-out both;
+}
+
+.idol-scene--black .idol-dice-reveal {
+  border-color: rgba(255, 120, 130, 0.9);
+  box-shadow:
+    0 0 18px rgba(220, 40, 70, 0.7),
+    inset 0 0 18px rgba(220, 40, 70, 0.45);
+}
+
+/* 供奉：放入槽位的骰子化光升起 */
+.idol-scene.is-offering .idol-dice-draggable.is-placed .idol-dice-body {
+  animation: idol-dice-offer 1.1s cubic-bezier(0.5, 0, 0.7, 0.4) both;
+}
+
+.idol-scene.is-offering .idol-dice-draggable:not(.is-placed) .idol-dice-body {
+  opacity: 0;
+  transition: opacity 0.4s ease;
 }
 
 .idol-overlay-actions {
@@ -15803,24 +17669,30 @@ onBeforeUnmount(() => {
   transform: translateY(-2px) scale(1.03);
 }
 
+/* 次要按钮：与主要按钮框同一字体，深底细金边 */
 .idol-leave-btn {
-  min-width: 9.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  border-radius: 0.55rem;
-  background: rgba(6, 7, 12, 0.72);
-  color: rgba(255, 255, 255, 0.84);
-  padding: 0.7rem 1.05rem;
-  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
-  font-size: 0.84rem;
-  font-weight: 650;
+  min-width: 13rem;
+  border: 1px solid rgba(201, 161, 96, 0.55);
+  background: rgba(10, 7, 9, 0.78);
+  color: var(--dg-text);
+  padding: 0.85rem 1.4rem;
+  font-family: var(--dg-font-title);
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
   line-height: 1.25;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .idol-leave-btn:hover:not(:disabled),
 .idol-leave-btn:focus-visible {
-  border-color: rgba(255, 255, 255, 0.7);
-  background: rgba(24, 25, 34, 0.84);
+  outline: none;
+  border-color: rgba(232, 190, 110, 0.85);
+  color: var(--dg-text-strong, #f3e6cc);
   transform: translateY(-2px);
 }
 
@@ -15856,6 +17728,379 @@ onBeforeUnmount(() => {
   50% {
     opacity: 0.9;
     transform: scale(1.015);
+  }
+}
+
+/* ---------- 神像房：入场 / 神像苏醒 / 槽位点亮 / 供奉 ---------- */
+.idol-scene {
+  container-type: size;
+  --idol-burst: 255, 236, 180;
+  --idol-flash: 255, 248, 225;
+}
+
+.idol-scene--black {
+  --idol-burst: 240, 70, 90;
+  --idol-flash: 150, 10, 30;
+}
+
+/* 背景缓缓推近落定 */
+.idol-scene__bg {
+  animation: idol-bg-settle 1.8s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+/* 与背景同一 16:9 cover 坐标系 */
+.idol-fx {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100cqw, calc(100cqh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  translate: -50% -50%;
+  container-type: size;
+  pointer-events: none;
+}
+
+.idol-statue-light {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.idol-statue-light.is-active {
+  opacity: 1;
+}
+
+.idol-statue-light__beam {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: 0;
+  width: 13cqw;
+  height: calc(var(--y) * 1% + 34%);
+  translate: -50% 0;
+  background: linear-gradient(180deg, rgba(var(--tint), 0.5), rgba(var(--tint), 0.22) 60%, transparent);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent);
+  mix-blend-mode: screen;
+  filter: blur(0.6cqw);
+  transform-origin: 50% 0;
+}
+
+.idol-statue-light.is-active .idol-statue-light__beam {
+  animation:
+    idol-beam-descend 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) both,
+    idol-beam-breathe 4.5s ease-in-out 0.9s infinite;
+}
+
+.idol-statue-light__halo {
+  position: absolute;
+  left: calc(var(--x) * 1%);
+  top: calc(var(--y) * 1%);
+  width: 24cqw;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(var(--tint), 0.55), rgba(var(--tint), 0.16) 55%, transparent);
+  mix-blend-mode: screen;
+}
+
+.idol-statue-light.is-active .idol-statue-light__halo {
+  animation:
+    idol-halo-wake 1s cubic-bezier(0.2, 0.7, 0.3, 1) both,
+    idol-halo-breathe 3.6s ease-in-out 1s infinite;
+}
+
+/* 供奉：光柱与光晕涌起 */
+.idol-scene.is-offering .idol-statue-light.is-active .idol-statue-light__beam {
+  animation: idol-beam-surge 1.4s ease-in both;
+}
+
+.idol-scene.is-offering .idol-statue-light.is-active .idol-statue-light__halo {
+  animation: idol-halo-surge 1.4s ease-in both;
+}
+
+/* 槽位依次浮现 */
+.idol-slot-wrap {
+  animation: idol-slot-enter 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) calc(var(--i, 0) * 130ms + 260ms) both;
+}
+
+.idol-slot-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+/* 放入成功：光环扩散 */
+.idol-slot-burst,
+.idol-slot-reject {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.idol-slot-burst {
+  border: 2px solid rgba(var(--idol-burst), 0.95);
+  box-shadow:
+    0 0 24px rgba(var(--idol-burst), 0.75),
+    inset 0 0 24px rgba(var(--idol-burst), 0.5);
+  animation: idol-ring-out 0.8s ease-out both;
+}
+
+.idol-slot-burst::after {
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(var(--idol-burst), 0.9), transparent);
+  mix-blend-mode: screen;
+  animation: idol-core-flash 0.6s ease-out both;
+  content: '';
+}
+
+/* 放置无效：槽位闪红 */
+.idol-slot-reject {
+  background: radial-gradient(closest-side, rgba(255, 60, 60, 0.55), transparent);
+  box-shadow: 0 0 22px rgba(255, 40, 40, 0.5);
+  animation: idol-reject 0.55s ease-out both;
+}
+
+/* 供奉：已选槽位明亮脉冲 */
+.idol-scene.is-offering .idol-slot.is-selected {
+  animation: idol-slot-offer 1.2s ease-in-out both;
+}
+
+/* 供奉：全屏圣光 / 血光 */
+.idol-offer-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 99;
+  background: radial-gradient(ellipse at 50% 45%, rgba(var(--idol-flash), 0.95), rgba(var(--idol-flash), 0.55) 55%, rgba(var(--idol-flash), 0.25));
+  pointer-events: none;
+  animation: idol-offer-flash 1.5s ease-in both;
+}
+
+.idol-scene--black .idol-offer-flash {
+  mix-blend-mode: multiply;
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 120, 130, 0.9), rgba(120, 0, 20, 0.85) 60%, rgba(20, 0, 4, 0.95));
+}
+
+.idol-actions-enter-active,
+.idol-actions-leave-active {
+  transition:
+    opacity 0.35s ease,
+    translate 0.35s ease;
+}
+
+.idol-actions-enter-from,
+.idol-actions-leave-to {
+  opacity: 0;
+  translate: 0 10px;
+}
+
+@keyframes idol-bg-settle {
+  from {
+    transform: scale(1.06);
+    filter: brightness(0.7);
+  }
+  to {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes idol-slot-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes idol-dice-cast {
+  0% {
+    opacity: 0;
+    transform: translateY(-46vh) rotate(-260deg) scale(0.7);
+  }
+  12% {
+    opacity: 1;
+  }
+  62% {
+    transform: translateY(0) rotate(10deg) scale(1.04, 0.94);
+  }
+  76% {
+    transform: translateY(-5vh) rotate(-4deg) scale(0.98, 1.03);
+  }
+  90% {
+    transform: translateY(0) rotate(2deg) scale(1.02, 0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0) scale(1);
+  }
+}
+
+@keyframes idol-dice-hover {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes idol-dice-offer {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: brightness(1) drop-shadow(0 0 12px rgba(var(--idol-burst), 0.6));
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.12);
+    filter: brightness(1.6) drop-shadow(0 0 22px rgba(var(--idol-burst), 0.9));
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-90px) scale(0.3);
+    filter: brightness(3) drop-shadow(0 0 30px rgba(var(--idol-burst), 1));
+  }
+}
+
+@keyframes idol-ring-out {
+  0% {
+    opacity: 1;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+@keyframes idol-core-flash {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes idol-reject {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  20%,
+  55% {
+    opacity: 1;
+  }
+}
+
+@keyframes idol-slot-offer {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  45% {
+    filter: brightness(1.8) saturate(1.2);
+  }
+}
+
+@keyframes idol-beam-descend {
+  from {
+    opacity: 0;
+    transform: scaleY(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes idol-beam-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+@keyframes idol-beam-surge {
+  0% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(2.4);
+    filter: blur(1.2cqw) brightness(1.8);
+  }
+}
+
+@keyframes idol-halo-wake {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes idol-halo-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.8;
+  }
+}
+
+@keyframes idol-halo-surge {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(2.2);
+    filter: brightness(1.8);
+  }
+}
+
+@keyframes idol-offer-flash {
+  0%,
+  35% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idol-scene *,
+  .idol-scene *::before,
+  .idol-scene *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
 
@@ -15930,8 +18175,8 @@ onBeforeUnmount(() => {
 
 .settings-panel {
   width: 100%;
-  color: #d8dcdb;
-  font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+  color: var(--dg-text);
+  font-family: var(--dg-font-ui);
   letter-spacing: 0;
 }
 
@@ -15943,32 +18188,30 @@ onBeforeUnmount(() => {
   .settings-panel .settings-action-btn { gap: 6px; padding-inline: 7px; font-size: 11px; }
 }
 
+/* ---------- 分栏：与通用 panel-tab 同款（金线 + 紫晶菱形） ---------- */
 .settings-nav {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-bottom: 1px solid #ffffff12;
+  border-bottom: 1px solid var(--dg-line-strong);
+  background: linear-gradient(180deg, transparent, rgba(201, 161, 96, 0.05));
 }
 
 .settings-nav-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
   min-width: 0;
-  border-radius: 0;
   border: 0;
-  border-bottom: 2px solid transparent;
-  padding: 19px 8px 17px;
+  border-radius: 0;
+  padding: 18px 8px 16px;
   background: transparent;
-  color: #86958c;
-  font-family: 'Inter', sans-serif;
+  color: var(--dg-text-muted);
+  font-family: var(--dg-font-ui);
   font-size: 13px;
-  letter-spacing: 0;
-  transition:
-    border-color 0.18s ease,
-    color 0.18s ease,
-    background-color 0.18s ease,
-    transform 0.18s ease;
+  letter-spacing: 0.08em;
+  transition: color 0.18s ease, background-color 0.18s ease;
 }
 
 .settings-nav-btn svg { width: 17px; height: 17px; flex-shrink: 0; stroke-width: 1.6; }
@@ -15976,19 +18219,41 @@ onBeforeUnmount(() => {
 
 .settings-nav-btn:hover,
 .settings-nav-btn:focus-visible {
-  color: #dfd9c9;
-  background: #ffffff04;
-  transform: none;
+  background: rgba(201, 161, 96, 0.05);
+  color: var(--dg-text);
 }
-.settings-nav-btn:focus-visible { outline: 1px solid #c6ae76; outline-offset: -4px; }
+
+.settings-nav-btn:focus-visible { outline: 1px solid var(--dg-gold); outline-offset: -4px; }
 
 .settings-nav-btn.is-active {
-  border-bottom-color: #c6ae76;
-  color: #ddc89a;
-  background: #ffffff03;
-  box-shadow: none;
+  background: linear-gradient(180deg, transparent 40%, rgba(201, 161, 96, 0.1));
+  color: var(--dg-gold-bright);
 }
 
+.settings-nav-btn.is-active::after {
+  position: absolute;
+  right: 18%;
+  bottom: -1px;
+  left: 18%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--dg-gold) 25%, var(--dg-gold-bright) 50%, var(--dg-gold) 75%, transparent);
+  content: '';
+}
+
+.settings-nav-btn.is-active::before {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--dg-gold-bright);
+  background: var(--dg-arcane);
+  box-shadow: 0 0 6px var(--dg-arcane-glow);
+  transform: translateX(-50%) rotate(45deg);
+  content: '';
+}
+
+/* ---------- 分区与设置行 ---------- */
 .settings-section {
   padding: 24px 0 18px;
   border: 0;
@@ -15996,29 +18261,135 @@ onBeforeUnmount(() => {
   background: none;
   box-shadow: none;
 }
-.settings-section > .space-y-4 > .flex { min-height: 56px; margin-block: 0; padding: 12px 0; border-bottom: 1px solid #ffffff0c; }
-.settings-section > .space-y-4 > .flex:last-child { border-bottom: 0; }
-.settings-section .settings-help, .settings-section label { color: #c6ceca; }
-.settings-panel :is(input[type='number'], textarea, .settings-select) { border-color: #414644; border-radius: 5px; background: #1c2121; color: #e1e5e2; letter-spacing: 0; }
-.settings-panel input[type='range'] { accent-color: #c6ae76; cursor: pointer; }
-.settings-panel :is(input, textarea, select):focus-visible { outline: 1px solid #c6ae76; outline-offset: 3px; }
-#settings-content:focus-visible { outline: 1px solid #c6ae7680; outline-offset: 5px; }
+
+.settings-section > .space-y-4 > .flex {
+  position: relative;
+  min-height: 56px;
+  margin-block: 0;
+  padding: 12px 0;
+}
+
+.settings-section > .space-y-4 > .flex:not(:last-child)::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--dg-line) 12%, var(--dg-line) 88%, transparent);
+  content: '';
+}
+
+.settings-section .settings-help,
+.settings-section label { color: var(--dg-text); }
+
+/* 输入框 / 文本框 / 下拉框：凹陷皮革槽 */
+.settings-panel :is(input[type='number'], input[type='text'], textarea, .settings-select) {
+  border: 1px solid rgba(201, 161, 96, 0.3);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 40%), var(--dg-leather);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  color: var(--dg-text);
+  letter-spacing: 0;
+}
+
+.settings-panel :is(input, textarea, select):focus-visible {
+  border-color: rgba(240, 208, 138, 0.7);
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(201, 161, 96, 0.25);
+}
+
+.settings-select {
+  max-width: 100%;
+  height: 36px;
+  padding-right: 2rem;
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--dg-gold) 50%) calc(100% - 15px) 50% / 5px 5px no-repeat,
+    linear-gradient(-45deg, transparent 50%, var(--dg-gold) 50%) calc(100% - 10px) 50% / 5px 5px no-repeat,
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 40%),
+    var(--dg-leather) !important;
+  cursor: pointer;
+}
+
+.settings-select option { background: #1b130e; color: var(--dg-text); }
+
+/* 滑块：金色轨道 + 宝石旋钮 */
+.settings-panel input[type='range'] {
+  height: 18px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-panel input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #0c0806, #2a1d14);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.settings-panel input[type='range']::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border: 1px solid var(--dg-gold-bright);
+  background: radial-gradient(circle at 35% 30%, #f6e2ff, #a26ae8 40%, #3c1866);
+  box-shadow: 0 0 6px var(--dg-arcane-glow), 0 1px 2px rgba(0, 0, 0, 0.6);
+  transform: rotate(45deg);
+  appearance: none;
+}
+
+.settings-panel input[type='range']::-moz-range-track {
+  height: 4px;
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #0c0806, #2a1d14);
+}
+
+.settings-panel input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--dg-gold-bright);
+  border-radius: 0;
+  background: radial-gradient(circle at 35% 30%, #f6e2ff, #a26ae8 40%, #3c1866);
+  transform: rotate(45deg);
+}
+
+#settings-content:focus-visible { outline: 1px solid rgba(201, 161, 96, 0.5); outline-offset: 5px; }
 
 .settings-system-actions {
-  border-top: 1px solid #ffffff12;
-  padding-top: 18px;
+  position: relative;
+  padding-top: 22px;
 }
-.settings-system-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
+.settings-system-actions::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 14px;
+  background: var(--dg-img-divider) center / min(70%, 360px) auto no-repeat;
+  opacity: 0.85;
+  content: '';
+}
+
+.settings-system-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* GM界面按钮独占一行（双倍宽度） */
+.settings-system-grid .settings-action-btn--test { grid-column: 1 / -1; }
+
+/* 分区标题：统一为金色标题字体（原四种颜色并存） */
 .settings-section-title {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 10px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
 }
 
 .settings-section-title::before,
@@ -16026,81 +18397,29 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-.settings-section--text .settings-section-title {
-  color: rgba(232, 194, 111, 0.96);
-}
-
-.settings-section--text .settings-section-title::before,
-.settings-section--text .settings-section-title::after {
-  background: linear-gradient(90deg, transparent, rgba(232, 194, 111, 0.78), transparent);
-}
-
-.settings-section--music .settings-section-title {
-  color: rgba(134, 239, 172, 0.94);
-}
-
-.settings-section--music .settings-section-title::before,
-.settings-section--music .settings-section-title::after {
-  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.75), transparent);
-}
-
-.settings-section--ai .settings-section-title {
-  color: rgba(125, 211, 252, 0.94);
-}
-
-.settings-section--ai .settings-section-title::before,
-.settings-section--ai .settings-section-title::after {
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.74), transparent);
-}
-
-.settings-section--summary .settings-section-title {
-  color: rgba(251, 191, 114, 0.94);
-}
-
-.settings-section--summary .settings-section-title::before,
-.settings-section--summary .settings-section-title::after {
-  background: linear-gradient(90deg, transparent, rgba(251, 146, 60, 0.76), transparent);
-}
-
-.settings-section-title--neutral {
-  color: rgba(212, 175, 55, 0.88);
-}
-
-.settings-section-title--neutral::before,
-.settings-section-title--neutral::after {
-  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4), transparent);
-}
-
-.settings-select {
-  max-width: 100%;
-  height: 36px;
-}
-
+/* ---------- 步进按钮：小号铁扣 ---------- */
 .settings-stepper-btn {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 4px;
-  border: 1px solid #414644;
-  background: #232a27;
-  color: #ddc89a;
+  border: 1px solid rgba(201, 161, 96, 0.5);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2f241c, #1a1310);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.12), 0 1px 2px rgba(0, 0, 0, 0.5);
+  color: var(--dg-gold-bright);
   font-size: 0.92rem;
   line-height: 1;
-  transition:
-    border-color 0.18s ease,
-    color 0.18s ease,
-    background-color 0.18s ease,
-    transform 0.18s ease;
+  transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .settings-stepper-btn:hover,
 .settings-stepper-btn:focus-visible {
   outline: none;
-  border-color: rgba(251, 191, 36, 0.78);
-  color: rgba(254, 240, 138, 0.98);
-  background: rgba(56, 34, 18, 0.92);
-  transform: translateY(-1px);
+  border-color: var(--dg-gold-bright);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.16), 0 0 8px rgba(232, 170, 70, 0.25);
+  color: var(--dg-text-strong);
 }
 
+/* ---------- 开关：黑铁凹槽 + 宝石滑块，开启时紫晶点亮 ---------- */
 .settings-switch {
   display: inline-flex;
   align-items: center;
@@ -16116,97 +18435,83 @@ onBeforeUnmount(() => {
   opacity: 0.48;
 }
 
-.settings-switch:focus-visible {
-  outline: none;
-}
+.settings-switch:focus-visible { outline: none; }
 
 .settings-switch-track {
   position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
-  width: 40px;
+  width: 42px;
   height: 22px;
-  border-radius: 12px;
-  border: 1px solid #505956;
-  background: #2b3331;
-  box-shadow: none;
   overflow: hidden;
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  border-radius: 11px;
+  background: linear-gradient(180deg, #0c0806, #241912);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
 .settings-switch:hover:not(:disabled) .settings-switch-track,
 .settings-switch:focus-visible:not(:disabled) .settings-switch-track {
-  border-color: #c6ae76;
-  box-shadow: 0 0 0 3px #c6ae7618;
+  border-color: var(--dg-gold-bright);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.7), 0 0 0 3px rgba(201, 161, 96, 0.14);
 }
 
-.settings-switch-label {
-  display: none;
-}
-
-.settings-switch-label--off {
-  color: rgba(245, 222, 179, 0.9);
-}
-
-.settings-switch-label--on {
-  color: rgba(212, 175, 55, 0.54);
-}
+.settings-switch-label { display: none; }
+.settings-switch-label--off { color: var(--dg-text-muted); }
+.settings-switch-label--on { color: var(--dg-gold); }
 
 .settings-switch-thumb {
   position: absolute;
-  left: 3px;
   top: 3px;
+  left: 3px;
   width: 14px;
   height: 14px;
+  border: 1px solid #8a6a3c;
   border-radius: 50%;
-  border: 0;
-  background: #8c9892;
-  box-shadow: none;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
+  background: radial-gradient(circle at 35% 30%, #6b5a4c, #2a201a 70%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.settings-switch.is-on .settings-switch-track {
+  border-color: var(--dg-gold);
+  background: linear-gradient(180deg, #1d1028, #3a2058);
 }
 
 .settings-switch.is-on .settings-switch-thumb {
-  transform: translateX(18px);
-  background: #c5e1cc;
-}
-.settings-switch.is-on .settings-switch-track { border-color: #8eae99; background: #335341; }
-
-.settings-switch.is-on .settings-switch-label--off {
-  color: rgba(212, 175, 55, 0.46);
+  border-color: var(--dg-gold-bright);
+  background: radial-gradient(circle at 35% 30%, #f6e2ff, #a26ae8 40%, #3c1866);
+  box-shadow: 0 0 6px var(--dg-arcane-glow);
+  transform: translateX(20px);
 }
 
-.settings-switch.is-on .settings-switch-label--on {
-  color: rgba(255, 243, 214, 0.96);
-}
+.settings-switch.is-on .settings-switch-label--off { color: var(--dg-text-faint); }
+.settings-switch.is-on .settings-switch-label--on { color: var(--dg-text-strong); }
 
+/* ---------- 按钮 ---------- */
 .settings-primary-btn {
-  border-radius: 5px;
-  border: 1px solid #796e51;
-  background: #353126;
-  color: #dfcfab;
-  font-family: 'Inter', sans-serif;
+  border-style: solid;
+  border-width: 0 18px;
+  border-image-source: var(--dg-img-button);
+  border-image-slice: 0 80 fill;
+  border-image-repeat: stretch;
+  border-radius: 0;
+  background: none;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-ui);
   font-size: 0.84rem;
-  padding: 0.52rem 1.04rem;
-  transition:
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
+  letter-spacing: 0.1em;
+  padding: 0.6rem 1rem;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+  transition: filter 0.18s ease;
 }
 
 .settings-primary-btn:hover:not(:disabled),
 .settings-primary-btn:focus-visible {
   outline: none;
-  border-color: rgba(245, 158, 11, 0.8);
-  color: rgba(255, 237, 213, 0.98);
-  transform: translateY(-1px);
-  box-shadow: 0 0 14px rgba(251, 146, 60, 0.22);
+  filter: brightness(1.15) drop-shadow(0 0 6px rgba(232, 170, 70, 0.3));
 }
 
 .settings-primary-btn:disabled {
@@ -16214,6 +18519,7 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
+/* 系统操作按钮：与 panel-action 同款，按语义区分边色 */
 .settings-action-btn {
   display: inline-flex;
   align-items: center;
@@ -16221,82 +18527,67 @@ onBeforeUnmount(() => {
   gap: 9px;
   min-height: 38px;
   min-width: 0;
-  border-radius: 5px;
-  border-width: 1px;
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  border-radius: 2px;
   padding: 9px 12px;
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  letter-spacing: 0;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    box-shadow 0.18s ease,
-    color 0.18s ease;
+  background: linear-gradient(180deg, #2f241c, #1a1310);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.45);
+  color: var(--dg-text);
+  font-family: var(--dg-font-ui);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
 }
+
 .settings-action-btn svg { width: 15px; height: 15px; flex-shrink: 0; stroke-width: 1.6; }
-.settings-action-btn--test { grid-column: 1 / -1; }
 
 .settings-action-btn:hover,
 .settings-action-btn:focus-visible {
   outline: none;
-  transform: translateY(-1px);
+  border-color: var(--dg-gold-bright);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.5), 0 0 8px rgba(232, 170, 70, 0.2);
+  color: var(--dg-text-strong);
 }
 
-.settings-action-btn--gold {
-  border-color: #4a504a;
-  background: #202623;
-  color: #d2d4c8;
-}
-
-.settings-action-btn--gold:hover,
-.settings-action-btn--gold:focus-visible {
-  border-color: rgba(245, 208, 102, 0.72);
-  background: rgba(58, 31, 16, 0.82);
-  color: rgba(255, 243, 214, 0.98);
-  box-shadow: 0 0 14px rgba(212, 175, 55, 0.16);
-}
+.settings-action-btn--gold { color: var(--dg-gold-bright); }
 
 .settings-action-btn--danger {
-  border-color: #724a43;
-  background: #352522;
-  color: #da9d8e;
+  border-color: rgba(192, 80, 63, 0.6);
+  background: linear-gradient(180deg, #3a1d17, #22100c);
+  color: #e6b2a6;
 }
 
 .settings-action-btn--danger:hover,
 .settings-action-btn--danger:focus-visible {
-  border-color: rgba(220, 38, 38, 0.75);
-  background: rgba(127, 29, 29, 0.4);
-  color: rgba(254, 202, 202, 0.98);
-  box-shadow: 0 0 14px rgba(220, 38, 38, 0.14);
+  border-color: #e07a66;
+  box-shadow: inset 0 1px 0 rgba(255, 200, 180, 0.15), 0 0 8px rgba(192, 80, 63, 0.3);
+  color: #f6cdc2;
 }
 
 .settings-action-btn--accent {
-  border-color: #756646;
-  background: #29291f;
-  color: #cab88d;
+  border-color: rgba(154, 92, 240, 0.55);
+  background: linear-gradient(180deg, #2a1c38, #160e20);
+  color: #dcc4f6;
 }
 
 .settings-action-btn--accent:hover,
 .settings-action-btn--accent:focus-visible {
-  border-color: rgba(251, 146, 60, 0.8);
-  background: rgba(120, 53, 15, 0.45);
-  color: rgba(254, 243, 199, 0.98);
-  box-shadow: 0 0 16px rgba(251, 146, 60, 0.18);
+  border-color: #c39af5;
+  box-shadow: inset 0 1px 0 rgba(230, 200, 255, 0.15), 0 0 10px var(--dg-arcane-glow);
+  color: #f1e4ff;
 }
 
 .settings-action-btn--locked {
-  border-color: rgba(115, 115, 115, 0.5);
-  background: rgba(38, 38, 38, 0.72);
-  color: rgba(212, 212, 212, 0.9);
+  border-color: rgba(122, 107, 87, 0.5);
+  background: linear-gradient(180deg, #221c18, #15110e);
+  color: var(--dg-text-faint);
 }
 
 .settings-action-btn--locked:hover,
 .settings-action-btn--locked:focus-visible {
-  border-color: rgba(163, 163, 163, 0.7);
-  background: rgba(64, 64, 64, 0.82);
-  color: rgba(245, 245, 245, 0.98);
-  box-shadow: 0 0 14px rgba(163, 163, 163, 0.12);
+  border-color: rgba(168, 151, 124, 0.7);
+  box-shadow: none;
+  color: var(--dg-text-muted);
 }
 
 .settings-help {
@@ -16696,7 +18987,7 @@ onBeforeUnmount(() => {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
+  gap: 0.6rem;
 }
 
 .magic-hat-hero,
@@ -16705,19 +18996,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.magic-hat-hero {
-  padding: 1.2rem 1.25rem;
-}
-
-.magic-hat-hero__mesh {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 16% 22%, rgba(251, 191, 36, 0.12), transparent 22%),
-    radial-gradient(circle at 82% 30%, rgba(59, 130, 246, 0.11), transparent 20%),
-    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.03) 48%, transparent 100%);
-  pointer-events: none;
-}
+.magic-hat-hero { padding: 0.2rem 0 1rem; }
 
 .magic-hat-hero__content {
   position: relative;
@@ -16727,62 +19006,50 @@ onBeforeUnmount(() => {
   align-items: stretch;
 }
 
-.magic-hat-hero__eyebrow {
-  color: rgba(251, 191, 36, 0.8);
-  font-family: 'Cinzel', serif;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.magic-hat-hero__title {
-  margin-top: 0.4rem;
-  color: rgba(255, 230, 180, 0.98);
-  font-family: 'Cinzel', serif;
-  font-size: clamp(1.45rem, 2vw, 1.95rem);
-  letter-spacing: 0.04em;
-}
-
-.magic-hat-hero__desc {
-  margin-top: 0.55rem;
-  max-width: 34rem;
-  color: rgba(237, 226, 205, 0.76);
-  font-family: 'Microsoft YaHei', sans-serif;
-  font-size: 0.88rem;
-  line-height: 1.65;
-}
-
+/* 概览条：与地图状态条同款的凹陷铁槽 */
 .magic-hat-hero__chips {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
+  border: 1px solid rgba(201, 161, 96, 0.22);
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.12));
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
 .magic-hat-hero__chip {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 4px 16px;
-  border-left: 1px solid var(--panel-divider);
+  padding: 0.65rem 1.1rem;
+}
+
+.magic-hat-hero__chip + .magic-hat-hero__chip::before {
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--dg-line-strong), transparent);
+  content: '';
 }
 
 .magic-hat-hero__chip-label {
-  color: rgba(214, 211, 209, 0.7);
+  color: var(--dg-text-faint);
   font-size: 0.74rem;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
 }
 
 .magic-hat-hero__chip-value {
-  color: var(--panel-accent);
-  font-family: inherit;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-data);
   font-size: 1rem;
-  letter-spacing: 0;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
-.magic-hat-section {
-  padding: 1.1rem 1.15rem 1.2rem;
-}
+.magic-hat-section { padding: 1.1rem 0 1.2rem; }
 
 .magic-hat-section__head {
   display: flex;
@@ -16791,39 +19058,17 @@ onBeforeUnmount(() => {
   gap: 1rem;
 }
 
-.magic-hat-section__head--compact {
-  align-items: center;
-}
-
-.magic-hat-section__title {
-  color: rgba(255, 224, 163, 0.96);
-  font-family: 'Cinzel', serif;
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
-}
+.magic-hat-section__head--compact { align-items: center; }
 
 .magic-hat-section__subtitle {
-  margin-top: 0.35rem;
-  color: rgba(231, 223, 212, 0.63);
-  font-family: 'Microsoft YaHei', sans-serif;
+  margin-top: 0.3rem;
+  color: var(--dg-text-muted);
+  font-family: var(--dg-font-serif);
   font-size: 0.8rem;
   line-height: 1.55;
 }
 
-.magic-hat-section__badge {
-  flex-shrink: 0;
-  padding: 0.5rem 0.86rem;
-  border-radius: 999px;
-  border: 1px solid rgba(212, 175, 55, 0.22);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(120, 53, 15, 0.18)), rgba(0, 0, 0, 0.24);
-  color: rgba(241, 225, 186, 0.84);
-  font-size: 0.74rem;
-  box-shadow: inset 0 1px 0 rgba(255, 236, 201, 0.06);
-}
-
-.magic-hat-growth-section {
-  overflow: visible;
-}
+.magic-hat-growth-section { overflow: visible; }
 
 .magic-hat-growth-actions {
   display: flex;
@@ -16831,77 +19076,62 @@ onBeforeUnmount(() => {
   gap: 0.65rem;
 }
 
-.magic-hat-reset-btn {
-  display: inline-flex;
+.dungeon-modal .dungeon-modal-body .magic-hat-reset-btn.panel-action {
   min-width: 8.8rem;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.15rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(248, 113, 113, 0.36);
-  background: rgba(69, 10, 10, 0.28);
-  color: rgba(254, 202, 202, 0.96);
-  transition:
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    transform 0.18s ease;
-}
-
-.magic-hat-reset-btn:hover:not(:disabled),
-.magic-hat-reset-btn:focus-visible {
-  outline: none;
-  transform: translateY(-1px);
-  border-color: rgba(248, 113, 113, 0.66);
-  background: rgba(127, 29, 29, 0.34);
-}
-
-.magic-hat-reset-btn:disabled {
-  cursor: not-allowed;
-  border-color: rgba(115, 115, 115, 0.3);
-  background: rgba(38, 38, 38, 0.42);
-  color: rgba(214, 211, 209, 0.42);
+  gap: 0.1rem;
 }
 
 .magic-hat-reset-btn span {
-  font-family: 'Cinzel', serif;
-  font-size: 0.86rem;
-  letter-spacing: 0.04em;
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
 }
 
 .magic-hat-reset-btn small {
   font-size: 0.68rem;
   line-height: 1.2;
+  opacity: 0.8;
 }
 
 .magic-hat-growth-subhead {
-  margin-top: 1rem;
+  position: relative;
+  margin-top: 1.1rem;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid rgba(212, 175, 55, 0.12);
   padding-top: 0.9rem;
 }
 
+.magic-hat-growth-subhead::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--dg-line-strong), var(--dg-line) 60%, transparent);
+  content: '';
+}
+
 .magic-hat-growth-subhead__title {
-  color: rgba(255, 229, 184, 0.95);
-  font-family: 'Cinzel', serif;
-  font-size: 0.92rem;
-  letter-spacing: 0.06em;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1rem;
+  letter-spacing: 0.12em;
 }
 
 .magic-hat-growth-subhead__text {
-  color: rgba(231, 223, 212, 0.58);
+  color: var(--dg-text-muted);
   font-size: 0.76rem;
 }
 
+/* ---------- 难度：火漆封印的羊皮纸卡 ---------- */
 .magic-hat-difficulty-layout {
   margin-top: 1rem;
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(15rem, 0.9fr);
-  gap: 0.95rem;
+  gap: 1rem;
 }
 
 .magic-hat-difficulty-grid {
@@ -16915,60 +19145,35 @@ onBeforeUnmount(() => {
   gap: 0.85rem;
 }
 
-.magic-hat-difficulty-card {
+.dungeon-modal .dungeon-modal-body .magic-hat-difficulty-card.panel-item {
   position: relative;
   display: flex;
   flex-direction: column;
-  text-align: left;
   min-height: 7.25rem;
-  padding: 0.9rem 0.95rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(120, 85, 56, 0.62);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 42%), rgba(12, 9, 7, 0.72);
-  color: rgba(237, 226, 205, 0.85);
-  overflow: hidden;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    background-color 0.18s ease;
+  padding: 0.85rem 4.2rem 0.85rem 1rem;
+  overflow: visible;
+  border: 1px solid rgba(154, 106, 42, 0.75);
+  border-radius: 2px;
+  background: var(--dg-bg-parchment);
+  box-shadow: inset 0 0 0 3px rgba(233, 210, 166, 0.5), inset 0 0 0 4px rgba(122, 78, 34, 0.3), 0 2px 6px rgba(0, 0, 0, 0.45);
+  color: var(--dg-ink-text);
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
-.magic-hat-difficulty-card::before {
-  content: none;
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 236, 201, 0.28), transparent);
-  opacity: 0.9;
-}
-
-.magic-hat-difficulty-card::after {
-  content: none;
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.04), transparent 42%);
-  pointer-events: none;
-}
-
-.magic-hat-difficulty-card:hover,
-.magic-hat-difficulty-card:focus-visible {
+.dungeon-modal .dungeon-modal-body .magic-hat-difficulty-card.panel-item:hover:not(:disabled),
+.dungeon-modal .dungeon-modal-body .magic-hat-difficulty-card.panel-item:focus-visible {
   outline: none;
+  background: var(--dg-bg-parchment);
+  filter: brightness(1.04);
   transform: translateY(-2px);
-  border-color: rgba(251, 191, 36, 0.52);
-  box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.24),
-    0 0 0 1px rgba(251, 191, 36, 0.08);
+  box-shadow: inset 0 0 0 3px rgba(233, 210, 166, 0.5), inset 0 0 0 4px rgba(122, 78, 34, 0.3), 0 6px 14px rgba(0, 0, 0, 0.5);
 }
 
-.magic-hat-difficulty-card.is-active {
-  border-color: rgba(251, 191, 36, 0.72);
-  box-shadow:
-    inset 0 0 0 1px rgba(251, 191, 36, 0.16),
-    0 0 0 1px rgba(251, 191, 36, 0.08),
-    0 14px 24px rgba(0, 0, 0, 0.28);
+.dungeon-modal .dungeon-modal-body .magic-hat-difficulty-card.panel-item.is-active {
+  border-color: var(--dg-gold-bright);
+  background: var(--dg-bg-parchment);
+  box-shadow: inset 0 0 0 3px rgba(233, 210, 166, 0.5), inset 0 0 0 4px rgba(154, 106, 42, 0.6), 0 0 0 2px rgba(201, 161, 96, 0.5), 0 0 16px rgba(232, 170, 70, 0.35);
 }
 
 .magic-hat-difficulty-card.is-wide {
@@ -16976,138 +19181,141 @@ onBeforeUnmount(() => {
   min-height: 5.6rem;
 }
 
-.magic-hat-difficulty-card.is-locked {
+.dungeon-modal .dungeon-modal-body .magic-hat-difficulty-card.panel-item.is-locked {
   cursor: not-allowed;
-  border-style: dashed;
-  color: rgba(214, 211, 209, 0.48);
-  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.12), transparent 32%), rgba(24, 24, 27, 0.64);
-  box-shadow: none;
+  filter: grayscale(0.7) brightness(0.75);
   transform: none;
 }
 
-.magic-hat-difficulty-card.is-simple {
-  background: radial-gradient(circle at top right, rgba(34, 197, 94, 0.16), transparent 34%), rgba(12, 9, 7, 0.72);
+/* 火漆印：盖在卡片右上角，选中时略放大 */
+.magic-hat-difficulty-card__seal {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  width: 3.2rem;
+  height: 3.2rem;
+  filter: drop-shadow(0 2px 3px rgba(60, 30, 10, 0.45));
+  transform: translateY(-50%) rotate(-8deg);
+  transition: transform 0.2s ease;
 }
 
-.magic-hat-difficulty-card.is-normal {
-  background: radial-gradient(circle at top right, rgba(148, 163, 184, 0.16), transparent 32%), rgba(12, 9, 7, 0.72);
-}
-
-.magic-hat-difficulty-card.is-hard {
-  background: radial-gradient(circle at top right, rgba(249, 115, 22, 0.18), transparent 34%), rgba(12, 9, 7, 0.72);
-}
-
-.magic-hat-difficulty-card.is-hell {
-  background: radial-gradient(circle at top right, rgba(220, 38, 38, 0.2), transparent 34%), rgba(12, 9, 7, 0.72);
-}
-
-.magic-hat-difficulty-card.is-custom {
-  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.16), transparent 34%), rgba(24, 24, 27, 0.66);
+.magic-hat-difficulty-card.is-active .magic-hat-difficulty-card__seal {
+  transform: translateY(-50%) rotate(-8deg) scale(1.12);
 }
 
 .magic-hat-difficulty-card__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  justify-content: flex-start;
+  gap: 0.6rem;
 }
 
 .magic-hat-difficulty-card__name {
-  color: rgba(255, 239, 205, 0.98);
-  font-family: inherit;
-  font-size: 0.95rem;
-  letter-spacing: 0;
+  color: var(--dg-ink-text);
+  font-family: var(--dg-font-title);
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
 }
 
 .magic-hat-difficulty-card__state {
   flex-shrink: 0;
-  padding: 0.22rem 0.58rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 236, 201, 0.08);
-  background: rgba(0, 0, 0, 0.26);
-  color: rgba(245, 222, 179, 0.76);
-  font-size: 0.68rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: 0.1rem 0.5rem;
+  border: 1px solid rgba(122, 78, 34, 0.45);
+  border-radius: 2px;
+  color: var(--dg-ink-soft);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.magic-hat-difficulty-card.is-active .magic-hat-difficulty-card__state {
+  border-color: var(--dg-rubric);
+  background: rgba(124, 34, 22, 0.1);
+  color: var(--dg-rubric);
 }
 
 .magic-hat-difficulty-card__desc {
-  margin-top: 0.7rem;
-  color: rgba(237, 226, 205, 0.72);
-  font-size: 0.77rem;
+  margin-top: 0.55rem;
+  color: var(--dg-ink-soft);
+  font-family: var(--dg-font-serif);
+  font-size: 0.78rem;
   line-height: 1.65;
 }
 
 .magic-hat-difficulty-card__footer {
   margin-top: auto;
-  padding-top: 0.8rem;
+  padding-top: 0.7rem;
 }
 
 .magic-hat-difficulty-card__footer-text {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.22rem 0.1rem 0;
-  color: rgba(214, 211, 209, 0.54);
+  gap: 0.4rem;
+  color: rgba(92, 58, 30, 0.75);
   font-size: 0.7rem;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
 }
 
 .magic-hat-difficulty-card__footer-text::before {
+  width: 0.36rem;
+  height: 0.36rem;
+  background: var(--dg-rubric);
+  transform: rotate(45deg);
   content: '';
-  width: 0.38rem;
-  height: 0.38rem;
-  border-radius: 999px;
-  background: rgba(251, 191, 36, 0.64);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
 }
 
+/* 效果预览：黑铁皮革底，难度名用标题字体 */
 .magic-hat-preview {
-  padding: 1rem 1rem 1.05rem;
-  border-radius: 6px;
-  border: 1px solid var(--panel-border);
-  background: var(--panel-surface);
+  padding: 1rem 1.05rem 1.1rem;
+  border: 1px solid rgba(201, 161, 96, 0.3);
+  border-radius: 2px;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(154, 92, 240, 0.1), transparent 70%),
+    var(--dg-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.05);
 }
 
 .magic-hat-preview__label {
-  color: rgba(212, 175, 55, 0.72);
+  color: var(--dg-text-faint);
   font-size: 0.72rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
+  letter-spacing: 0.2em;
 }
 
 .magic-hat-preview__difficulty {
-  margin-top: 0.45rem;
-  color: rgba(255, 229, 170, 0.98);
-  font-family: inherit;
-  font-size: 16px;
+  margin-top: 0.35rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1.4rem;
+  letter-spacing: 0.16em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8), 0 0 12px rgba(232, 170, 70, 0.25);
 }
 
 .magic-hat-preview__list {
-  margin-top: 0.95rem;
+  margin-top: 0.85rem;
   display: grid;
-  gap: 0.62rem;
+  gap: 0.6rem;
 }
 
 .magic-hat-preview__item {
   position: relative;
-  padding-left: 1rem;
-  color: rgba(237, 226, 205, 0.78);
+  padding-left: 1.1rem;
+  color: var(--dg-text);
   font-size: 0.82rem;
-  line-height: 1.58;
+  line-height: 1.6;
 }
 
 .magic-hat-preview__item::before {
-  content: '';
   position: absolute;
+  top: 0.55rem;
   left: 0.15rem;
-  top: 0.52rem;
-  width: 0.35rem;
-  height: 0.35rem;
-  border-radius: 999px;
-  background: rgba(251, 191, 36, 0.74);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.28);
+  width: 0.36rem;
+  height: 0.36rem;
+  border: 1px solid var(--dg-gold-bright);
+  background: var(--dg-arcane);
+  transform: rotate(45deg);
+  content: '';
 }
 
+/* ---------- 自定义难度：保留分组语义色，形状统一 ---------- */
 .magic-hat-custom-panel {
   display: grid;
   gap: 0.85rem;
@@ -17115,136 +19323,83 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-custom-group {
-  --custom-accent: 251, 191, 36;
-  --custom-accent-strong: 255, 224, 163;
+  --custom-accent: 201, 161, 96;
+  --custom-accent-strong: 240, 208, 138;
   --custom-panel: 24, 16, 8;
   display: grid;
-  gap: 0.62rem;
-  padding: 0.7rem;
-  border-radius: 0.92rem;
-  border: 1px solid rgba(var(--custom-accent), 0.18);
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(var(--custom-accent), 0.25);
+  border-radius: 2px;
   background:
-    radial-gradient(circle at top right, rgba(var(--custom-accent), 0.12), transparent 38%),
-    rgba(var(--custom-panel), 0.28);
+    radial-gradient(ellipse 60% 80% at 100% 0%, rgba(var(--custom-accent), 0.12), transparent 60%),
+    rgba(var(--custom-panel), 0.35);
 }
 
-.magic-hat-custom-group.is-curse {
-  --custom-accent: 168, 85, 247;
-  --custom-accent-strong: 221, 214, 254;
-  --custom-panel: 32, 18, 43;
-}
-
-.magic-hat-custom-group.is-penalty {
-  --custom-accent: 248, 113, 113;
-  --custom-accent-strong: 254, 202, 202;
-  --custom-panel: 47, 18, 18;
-}
-
-.magic-hat-custom-group.is-boon {
-  --custom-accent: 52, 211, 153;
-  --custom-accent-strong: 187, 247, 208;
-  --custom-panel: 12, 36, 28;
-}
-
-.magic-hat-custom-group.is-basis {
-  --custom-accent: 96, 165, 250;
-  --custom-accent-strong: 191, 219, 254;
-  --custom-panel: 15, 31, 52;
-}
+.magic-hat-custom-group.is-curse { --custom-accent: 154, 92, 240; --custom-accent-strong: 220, 196, 250; --custom-panel: 32, 18, 43; }
+.magic-hat-custom-group.is-penalty { --custom-accent: 192, 80, 63; --custom-accent-strong: 240, 190, 178; --custom-panel: 47, 18, 18; }
+.magic-hat-custom-group.is-boon { --custom-accent: 127, 179, 106; --custom-accent-strong: 200, 230, 186; --custom-panel: 18, 34, 20; }
+.magic-hat-custom-group.is-basis { --custom-accent: 79, 143, 224; --custom-accent-strong: 188, 212, 247; --custom-panel: 15, 28, 48; }
 
 .magic-hat-custom-group__title {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  color: rgba(var(--custom-accent-strong), 0.92);
-  font-family: 'Cinzel', serif;
-  font-size: 0.78rem;
-  letter-spacing: 0;
+  gap: 0.5rem;
+  color: rgb(var(--custom-accent-strong));
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
 }
 
 .magic-hat-custom-group__title::before {
-  content: '';
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 999px;
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 1px solid rgb(var(--custom-accent-strong));
   background: rgb(var(--custom-accent));
-  box-shadow: 0 0 12px rgba(var(--custom-accent), 0.4);
+  box-shadow: 0 0 8px rgba(var(--custom-accent), 0.5);
+  transform: rotate(45deg);
+  content: '';
 }
 
 .magic-hat-custom-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.58rem;
+  gap: 0.55rem;
 }
 
-.magic-hat-custom-option {
+.dungeon-modal .dungeon-modal-body .magic-hat-custom-option.panel-item {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.42rem;
+  gap: 0.4rem;
   min-height: 5.25rem;
-  padding: 0.68rem 0.72rem;
-  text-align: left;
-  border-radius: 0.82rem;
-  border: 1px solid rgba(var(--custom-accent), 0.2);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 46%),
-    rgba(8, 7, 7, 0.68);
-  color: rgba(237, 226, 205, 0.72);
-  cursor: pointer;
+  padding: 0.65rem 0.75rem;
   overflow: hidden;
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    background-color 0.16s ease,
-    box-shadow 0.16s ease,
-    color 0.16s ease;
+  border-color: rgba(var(--custom-accent), 0.25);
+  color: var(--dg-text-muted);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
 }
 
-.magic-hat-custom-option::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at top right, rgba(var(--custom-accent), 0.2), transparent 42%),
-    linear-gradient(135deg, rgba(var(--custom-accent), 0.12), transparent 54%);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.16s ease;
-}
-
-.magic-hat-custom-option:hover,
-.magic-hat-custom-option:focus-visible {
+.dungeon-modal .dungeon-modal-body .magic-hat-custom-option.panel-item:hover:not(:disabled),
+.dungeon-modal .dungeon-modal-body .magic-hat-custom-option.panel-item:focus-visible {
   outline: none;
-  transform: translateY(-1px);
-  border-color: rgba(var(--custom-accent), 0.48);
-  color: rgba(255, 239, 205, 0.94);
-  box-shadow:
-    0 10px 18px rgba(0, 0, 0, 0.18),
-    0 0 0 1px rgba(var(--custom-accent), 0.08);
+  border-color: rgba(var(--custom-accent), 0.6);
+  color: var(--dg-text);
 }
 
-.magic-hat-custom-option.is-active {
-  border-color: rgba(var(--custom-accent), 0.72);
-  background:
-    linear-gradient(180deg, rgba(var(--custom-accent), 0.14), transparent 52%),
-    rgba(var(--custom-panel), 0.58);
-  color: rgba(255, 239, 205, 0.98);
-  box-shadow:
-    inset 0 0 0 1px rgba(var(--custom-accent), 0.18),
-    0 10px 20px rgba(0, 0, 0, 0.22),
-    0 0 18px rgba(var(--custom-accent), 0.12);
-}
-
-.magic-hat-custom-option.is-active::before {
-  opacity: 1;
+.dungeon-modal .dungeon-modal-body .magic-hat-custom-option.panel-item.is-active {
+  border-color: rgba(var(--custom-accent), 0.85);
+  background: linear-gradient(180deg, rgba(var(--custom-accent), 0.16), transparent 60%), rgba(var(--custom-panel), 0.6);
+  box-shadow: inset 0 0 0 1px rgba(var(--custom-accent), 0.2), 0 0 12px rgba(var(--custom-accent), 0.18);
+  color: var(--dg-text-strong);
 }
 
 .magic-hat-custom-option:disabled {
   cursor: wait;
   opacity: 0.7;
-  transform: none;
 }
 
 .magic-hat-custom-option__head {
@@ -17257,49 +19412,55 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-custom-option__name {
-  color: rgba(var(--custom-accent-strong), 0.98);
-  font-family: 'Cinzel', serif;
-  font-size: 0.86rem;
-  letter-spacing: 0;
+  color: rgb(var(--custom-accent-strong));
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
 }
 
 .magic-hat-custom-option__state {
   flex-shrink: 0;
-  padding: 0.15rem 0.42rem;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--custom-accent), 0.34);
-  background: rgba(var(--custom-accent), 0.12);
-  color: rgba(var(--custom-accent-strong), 0.94);
+  padding: 0.1rem 0.42rem;
+  border: 1px solid rgba(var(--custom-accent), 0.45);
+  border-radius: 2px;
+  background: rgba(var(--custom-accent), 0.14);
+  color: rgb(var(--custom-accent-strong));
   font-size: 0.64rem;
 }
 
 .magic-hat-custom-option__desc {
   position: relative;
   z-index: 1;
-  color: rgba(231, 223, 212, 0.7);
-  font-size: 0.72rem;
-  line-height: 1.48;
+  font-size: 0.74rem;
+  line-height: 1.5;
 }
 
+/* 技能点存量：计数铭牌 */
 .magic-hat-points-card {
   display: inline-flex;
   align-items: center;
   gap: 0.8rem;
-  padding: 0.75rem 0.95rem;
-  border-left: 1px solid var(--panel-divider);
+  padding: 0.5rem 0.95rem;
+  border: 1px solid rgba(201, 161, 96, 0.45);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2a1f18, #15100c);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.1);
 }
 
 .magic-hat-points-card__label {
-  color: rgba(214, 211, 209, 0.72);
+  color: var(--dg-text-muted);
   font-size: 0.76rem;
+  letter-spacing: 0.08em;
 }
 
 .magic-hat-points-card__value {
-  color: rgba(255, 224, 163, 0.98);
-  font-family: inherit;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-data);
   font-size: 18px;
+  font-weight: 700;
 }
 
+/* ---------- 成长卡 ---------- */
 .magic-hat-track-grid {
   margin-top: 1rem;
   display: grid;
@@ -17307,40 +19468,25 @@ onBeforeUnmount(() => {
   gap: 0.85rem;
 }
 
-.magic-hat-track-card {
+.dungeon-modal .dungeon-modal-body .magic-hat-track-card.panel-item {
+  --track-accent: 201, 161, 96;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.8rem;
   min-height: 18rem;
   padding: 1rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(120, 85, 56, 0.56);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 26%), rgba(11, 9, 7, 0.76);
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(var(--track-accent), 0.14), transparent 65%),
+    linear-gradient(180deg, rgba(255, 220, 160, 0.035), transparent 40%),
+    var(--dg-surface);
 }
 
-.magic-hat-track-card.is-hp {
-  background: radial-gradient(circle at top right, rgba(244, 63, 94, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
-}
-
-.magic-hat-track-card.is-mp {
-  background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
-}
-
-.magic-hat-track-card.is-gold {
-  background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 30%), rgba(11, 9, 7, 0.76);
-}
-
-.magic-hat-track-card.is-growth-immunity {
-  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
-}
-
-.magic-hat-track-card.is-growth-expansion {
-  background: radial-gradient(circle at top right, rgba(34, 211, 238, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
-}
-
-.magic-hat-track-card.is-growth-world {
-  background: radial-gradient(circle at top right, rgba(168, 85, 247, 0.14), transparent 30%), rgba(11, 9, 7, 0.76);
-}
+.magic-hat-track-card.is-hp { --track-accent: 196, 55, 47; }
+.magic-hat-track-card.is-mp { --track-accent: 79, 143, 224; }
+.magic-hat-track-card.is-gold { --track-accent: 226, 176, 74; }
+.magic-hat-track-card.is-growth-immunity { --track-accent: 127, 179, 106; }
+.magic-hat-track-card.is-growth-expansion { --track-accent: 92, 190, 210; }
+.magic-hat-track-card.is-growth-world { --track-accent: 154, 92, 240; }
 
 .magic-hat-track-card__top {
   display: flex;
@@ -17350,106 +19496,104 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-track-card__kicker {
-  color: rgba(212, 175, 55, 0.72);
+  color: rgb(var(--track-accent));
   font-size: 0.7rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
+  letter-spacing: 0.2em;
 }
 
 .magic-hat-track-card__title {
-  margin-top: 0.3rem;
-  color: rgba(255, 239, 205, 0.98);
-  font-family: inherit;
-  font-size: 1rem;
+  margin-top: 0.25rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1.12rem;
+  letter-spacing: 0.08em;
   line-height: 1.35;
 }
 
+/* 符文字：菱形宝石座 */
 .magic-hat-track-card__rune {
+  position: relative;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 2.15rem;
-  height: 2.15rem;
-  border-radius: 4px;
-  border: 1px solid var(--panel-border);
-  background: #ffffff04;
-  color: rgba(255, 224, 163, 0.95);
-  font-family: 'Cinzel', serif;
-  font-size: 0.95rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 1rem;
+  isolation: isolate;
+}
+
+.magic-hat-track-card__rune::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0.32rem;
+  border: 1px solid var(--dg-gold);
+  background: radial-gradient(circle at 35% 30%, rgba(var(--track-accent), 0.55), #140e0b 75%);
+  box-shadow: 0 0 8px rgba(var(--track-accent), 0.35);
+  transform: rotate(45deg);
+  content: '';
 }
 
 .magic-hat-track-card__stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .magic-hat-track-card__stat {
-  padding: 0.72rem 0.75rem;
-  border-bottom: 1px solid var(--panel-divider);
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(201, 161, 96, 0.18);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .magic-hat-track-card__stat-label {
   display: block;
-  color: rgba(214, 211, 209, 0.62);
-  font-size: 0.7rem;
+  color: var(--dg-text-faint);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
 }
 
 .magic-hat-track-card__stat-value {
   display: block;
-  margin-top: 0.26rem;
-  color: rgba(255, 239, 205, 0.96);
-  font-size: 0.92rem;
+  margin-top: 0.2rem;
+  color: var(--dg-text-strong);
+  font-family: var(--dg-font-data);
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
 .magic-hat-track-card__bar {
-  height: 5px;
+  height: 8px;
   overflow: hidden;
-  border-radius: 999px;
-  background: #3b4241;
+  border: 1px solid rgba(201, 161, 96, 0.4);
+  border-radius: 1px;
+  background: linear-gradient(180deg, #0a0705, #1e1610);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.75);
 }
 
 .magic-hat-track-card__bar-fill {
   height: 100%;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transition: width 0.28s ease;
 }
 
 .magic-hat-track-card__hint {
   min-height: 2.5rem;
-  color: rgba(231, 223, 212, 0.66);
+  color: var(--dg-text-muted);
   font-size: 0.77rem;
   line-height: 1.6;
 }
 
-.magic-hat-track-card__action {
-  margin-top: auto;
+.dungeon-modal .dungeon-modal-body .magic-hat-track-card__action.panel-action {
   width: 100%;
-  display: flex;
-  align-items: center;
+  margin-top: auto;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.82rem 0.95rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(212, 175, 55, 0.38);
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16), rgba(120, 53, 15, 0.24)), rgba(22, 13, 8, 0.72);
-  color: rgba(255, 224, 163, 0.94);
-  font-size: 0.78rem;
-  transition:
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.magic-hat-track-card__action:hover,
-.magic-hat-track-card__action:focus-visible {
-  outline: none;
-  transform: translateY(-2px);
-  border-color: rgba(251, 191, 36, 0.68);
-  box-shadow:
-    0 10px 18px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(251, 191, 36, 0.08);
+  padding: 0.7rem 0.9rem;
 }
 
 .magic-hat-track-card__action-label,
@@ -17458,71 +19602,65 @@ onBeforeUnmount(() => {
 }
 
 .magic-hat-track-card__action-label {
-  color: rgba(255, 233, 185, 0.97);
-  font-family: 'Cinzel', serif;
-  font-size: 0.92rem;
-  letter-spacing: 0.04em;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.98rem;
+  letter-spacing: 0.1em;
 }
 
 .magic-hat-track-card__action-cost {
-  color: rgba(241, 225, 186, 0.72);
+  color: var(--dg-text-muted);
   font-size: 0.72rem;
   text-align: right;
 }
 
-.magic-hat-track-card__action.is-disabled {
-  border-color: rgba(115, 115, 115, 0.42);
-  background: rgba(38, 38, 38, 0.64);
-  color: rgba(214, 211, 209, 0.48);
-  box-shadow: none;
-  transform: none;
-}
-
 .magic-hat-track-card__action.is-disabled .magic-hat-track-card__action-label,
 .magic-hat-track-card__action.is-disabled .magic-hat-track-card__action-cost {
-  color: rgba(214, 211, 209, 0.5);
+  color: var(--dg-text-faint);
 }
 
 @media (max-width: 768px) {
-  .magic-books-hero__chips,
   .magic-hat-hero__chips { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 
   .bond-affection-head { flex-wrap: wrap; gap: 4px 12px; }
-  .magic-books-hero,
-  .map-hero {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .magic-books-grid,
-  .magic-books-skill-grid,
-  .magic-books-slot-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .magic-books-active-panel__head,
-  .map-toolbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .magic-books-tabs {
-    flex-wrap: wrap;
-  }
-
-  .magic-books-tab {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .map-summary {
-    font-size: 0.72rem;
-  }
-
-  .map-viewport,
-  .map-empty {
-    height: min(64vh, 34rem);
+  .map-viewport {
+    height: min(86vh, 40rem);
     min-height: 22rem;
   }
+
+  /* 小屏：楼层信息收窄，图例缩成紧凑两列 */
+  .map-cartouche {
+    min-width: 0;
+    width: 100%;
+    padding: 8px 12px 10px;
+  }
+
+  .map-cartouche__floor { font-size: 22px; }
+  .map-cartouche__area { font-size: 13px; }
+  .map-cartouche__rule { width: 11rem; height: 10px; margin: 4px 0 2px; }
+  .map-cartouche__stats { gap: 10px; }
+  .map-cartouche__stats > div + div::before { margin-right: 8px; }
+  .map-cartouche__stats dt { font-size: 11px; }
+  .map-cartouche__stats dd { font-size: 12px; }
+
+  /* 仍在右上方，位于收窄后的楼层信息与关闭按钮下方 */
+  .map-legend {
+    top: 5.6rem;
+    right: 0.8rem;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    width: auto;
+    gap: 4px 10px;
+    padding: 8px 10px;
+  }
+
+  .map-legend__title { display: none; }
+  .map-legend__item { gap: 5px; }
+  .map-legend__icon { width: 24px; height: 24px; flex-basis: 24px; }
+  .map-legend__label { font-size: 13px; letter-spacing: 0.04em; }
+}
+
+@media (max-width: 768px) {
 
   .magic-hat-hero__content,
   .magic-hat-difficulty-layout,
@@ -17565,15 +19703,6 @@ onBeforeUnmount(() => {
 
   .magic-hat-track-card__action-cost {
     text-align: left;
-  }
-
-  .chest-reward-anchor {
-    left: 46%;
-    top: 60%;
-  }
-
-  .chest-reward-anchor.is-multi {
-    gap: 2.2rem;
   }
 
   .idol-slots-row {

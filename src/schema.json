@@ -130,6 +130,25 @@
         "$ref": "#/$defs/__schema0"
       }
     },
+    "_附魔": {
+      "default": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "minItems": 9,
+      "maxItems": 9,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema1"
+      }
+    },
     "$负面状态": {
       "default": [],
       "type": "array",
@@ -150,7 +169,7 @@
       "maxItems": 2,
       "type": "array",
       "items": {
-        "$ref": "#/$defs/__schema1"
+        "$ref": "#/$defs/__schema2"
       }
     },
     "_携带的魔法书": {
@@ -266,6 +285,164 @@
       "default": "",
       "type": "string"
     },
+    "判定结果": {
+      "default": "",
+      "type": "string"
+    },
+    "$已触发事件": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "$事件操作": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "事件": {
+          "default": "",
+          "type": "string"
+        },
+        "结局": {
+          "default": "",
+          "type": "string"
+        },
+        "阶段": {
+          "default": "",
+          "type": "string",
+          "enum": [
+            "",
+            "待结算",
+            "待操作",
+            "已完成"
+          ]
+        },
+        "数据": {
+          "default": "",
+          "type": "string"
+        }
+      }
+    },
+    "$事件结算通知": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "$战斗修正": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "default": {},
+        "type": "object",
+        "properties": {
+          "来源": {
+            "default": "",
+            "type": "string"
+          },
+          "对象": {
+            "default": "自身",
+            "type": "string",
+            "enum": [
+              "自身",
+              "敌方",
+              "双方"
+            ]
+          },
+          "效果": {
+            "default": "",
+            "type": "string"
+          },
+          "数值": {
+            "default": 0,
+            "type": "number"
+          },
+          "范围": {
+            "default": "下N场",
+            "type": "string",
+            "enum": [
+              "下N场",
+              "本层下N场",
+              "本层",
+              "本层领主战",
+              "本层非领主战"
+            ]
+          },
+          "剩余": {
+            "default": 0,
+            "type": "number"
+          }
+        }
+      }
+    },
+    "$延迟奖励": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "default": {},
+        "type": "object",
+        "properties": {
+          "来源": {
+            "default": "",
+            "type": "string"
+          },
+          "剩余房间": {
+            "default": 0,
+            "type": "number"
+          },
+          "奖励": {
+            "default": "",
+            "type": "string"
+          },
+          "移除状态": {
+            "default": "",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "$临时替换": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "default": {},
+        "type": "object",
+        "properties": {
+          "来源": {
+            "default": "",
+            "type": "string"
+          },
+          "字段": {
+            "default": "_技能",
+            "type": "string",
+            "enum": [
+              "_技能",
+              "$主动"
+            ]
+          },
+          "槽位": {
+            "default": 0,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "原名": {
+            "default": "",
+            "type": "string"
+          },
+          "原附魔": {
+            "default": "",
+            "type": "string"
+          },
+          "现名": {
+            "default": "",
+            "type": "string"
+          }
+        }
+      }
+    },
     "_对手名称": {
       "default": "",
       "type": "string"
@@ -321,10 +498,6 @@
           "type": "number"
         },
         "累计经过事件": {
-          "default": 0,
-          "type": "number"
-        },
-        "累计经过陷阱": {
           "default": 0,
           "type": "number"
         }
@@ -414,6 +587,9 @@
       "type": "string"
     },
     "__schema1": {
+      "type": "string"
+    },
+    "__schema2": {
       "type": "string"
     }
   }

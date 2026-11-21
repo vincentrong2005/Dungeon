@@ -331,7 +331,8 @@ onUnmounted(() => {
 .combat-health-bar__label {
   width: 1.5rem;
   flex: none;
-  color: #ff6666;
+  color: #ec7f72;
+  font-family: var(--dg-font-data);
   font-size: 0.625rem;
   font-weight: 700;
 }
@@ -342,9 +343,11 @@ onUnmounted(() => {
   height: 0.625rem;
   overflow: hidden;
   isolation: isolate;
-  border: 1px solid rgba(127, 29, 29, 0.2);
-  border-radius: 999px;
-  background: #1a0a0a;
+  /* 黑铁凹槽：与魔力条、羁绊好感条同一轨道语言 */
+  border: 1px solid rgba(201, 161, 96, 0.35);
+  border-radius: 1px;
+  background: linear-gradient(180deg, #0b0503, #1d0d0a);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .combat-health-bar__layer,
@@ -389,7 +392,9 @@ onUnmounted(() => {
 
 .combat-health-bar__fill {
   z-index: 30;
-  background: linear-gradient(90deg, #cc2200, #ee3311);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 50%, rgba(0, 0, 0, 0.25)),
+    linear-gradient(90deg, #8e1a12, #d8402f);
 }
 
 .combat-health-bar__heal-lead {

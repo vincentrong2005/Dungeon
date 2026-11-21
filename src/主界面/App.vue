@@ -1,42 +1,42 @@
 <template>
   <div class="w-full relative">
-    <!-- Splash Screen -->
-    <Transition name="scene-fade" mode="out-in">
-      <SplashScreen
-        v-if="appState === 'SPLASH'"
-        key="splash"
-        :environment-report="environmentReport"
-        :environment-checking="isEnvironmentChecking"
-        :suppress-environment-panel="isStartingGame"
-        @start="startGame"
-        @force-start="forceStartGame"
-        @check-environment="checkEnvironment()"
-        @toggle-fullscreen="toggleFullScreen"
-        @open-collection="isCollectionOpen = true"
-        @open-tutorial="startTutorialTraining"
-        @background-change="splashBackgroundUrl = $event"
-      />
+    <!-- Splash Screen（场景切换由墨迹转场覆盖，无需额外淡入淡出） -->
+    <SplashScreen
+      v-if="appState === 'SPLASH'"
+      key="splash"
+      :environment-report="environmentReport"
+      :environment-checking="isEnvironmentChecking"
+      :suppress-environment-panel="isStartingGame"
+      @start="startGame"
+      @force-start="forceStartGame"
+      @check-environment="checkEnvironment()"
+      @toggle-fullscreen="toggleFullScreen"
+      @open-collection="isCollectionOpen = true"
+      @open-tutorial="startTutorialTraining"
+      @background-change="splashBackgroundUrl = $event"
+    />
 
-      <!-- Game -->
-      <GameView
-        v-else
-        key="game"
-        :show-opening-entry="isOpeningEntryOpen"
-        :opening-entry-background-url="splashBackgroundUrl"
-        :opening-entry-loading="isOpeningEntrySubmitting"
-        :opening-entry-error="openingEntryError"
-        @back-to-splash="handleBackToSplash"
-        @submit-opening-entry="handleOpeningEntrySubmit"
-      />
-    </Transition>
+    <!-- Game -->
+    <GameView
+      v-else
+      key="game"
+      :show-opening-entry="isOpeningEntryOpen"
+      :opening-entry-background-url="splashBackgroundUrl"
+      :opening-entry-loading="isOpeningEntrySubmitting"
+      :opening-entry-error="openingEntryError"
+      @back-to-splash="handleBackToSplash"
+      @submit-opening-entry="handleOpeningEntrySubmit"
+    />
     <WitchCollectionModal :is-open="isCollectionOpen" @close="isCollectionOpen = false" />
     <TutorialBattleView v-if="isTutorialBattleOpen" @close="closeTutorialBattle" />
+    <SceneTransitionOverlay />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ensureAuthorTestAccessBenefits } from './authorTestAccess';
 import GameView from './components/GameView.vue';
+import SceneTransitionOverlay from './components/SceneTransitionOverlay.vue';
 import SplashScreen from './components/SplashScreen.vue';
 import TutorialBattleView from './components/TutorialBattleView.vue';
 import WitchCollectionModal from './components/WitchCollectionModal.vue';
@@ -46,6 +46,7 @@ import { runEnvironmentCheck, type EnvironmentCheckReport } from './environmentC
 import { toggleFullScreen } from './fullscreen';
 import { useGameStore } from './gameStore';
 import { buildOpeningPrompt, type OpeningInfoSubmission } from './openingProfile';
+import { runSceneTransition } from './sceneTransition';
 
 const appState = ref<'SPLASH' | 'GAME'>('SPLASH');
 const isCollectionOpen = ref(false);
@@ -60,11 +61,15 @@ const environmentReport = ref<EnvironmentCheckReport | null>(null);
 const gameStore = useGameStore();
 
 function startTutorialTraining() {
-  isTutorialBattleOpen.value = true;
+  void runSceneTransition(() => {
+    isTutorialBattleOpen.value = true;
+  });
 }
 
 function closeTutorialBattle() {
-  isTutorialBattleOpen.value = false;
+  void runSceneTransition(() => {
+    isTutorialBattleOpen.value = false;
+  });
 }
 
 onMounted(() => {
@@ -104,20 +109,25 @@ async function forceStartGame() {
 }
 
 async function enterGame() {
-  appState.value = 'GAME';
-  isOpeningEntryOpen.value = false;
-  isOpeningEntrySubmitting.value = false;
-  openingEntryError.value = null;
-  await nextTick();
-  await gameStore.initialize();
-  isOpeningEntryOpen.value = gameStore.isFreshChatSession();
+  // 墨迹覆盖后再切换并加载楼层状态；加载期间停在全黑帧
+  await runSceneTransition(async () => {
+    appState.value = 'GAME';
+    isOpeningEntryOpen.value = false;
+    isOpeningEntrySubmitting.value = false;
+    openingEntryError.value = null;
+    await nextTick();
+    await gameStore.initialize();
+    isOpeningEntryOpen.value = gameStore.isFreshChatSession();
+  });
 }
 
 function handleBackToSplash() {
-  isOpeningEntryOpen.value = false;
-  isOpeningEntrySubmitting.value = false;
-  openingEntryError.value = null;
-  appState.value = 'SPLASH';
+  void runSceneTransition(() => {
+    isOpeningEntryOpen.value = false;
+    isOpeningEntrySubmitting.value = false;
+    openingEntryError.value = null;
+    appState.value = 'SPLASH';
+  });
 }
 
 async function checkEnvironment(options: { notifyFailure?: boolean } = {}) {
@@ -184,25 +194,3 @@ async function handleOpeningEntrySubmit(payload: OpeningInfoSubmission) {
   }
 }
 </script>
-
-<style scoped>
-/* Scene transition: fade + subtle scale */
-.scene-fade-enter-active {
-  transition:
-    opacity 0.8s ease,
-    transform 0.8s ease;
-}
-.scene-fade-leave-active {
-  transition:
-    opacity 0.5s ease,
-    transform 0.5s ease;
-}
-.scene-fade-enter-from {
-  opacity: 0;
-  transform: scale(1.02);
-}
-.scene-fade-leave-to {
-  opacity: 0;
-  transform: scale(0.98);
-}
-</style>

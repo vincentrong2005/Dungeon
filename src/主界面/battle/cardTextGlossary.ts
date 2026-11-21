@@ -210,8 +210,8 @@ export const getCardKeywordGlossaryEntries = (
     },
     {
       key: 'keyword:manaDrain',
-      label: '法力汲取',
-      description: '吸收对方对应数值的法力并恢复自身；若对方法力不足，不足部分会改为扣除对方生命。',
+      label: '魔力汲取',
+      description: '吸收对方对应数值的魔力并恢复自身；若对方魔力不足，不足部分会改为扣除对方生命。',
       source: 'keyword',
       polarity: 'mixed',
     },

@@ -2,7 +2,12 @@ export const MAP_ROUTE_COUNT = 4;
 export const MAP_HEIGHT = 9;
 export const MAP_WIDTH = 6;
 
-export const MAP_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房', '陷阱房'] as const;
+export const MAP_ROOM_TYPES = ['战斗房', '宝箱房', '商店房', '温泉房', '神像房', '事件房'] as const;
+
+/** 旧存档中已废弃的房间类型 → 现行房间类型 */
+const LEGACY_ROOM_TYPE_MAP: Record<string, MapRoomType> = {
+  陷阱房: '事件房',
+};
 export type MapRoomType = (typeof MAP_ROOM_TYPES)[number];
 
 export interface MapRoomNode {
@@ -14,13 +19,12 @@ export interface MapRoomNode {
 export type DungeonMap = MapRoomNode[][];
 
 const ROOM_WEIGHTS: Record<MapRoomType, number> = {
-  战斗房: 35,
+  战斗房: 32,
   宝箱房: 2,
   商店房: 24,
-  温泉房: 12,
+  温泉房: 10,
   神像房: 16,
-  事件房: 0,
-  陷阱房: 2,
+  事件房: 16,
 };
 
 const clampX = (value: number): number => Math.max(1, Math.min(MAP_WIDTH, Math.floor(value)));
@@ -71,7 +75,7 @@ const createNextRow = (previous: number[], random: () => number): number[] | nul
   return visit(0, 1) ? next : null;
 };
 
-const assignRoomTypes = (rows: number[][], random: () => number, area: string): DungeonMap => {
+const assignRoomTypes = (rows: number[][], random: () => number): DungeonMap => {
   const assigned = new Map<string, MapRoomType>();
   let shopCount = 0;
 
@@ -87,12 +91,7 @@ const assignRoomTypes = (rows: number[][], random: () => number, area: string): 
 
       const weightedTypes = MAP_ROOM_TYPES.map(type => ({
         type,
-        weight:
-          type === '陷阱房' && area === '呻吟阅览室'
-            ? 0
-            : type === '商店房' && (y <= 5 || shopCount >= 2)
-              ? 0
-              : ROOM_WEIGHTS[type],
+        weight: type === '商店房' && (y <= 5 || shopCount >= 2) ? 0 : ROOM_WEIGHTS[type],
       })).filter(item => item.weight > 0);
       const totalWeight = weightedTypes.reduce((sum, item) => sum + item.weight, 0);
       let roll = random() * totalWeight;
@@ -125,7 +124,8 @@ const hasDuplicateRoute = (map: DungeonMap): boolean => {
   return keys.size !== map.length;
 };
 
-export const generateDungeonMap = (random: () => number = Math.random, area = ''): DungeonMap => {
+// 第二个参数（区域名）保留给调用方兼容，目前各区域使用相同的房间权重。
+export const generateDungeonMap = (random: () => number = Math.random, _area = ''): DungeonMap => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const rows: number[][] = [createInitialRow(random)];
     let failed = false;
@@ -139,14 +139,14 @@ export const generateDungeonMap = (random: () => number = Math.random, area = ''
     }
     if (failed) continue;
 
-    const typedMap = assignRoomTypes(rows, random, area);
+    const typedMap = assignRoomTypes(rows, random);
     if (!hasDuplicateRoute(typedMap)) return typedMap;
   }
 
   const fallbackRows = Array.from({ length: MAP_HEIGHT }, (_, index) =>
     Array.from({ length: MAP_ROUTE_COUNT }, (_, routeIndex) => clampX(routeIndex + 1 + (index % 2))),
   );
-  return assignRoomTypes(fallbackRows, random, area);
+  return assignRoomTypes(fallbackRows, random);
 };
 
 export const normalizeDungeonMap = (value: unknown): DungeonMap => {
@@ -159,8 +159,9 @@ export const normalizeDungeonMap = (value: unknown): DungeonMap => {
       if (!node || typeof node !== 'object') return [];
       const raw = node as Record<string, unknown>;
       const x = Number(raw.x);
-      const roomType = raw.房间类型;
-      if (!Number.isInteger(x) || x < 1 || x > MAP_WIDTH || typeof roomType !== 'string') return [];
+      const rawRoomType = raw.房间类型;
+      if (!Number.isInteger(x) || x < 1 || x > MAP_WIDTH || typeof rawRoomType !== 'string') return [];
+      const roomType = LEGACY_ROOM_TYPE_MAP[rawRoomType] ?? rawRoomType;
       if (!(MAP_ROOM_TYPES as readonly string[]).includes(roomType)) return [];
       const idolType = raw.神像类型 === '白神像' || raw.神像类型 === '黑神像' ? raw.神像类型 : undefined;
       normalized.push({
@@ -198,6 +199,68 @@ export const replaceFutureRoomsWithBattle = (
     }
   }
   return nextMap;
+};
+
+/** 逾期等状态：未来的每个非战斗节点按概率替换为战斗房 */
+export const replaceFutureRoomsWithBattleByChance = (
+  map: DungeonMap,
+  currentY: number,
+  chance: number,
+  random: () => number = Math.random,
+): DungeonMap => {
+  const nextMap = map.map(route => route.map(node => ({ ...node })));
+  const decided = new Map<string, boolean>();
+  for (const route of nextMap) {
+    for (let index = 0; index < route.length; index += 1) {
+      const y = index + 1;
+      const node = route[index]!;
+      if (y <= currentY || node.房间类型 === '战斗房' || node.房间类型 === '宝箱房') continue;
+      const key = keyFor(y, node.x);
+      if (!decided.has(key)) decided.set(key, random() < chance);
+      if (decided.get(key)) {
+        node.房间类型 = '战斗房';
+        delete node.神像类型;
+      }
+    }
+  }
+  return nextMap;
+};
+
+/**
+ * 空间褶皱：下一行（y = currentY + 1）的所有节点重新随机房间类型。
+ * 不会与原类型相同；不生成事件房（避免连锁）与宝箱房；宝箱行（y=5）保持不变。
+ * 返回新地图与是否发生了变化。
+ */
+export const rerollNextRowRooms = (
+  map: DungeonMap,
+  currentY: number,
+  random: () => number = Math.random,
+): { map: DungeonMap; changed: boolean } => {
+  const y = currentY + 1;
+  const nextMap = map.map(route => route.map(node => ({ ...node })));
+  if (y < 1 || y > MAP_HEIGHT || y === 5) return { map: nextMap, changed: false };
+  const decided = new Map<number, MapRoomType>();
+  for (const route of nextMap) {
+    const node = route[y - 1];
+    if (!node) continue;
+    if (!decided.has(node.x)) {
+      const candidates = (['战斗房', '商店房', '温泉房', '神像房'] as const).filter(type => type !== node.房间类型);
+      const totalWeight = candidates.reduce((sum, type) => sum + ROOM_WEIGHTS[type], 0);
+      let roll = random() * totalWeight;
+      let selected: MapRoomType = candidates[0] ?? '战斗房';
+      for (const type of candidates) {
+        roll -= ROOM_WEIGHTS[type];
+        if (roll <= 0) {
+          selected = type;
+          break;
+        }
+      }
+      decided.set(node.x, selected);
+    }
+    node.房间类型 = decided.get(node.x)!;
+    delete node.神像类型;
+  }
+  return { map: nextMap, changed: decided.size > 0 };
 };
 
 export const validateDungeonMap = (map: DungeonMap): string[] => {

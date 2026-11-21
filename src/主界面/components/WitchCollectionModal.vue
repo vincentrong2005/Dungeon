@@ -22,6 +22,27 @@
 
       <div class="book-layout">
         <aside class="side-nav">
+          <div class="codex-search">
+            <Search class="codex-search-icon" aria-hidden="true" />
+            <input
+              v-model="searchQuery"
+              type="search"
+              class="codex-search-input"
+              :placeholder="searchPlaceholder"
+              aria-label="搜索图鉴"
+              @keydown.esc.stop="searchQuery = ''"
+            />
+            <button
+              v-if="searchQuery"
+              type="button"
+              class="codex-search-clear"
+              title="清空搜索"
+              aria-label="清空搜索"
+              @click="searchQuery = ''"
+            >
+              <X />
+            </button>
+          </div>
           <div class="side-title">{{ sideTitle }}</div>
           <div class="side-divider"></div>
           <button
@@ -40,21 +61,40 @@
         <section class="book-shell">
           <Transition :name="flipName" mode="out-in">
             <article :key="pageKey" class="book-page">
+              <p v-if="isSearching && totalItems === 0" class="codex-search-empty">
+                没有找到与「{{ searchQuery.trim() }}」匹配的已发现条目。
+              </p>
               <div v-if="activeTab === 'cards'" class="card-grid">
-                <DungeonCard
-                  v-for="card in pagedCards"
-                  :key="`card-${card.id}`"
-                  :card="card"
-                  :disabled="true"
-                  :mask-level="encounteredCardIds.has(card.id) ? 'none' : 'full'"
-                />
+                <template v-for="entry in pagedCards" :key="entry.key">
+                  <DungeonCard
+                    v-if="entry.kind === 'card'"
+                    :card="entry.card"
+                    :disabled="true"
+                    :mask-level="encounteredCardIds.has(entry.card.id) ? 'none' : 'full'"
+                  />
+                  <ActiveSkillCard
+                    v-else
+                    :skill="encounteredCardIds.has(entry.skill.id) ? entry.skill : null"
+                    empty-label="未发现的主动技"
+                  />
+                </template>
               </div>
 
               <div v-else-if="activeTab === 'relics'" class="entry-grid">
-                <article v-for="relic in pagedRelics" :key="`relic-${relic.id}`" class="entry-card panel-item">
-                  <div class="entry-title">{{ encounteredRelicIds.has(relic.id) ? relic.name : '???' }}</div>
-                  <div class="entry-meta">{{ encounteredRelicIds.has(relic.id) ? `${relic.category} · ${relic.rarity}` : '??? · ???' }}</div>
-                  <p class="entry-desc">{{ encounteredRelicIds.has(relic.id) ? relic.effect : '???' }}</p>
+                <article
+                  v-for="relic in pagedRelics"
+                  :key="`relic-${relic.id}`"
+                  class="entry-card relic-entry panel-item"
+                  :class="{ 'is-unknown': !encounteredRelicIds.has(relic.id) }"
+                >
+                  <img class="relic-entry-orb" :src="getRelicOrbUrl(relic.rarity)" alt="" draggable="false" />
+                  <div class="min-w-0">
+                    <div class="entry-title">{{ encounteredRelicIds.has(relic.id) ? relic.name : '???' }}</div>
+                    <div class="entry-meta">
+                      {{ encounteredRelicIds.has(relic.id) ? `${relic.category} · ${relic.rarity}` : '??? · ???' }}
+                    </div>
+                    <p class="entry-desc">{{ encounteredRelicIds.has(relic.id) ? relic.effect : '???' }}</p>
+                  </div>
                 </article>
               </div>
 
@@ -160,7 +200,20 @@
                 <button type="button" class="bookmark bookmark-prev panel-action panel-icon-button" title="上一页" aria-label="上一页" :disabled="currentPage <= 1" @click="prevPage">
                   <ChevronLeft />
                 </button>
-                <span class="page-indicator">第 {{ currentPage }} / {{ totalPages }} 页</span>
+                <label class="page-indicator page-jump">
+                  第
+                  <input
+                    v-model="pageInput"
+                    type="text"
+                    inputmode="numeric"
+                    class="page-jump-input"
+                    :aria-label="`输入页码跳转，共 ${totalPages} 页`"
+                    @keydown.enter.prevent="commitPageJump"
+                    @blur="commitPageJump"
+                    @focus="($event.target as HTMLInputElement).select()"
+                  />
+                  / {{ totalPages }} 页
+                </label>
                 <button type="button" class="bookmark bookmark-next panel-action panel-icon-button" title="下一页" aria-label="下一页" :disabled="currentPage >= totalPages" @click="nextPage">
                   <ChevronRight />
                 </button>
@@ -197,15 +250,18 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight, Library, X } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Library, Search, X } from 'lucide-vue-next';
+import { getAllActiveSkills } from '../battle/activeSkillRegistry';
 import { getAllCards } from '../battle/cardRegistry';
 import { EFFECT_REGISTRY, getEffectDisplayOrder } from '../battle/effects';
 import { getAllEnemyNames, getEnemyByName } from '../battle/enemyRegistry';
 import { getAllRelics } from '../battle/relicRegistry';
 import { loadCodexState } from '../codexStore';
+import { getRelicOrbUrl } from '../relicOrbs';
 import { getEffectFontAwesomeClass, getEffectFontAwesomeStyle } from '../effectIconRegistry';
 import { getLocalFolderFirstImagePath, getLocalFolderImagePaths } from '../localAssetManifest';
-import { CardData, CardType, type EffectType } from '../types';
+import { CardData, CardType, type ActiveSkillData, type EffectType } from '../types';
+import ActiveSkillCard from './ActiveSkillCard.vue';
 import DungeonCard from './DungeonCard.vue';
 import DungeonModal from './DungeonModal.vue';
 
@@ -255,6 +311,23 @@ const encounteredRelicIds = computed(() => new Set(codex.value.relics));
 const encounteredEffectTypes = computed(() => new Set(codex.value.effects));
 const encounteredEnemyNames = computed(() => new Set(codex.value.enemies.map((enemy) => enemy.name)));
 
+/** 搜索：只匹配已发现的条目，避免通过搜索试探出未解锁的内容；与侧栏筛选叠加生效 */
+const searchQuery = ref('');
+const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase());
+const isSearching = computed(() => normalizedSearch.value.length > 0);
+const matchesSearch = (known: boolean, ...texts: Array<string | undefined>): boolean => (
+  !isSearching.value
+  || (known && texts.some((text) => (text ?? '').toLowerCase().includes(normalizedSearch.value)))
+);
+const SEARCH_PLACEHOLDER: Record<TabId, string> = {
+  cards: '搜索卡牌名称、描述',
+  relics: '搜索圣遗物名称、效果',
+  enemies: '搜索敌人名称、区域、卡牌',
+  lords: '搜索领主名称、区域、卡牌',
+  status: '搜索状态名称、说明',
+};
+const searchPlaceholder = computed(() => SEARCH_PLACEHOLDER[activeTab.value]);
+
 const allCards = computed(() => (
   getAllCards().slice().sort((a, b) => {
     const categoryComp = a.category.localeCompare(b.category, 'zh-Hans-CN');
@@ -264,8 +337,55 @@ const allCards = computed(() => (
     return a.name.localeCompare(b.name, 'zh-Hans-CN');
   })
 ));
-const cardCategories = computed(() => Array.from(new Set(allCards.value.map((card) => card.category))).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')));
-const filteredCards = computed(() => (cardFilter.value === '全部' ? allCards.value : allCards.value.filter((card) => card.category === cardFilter.value)));
+/** 主动技在图鉴「卡牌」页中单独作为「主动」分类展示，并按体系归入对应分类 */
+const ACTIVE_SKILL_FILTER = '主动';
+type CodexCardEntry =
+  | { kind: 'card'; key: string; card: CardData }
+  | { kind: 'active'; key: string; skill: ActiveSkillData };
+
+const allActiveSkills = computed(() => (
+  getAllActiveSkills().slice().sort((a, b) => (
+    a.category.localeCompare(b.category, 'zh-Hans-CN') || a.name.localeCompare(b.name, 'zh-Hans-CN')
+  ))
+));
+const allCardEntries = computed<CodexCardEntry[]>(() => [
+  ...allCards.value.map(card => ({ kind: 'card' as const, key: `card-${card.id}`, card })),
+  ...allActiveSkills.value.map(skill => ({ kind: 'active' as const, key: `active-${skill.id}`, skill })),
+]);
+/** 图鉴侧栏的体系顺序：普通/基础 → 魔法书（与魔法书选择界面一致）→ 事件 → 敌人；未列出的体系排在魔法书之后 */
+const CODEX_CATEGORY_ORDER = ['普通', '基础', '魔导', '燃烧', '严寒', '血池', '腐化', '雷霆', '财富', '暗影', '破坏', '炼金'];
+const CODEX_CATEGORY_TAIL = ['事件', '敌人'];
+const codexCategoryRank = (category: string): number => {
+  const head = CODEX_CATEGORY_ORDER.indexOf(category);
+  if (head >= 0) return head;
+  const tail = CODEX_CATEGORY_TAIL.indexOf(category);
+  return tail >= 0 ? 1000 + tail : 500;
+};
+const compareCodexCategory = (a: string, b: string): number => (
+  codexCategoryRank(a) - codexCategoryRank(b) || a.localeCompare(b, 'zh-Hans-CN')
+);
+const cardCategories = computed(() => [
+  ACTIVE_SKILL_FILTER,
+  ...Array.from(new Set([
+    ...allCards.value.map((card) => card.category),
+    ...allActiveSkills.value.map((skill) => skill.category),
+  ])).sort(compareCodexCategory),
+]);
+const categoryFilteredCards = computed<CodexCardEntry[]>(() => {
+  const filter = cardFilter.value;
+  if (filter === '全部') return allCardEntries.value;
+  if (filter === ACTIVE_SKILL_FILTER) return allCardEntries.value.filter(entry => entry.kind === 'active');
+  return allCardEntries.value.filter((entry) => (
+    entry.kind === 'active'
+      ? entry.skill.category === filter
+      : entry.card.category === filter || (entry.card.requiredCategories ?? []).includes(filter)
+  ));
+});
+const filteredCards = computed<CodexCardEntry[]>(() => categoryFilteredCards.value.filter((entry) => (
+  entry.kind === 'active'
+    ? matchesSearch(encounteredCardIds.value.has(entry.skill.id), entry.skill.name, entry.skill.description, entry.skill.category)
+    : matchesSearch(encounteredCardIds.value.has(entry.card.id), entry.card.name, entry.card.description, entry.card.category)
+)));
 
 const allRelics = computed(() => (
   getAllRelics().slice().sort((a, b) => {
@@ -276,8 +396,18 @@ const allRelics = computed(() => (
     return a.name.localeCompare(b.name, 'zh-Hans-CN');
   })
 ));
-const relicCategories = computed(() => Array.from(new Set(allRelics.value.map((relic) => relic.category))).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')));
-const filteredRelics = computed(() => (relicFilter.value === '全部' ? allRelics.value : allRelics.value.filter((relic) => relic.category === relicFilter.value)));
+const relicCategories = computed(() => Array.from(new Set(allRelics.value.map((relic) => relic.category))).sort(compareCodexCategory));
+const filteredRelics = computed(() => (
+  (relicFilter.value === '全部' ? allRelics.value : allRelics.value.filter((relic) => relic.category === relicFilter.value))
+    .filter((relic) => matchesSearch(
+      encounteredRelicIds.value.has(relic.id),
+      relic.name,
+      relic.effect,
+      relic.description,
+      relic.category,
+      relic.rarity,
+    ))
+));
 
 const effectKind = (polarity?: string): StatusKind => {
   if (polarity === 'buff') return '正面';
@@ -300,7 +430,10 @@ const allEffects = computed(() => (
       return a.name.localeCompare(b.name, 'zh-Hans-CN');
     })
 ));
-const filteredEffects = computed(() => (statusFilter.value === '全部' ? allEffects.value : allEffects.value.filter((effect) => effect.kind === statusFilter.value)));
+const filteredEffects = computed(() => (
+  (statusFilter.value === '全部' ? allEffects.value : allEffects.value.filter((effect) => effect.kind === statusFilter.value))
+    .filter((effect) => matchesSearch(encounteredEffectTypes.value.has(effect.type), effect.name, effect.description))
+));
 
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
 const SPECIAL_ENEMY_NAMES = new Set(['沐芯兰', '宝箱怪']);
@@ -519,14 +652,22 @@ const lordFloorItems = computed<NavItem[]>(() => {
   const floors = Array.from(new Set(allLords.value.map((enemy) => enemy.floorLabel))).sort((a, b) => floorRank(a) - floorRank(b));
   return [{ key: '全部', label: '全部' }, ...floors.map((floor) => ({ key: floor, label: formatEnemyFloorLabel(floor) }))];
 });
-const filteredEnemies = computed(() => {
-  if (enemyFloorFilter.value === '全部') return allEnemies.value;
-  return allEnemies.value.filter((enemy) => enemy.floorLabel === enemyFloorFilter.value);
-});
-const filteredLords = computed(() => {
-  if (lordFloorFilter.value === '全部') return allLords.value;
-  return allLords.value.filter((enemy) => enemy.floorLabel === lordFloorFilter.value);
-});
+const matchesEnemySearch = (enemy: { name: string; areaLabel: string; deckCardNames: string[] }) => matchesSearch(
+  encounteredEnemyNames.value.has(enemy.name),
+  enemy.name,
+  enemy.areaLabel,
+  ...enemy.deckCardNames,
+);
+const filteredEnemies = computed(() => (
+  enemyFloorFilter.value === '全部'
+    ? allEnemies.value
+    : allEnemies.value.filter((enemy) => enemy.floorLabel === enemyFloorFilter.value)
+).filter(matchesEnemySearch));
+const filteredLords = computed(() => (
+  lordFloorFilter.value === '全部'
+    ? allLords.value
+    : allLords.value.filter((enemy) => enemy.floorLabel === lordFloorFilter.value)
+).filter(matchesEnemySearch));
 
 const sideTitle = computed(() => {
   if (activeTab.value === 'cards') return '体系';
@@ -606,6 +747,34 @@ const nextPage = () => {
 watch(totalPages, (pages) => {
   currentPage.value = Math.min(Math.max(1, currentPage.value), pages);
 });
+
+// 搜索词变化时回到第一页
+watch(normalizedSearch, () => {
+  flipName.value = 'flip-next';
+  currentPage.value = 1;
+  expandedEnemyName.value = null;
+});
+
+/** 页码跳转：底部页码可直接输入数字，回车或失焦后跳转（超出范围时自动夹到首页/末页） */
+const pageInput = ref('1');
+watch(currentPage, (page) => {
+  pageInput.value = String(page);
+}, { immediate: true });
+const commitPageJump = () => {
+  const raw = pageInput.value.trim();
+  const target = Math.floor(Number(raw));
+  if (!raw || !Number.isFinite(target)) {
+    pageInput.value = String(currentPage.value);
+    return;
+  }
+  const clamped = Math.min(Math.max(1, target), totalPages.value);
+  if (clamped !== currentPage.value) {
+    flipName.value = clamped > currentPage.value ? 'flip-next' : 'flip-prev';
+    currentPage.value = clamped;
+    expandedEnemyName.value = null;
+  }
+  pageInput.value = String(clamped);
+};
 
 const portraitMap = ref<Record<string, string>>({});
 const portraitErrorMap = ref<Record<string, boolean>>({});
@@ -832,6 +1001,83 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   border-radius: 1rem 1rem 0 0;
 }
 
+/* ── Search ── */
+.codex-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  z-index: 1;
+}
+
+.codex-search-icon {
+  position: absolute;
+  left: 0.55rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: rgba(212, 175, 55, 0.7);
+  pointer-events: none;
+}
+
+.codex-search-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.42rem 1.8rem 0.42rem 1.75rem;
+  border: 1px solid rgba(180, 83, 9, 0.3);
+  border-radius: 0.5rem;
+  background: rgba(14, 8, 6, 0.5);
+  color: rgba(255, 248, 220, 0.95);
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.codex-search-input::placeholder {
+  color: rgba(240, 220, 190, 0.4);
+}
+
+.codex-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.codex-search-input:focus {
+  border-color: rgba(212, 175, 55, 0.7);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.18);
+}
+
+.codex-search-clear {
+  position: absolute;
+  right: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(240, 220, 190, 0.6);
+  cursor: pointer;
+}
+
+.codex-search-clear:hover {
+  color: rgba(255, 248, 220, 0.95);
+  background: rgba(60, 20, 18, 0.5);
+}
+
+.codex-search-clear svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.codex-search-empty {
+  margin: 2rem 0;
+  text-align: center;
+  color: rgba(240, 220, 190, 0.6);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
 .side-title {
   color: rgba(212, 175, 55, 0.95);
   font-size: 0.72rem;
@@ -993,6 +1239,27 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   padding: 0.8rem 0;
 }
 
+/* ── Relic Entry：稀有度光球 ── */
+.relic-entry {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.relic-entry-orb {
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.6));
+}
+
+/* 未遇见：只露出暗淡的剪影，不暴露稀有度 */
+.relic-entry.is-unknown .relic-entry-orb {
+  filter: grayscale(1) brightness(0.28) contrast(1.2);
+  opacity: 0.7;
+}
+
 /* ── Effect Row ── */
 .effect-row {
   display: flex;
@@ -1151,6 +1418,30 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
   letter-spacing: 0.08em;
 }
 
+.page-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.page-jump-input {
+  width: 2.6rem;
+  padding: 0.12rem 0.25rem;
+  border: 1px solid rgba(180, 83, 9, 0.35);
+  border-radius: 0.35rem;
+  background: rgba(14, 8, 6, 0.55);
+  color: rgba(255, 248, 220, 0.95);
+  font-size: 0.78rem;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.page-jump-input:focus {
+  border-color: rgba(212, 175, 55, 0.75);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
+}
+
 /* ── Page Flip Animation ── */
 .flip-next-enter-active,
 .flip-next-leave-active,
@@ -1195,6 +1486,7 @@ watch([activeTab, currentPage, enemyFloorFilter, lordFloorFilter], () => {
     border-bottom: 1px solid var(--panel-divider);
   }
 
+  .codex-search,
   .side-title {
     width: 100%;
   }

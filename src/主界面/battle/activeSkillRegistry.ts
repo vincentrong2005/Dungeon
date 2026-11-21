@@ -130,18 +130,18 @@ const 无限增幅魔法: ActiveSkillData = {
   rarity: '稀有',
   manaCost: 1,
   Cooldown: 0,
-  description: '点数+1，每使用一次该卡牌，其本回合法力消耗+1',
+  description: '点数+1，每使用一次该卡牌，其本回合魔力消耗+1',
 };
 
 const 老虎机: ActiveSkillData = {
   id: 'active_basic_slot_machine',
-  name: '老虎机',
+  name: '命运骰轮',
   type: CardType.ACTIVE,
   category: '基础',
   rarity: '稀有',
   manaCost: 1,
   Cooldown: 0,
-  description: '重掷双方骰子，每使用一次该卡牌，其本回合法力消耗+1',
+  description: '重掷双方骰子，每使用一次该卡牌，其本回合魔力消耗+1',
 };
 
 const 和平: ActiveSkillData = {
@@ -230,6 +230,7 @@ const 恶魔契约: ActiveSkillData = {
   rarity: '稀有',
   manaCost: 0,
   Cooldown: 0,
+  maxUsesPerTurn: 2,
   description: '自伤3，自身原始点数+2。本回合最多使用2次',
 };
 
@@ -290,6 +291,247 @@ const 增值: ActiveSkillData = {
   description: '选择一张手牌，将其一张复制品在本场战斗中置入弃牌堆。',
 };
 
+// ── 万象魔杖：可在战斗中切换成的初始主动技 ───────────────────────
+export const OMNI_WAND_SKILL_ID = 'active_basic_omni_wand';
+export const OMNI_WAND_FORM_IDS = [
+  'active_basic_reroll_self',
+  'active_basic_reroll_enemy',
+  'active_basic_draw',
+  'active_basic_guard',
+  'active_basic_boost',
+  'active_basic_weaken',
+] as const;
+
+const 万象魔杖: ActiveSkillData = {
+  id: OMNI_WAND_SKILL_ID,
+  name: '万象魔杖',
+  type: CardType.ACTIVE,
+  category: '基础',
+  rarity: '稀有',
+  manaCost: 0,
+  Cooldown: 0,
+  description: '选择一个初始主动技，本场战斗中本技能变为该技能；可随时切换回万象魔杖。',
+};
+
+// ── 财富 ─────────────────────────────────────────────────────
+const 结晶: ActiveSkillData = {
+  id: 'active_wealth_crystal',
+  name: '结晶',
+  type: CardType.ACTIVE,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 3,
+  Cooldown: 2,
+  description: '获得6点护甲。',
+};
+
+const 淘金: ActiveSkillData = {
+  id: 'active_wealth_pan_gold',
+  name: '淘金',
+  type: CardType.ACTIVE,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 4,
+  Cooldown: 2,
+  description: '获得0.5倍当前点数的金币；本场战斗第一次使用后，改为获得临时金币。',
+};
+
+const 抛光: ActiveSkillData = {
+  id: 'active_wealth_polish',
+  name: '抛光',
+  type: CardType.ACTIVE,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 1,
+  Cooldown: 2,
+  description: '获得2点护甲；本回合结束时护甲不会减半。',
+};
+
+const 讨价还价: ActiveSkillData = {
+  id: 'active_wealth_bargain',
+  name: '讨价还价',
+  type: CardType.ACTIVE,
+  category: '财富',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 0,
+  useCondition: '需要至少1金币',
+  description: '消耗1金币，获得2点护甲与1点魔力。',
+};
+
+const 财富之力: ActiveSkillData = {
+  id: 'active_wealth_power',
+  name: '财富之力',
+  type: CardType.ACTIVE,
+  category: '财富',
+  rarity: '稀有',
+  manaCost: 0,
+  Cooldown: 0,
+  useCondition: '需要至少1金币',
+  description: '消耗1金币，原始点数+1；每回合第5次使用时，改为消耗所有金币并增加等量点数。',
+};
+
+// ── 暗影 ─────────────────────────────────────────────────────
+const 投掷飞刀: ActiveSkillData = {
+  id: 'active_shadow_throwing_knife',
+  name: '投掷飞刀',
+  type: CardType.ACTIVE,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 1,
+  Cooldown: 1,
+  description: '对敌方造成1点物理伤害（受增伤加成）。',
+};
+
+const 瞄准要害: ActiveSkillData = {
+  id: 'active_shadow_aim_weakness',
+  name: '瞄准要害',
+  type: CardType.ACTIVE,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 2,
+  Cooldown: 4,
+  description: '对敌方施加0.5倍当前点数的敏感，持续1回合。',
+};
+
+const 本能反应: ActiveSkillData = {
+  id: 'active_shadow_instinct',
+  name: '本能反应',
+  type: CardType.ACTIVE,
+  category: '暗影',
+  rarity: '普通',
+  manaCost: 2,
+  Cooldown: 5,
+  description: '将最左侧手牌在本场战斗中变为随机一张闪避牌。',
+};
+
+// ── 破坏 ─────────────────────────────────────────────────────
+const 蓄能魔晶: ActiveSkillData = {
+  id: 'active_destruction_mana_crystal',
+  name: '蓄能魔晶',
+  type: CardType.ACTIVE,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 1,
+  description: '原始点数-1，获得1层蓄力。',
+};
+
+const 排斥: ActiveSkillData = {
+  id: 'active_destruction_repel',
+  name: '排斥',
+  type: CardType.ACTIVE,
+  category: '破坏',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 3,
+  description: '本回合受到的伤害减半。',
+};
+
+const 高纯蓄能魔晶: ActiveSkillData = {
+  id: 'active_destruction_pure_crystal',
+  name: '高纯蓄能魔晶',
+  type: CardType.ACTIVE,
+  category: '破坏',
+  rarity: '稀有',
+  manaCost: 1,
+  Cooldown: 0,
+  maxUsesPerTurn: 4,
+  description: '原始点数-1，获得1层蓄力；下回合开始时回复1点魔力。每回合限4次。',
+};
+
+const 恐吓: ActiveSkillData = {
+  id: 'active_destruction_intimidate',
+  name: '恐吓',
+  type: CardType.ACTIVE,
+  category: '破坏',
+  rarity: '稀有',
+  manaCost: 0,
+  Cooldown: 4,
+  description: '对方原始点数-2；若此时对方原始点数低于自身原始点数，将对方本回合的意图改为【普通闪避】。',
+};
+
+// ── 魔导 ─────────────────────────────────────────────────────
+const 透支魔力: ActiveSkillData = {
+  id: 'active_modao_overdraw',
+  name: '透支魔力',
+  type: CardType.ACTIVE,
+  category: '魔导',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 5,
+  description: '回复10点魔力，获得3层魔力枯竭。',
+};
+
+// ── 燃烧 / 炼金（新移植）──────────────────────────────────────
+const 余烬回燃: ActiveSkillData = {
+  id: 'active_burn_rekindle',
+  name: '余烬回燃',
+  type: CardType.ACTIVE,
+  category: '燃烧',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 2,
+  description: '清除双方所有燃烧，下回合开始时重新施加等量燃烧；清除自身所有寒冷。',
+};
+
+const 沙漏倒转: ActiveSkillData = {
+  id: 'active_alchemy_hourglass_flip',
+  name: '沙漏倒转',
+  type: CardType.ACTIVE,
+  category: '炼金',
+  rarity: '稀有',
+  manaCost: 0,
+  Cooldown: 1,
+  description: '交换敌方的燃烧与寒冷层数，交换敌方的中毒与流血层数（1层燃烧换2层寒冷，2层寒冷换1层燃烧）。',
+};
+
+// ── 新增：腐化 / 严寒 / 燃烧 / 财富 ─────────────────────────────
+const 埋毒: ActiveSkillData = {
+  id: 'active_corruption_bury_poison',
+  name: '埋毒',
+  type: CardType.ACTIVE,
+  category: '腐化',
+  rarity: '普通',
+  manaCost: 3,
+  Cooldown: 4,
+  description: '对敌方施加2层中毒；敌方本回合不触发中毒。',
+};
+
+const 冰面: ActiveSkillData = {
+  id: 'active_yanhan_ice_surface',
+  name: '冰面',
+  type: CardType.ACTIVE,
+  category: '严寒',
+  rarity: '普通',
+  manaCost: 1,
+  Cooldown: 3,
+  description: '双方原始点数×0.5。',
+};
+
+const 延缓: ActiveSkillData = {
+  id: 'active_burn_delay',
+  name: '延缓',
+  type: CardType.ACTIVE,
+  category: '燃烧',
+  rarity: '普通',
+  manaCost: 0,
+  Cooldown: 7,
+  description: '本回合免疫所有非真实伤害；下回合开始时，每免疫1点伤害获得1层燃烧。',
+};
+
+const 典当: ActiveSkillData = {
+  id: 'active_wealth_pawn',
+  name: '典当',
+  type: CardType.ACTIVE,
+  category: '财富',
+  rarity: '稀有',
+  manaCost: 0,
+  Cooldown: 1,
+  maxUses: 2,
+  description: '选择一张手牌，诅咒:消耗2金币并移除；普通:替换为【空白】；稀有:替换为【空白的空白】。每场战斗限2次。',
+};
+
 const ACTIVE_SKILL_REGISTRY: readonly ActiveSkillData[] = [
   重来问号,
   你也重来问号,
@@ -317,6 +559,26 @@ const ACTIVE_SKILL_REGISTRY: readonly ActiveSkillData[] = [
   提纯,
   物质分解,
   增值,
+  万象魔杖,
+  结晶,
+  淘金,
+  抛光,
+  讨价还价,
+  财富之力,
+  投掷飞刀,
+  瞄准要害,
+  本能反应,
+  蓄能魔晶,
+  排斥,
+  高纯蓄能魔晶,
+  恐吓,
+  透支魔力,
+  余烬回燃,
+  沙漏倒转,
+  埋毒,
+  冰面,
+  延缓,
+  典当,
 ];
 
 const LEGACY_ACTIVE_SKILL_NAME_ALIASES: ReadonlyMap<string, string> = new Map<string, string>([
@@ -337,6 +599,13 @@ const LEGACY_ACTIVE_SKILL_NAME_ALIASES: ReadonlyMap<string, string> = new Map<st
   ['榛勯噾瀹濈', 黄金宝箱.name],
   ['鐬椂鍐荤粨', 瞬时冻结.name],
   ['绛変环浜ゆ崲', 等价交换.name],
+  ['老虎机', 老虎机.name],
+  // 原为卡牌、现恢复为主动技的旧名
+  ['购物', 讨价还价.name],
+  ['手里剑', 投掷飞刀.name],
+  ['电池', 蓄能魔晶.name],
+  ['大电池', 高纯蓄能魔晶.name],
+  ['毒性爆发', 埋毒.name],
 ]);
 
 const ACTIVE_SKILL_BY_NAME = new Map<string, ActiveSkillData>(ACTIVE_SKILL_REGISTRY.map(skill => [skill.name, skill]));

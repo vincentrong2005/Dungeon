@@ -1,0 +1,146 @@
+/*
+  欲望地牢 · 小游戏（命运转盘 / 扭蛋机 / 占卜）共用的全屏布局
+  ------------------------------------------------------------
+  .dg-minigame            全屏遮罩，同时是尺寸容器（cqw / cqh 以它为准）
+  .dg-minigame__panel     魔典框面板，铺满遮罩（只留出金框外推的边距）
+  .dg-minigame__header    标题 + 分隔线 + 提示，右上角金币
+  .dg-minigame__body      剩余空间；也是尺寸容器，内部布局按它的宽高计算，一屏放下不滚动
+  .dg-minigame__footer    底部操作按钮
+  窄屏（手机竖屏）放不下时才退化为可滚动。
+*/
+
+.dg-minigame {
+  --dg-minigame-glow: rgba(80, 30, 110, 0.45);
+  position: absolute;
+  z-index: 103;
+  inset: 0;
+  display: grid;
+  padding: 14px;
+  background:
+    radial-gradient(ellipse 70% 70% at 50% 45%, var(--dg-minigame-glow), transparent 70%),
+    rgba(4, 2, 8, 0.9);
+  container-type: size;
+  place-items: center;
+}
+
+.dg-minigame__panel {
+  display: flex;
+  width: min(100%, 100rem);
+  height: 100%;
+  flex-direction: column;
+  padding: 0.1rem 0.9rem 0.5rem;
+}
+
+.dg-minigame__header {
+  position: relative;
+  flex: none;
+  margin-bottom: 0.35rem;
+  text-align: center;
+}
+
+.dg-minigame__gold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.8rem 0.2rem 0.3rem;
+  border: 1px solid var(--dg-line-strong);
+  border-radius: 999px;
+  background: rgba(10, 7, 9, 0.7);
+  color: var(--dg-coin);
+  font-family: var(--dg-font-data);
+  font-size: 1rem;
+}
+
+.dg-minigame__gold img {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.dg-minigame__body {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  container-type: size;
+}
+
+.dg-minigame__footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.4rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--dg-line);
+}
+
+.dg-minigame__cta {
+  display: inline-flex;
+  min-width: 13rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.dg-minigame__cta img {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.dg-minigame__warning {
+  color: #f3a3a3;
+  font-size: 0.8rem;
+}
+
+/* 右侧信息栏的分区卡片 */
+.dg-minigame__block {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgba(201, 161, 96, 0.3);
+  background:
+    linear-gradient(90deg, rgba(150, 90, 230, 0.08), transparent 55%),
+    linear-gradient(180deg, rgba(36, 24, 40, 0.85), rgba(16, 10, 18, 0.9));
+}
+
+.dg-minigame__block-title {
+  margin-bottom: 0.4rem;
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+}
+
+@keyframes dg-minigame-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 窄屏：改为纵向排布，允许滚动 */
+@media (max-width: 760px) {
+  .dg-minigame {
+    padding: 8px;
+  }
+
+  .dg-minigame__panel {
+    padding: 0 0.3rem 0.4rem;
+  }
+
+  .dg-minigame__body {
+    overflow-y: auto;
+    container-type: inline-size;
+  }
+
+  .dg-minigame__gold {
+    position: static;
+    width: fit-content;
+    margin: 0.3rem auto 0;
+  }
+}

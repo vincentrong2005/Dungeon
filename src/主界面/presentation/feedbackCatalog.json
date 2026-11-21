@@ -1,0 +1,1809 @@
+{
+ "$comment": "战斗反馈目录：animations = 原作动画 [编号, 帧率]（只导出被引用的）；generated = 生成或复用单图的简易动画；cards/actives 按名称映射，on: hit=命中目标时（替换默认命中特效）、use=结算后、dodge=闪避成功时；target: self/enemy；statuses = 施加成功时的特效（与其它特效同时出现时自动省略）。素材路径用旧库相对路径，由导出脚本迁移到新素材库。",
+ "animations": {
+  "a2": [
+   2,
+   16
+  ],
+  "a24": [
+   24,
+   16
+  ],
+  "a29": [
+   29,
+   16
+  ],
+  "a32": [
+   32,
+   16
+  ],
+  "a47": [
+   47,
+   16
+  ],
+  "a48": [
+   48,
+   16
+  ],
+  "a50": [
+   50,
+   16
+  ],
+  "a52": [
+   52,
+   16
+  ],
+  "a54": [
+   54,
+   16
+  ],
+  "a56": [
+   56,
+   16
+  ],
+  "a63": [
+   63,
+   16
+  ],
+  "a4004": [
+   4004,
+   20
+  ],
+  "a4006": [
+   4006,
+   20
+  ],
+  "a4008": [
+   4008,
+   20
+  ],
+  "a4011": [
+   4011,
+   20
+  ],
+  "a4012": [
+   4012,
+   20
+  ],
+  "a4013": [
+   4013,
+   20
+  ],
+  "a4016": [
+   4016,
+   20
+  ],
+  "a5004": [
+   5004,
+   20
+  ],
+  "a5005": [
+   5005,
+   20
+  ],
+  "a5006": [
+   5006,
+   20
+  ],
+  "a5008": [
+   5008,
+   20
+  ],
+  "a5009": [
+   5009,
+   20
+  ],
+  "a5010": [
+   5010,
+   20
+  ],
+  "a5013": [
+   5013,
+   20
+  ],
+  "a5014": [
+   5014,
+   20
+  ],
+  "a5015": [
+   5015,
+   20
+  ],
+  "a5016": [
+   5016,
+   20
+  ],
+  "a5017": [
+   5017,
+   20
+  ],
+  "a5018": [
+   5018,
+   20
+  ],
+  "a5019": [
+   5019,
+   20
+  ],
+  "a5020": [
+   5020,
+   20
+  ],
+  "a5022": [
+   5022,
+   20
+  ],
+  "a5024": [
+   5024,
+   20
+  ],
+  "a5027": [
+   5027,
+   20
+  ],
+  "a5028": [
+   5028,
+   20
+  ],
+  "a5029": [
+   5029,
+   20
+  ],
+  "a5030": [
+   5030,
+   20
+  ],
+  "a5031": [
+   5031,
+   20
+  ],
+  "a5034": [
+   5034,
+   20
+  ],
+  "a5036": [
+   5036,
+   20
+  ],
+  "a5037": [
+   5037,
+   20
+  ],
+  "a5038": [
+   5038,
+   20
+  ],
+  "a5039": [
+   5039,
+   20
+  ],
+  "a5040": [
+   5040,
+   20
+  ],
+  "a5041": [
+   5041,
+   20
+  ],
+  "a5042": [
+   5042,
+   20
+  ],
+  "a5043": [
+   5043,
+   20
+  ],
+  "a5045": [
+   5045,
+   20
+  ],
+  "a5049": [
+   5049,
+   20
+  ],
+  "a5053": [
+   5053,
+   20
+  ],
+  "a5050": [
+   5050,
+   20
+  ],
+  "a5052": [
+   5052,
+   20
+  ],
+  "a5054": [
+   5054,
+   20
+  ],
+  "a5055": [
+   5055,
+   20
+  ],
+  "a5057": [
+   5057,
+   20
+  ],
+  "a5058": [
+   5058,
+   20
+  ],
+  "a5059": [
+   5059,
+   20
+  ],
+  "a5060": [
+   5060,
+   20
+  ],
+  "a5061": [
+   5061,
+   20
+  ],
+  "a5064": [
+   5064,
+   20
+  ],
+  "a5065": [
+   5065,
+   20
+  ],
+  "a5066": [
+   5066,
+   20
+  ],
+  "a5067": [
+   5067,
+   20
+  ],
+  "a5069": [
+   5069,
+   20
+  ],
+  "a5071": [
+   5071,
+   20
+  ],
+  "a5072": [
+   5072,
+   20
+  ],
+  "a5076": [
+   5076,
+   20
+  ],
+  "a5079": [
+   5079,
+   20
+  ],
+  "a5080": [
+   5080,
+   20
+  ],
+  "a6005": [
+   6005,
+   20
+  ],
+  "a6008": [
+   6008,
+   20
+  ],
+  "a6014": [
+   6014,
+   20
+  ],
+  "a6018": [
+   6018,
+   20
+  ],
+  "a6024": [
+   6024,
+   20
+  ],
+  "a6027": [
+   6027,
+   20
+  ],
+  "a6031": [
+   6031,
+   20
+  ],
+  "a6033": [
+   6033,
+   20
+  ],
+  "a6034": [
+   6034,
+   20
+  ],
+  "a6036": [
+   6036,
+   20
+  ],
+  "a6037": [
+   6037,
+   20
+  ],
+  "a6041": [
+   6041,
+   20
+  ],
+  "a6043": [
+   6043,
+   20
+  ],
+  "a6045": [
+   6045,
+   20
+  ],
+  "a6047": [
+   6047,
+   20
+  ],
+  "a6049": [
+   6049,
+   20
+  ],
+  "a6050": [
+   6050,
+   20
+  ],
+  "a6051": [
+   6051,
+   20
+  ],
+  "a5023": [
+   5023,
+   20
+  ]
+ },
+ "generated": {
+  "gen_荆棘反刺": {
+   "image": "生成/荆棘反刺.webp",
+   "sounds": [
+    [
+     "audio/se/item/撕扯.wav",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Communal_sting.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_敏感印记": {
+   "image": "生成/敏感印记.webp",
+   "size": 300,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_sting.ogg",
+     0.6,
+     1.3
+    ]
+   ]
+  },
+  "gen_虚弱下沉": {
+   "image": "生成/虚弱下沉.webp",
+   "sounds": [
+    [
+     "audio/se/battle/Sword_slashDown_hit.ogg",
+     0.8,
+     0.8
+    ],
+    [
+     "audio/se/environment/Blast_small.ogg",
+     0.5,
+     1
+    ]
+   ],
+   "drop": 140,
+   "size": 340
+  },
+  "gen_禁言封印": {
+   "image": "生成/禁言封印.webp",
+   "size": 300,
+   "sounds": [
+    [
+     "audio/se/item/锁链.mp3",
+     1,
+     1.2
+    ]
+   ]
+  },
+  "gen_腐蚀斑": {
+   "image": "生成/腐蚀斑.webp",
+   "sounds": [
+    [
+     "audio/se/item/粘液.mp3",
+     1,
+     0.7
+    ]
+   ]
+  },
+  "gen_发光烙印": {
+   "image": "生成/发光烙印.webp",
+   "size": 320,
+   "sounds": [
+    [
+     "audio/se/battle/Fire_single_hit.ogg",
+     0.8,
+     1
+    ],
+    [
+     "audio/se/battle/Healing_continued_release.ogg",
+     0.5,
+     1.2
+    ]
+   ]
+  },
+  "gen_契约卷轴": {
+   "image": "生成/契约卷轴.webp",
+   "sounds": [
+    [
+     "audio/se/action/Write_paper.ogg",
+     1,
+     1.5
+    ],
+    [
+     "audio/se/battle/Fire_single_hit.ogg",
+     0.6,
+     1
+    ]
+   ]
+  },
+  "gen_魔女香雾": {
+   "image": "生成/魔女香雾.webp",
+   "rise": 60,
+   "sounds": [
+    [
+     "audio/se/battle/Healing_continued_release.ogg",
+     1,
+     1.2
+    ]
+   ]
+  },
+  "gen_煤精灵": {
+   "image": "生成/煤精灵.webp",
+   "size": 280,
+   "rise": 40,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_strong_release.ogg",
+     1,
+     1.2
+    ]
+   ]
+  },
+  "gen_疲劳": {
+   "image": "生成/疲劳.webp",
+   "size": 280,
+   "rise": -50,
+   "sounds": []
+  },
+  "gen_临时金币": {
+   "image": "生成/临时金币.webp",
+   "size": 220,
+   "rise": 90,
+   "sounds": [
+    [
+     "audio/se/item/金币弹出.mp3",
+     0.9,
+     1.25
+    ]
+   ]
+  },
+  "gen_预言": {
+   "image": "生成/预言.webp",
+   "size": 320,
+   "sounds": [
+    [
+     "audio/se/item/Find_2.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Communal_magic_chant.ogg",
+     0.5,
+     1.2
+    ]
+   ]
+  },
+  "gen_终式万象归一": {
+   "image": "生成/终式万象归一.webp",
+   "size": 440,
+   "frames": 22,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_magic_chant.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Blast_big_hit.ogg",
+     0.9,
+     1
+    ]
+   ]
+  },
+  "gen_独占": {
+   "image": "生成/独占.webp",
+   "size": 400,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_binding_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Water_aoe_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_水牢禁锢": {
+   "image": "生成/水牢禁锢.webp",
+   "size": 400,
+   "sounds": [
+    [
+     "audio/se/battle/Water_aoe_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Ice_spike_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_感官同步": {
+   "image": "生成/感官同步.webp",
+   "size": 340,
+   "sounds": [
+    [
+     "audio/se/battle/Healing_continued_release.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/item/粘液.mp3",
+     0.6,
+     1.2
+    ]
+   ]
+  },
+  "gen_巨大化投影": {
+   "image": "生成/巨大化投影.webp",
+   "size": 460,
+   "rise": 60,
+   "frames": 22,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_strong_release.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Healing_resurrection_release.ogg",
+     0.8,
+     1
+    ]
+   ]
+  },
+  "gen_血雾化身": {
+   "image": "生成/血雾化身.webp",
+   "size": 420,
+   "frames": 20,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_hemorrhage_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Wind_aoe_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_沉默终章": {
+   "image": "生成/沉默终章.webp",
+   "size": 400,
+   "sounds": [
+    [
+     "audio/se/battle/Sword_slashDown_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Communal_hypnosis_release.ogg",
+     0.7,
+     1.2
+    ]
+   ]
+  },
+  "gen_黑潮灌注": {
+   "image": "生成/黑潮灌注.webp",
+   "size": 420,
+   "sounds": [
+    [
+     "audio/se/battle/Water_aoe_hit.ogg",
+     1,
+     0.8
+    ],
+    [
+     "audio/se/item/粘液飞溅.mp3",
+     0.8,
+     1
+    ]
+   ]
+  },
+  "gen_终页定论": {
+   "image": "生成/终页定论.webp",
+   "size": 400,
+   "sounds": [
+    [
+     "audio/se/battle/Sword_slashDown_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Light_aoe_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_真言鳞粉": {
+   "image": "生成/真言鳞粉.webp",
+   "size": 400,
+   "rise": 40,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_flash_release.ogg",
+     0.9,
+     1.2
+    ],
+    [
+     "audio/se/battle/Ice_single_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_清算": {
+   "image": "生成/清算.webp",
+   "size": 380,
+   "sounds": [
+    [
+     "audio/se/item/金币弹出2.mp3",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Normal_hammer_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/item/锁链.mp3",
+     0.6,
+     1
+    ]
+   ]
+  },
+  "gen_升华": {
+   "image": "生成/升华.webp",
+   "size": 420,
+   "rise": 80,
+   "frames": 22,
+   "sounds": [
+    [
+     "audio/se/battle/Healing_resurrection_hit.ogg",
+     1,
+     1
+    ]
+   ]
+  },
+  "gen_空间压缩碎骨": {
+   "image": "生成/空间压缩碎骨.webp",
+   "size": 380,
+   "shrink": true,
+   "sounds": [
+    [
+     "audio/se/battle/Blast_middling_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/item/玻璃破碎声2.mp3",
+     0.8,
+     1
+    ]
+   ]
+  },
+  "gen_维度剥离": {
+   "image": "生成/维度剥离.webp",
+   "size": 400,
+   "sounds": [
+    [
+     "audio/se/battle/Shadow_aoe_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Communal_flash_release.ogg",
+     0.6,
+     1.2
+    ]
+   ]
+  },
+  "gen_空间折叠": {
+   "image": "生成/空间折叠.webp",
+   "size": 360,
+   "shrink": true,
+   "sounds": [
+    [
+     "audio/se/battle/Shadow_single_hit.ogg",
+     1,
+     1.2
+    ],
+    [
+     "audio/se/battle/Wind_single_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_挽留": {
+   "image": "生成/挽留.webp",
+   "size": 360,
+   "sounds": [
+    [
+     "audio/se/battle/Healing_continued_release.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Communal_magic_chant.ogg",
+     0.6,
+     1
+    ]
+   ]
+  },
+  "gen_群体编梦": {
+   "image": "生成/群体编梦.webp",
+   "size": 420,
+   "frames": 20,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_hypnosis_release.ogg",
+     1,
+     1.2
+    ],
+    [
+     "audio/se/battle/Wind_aoe_hit.ogg",
+     0.5,
+     1
+    ]
+   ]
+  },
+  "gen_极乐之梦": {
+   "image": "生成/极乐之梦.webp",
+   "size": 400,
+   "rise": 40,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_hypnosis_release.ogg",
+     1,
+     1.2
+    ],
+    [
+     "audio/se/item/Find_2.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_永恒的沉眠": {
+   "image": "生成/永恒的沉眠.webp",
+   "size": 420,
+   "frames": 22,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_magic_chant.ogg",
+     1,
+     0.8
+    ],
+    [
+     "audio/se/battle/Healing_continued_release.ogg",
+     0.7,
+     0.8
+    ]
+   ]
+  },
+  "gen_归墟": {
+   "image": "生成/归墟.webp",
+   "size": 480,
+   "frames": 24,
+   "sounds": [
+    [
+     "audio/se/battle/Water_aoe_hit.ogg",
+     1,
+     0.7
+    ],
+    [
+     "audio/se/battle/Blast_big_hit.ogg",
+     0.9,
+     1
+    ]
+   ]
+  },
+  "gen_经验灌输": {
+   "image": "生成/经验灌输.webp",
+   "size": 380,
+   "rise": -40,
+   "sounds": [
+    [
+     "audio/se/battle/Healing_resurrection_release.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Communal_rage_release.ogg",
+     0.6,
+     1.2
+    ]
+   ]
+  },
+  "gen_弥纱收网": {
+   "image": "生成/弥纱收网.webp",
+   "size": 420,
+   "shrink": true,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_binding_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Archery_clutter_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_噩梦主宰": {
+   "image": "生成/噩梦主宰.webp",
+   "size": 480,
+   "frames": 24,
+   "sounds": [
+    [
+     "audio/se/battle/Shadow_aoe_hit.ogg",
+     1,
+     0.8
+    ],
+    [
+     "audio/se/battle/Blast_big_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/item/恐怖音效.mp3",
+     0.6,
+     1
+    ]
+   ]
+  },
+  "gen_六色符": {
+   "image": "生成/六色符.webp",
+   "size": 420,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_magic_chant.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Fire_aoe_hit.ogg",
+     0.7,
+     1
+    ],
+    [
+     "audio/se/battle/Light_aoe_hit.ogg",
+     0.6,
+     1
+    ]
+   ]
+  },
+  "gen_五色符": {
+   "image": "生成/五色符.webp",
+   "size": 400,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_magic_chant.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/battle/Fire_aoe_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  },
+  "gen_请你选择": {
+   "image": "生成/请你选择.webp",
+   "size": 380,
+   "sounds": [
+    [
+     "audio/se/action/Turn_book_fast.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/item/恐怖惊吓音效.mp3",
+     0.6,
+     1.2
+    ]
+   ]
+  },
+  "gen_记得每一道伤": {
+   "image": "生成/记得每一道伤.webp",
+   "size": 400,
+   "sounds": [
+    [
+     "audio/se/battle/Communal_hemorrhage_hit.ogg",
+     1,
+     1
+    ],
+    [
+     "audio/se/item/撕扯.wav",
+     0.8,
+     1
+    ],
+    [
+     "audio/se/battle/Sword_continued_hit.ogg",
+     0.7,
+     1
+    ]
+   ]
+  }
+ },
+ "cards": {
+  "讨伐斩击": [
+   "a5005",
+   "hit"
+  ],
+  "锯齿攻击": [
+   "a6047",
+   "hit"
+  ],
+  "双刃剑": [
+   "a6005",
+   "hit"
+  ],
+  "剧毒匕首": [
+   "a5006",
+   "hit"
+  ],
+  "刺击": [
+   "a2",
+   "hit"
+  ],
+  "焚身突刺": [
+   "a2x2",
+   "hit"
+  ],
+  "飞刃连掷": [
+   "a5060",
+   "hit"
+  ],
+  "巨石魔法": [
+   "a5017",
+   "hit"
+  ],
+  "粘液斩击": [
+   "a5037",
+   "hit"
+  ],
+  "镐击": [
+   "a5030",
+   "hit"
+  ],
+  "黄金镐": [
+   "a5030",
+   "hit"
+  ],
+  "辉金打击": [
+   "a5023c",
+   "hit"
+  ],
+  "地震": [
+   "a6041",
+   "hit"
+  ],
+  "水晶之锤": [
+   "a5004",
+   "hit"
+  ],
+  "水晶之镰": [
+   "a5031",
+   "hit"
+  ],
+  "坠落之塔": [
+   "a5058",
+   "hit"
+  ],
+  "重压机关": [
+   "a5057",
+   "hit"
+  ],
+  "魔剑": [
+   "a6049",
+   "hit"
+  ],
+  "符文大剑": [
+   "a5043",
+   "hit"
+  ],
+  "冰锥": [
+   "a24",
+   "hit"
+  ],
+  "裂伤": [
+   "a5067",
+   "hit"
+  ],
+  "元素攻击": [
+   "a5009",
+   "hit"
+  ],
+  "魔力球": [
+   "a5009",
+   "hit"
+  ],
+  "魔差": [
+   "a5009",
+   "hit"
+  ],
+  "追踪魔弹": [
+   "a5010",
+   "hit"
+  ],
+  "闪光术": [
+   "a6045",
+   "hit"
+  ],
+  "魔力飓风": [
+   "a54",
+   "hit"
+  ],
+  "大狂风": [
+   "a5036",
+   "hit"
+  ],
+  "紫霆坠": [
+   "a5028",
+   "hit"
+  ],
+  "坠雷术": [
+   "a5022",
+   "hit"
+  ],
+  "棱镜贯流": [
+   "a5019",
+   "hit"
+  ],
+  "奥术裂枪": [
+   "a6024",
+   "hit"
+  ],
+  "魔力轰炸": [
+   "a48",
+   "hit"
+  ],
+  "回声回灌": [
+   "a6050",
+   "hit"
+  ],
+  "逆相咏唱": [
+   "a32",
+   "hit"
+  ],
+  "炎狱判决": [
+   "a5054",
+   "hit"
+  ],
+  "灼魂飞弹": [
+   "a5008",
+   "hit"
+  ],
+  "爆燃术": [
+   "a5008",
+   "hit"
+  ],
+  "临界沸腾": [
+   "a5008",
+   "hit"
+  ],
+  "爆裂法阵": [
+   "a5008",
+   "hit"
+  ],
+  "大爆破": [
+   "a5052",
+   "hit"
+  ],
+  "爆破": [
+   "a47",
+   "hit"
+  ],
+  "腐蚀钢钉": [
+   "a5055",
+   "hit"
+  ],
+  "石巨人": [
+   "a5034",
+   "hit"
+  ],
+  "零界裁定": [
+   "a5049",
+   "hit"
+  ],
+  "温差效应": [
+   "a5079",
+   "hit"
+  ],
+  "霜爆": [
+   "a5045",
+   "hit"
+  ],
+  "生命汲取": [
+   "a5066",
+   "hit"
+  ],
+  "赤痕爆裂": [
+   "a6034",
+   "hit"
+  ],
+  "赤潮压制": [
+   "a6034",
+   "hit"
+  ],
+  "金色闪光": [
+   "a5020",
+   "hit"
+  ],
+  "影魔": [
+   "a50",
+   "hit"
+  ],
+  "影之手": [
+   "a5061",
+   "hit"
+  ],
+  "影之眼": [
+   "a5065",
+   "hit"
+  ],
+  "酒瓶": [
+   "a5004",
+   "hit"
+  ],
+  "认知互换": [
+   "a5059",
+   "use",
+   "self",
+   "once"
+  ],
+  "浓缩精华": [
+   "a5016",
+   "use",
+   "self"
+  ],
+  "魔力扩容": [
+   "a4013",
+   "use",
+   "self"
+  ],
+  "驱散": [
+   "a6033",
+   "use",
+   "self"
+  ],
+  "彩虹油漆": [
+   "a5018",
+   "use",
+   "self"
+  ],
+  "石壁": [
+   "a6031",
+   "use",
+   "self"
+  ],
+  "心之容器": [
+   "a5041",
+   "use",
+   "self"
+  ],
+  "荆棘甲壳": [
+   "gen_荆棘反刺",
+   "use",
+   "self"
+  ],
+  "煤精灵": [
+   "gen_煤精灵",
+   "use",
+   "self"
+  ],
+  "毒蜜糖": [
+   "a6043",
+   "use",
+   "enemy"
+  ],
+  "腐蚀之印": [
+   "gen_腐蚀斑",
+   "use",
+   "enemy"
+  ],
+  "雾中人": [
+   "a5064",
+   "use",
+   "enemy"
+  ],
+  "魔力亲和": [
+   "a5027",
+   "use",
+   "self"
+  ],
+  "深海之约": [
+   "a6051",
+   "use",
+   "self"
+  ],
+  "复咒": [
+   "a4006",
+   "use",
+   "self"
+  ],
+  "魔压提纯": [
+   "a5024",
+   "use",
+   "self"
+  ],
+  "激发": [
+   "a5024",
+   "use",
+   "enemy"
+  ],
+  "催化剂": [
+   "a5024",
+   "use",
+   "self"
+  ],
+  "注能": [
+   "a4012",
+   "use",
+   "self"
+  ],
+  "魔力增强": [
+   "a4012",
+   "use",
+   "self"
+  ],
+  "魔甲": [
+   "a5039",
+   "use",
+   "self"
+  ],
+  "冰与火之花": [
+   "a5053",
+   "use",
+   "enemy"
+  ],
+  "火花烙印": [
+   "a5080",
+   "use",
+   "enemy"
+  ],
+  "炼狱波及": [
+   "a56",
+   "use",
+   "self"
+  ],
+  "寒域校准": [
+   "a52",
+   "use",
+   "enemy"
+  ],
+  "冷源整流": [
+   "a4004",
+   "use",
+   "self"
+  ],
+  "血筑": [
+   "a5072",
+   "use",
+   "self"
+  ],
+  "五色花": [
+   "a5018",
+   "use",
+   "enemy"
+  ],
+  "大炼成": [
+   "a63",
+   "use",
+   "self"
+  ],
+  "魔女香水": [
+   "gen_魔女香雾",
+   "use",
+   "self"
+  ],
+  "虚弱魔法": [
+   "a4008",
+   "use",
+   "enemy"
+  ],
+  "压势": [
+   "a4008",
+   "use",
+   "enemy"
+  ],
+  "剧毒药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "撕裂药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "燃烧药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "冰霜药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "雷霆药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "回复药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效剧毒药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效撕裂药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效燃烧药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效冰霜药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效雷霆药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效回复药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "混合药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "增效混合药剂": [
+   "a4016",
+   "use",
+   "self"
+  ],
+  "彩玉蛇": [
+   "a5040",
+   "clashFail",
+   "self"
+  ],
+  "毒粉散布": [
+   "a6008",
+   "dodge",
+   "enemy"
+  ],
+  "夜猫视野": [
+   "a6036",
+   "dodge",
+   "self"
+  ],
+  "终式·万象归一": [
+   "gen_终式万象归一",
+   "hit"
+  ],
+  "独占": [
+   "gen_独占",
+   "hit"
+  ],
+  "水牢禁锢": [
+   "gen_水牢禁锢",
+   "hit"
+  ],
+  "感官同步": [
+   "gen_感官同步",
+   "use",
+   "self"
+  ],
+  "巨大化投影": [
+   "gen_巨大化投影",
+   "use",
+   "self"
+  ],
+  "血雾化身": [
+   "gen_血雾化身",
+   "use",
+   "self"
+  ],
+  "沉默终章": [
+   "gen_沉默终章",
+   "hit"
+  ],
+  "黑潮灌注": [
+   "gen_黑潮灌注",
+   "hit"
+  ],
+  "终页定论": [
+   "gen_终页定论",
+   "hit"
+  ],
+  "真言鳞粉": [
+   "gen_真言鳞粉",
+   "hit"
+  ],
+  "清算": [
+   "gen_清算",
+   "hit"
+  ],
+  "升华": [
+   "gen_升华",
+   "use",
+   "self"
+  ],
+  "空间压缩·碎骨": [
+   "gen_空间压缩碎骨",
+   "hit"
+  ],
+  "维度剥离": [
+   "gen_维度剥离",
+   "hit"
+  ],
+  "空间折叠": [
+   "gen_空间折叠",
+   "hit"
+  ],
+  "挽留": [
+   "gen_挽留",
+   "use",
+   "enemy"
+  ],
+  "群体编梦": [
+   "gen_群体编梦",
+   "use",
+   "enemy"
+  ],
+  "极乐之梦": [
+   "gen_极乐之梦",
+   "use",
+   "enemy"
+  ],
+  "我会给你一个永恒的沉眠": [
+   "gen_永恒的沉眠",
+   "use",
+   "enemy"
+  ],
+  "归墟": [
+   "gen_归墟",
+   "hit"
+  ],
+  "经验灌输": [
+   "gen_经验灌输",
+   "use",
+   "enemy"
+  ],
+  "弥纱·收网": [
+   "gen_弥纱收网",
+   "hit"
+  ],
+  "弥纱·噩梦主宰": [
+   "gen_噩梦主宰",
+   "hit"
+  ],
+  "六色符": [
+   "gen_六色符",
+   "use",
+   "enemy"
+  ],
+  "五色符": [
+   "gen_五色符",
+   "use",
+   "enemy"
+  ],
+  "请你选择": [
+   "gen_请你选择",
+   "use",
+   "enemy"
+  ],
+  "记得每一道伤": [
+   "gen_记得每一道伤",
+   "hit"
+  ],
+  "蚀骨之刺": [
+   "a5006",
+   "hit"
+  ],
+  "腐蚀涂层": [
+   "gen_腐蚀斑",
+   "use",
+   "enemy"
+  ],
+  "毒绽": [
+   "a6014",
+   "use",
+   "enemy"
+  ],
+  "瘴气帷幕": [
+   "a6008",
+   "dodge",
+   "enemy"
+  ],
+  "毒素催化": [
+   "a6043",
+   "use",
+   "enemy"
+  ],
+  "影遁": [
+   "a6036",
+   "dodge",
+   "self"
+  ],
+  "融入暗影": [
+   "a6036",
+   "dodge",
+   "self"
+  ],
+  "处决": [
+   "a5005",
+   "hit"
+  ]
+ },
+ "actives": {
+  "增幅": [
+   "a4013",
+   "self"
+  ],
+  "无限增幅魔法": [
+   "a4013",
+   "self"
+  ],
+  "削弱": [
+   "a4008",
+   "enemy"
+  ],
+  "走光": [
+   "a6027",
+   "enemy"
+  ],
+  "涂鸦": [
+   "a5076",
+   "both"
+  ],
+  "瞬时冻结": [
+   "a5049",
+   "enemy"
+  ],
+  "等价交换": [
+   "a5066",
+   "self"
+  ],
+  "悲喜交加": [
+   "a5069",
+   "self"
+  ],
+  "活性储存": [
+   "a5066",
+   "self"
+  ],
+  "解毒剂": [
+   "a6033",
+   "self"
+  ],
+  "物质分解": [
+   "a6018",
+   "self"
+  ],
+  "结晶": [
+   "a5040",
+   "self"
+  ],
+  "淘金": [
+   "a4011",
+   "self"
+  ],
+  "抛光": [
+   "a5039",
+   "self"
+  ],
+  "讨价还价": [
+   "a4011",
+   "self"
+  ],
+  "财富之力": [
+   "a4011",
+   "self"
+  ],
+  "投掷飞刀": [
+   "a5060",
+   "enemy"
+  ],
+  "瞄准要害": [
+   "a29",
+   "enemy"
+  ],
+  "排斥": [
+   "a5071",
+   "self"
+  ],
+  "恐吓": [
+   "a6037",
+   "enemy"
+  ],
+  "沙漏倒转": [
+   "a5079",
+   "enemy"
+  ],
+  "埋毒": [
+   "a6008",
+   "enemy"
+  ],
+  "冰面": [
+   "a5049",
+   "both"
+  ],
+  "延缓": [
+   "a5071",
+   "self"
+  ],
+  "典当": [
+   "a4011",
+   "self"
+  ]
+ },
+ "statuses": {
+  "敏感": "gen_敏感印记",
+  "虚弱": "gen_虚弱下沉",
+  "禁言": "gen_禁言封印",
+  "腐蚀": "gen_腐蚀斑",
+  "荆棘": "gen_荆棘反刺",
+  "圣痕": "gen_发光烙印",
+  "烙印": "gen_发光烙印",
+  "服从烙印": "gen_发光烙印",
+  "契约诅咒": "gen_契约卷轴",
+  "疲劳": "gen_疲劳",
+  "被吞食": "a6014",
+  "视野模糊": "a6036",
+  "视线剥夺": "a6036",
+  "无法直视": "a6036",
+  "不屈": "a5050"
+ },
+ "relics": {
+  "十字项链": "a5013",
+  "红心瓶": "a5014",
+  "蓝星瓶": "a5015",
+  "鹅卵石": "a5029",
+  "钢板": "a5039",
+  "珍珠": "a5040",
+  "生命锁": "a5050",
+  "荆棘臂甲": "gen_荆棘反刺"
+ },
+ "sounds": {
+  "uiSelect": [
+   [
+    "audio/se/menu/Select_1.ogg",
+    0.3,
+    0.5
+   ]
+  ],
+  "uiConfirm": [
+   [
+    "audio/se/menu/Cancel_1.ogg",
+    0.3,
+    0.9
+   ]
+  ],
+  "uiCancel": [
+   [
+    "audio/se/menu/Confirm_3.ogg",
+    0.3,
+    1
+   ]
+  ],
+  "uiInvalid": [
+   [
+    "audio/se/menu/Disable_2.ogg",
+    0.3,
+    1
+   ]
+  ],
+  "roll": [
+   [
+    "audio/se/menu/Unwield_1.ogg",
+    1,
+    1.5
+   ]
+  ],
+  "clashResult": [
+   [
+    "audio/se/menu/Unwield_1.ogg",
+    0.6,
+    1.5
+   ]
+  ],
+  "draw": [
+   [
+    "audio/se/action/Turn_book_fast.ogg",
+    1,
+    1
+   ]
+  ]
+ },
+ "images": {
+  "stun": "image/动画/晕.png"
+ },
+ "events": {
+  "dodge": "a5042",
+  "barrierAbsorb": "a5038",
+  "tempGold": "gen_临时金币",
+  "prophecy": "gen_预言"
+ },
+ "variants": {
+  "a2x2": [
+   "a2",
+   2
+  ],
+  "a5023c": [
+   "a5023",
+   0.7,
+   "center"
+  ]
+ }
+}

@@ -9,7 +9,10 @@ export interface EffectFrame {
   alpha: number;
   imageSource: number;
   flip: boolean;
+  /** 0 = 普通，1 = 叠加发光 */
   blend: number;
+  /** 原作颜色材质换算的乘色（0xRRGGBB），缺省为不着色 */
+  tint?: number;
 }
 
 export interface EffectLayer {

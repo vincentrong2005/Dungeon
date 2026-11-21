@@ -6,7 +6,7 @@
 import { gsap } from 'gsap';
 import { Application, Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
-import { BATTLE_TEXTURES, EFFECT_SCALES, STUN_IMAGE, TIMELINES } from '../presentation/feedbackRegistry';
+import { BATTLE_TEXTURES, EFFECT_SCALES, STUN_IMAGE, TIMELINES, effectTexturePaths, shouldMirrorEffect, type BattleEffectName } from '../presentation/feedbackRegistry';
 import { feedbackAssetUrl } from '../presentation/mediaAssets';
 import { sampleEffectFrame, type EffectFrame, type EffectLayer } from '../presentation/timeline';
 import type { BattleFeedbackEntry } from '../presentation/useBattleFeedback';
@@ -117,6 +117,8 @@ async function start(entry: BattleFeedbackEntry) {
     container.scale.set(scale);
     // Drain travels toward the opponent, so mirror its trajectory for the left-side player.
     if (entry.effect === 'manaDrain' && entry.target === 'player') container.scale.x *= -1;
+    // 有方向的特效始终朝向受击方（我方在左、敌方在右）
+    else if (shouldMirrorEffect(entry.effect, entry.target)) container.scale.x *= -1;
     container.alpha = entry.phase === 'blocked' ? 0.35 : 1;
     if (reducedMotion) container.alpha *= 0.5;
     layers.forEach((layer, index) => {
@@ -145,6 +147,8 @@ async function start(entry: BattleFeedbackEntry) {
         cropped.set(key, texture);
       }
       sprite.texture = texture;
+      sprite.blendMode = frame.blend === 1 ? 'add' : 'normal';
+      sprite.tint = frame.tint ?? 0xffffff;
       positionEffectSprite(sprite, frame, stun);
     });
   }
@@ -182,7 +186,11 @@ function prepare(): Promise<void> {
   })().catch(error => { preparation = null; throw error; });
   return preparation;
 }
-defineExpose({ prepare });
+/** 预热本场战斗可能用到的非核心特效贴图（失败不影响战斗） */
+function warm(effects: readonly BattleEffectName[]) {
+  for (const path of new Set(effects.flatMap(effectTexturePaths))) void loadTexture(path);
+}
+defineExpose({ prepare, warm });
 onMounted(() => { void prepare().catch(() => undefined); });
 onUnmounted(() => {
   disposed = true;

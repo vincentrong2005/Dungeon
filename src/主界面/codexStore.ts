@@ -1,3 +1,4 @@
+import { getAllActiveSkills } from './battle/activeSkillRegistry';
 import { getAllCards } from './battle/cardRegistry';
 import { EFFECT_REGISTRY } from './battle/effects';
 import { getAllEnemyNames } from './battle/enemyRegistry';
@@ -206,7 +207,11 @@ export function recordEncounteredEnemy(payload: { name: string; floor?: number; 
 export function unlockFullCodex() {
   const state = loadCodexState();
 
-  state.cards = Array.from(new Set([...state.cards, ...getAllCards().map(card => card.id)]));
+  state.cards = Array.from(new Set([
+    ...state.cards,
+    ...getAllCards().map(card => card.id),
+    ...getAllActiveSkills().map(skill => skill.id),
+  ]));
   state.relics = Array.from(new Set([...state.relics, ...getAllRelics().map(relic => relic.id)]));
   state.effects = Array.from(new Set([...state.effects, ...Object.keys(EFFECT_REGISTRY)]));
 

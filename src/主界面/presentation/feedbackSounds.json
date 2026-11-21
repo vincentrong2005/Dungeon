@@ -1,0 +1,56 @@
+{
+ "sounds": {
+  "uiSelect": [
+   {
+    "path": "音效库/特效音效/menu/Select_1.ogg",
+    "volume": 0.3,
+    "rate": 0.5
+   }
+  ],
+  "uiConfirm": [
+   {
+    "path": "音效库/特效音效/menu/Cancel_1.ogg",
+    "volume": 0.3,
+    "rate": 0.9
+   }
+  ],
+  "uiCancel": [
+   {
+    "path": "音效库/特效音效/menu/Confirm_3.ogg",
+    "volume": 0.3,
+    "rate": 1
+   }
+  ],
+  "uiInvalid": [
+   {
+    "path": "音效库/特效音效/menu/Disable_2.ogg",
+    "volume": 0.3,
+    "rate": 1
+   }
+  ],
+  "roll": [
+   {
+    "path": "音效库/特效音效/menu/Unwield_1.ogg",
+    "volume": 1,
+    "rate": 1.5
+   }
+  ],
+  "clashResult": [
+   {
+    "path": "音效库/特效音效/menu/Unwield_1.ogg",
+    "volume": 0.6,
+    "rate": 1.5
+   }
+  ],
+  "draw": [
+   {
+    "path": "音效库/特效音效/action/Turn_book_fast.ogg",
+    "volume": 1,
+    "rate": 1
+   }
+  ]
+ },
+ "images": {
+  "stun": "素材库/战斗界面/特效/晕.png"
+ }
+}

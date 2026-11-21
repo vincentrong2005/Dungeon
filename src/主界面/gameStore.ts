@@ -1,6 +1,18 @@
 // Schema import removed - using raw MVU data directly
+import { hasAuthorTestAccess } from './authorTestAccess';
+import { buildEnchantReconcileFields } from './battle/enchantRegistry';
+import { migrateLegacyBattleNames } from './battle/nameMigration';
+import { applyEventVerdictSettlement } from './eventRegistry';
+import { buildEventSettlementBlock, normalizeNoticeList } from './events/eventSettlement';
 import { FINAL_AREA_NAME, getFloorNumberForArea } from './floor';
-import { MAP_ROUTE_COUNT, generateDungeonMap, normalizeDungeonMap, replaceFutureRoomsWithBattle } from './map';
+import {
+  MAP_ROUTE_COUNT,
+  generateDungeonMap,
+  normalizeDungeonMap,
+  replaceFutureRoomsWithBattle,
+  replaceFutureRoomsWithBattleByChance,
+} from './map';
+import { OVERDUE_BATTLE_CHANCE, OVERDUE_FLOOR, hasNegativeStatus } from './negativeStatusRegistry';
 import {
   FIXED_OPENING_BACKGROUND_SETTING,
   buildOpeningBackstoryDraftPrompt,
@@ -198,6 +210,9 @@ export const useGameStore = defineStore('game', () => {
   const BIG_SUMMARY_PROMPT_SEGMENTS_KEY = 'dungeon.big_summary_prompt_segments.v1';
   const BUTTON_COMPLETION_ENABLED_KEY = 'dungeon.button_completion_enabled';
   const FAST_MODE_ENABLED_KEY = 'dungeon.fast_mode_enabled';
+  /** 测试模式（纯打牌、不调用 LLM）：仅在输入作者测试码后可见、可开启 */
+  const TEST_MODE_ENABLED_KEY = 'dungeon.test_mode_enabled';
+  const TEST_MODE_NO_LLM_MESSAGE = '测试模式下不会调用 AI。';
   const FAST_MODE_CHAT_VARIABLE_KEY = '__dungeon_fast_mode_buffer';
   const FAST_MODE_BUFFER_TITLE = '【剧情精简模式】';
   const FAST_MODE_BUFFER_EVENTS_TITLE = '【剧情精简模式经过】';
@@ -366,6 +381,22 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function readTestModeEnabledSetting(): boolean {
+    try {
+      return localStorage.getItem(TEST_MODE_ENABLED_KEY) === 'true' && hasAuthorTestAccess();
+    } catch {
+      return false;
+    }
+  }
+
+  function persistTestModeEnabledSetting(enabled: boolean) {
+    try {
+      localStorage.setItem(TEST_MODE_ENABLED_KEY, String(enabled));
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
   function persistFastModeEnabledSetting(enabled: boolean) {
     try {
       localStorage.setItem(FAST_MODE_ENABLED_KEY, String(enabled));
@@ -388,7 +419,9 @@ export const useGameStore = defineStore('game', () => {
   const summaryVisibleWindow = ref(readSummaryVisibleWindowSetting());
   const bigSummaryPromptSegments = ref<BigSummaryPromptSegment[]>(readBigSummaryPromptSegmentsSetting());
   const buttonCompletionEnabled = ref(readButtonCompletionEnabledSetting());
-  const fastModeEnabled = ref(readFastModeEnabledSetting());
+  const testModeEnabled = ref(readTestModeEnabledSetting());
+  // 测试模式依赖剧情精简模式的缓冲机制，开启测试模式时精简模式必须同时开启
+  const fastModeEnabled = ref(readFastModeEnabledSetting() || testModeEnabled.value);
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
 
@@ -529,6 +562,18 @@ export const useGameStore = defineStore('game', () => {
 
   function setPendingCombatMvuChanges(changes: PendingCombatMvuChanges | null) {
     pendingCombatMvuChanges.value = changes ? _.cloneDeep(changes) : null;
+  }
+
+  /** 在待提交的战斗结果上追加金币变化（用于战后额外获得的金币，避免覆盖战斗金币奖励） */
+  function addPendingCombatGoldDelta(delta: number) {
+    const value = Math.floor(Number(delta));
+    if (!Number.isFinite(value) || value === 0) return;
+    const current = pendingCombatMvuChanges.value;
+    if (current) {
+      current.goldDelta = Math.floor(Number(current.goldDelta ?? 0)) + value;
+    } else {
+      pendingCombatMvuChanges.value = { goldDelta: value } as PendingCombatMvuChanges;
+    }
   }
 
   function setPendingStatDataChanges(fields: Record<string, any> | null) {
@@ -746,6 +791,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   const generateOpeningBackstoryDraft = async (profile: OpeningInfoSubmission): Promise<string> => {
+    if (testModeEnabled.value) throw new Error(TEST_MODE_NO_LLM_MESSAGE);
     const witchSetting = await getWorldbookEntryContentByName('魔女');
     if (!witchSetting) {
       throw new Error('未找到世界书条目“魔女”。');
@@ -878,6 +924,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   const generateBigSummary = async (input: BigSummaryGenerateInput): Promise<BigSummaryGenerateResult> => {
+    if (testModeEnabled.value) throw new Error(TEST_MODE_NO_LLM_MESSAGE);
     const allEntries = await loadAutoSummaryChronicleEntries();
     if (allEntries.length === 0) {
       throw new Error('当前没有可用于大总结的小总结条目。');
@@ -1198,6 +1245,10 @@ export const useGameStore = defineStore('game', () => {
 
   function setFastModeEnabled(enabled: boolean) {
     const nextEnabled = Boolean(enabled);
+    if (!nextEnabled && testModeEnabled.value) {
+      error.value = '测试模式开启时无法关闭剧情精简模式，请先关闭测试模式。';
+      return;
+    }
     if (!nextEnabled && fastModeBufferActive.value) {
       error.value = '剧情精简模式正在缓冲行动，请先完成下一次 AI 请求。';
       return;
@@ -1209,6 +1260,25 @@ export const useGameStore = defineStore('game', () => {
       return;
     }
     activateFastModeRuntime();
+  }
+
+  function setTestModeEnabled(enabled: boolean) {
+    const nextEnabled = Boolean(enabled) && hasAuthorTestAccess();
+    if (nextEnabled && !fastModeEnabled.value) {
+      fastModeEnabled.value = true;
+      persistFastModeEnabledSetting(true);
+      activateFastModeRuntime();
+    }
+    testModeEnabled.value = nextEnabled;
+    persistTestModeEnabledSetting(nextEnabled);
+    if (nextEnabled) exposeFastModeInteractionButtons();
+  }
+
+  /** 测试模式：把本应发送给 LLM 的行动改为记录到精简模式缓冲（user 楼层） */
+  async function queueTestModeAction(text: string): Promise<boolean> {
+    const normalized = text.trim();
+    if (!normalized) return true;
+    return await queueFastAction({ type: 'action', text: normalized });
   }
 
   function syncFloorNumberByArea(mvuData: any) {
@@ -1426,6 +1496,26 @@ export const useGameStore = defineStore('game', () => {
     ].join('\n\n');
   }
 
+  /** 取出并清空 $事件结算通知，返回 <事件结算> 文本块 */
+  function takeEventSettlementNotices(mvuData: any): string | null {
+    const sd = mvuData?.stat_data;
+    if (!sd || typeof sd !== 'object') return null;
+    const notices = normalizeNoticeList(sd.$事件结算通知);
+    if (notices.length === 0) return null;
+    sd.$事件结算通知 = [];
+    return buildEventSettlementBlock(notices);
+  }
+
+  function appendEventSettlementBlock(userInput: string, block: string | null): string {
+    return block ? `${userInput.trim()}\n\n${block}` : userInput;
+  }
+
+  /** 写入 `_技能` 却没有写 `_附魔` 时，按槽位卡名变化清空附魔 */
+  function withEnchantReconcile(previousStatData: Record<string, any> | null | undefined, fields: Record<string, any>) {
+    const extra = buildEnchantReconcileFields(previousStatData, fields);
+    return extra ? { ...fields, ...extra } : fields;
+  }
+
   function appendFinalAreaMetaNotices(userInput: string, notices: Array<string | null>): string {
     const activeNotices = notices.filter((notice): notice is string => Boolean(notice?.trim()));
     if (activeNotices.length === 0) return userInput;
@@ -1509,7 +1599,7 @@ export const useGameStore = defineStore('game', () => {
     }
     const target = result.stat_data as Record<string, any>;
 
-    const navigationKeys = ['_当前区域', '_当前房间类型', '_楼层数', '_对手名称', '$当前事件', '$地图', '$路径'];
+    const navigationKeys = ['_当前区域', '_当前房间类型', '_楼层数', '_对手名称', '$当前事件', '$已触发事件', '$地图', '$路径'];
     for (const key of navigationKeys) {
       if (Object.prototype.hasOwnProperty.call(source, key)) {
         target[key] = _.cloneDeep(source[key]);
@@ -1531,7 +1621,6 @@ export const useGameStore = defineStore('game', () => {
         '累计经过商店',
         '累计经过神像',
         '累计经过事件',
-        '累计经过陷阱',
       ];
       for (const key of navigationStatKeys) {
         if (Object.prototype.hasOwnProperty.call(sourceStats, key)) {
@@ -1555,6 +1644,27 @@ export const useGameStore = defineStore('game', () => {
     if (currentMap.length !== MAP_ROUTE_COUNT) return;
     const currentY = Array.isArray(sd.$路径) ? sd.$路径.length : 0;
     sd.$地图 = replaceFutureRoomsWithBattle(currentMap, currentY);
+  }
+
+  /** [逾期]：新获得时，本层后续非战斗节点按概率被书魔追缴（变为战斗房），仅在第二层生效 */
+  function applyOverdueStatusMapEffect(mvuData: any, wasOverdue = false) {
+    const sd = mvuData?.stat_data;
+    if (!sd || typeof sd !== 'object' || wasOverdue) return;
+    const statuses = Array.isArray(sd.$负面状态)
+      ? sd.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
+      : [];
+    if (!hasNegativeStatus(statuses, '逾期')) return;
+    if (getFloorNumberForArea(String(sd._当前区域 ?? '')) !== OVERDUE_FLOOR) return;
+    const currentMap = normalizeDungeonMap(sd.$地图);
+    if (currentMap.length !== MAP_ROUTE_COUNT) return;
+    const currentY = Array.isArray(sd.$路径) ? sd.$路径.length : 0;
+    sd.$地图 = replaceFutureRoomsWithBattleByChance(currentMap, currentY, OVERDUE_BATTLE_CHANCE);
+  }
+
+  /** 新获得的负面状态对地图的影响（[被标记]、[逾期]） */
+  function applyNegativeStatusMapEffects(mvuData: any, previousStatuses: readonly string[]) {
+    applyMarkedStatusMapEffect(mvuData, previousStatuses.includes('[被标记]'));
+    applyOverdueStatusMapEffect(mvuData, hasNegativeStatus(previousStatuses, '逾期'));
   }
 
   function applyPendingCombatChangesToMvu(baseMvuData: any, changes: PendingCombatMvuChanges | null) {
@@ -1583,6 +1693,7 @@ export const useGameStore = defineStore('game', () => {
       const raw = sd.$负面状态;
       const base = Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
       const hadMarkedStatus = base.includes('[被标记]');
+      const hadOverdueStatus = hasNegativeStatus(base, '逾期');
       for (const status of changes.negativeStatusesAdd) {
         if (typeof status !== 'string') continue;
         const normalized = status.trim();
@@ -1593,6 +1704,7 @@ export const useGameStore = defineStore('game', () => {
       }
       sd.$负面状态 = base;
       applyMarkedStatusMapEffect(result, hadMarkedStatus);
+      applyOverdueStatusMapEffect(result, hadOverdueStatus);
     }
 
     if (Array.isArray(changes.negativeStatusesRemove) && changes.negativeStatusesRemove.length > 0) {
@@ -1625,7 +1737,7 @@ export const useGameStore = defineStore('game', () => {
 
     if (!changes || !changes.fields || typeof changes.fields !== 'object') return result;
 
-    Object.assign(sd, _.cloneDeep(changes.fields));
+    Object.assign(sd, _.cloneDeep(withEnchantReconcile(sd, changes.fields)));
     return syncFloorNumberByArea(result);
   }
 
@@ -1859,6 +1971,11 @@ export const useGameStore = defineStore('game', () => {
       area === FINAL_AREA_NAME || ['宝箱房', '商店房', '温泉房', '神像房', '战斗房', '领主房'].includes(roomType);
     manualHasOptionE.value = roomHasSpecial;
     manualHasLeave.value = true;
+    if (testModeEnabled.value) {
+      // 测试模式没有 AI 回复，战败后由系统直接提供回溯按钮
+      const sd = _.get(fastModeMvuData.value, 'stat_data') ?? statData.value;
+      manualHasRebirth.value = Number(sd?._血量 ?? 1) <= 0;
+    }
   }
 
   function updateFastModeDisplay() {
@@ -1996,6 +2113,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function flushFastActions(finalActionText?: string): Promise<boolean> {
     const finalActionTextValue = finalActionText ?? '';
+    if (testModeEnabled.value) return await queueTestModeAction(finalActionTextValue);
 
     if (!fastModeEnabled.value) {
       if (!finalActionTextValue.trim()) return false;
@@ -2094,6 +2212,7 @@ export const useGameStore = defineStore('game', () => {
       if (raw && typeof raw === 'object') {
         syncFloorNumberByArea(mvuData);
         // 直接使用原始数据，避免 Schema 转换/截断
+        migrateLegacyBattleNames(raw as Record<string, any>);
         statData.value = _.get(mvuData, 'stat_data') as any;
         console.info('[GameStore] stat_data loaded from message', lastId);
       }
@@ -2151,6 +2270,7 @@ export const useGameStore = defineStore('game', () => {
    */
   async function sendAction(userInput: string, options?: { userMvuDataOverride?: any }): Promise<boolean> {
     if (isGenerating.value || !userInput.trim()) return false;
+    if (testModeEnabled.value) return await queueTestModeAction(userInput);
 
     error.value = null;
     isGenerating.value = true;
@@ -2167,10 +2287,6 @@ export const useGameStore = defineStore('game', () => {
       const currentPendingFinalAreaEditNotices = isInFinalArea() ? [...pendingFinalAreaEditNotices.value] : [];
       const currentPendingFinalAreaRollbackNotice = isInFinalArea() ? pendingFinalAreaRollbackNotice.value : null;
       const currentPendingFinalAreaEditNotice = formatFinalAreaEditNotices(currentPendingFinalAreaEditNotices);
-      const finalUserInput = appendFinalAreaMetaNotices(userInput, [
-        currentPendingFinalAreaRollbackNotice,
-        currentPendingFinalAreaEditNotice,
-      ]);
 
       // 2. 先将地图房间变量写入 user 楼层对应的 MVU 数据
       const userMvuData = options?.userMvuDataOverride
@@ -2183,6 +2299,12 @@ export const useGameStore = defineStore('game', () => {
             currentPendingStatDataChanges,
           );
       syncFloorNumberByArea(userMvuData);
+      // 事件结算说明随本条 user 楼层注入，注入后清空
+      const eventSettlementBlock = takeEventSettlementNotices(userMvuData);
+      const finalUserInput = appendEventSettlementBlock(
+        appendFinalAreaMetaNotices(userInput, [currentPendingFinalAreaRollbackNotice, currentPendingFinalAreaEditNotice]),
+        eventSettlementBlock,
+      );
 
       // 3. 创建 user 楼层（携带已应用按钮变更后的 MVU 数据）
       console.info('[GameStore] Creating user message:', finalUserInput);
@@ -2243,10 +2365,11 @@ export const useGameStore = defineStore('game', () => {
         newMvuData.stat_data = _.cloneDeep(userMvuData.stat_data);
       }
       preserveNavigationStateFromUserMvuData(newMvuData, userMvuData);
+      applyEventVerdictSettlement(newMvuData, userMvuData);
       const previousStatuses = Array.isArray(userMvuData?.stat_data?.$负面状态)
         ? userMvuData.stat_data.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
         : [];
-      applyMarkedStatusMapEffect(newMvuData, previousStatuses.includes('[被标记]'));
+      applyNegativeStatusMapEffects(newMvuData, previousStatuses);
       syncFloorNumberByArea(newMvuData);
 
       // 8. 清理无用的 MVU 内部字段
@@ -2304,6 +2427,7 @@ export const useGameStore = defineStore('game', () => {
       const raw = _.get(mvuData, 'stat_data');
       if (raw && typeof raw === 'object') {
         // 直接使用原始数据，避免 Schema.safeParse 对数据的转换/截断
+        migrateLegacyBattleNames(raw as Record<string, any>);
         statData.value = raw as any;
         console.info('[GameStore] Local stat_data refreshed:', JSON.stringify(raw.$统计));
       }
@@ -2381,6 +2505,7 @@ export const useGameStore = defineStore('game', () => {
         const mvuData = Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
         const raw = _.get(mvuData, 'stat_data');
         if (raw && typeof raw === 'object') {
+          migrateLegacyBattleNames(raw as Record<string, any>);
           statData.value = raw as any;
           console.info('[GameStore] Rollback: loaded stat_data from message', targetMessageId);
         }
@@ -2411,6 +2536,10 @@ export const useGameStore = defineStore('game', () => {
    */
   async function rerollCurrent() {
     if (isGenerating.value) return;
+    if (testModeEnabled.value) {
+      toastr.info(TEST_MODE_NO_LLM_MESSAGE);
+      return;
+    }
 
     if (isInFinalArea()) {
       toastr.info('这一次重Roll被欲望之神看见了。');
@@ -2476,10 +2605,11 @@ export const useGameStore = defineStore('game', () => {
 
       // 解析 MVU 变量命令（基于旧数据继承，深拷贝以避免污染当前楼层）
       const newMvuData = await Mvu.parseMessage(resultText, _.cloneDeep(oldMvuData));
+      applyEventVerdictSettlement(newMvuData, oldMvuData);
       const previousStatuses = Array.isArray(oldMvuData?.stat_data?.$负面状态)
         ? oldMvuData.stat_data.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
         : [];
-      applyMarkedStatusMapEffect(newMvuData, previousStatuses.includes('[被标记]'));
+      applyNegativeStatusMapEffects(newMvuData, previousStatuses);
       syncFloorNumberByArea(newMvuData);
 
       // 创建新的 assistant 楼层，携带 MVU 数据
@@ -2555,10 +2685,11 @@ export const useGameStore = defineStore('game', () => {
         // parseMessage 完全失败时，保留原始数据
         newMvuData = currentMvuData;
       }
+      applyEventVerdictSettlement(newMvuData, prevMvuData);
       const previousStatuses = Array.isArray(currentMvuData?.stat_data?.$负面状态)
         ? currentMvuData.stat_data.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
         : [];
-      applyMarkedStatusMapEffect(newMvuData, previousStatuses.includes('[被标记]'));
+      applyNegativeStatusMapEffects(newMvuData, previousStatuses);
       syncFloorNumberByArea(newMvuData);
 
       // 保存编辑后的完整文本到楼层
@@ -2605,7 +2736,7 @@ export const useGameStore = defineStore('game', () => {
   /**
    * 直接更新当前最新楼层的 stat_data 字段（用于本地测试配置等场景）
    */
-  async function updateStatDataFields(fields: Record<string, any>): Promise<boolean> {
+  async function updateStatDataFields(rawFields: Record<string, any>): Promise<boolean> {
     try {
       const lastId = getLastMessageId();
       if (lastId < 0) {
@@ -2613,8 +2744,12 @@ export const useGameStore = defineStore('game', () => {
         return false;
       }
 
-      const changedKeys = Object.keys(fields);
       const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
+      const fields = withEnchantReconcile(
+        fastModeEnabled.value ? (_.get(getFastModeBaseMvuData(), 'stat_data') ?? currentMvuData?.stat_data) : currentMvuData?.stat_data,
+        rawFields,
+      );
+      const changedKeys = Object.keys(fields);
       const nextCurrentMvuData = _.cloneDeep(currentMvuData ?? {});
       if (!nextCurrentMvuData.stat_data || typeof nextCurrentMvuData.stat_data !== 'object') {
         nextCurrentMvuData.stat_data = {};
@@ -2667,6 +2802,7 @@ export const useGameStore = defineStore('game', () => {
     bigSummaryPromptSegments,
     buttonCompletionEnabled,
     fastModeEnabled,
+    testModeEnabled,
     fastModeBufferActive,
     fastActionEvents,
     streamingText,
@@ -2701,6 +2837,7 @@ export const useGameStore = defineStore('game', () => {
     resetBigSummaryPromptSegments,
     setButtonCompletionEnabled,
     setFastModeEnabled,
+    setTestModeEnabled,
     queueFastAction,
     flushFastActions,
     clearFastModeBuffer,
@@ -2708,6 +2845,7 @@ export const useGameStore = defineStore('game', () => {
     hideManualButtonCompletion,
     setPendingRoomChanges,
     setPendingCombatMvuChanges,
+    addPendingCombatGoldDelta,
     setPendingStatDataChanges,
     mergePendingStatDataChanges,
     loadStatData,

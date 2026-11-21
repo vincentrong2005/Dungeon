@@ -1,7 +1,8 @@
 ﻿import { CardType, EffectType, type CardData, type EntityStats } from '../types';
+import { EVENT_RELICS } from './eventRelics';
 
 export type RelicRarity = '普通' | '稀有' | '传奇';
-export type RelicCategory = '普通' | '基础' | '魔导' | '燃烧' | '严寒' | '血池' | '炼金';
+export type RelicCategory = '普通' | '基础' | '魔导' | '燃烧' | '严寒' | '血池' | '炼金' | '财富' | '腐化' | '暗影' | '破坏' | '事件';
 
 export type RelicSide = 'player' | 'enemy';
 export type RelicFloatKind = 'shield' | 'mana' | 'heal';
@@ -49,6 +50,7 @@ export type RelicLifecycleHookContext = RelicSharedHookContext;
 export interface RelicPointHookContext {
   count: number;
   side: RelicSide;
+  turn: number;
   card: CardData;
   baseDice: number;
   currentPoint: number;
@@ -166,6 +168,725 @@ const getStacks = (entity: EntityStats, effectType: EffectType) =>
   entity.effects
     .filter(eff => eff.type === effectType)
     .reduce((total, effect) => total + Math.max(0, effect.stacks), 0);
+
+const SYSTEM_RELICS: readonly RelicData[] = [
+  {
+    id: 'system_wealth_relic_02',
+    name: '白水晶',
+    category: '财富',
+    rarity: '普通',
+    effect: '偶数回合护甲不减半',
+    description: '偶数回合结束时，护甲不会减半。',
+    hooks: { onTurnEnd: ({ turn, state, addLog }) => { if (turn % 2 === 0) { state.skipArmorDecay = true; addLog('[白水晶] 偶数回合保留护甲。'); } } },
+  },
+  {
+    id: 'system_wealth_relic_03',
+    name: '冰晶石',
+    category: '财富',
+    rarity: '普通',
+    effect: '获得护甲时施加寒冷',
+    description: '每次获得护甲时，使敌人获得1层寒冷。',
+    hooks: { onBeforeApplyEffect: ({ effectType, targetSide, addStatusEffect, addLog }) => { if (effectType === EffectType.ARMOR && targetSide === 'player') { addStatusEffect('enemy', EffectType.COLD, 1); addLog('[冰晶石] 敌方寒冷 +1。'); } } },
+  },
+  {
+    id: 'system_wealth_relic_04',
+    name: '鹅卵石',
+    category: '财富',
+    rarity: '普通',
+    effect: '获得护甲时造成1点伤害',
+    description: '每次获得护甲时，对敌人造成1点物理伤害。',
+  },
+  {
+    id: 'system_wealth_relic_05',
+    name: '肥皂',
+    category: '财富',
+    rarity: '普通',
+    effect: '压低行动牌点数',
+    description: '敌方功能牌点数×0.8，闪避牌点数+1。',
+    hooks: { modifyFinalPoint: ({ side, card, currentPoint }) => side === 'player' ? currentPoint : card.type === CardType.FUNCTION ? Math.floor(currentPoint * 0.8) : card.type === CardType.DODGE ? currentPoint + 1 : currentPoint },
+  },
+  {
+    id: 'system_wealth_relic_06',
+    name: '钢板',
+    category: '财富',
+    rarity: '稀有',
+    effect: '每6回合获得结界与护甲',
+    description: '每6回合开始时，若没有结界，获得1层结界与6点护甲。',
+    hooks: { onTurnStart: ({ turn, self, addStatusEffect, addArmor, addLog }) => { if (turn % 6 === 0 && getStacks(self, EffectType.BARRIER) <= 0) { addStatusEffect('player', EffectType.BARRIER, 1); addArmor('player', 6); addLog('[钢板] 获得结界与6点护甲。'); } } },
+  },
+  {
+    id: 'system_wealth_relic_07',
+    name: '黑曜石',
+    category: '财富',
+    rarity: '稀有',
+    effect: '获得护甲时施加敏感',
+    description: '每次获得护甲时，使敌人获得1层本回合敏感。',
+    hooks: { onBeforeApplyEffect: ({ effectType, targetSide, addStatusEffect }) => { if (effectType === EffectType.ARMOR && targetSide === 'player') addStatusEffect('enemy', EffectType.VULNERABLE, 1, { durationTurns: 1, temporary: true }); } },
+  },
+  {
+    id: 'system_wealth_relic_08',
+    name: '红宝石',
+    category: '财富',
+    rarity: '稀有',
+    effect: '治疗转化为护甲',
+    description: '回复生命时，获得等量护甲。',
+  },
+  {
+    id: 'system_wealth_relic_09',
+    name: '黄金',
+    category: '财富',
+    rarity: '稀有',
+    effect: '金币提升最大点数',
+    description: '每有8金币，最大骰子点数+1，最多+4。',
+    hooks: { onBattleStart: ({ self, state, addLog }) => { const gold = Math.max(0, Math.floor(Number(state.gold ?? 0))); const gain = Math.min(4, Math.floor(gold / 8)); self.maxDice += gain; addLog(`[黄金] 最大点数 +${gain}。`); } },
+  },
+  {
+    id: 'system_wealth_relic_10',
+    name: '假金币',
+    category: '财富',
+    rarity: '普通',
+    effect: '金币获得量提升',
+    description: '战斗与房间获得的金币额外+1。',
+  },
+  {
+    id: 'system_wealth_relic_11',
+    name: '蓝宝石',
+    category: '财富',
+    rarity: '稀有',
+    effect: '回魔转化为护甲',
+    description: '回复魔力时获得等量护甲。',
+  },
+  {
+    id: 'system_wealth_relic_12',
+    name: '绿宝石',
+    category: '财富',
+    rarity: '稀有',
+    effect: '治疗转化为魔力',
+    description: '回复生命时回复等量魔力。',
+  },
+  {
+    id: 'system_wealth_relic_13',
+    name: '玛瑙',
+    category: '财富',
+    rarity: '普通',
+    effect: '跳过时获得护甲',
+    description: '跳过回合时，获得0.5倍点数护甲。',
+    hooks: { onTurnEnd: ({ state, addArmor, addLog }) => { if (state.skippedTurn) { const amount = Math.max(0, Math.floor(Number(state.currentPoint ?? 0) * 0.5)); if (amount > 0) { addArmor('player', amount); addLog(`[玛瑙] 获得 ${amount} 点护甲。`); } } } },
+  },
+  {
+    id: 'system_wealth_relic_14',
+    name: '熔岩石',
+    category: '财富',
+    rarity: '稀有',
+    effect: '获得护甲时双方燃烧',
+    description: '每次获得护甲时，使双方各获得1层燃烧。',
+    hooks: { onBeforeApplyEffect: ({ effectType, targetSide, addStatusEffect }) => { if (effectType === EffectType.ARMOR && targetSide === 'player') { addStatusEffect('player', EffectType.BURN, 1); addStatusEffect('enemy', EffectType.BURN, 1); } } },
+  },
+  {
+    id: 'system_wealth_relic_15',
+    name: '贪婪之书',
+    category: '财富',
+    rarity: '传奇',
+    effect: '金币抵挡伤害',
+    description: '获得时将生命上限转化为金币并保留1点生命；战斗中金币可以抵挡伤害，胜利额外获得5金币。',
+  },
+  {
+    id: 'system_wealth_relic_16',
+    name: '沐芯兰的借据',
+    category: '财富',
+    rarity: '传奇',
+    effect: '获得40金币，商品涨价',
+    description: '获得时立即获得40金币；商店商品价格+5。',
+  },
+  {
+    id: 'system_wealth_relic_17',
+    name: '铜',
+    category: '财富',
+    rarity: '普通',
+    effect: '护甲+1，第二回合护甲',
+    description: '获得护甲值+1；第二回合开始获得3点护甲。',
+    hooks: { onTurnStart: ({ turn, addArmor, addLog }) => { if (turn === 2) { addArmor('player', 3); addLog('[铜] 获得3点护甲。'); } } },
+  },
+  {
+    id: 'system_wealth_relic_18',
+    name: '珍珠',
+    category: '财富',
+    rarity: '稀有',
+    effect: '护甲达到5时获得临时生命',
+    description: '每场战斗护甲首次达到5时，获得等同护甲的临时生命上限并回复等量生命。',
+    hooks: { onBeforeApplyEffect: ({ effectType, targetSide, stacks, state, addStatusEffect, heal }) => { if (effectType === EffectType.ARMOR && targetSide === 'player' && !state.triggered && stacks >= 5) { state.triggered = true; addStatusEffect('player', EffectType.TEMP_MAX_HP, stacks); heal('player', stacks); } } },
+  },
+  {
+    id: 'system_wealth_relic_19',
+    name: '珠宝盒',
+    category: '财富',
+    rarity: '稀有',
+    effect: '战斗开始按金币获得护甲',
+    description: '战斗开始时，每有1金币获得1点护甲。',
+    hooks: { onBattleStart: ({ state, addArmor, addLog }) => { const gold = Math.max(0, Math.floor(Number(state.gold ?? 0))); if (gold > 0) { addArmor('player', gold); addLog(`[珠宝盒] 获得 ${gold} 点护甲。`); } } },
+  },
+  {
+    id: 'system_wealth_piggy_bank',
+    name: '猪猪存钱罐',
+    category: '财富',
+    rarity: '稀有',
+    effect: '受伤时获得金币',
+    description: '受到伤害时获得1金币；每场战斗触发3次后，改为获得1临时金币。',
+  },
+  {
+    id: 'system_wealth_interest',
+    name: '利息',
+    category: '财富',
+    rarity: '稀有',
+    effect: '回合开始按金币获得临时金币',
+    description: '回合开始时，每持有15金币获得1临时金币。',
+  },
+  {
+    id: 'system_wealth_relic_20',
+    name: '钻石',
+    category: '财富',
+    rarity: '传奇',
+    effect: '护甲翻倍并获得敏感',
+    description: '获得护甲量翻倍；战斗开始时获得2层敏感。',
+    hooks: { onBattleStart: ({ addStatusEffect }) => { addStatusEffect('player', EffectType.VULNERABLE, 2); } },
+  },
+  {
+    id: 'system_corruption_relic_01',
+    name: '蟾蜍',
+    category: '腐化',
+    rarity: '普通',
+    effect: '敌方中毒或敏感时攻击点数+1',
+    description: '敌人拥有中毒或敏感时，攻击牌与法术牌点数+1。',
+    hooks: { modifyFinalPoint: ({ side, card, currentPoint, opponent }) => side === 'player' && (card.type === CardType.PHYSICAL || card.type === CardType.MAGIC) && (getStacks(opponent, EffectType.POISON) > 0 || getStacks(opponent, EffectType.VULNERABLE) > 0) ? currentPoint + 1 : currentPoint },
+  },
+  {
+    id: 'system_corruption_relic_02',
+    name: '毒蛇',
+    category: '腐化',
+    rarity: '稀有',
+    effect: '中毒额外+1并开场施毒',
+    description: '战斗开始时使敌人中毒+1；施加中毒时额外+1层。',
+    hooks: {
+      onBattleStart: ({ addStatusEffect }) => { addStatusEffect('enemy', EffectType.POISON, 1); },
+      onBeforeApplyEffect: ({ effectType, targetSide, stacks, count, source, addStatusEffect }) => {
+        if (effectType !== EffectType.POISON || stacks <= 0 || source === 'relic:system_corruption_relic_02') return;
+        addStatusEffect(targetSide, EffectType.POISON, count, { source: 'relic:system_corruption_relic_02' });
+      },
+    },
+  },
+  {
+    id: 'system_corruption_relic_03',
+    name: '刮骨刀',
+    // 保留旧 id 以兼容存档；体系改为暗影
+    category: '暗影',
+    rarity: '传奇',
+    effect: '伤害最低3点',
+    description: '敌人受到伤害时至少受到3点；敌人满生命时至少6点。',
+    hooks: { onBeforeDirectDamage: (ctx) => { if (ctx.targetSide === 'enemy' && ctx.damage > 0) { const minimum = ctx.target.hp >= ctx.target.maxHp ? 6 : 3; ctx.damage = Math.max(ctx.damage, minimum); } } },
+  },
+  {
+    id: 'system_corruption_relic_04',
+    name: '蜈蚣',
+    category: '腐化',
+    rarity: '普通',
+    effect: '闪避胜利施加中毒',
+    description: '闪避牌拼点胜利时使敌人中毒+1；敌人满生命时改为+2。',
+  },
+  {
+    id: 'system_corruption_relic_05',
+    name: '蝎子',
+    category: '腐化',
+    rarity: '稀有',
+    effect: '第四回合施加敏感与中毒',
+    description: '第四回合开始时使敌人获得1层敏感与1层中毒；此后敌方中毒结算受敏感影响（每层敏感使每次增加的中毒量+1）。',
+    hooks: { onTurnStart: ({ turn, addStatusEffect }) => { if (turn === 4) { addStatusEffect('enemy', EffectType.VULNERABLE, 1); addStatusEffect('enemy', EffectType.POISON, 1); } } },
+  },
+  {
+    id: 'system_corruption_relic_06',
+    name: '蜘蛛',
+    category: '腐化',
+    rarity: '稀有',
+    effect: '闪避强化中毒与敏感',
+    description: '使用闪避牌时，本回合敌方中毒结算×1.5；敌方使用闪避牌时，本回合其受到的敏感加伤×2。',
+  },
+  {
+    id: 'system_corruption_relic_07',
+    name: '迷雾瓶',
+    category: '腐化',
+    rarity: '传奇',
+    effect: '跳过时眩晕敌方',
+    description: '跳过回合时，使敌方眩晕1回合，每场战斗限一次。',
+  },
+  {
+    id: 'system_corruption_relic_08',
+    name: '壁虎',
+    category: '腐化',
+    rarity: '普通',
+    effect: '闪避成功回复魔力',
+    description: '闪避成功后回复1点魔力，每场战斗限9次。',
+  },
+  {
+    id: 'system_corruption_relic_09',
+    name: '曼陀罗',
+    category: '腐化',
+    rarity: '稀有',
+    effect: '中毒量使敌方虚弱',
+    description: '敌方每有10点中毒量，获得1层虚弱，最多4层（中毒量降低时随之减少）。',
+  },
+  {
+    id: 'system_shadow_relic_01',
+    name: '暗杀匕首',
+    category: '暗影',
+    rarity: '稀有',
+    effect: '满血敌人受到伤害+50%',
+    description: '满生命的敌人受到的伤害提高50%。',
+    hooks: { onBeforeDirectDamage: (ctx) => { if (ctx.targetSide === 'enemy' && ctx.target.hp >= ctx.target.maxHp) ctx.damage = Math.floor(ctx.damage * 1.5); } },
+  },
+  {
+    id: 'system_shadow_relic_02',
+    name: '嫉妒之书',
+    category: '暗影',
+    rarity: '传奇',
+    effect: '复制敌方骰子范围',
+    description: '战斗中自身最小、最大骰子点数等于敌方。',
+    hooks: { onBattleStart: ({ self, opponent }) => { self.minDice = opponent.minDice; self.maxDice = opponent.maxDice; } },
+  },
+  {
+    id: 'system_shadow_relic_03',
+    name: '投刃',
+    category: '暗影',
+    rarity: '普通',
+    effect: '闪避胜利造成2点伤害',
+    description: '闪避牌拼点胜利时使对方受到2点物理伤害。',
+  },
+  {
+    id: 'system_shadow_relic_04',
+    name: '猫耳',
+    category: '暗影',
+    rarity: '普通',
+    effect: '闪避点数+2，对手+4',
+    description: '使用闪避牌时点数+2，对方点数+4。',
+  },
+  {
+    id: 'system_shadow_relic_05',
+    name: '猫尾',
+    category: '暗影',
+    rarity: '普通',
+    effect: '闪避回复生命',
+    description: '使用闪避牌时回复1点生命，每场战斗最多9次。',
+  },
+  {
+    id: 'system_shadow_relic_06',
+    name: '猫爪',
+    category: '暗影',
+    rarity: '稀有',
+    effect: '闪避造成点数伤害',
+    description: '使用闪避牌时使敌人受到1倍点数物理伤害，冷却4回合。',
+  },
+  {
+    id: 'system_shadow_relic_07',
+    name: '面罩',
+    category: '暗影',
+    rarity: '稀有',
+    effect: '平局视为胜利并施加敏感',
+    description: '点数相同时视为拼点胜利，并对敌人施加1层敏感。',
+  },
+  {
+    id: 'system_shadow_relic_08',
+    name: '半脸面具',
+    category: '暗影',
+    rarity: '普通',
+    effect: '平局获得增伤',
+    description: '点数相同时获得1层增伤。',
+  },
+  {
+    id: 'system_shadow_relic_09',
+    name: '死神摆件',
+    category: '暗影',
+    rarity: '稀有',
+    effect: '满血敌人使投掷点数+4',
+    description: '敌方满生命时，自身投掷点数+4。',
+  },
+  {
+    id: 'system_shadow_relic_10',
+    name: '它的影子',
+    category: '暗影',
+    rarity: '稀有',
+    effect: '闪避对局追加效果',
+    description: '双方都闪避时互相施加敏感；自身闪避对方行动时回复1点生命。',
+  },
+  {
+    id: 'system_shadow_relic_11',
+    name: '影刃',
+    category: '暗影',
+    rarity: '普通',
+    effect: '闪避胜利获得增伤',
+    description: '闪避牌拼点胜利时获得1层增伤。',
+  },
+  {
+    id: 'system_shadow_venom_blade',
+    name: '淬毒刃',
+    category: '暗影',
+    rarity: '传奇',
+    effect: '首次直接伤害削减生命上限',
+    description: '每场战斗第一次对敌方造成直接伤害时，使其获得等量的生命上限削减。',
+  },
+  {
+    id: 'system_destruction_relic_01',
+    name: '暴怒之书',
+    category: '破坏',
+    rarity: '传奇',
+    effect: '拼点触发效果两次',
+    description: '拼点触发的卡牌效果触发两次；每次跳过回合时获得3层燃烧。',
+    hooks: { onTurnEnd: ({ state, addStatusEffect, addLog }) => { if (state.skippedTurn) { addStatusEffect('player', EffectType.BURN, 3); addLog('[暴怒之书] 跳过回合，自身获得3层燃烧。'); } } },
+  },
+  {
+    id: 'system_destruction_relic_02',
+    name: '失衡护甲·奇',
+    category: '破坏',
+    rarity: '稀有',
+    effect: '奇偶回合伤害波动',
+    description: '奇数回合受到伤害+3，偶数回合受到伤害-6。',
+  },
+  {
+    id: 'system_destruction_relic_03',
+    name: '失衡护甲·偶',
+    category: '破坏',
+    rarity: '稀有',
+    effect: '反向奇偶回合伤害波动',
+    description: '奇数回合受到伤害-6，偶数回合受到伤害+3。',
+  },
+  {
+    id: 'system_destruction_relic_04',
+    name: '止血绷带',
+    category: '破坏',
+    rarity: '普通',
+    effect: '拼点失败回复生命',
+    description: '拼点失败时回复2点生命。',
+  },
+  {
+    id: 'system_destruction_relic_05',
+    name: '钢铁之手',
+    category: '破坏',
+    rarity: '传奇',
+    effect: '攻击拼点失败仍可命中',
+    description: '攻击牌与非闪避牌拼点失败或平局时，仍然可以攻击。',
+  },
+  {
+    id: 'system_destruction_relic_06',
+    name: '钢铁之心',
+    category: '破坏',
+    rarity: '稀有',
+    effect: '临时生命上限与限伤',
+    description: '战斗开始获得6点临时生命上限；每回合最多失去一半生命上限的生命。',
+    hooks: { onBattleStart: ({ addStatusEffect }) => { addStatusEffect('player', EffectType.TEMP_MAX_HP, 6); } },
+  },
+  {
+    id: 'system_destruction_relic_07',
+    name: '钢靴',
+    category: '破坏',
+    rarity: '普通',
+    effect: '拼点失败提高最小点数',
+    description: '拼点失败时本场战斗最小骰子点数+1，直到等于最大点数。',
+  },
+  {
+    id: 'system_destruction_relic_08',
+    name: '海盗钩子',
+    category: '破坏',
+    rarity: '普通',
+    effect: '拼点获得蓄力',
+    description: '拼点时获得1层蓄力；蓄力效果+1（每层蓄力使下次投掷点数+2）。',
+  },
+  {
+    id: 'system_destruction_relic_09',
+    name: '海盗帽',
+    category: '破坏',
+    rarity: '普通',
+    effect: '高点数获得蓄力',
+    description: '投掷点数超过最大值时，每2点获得1层蓄力。',
+  },
+  {
+    id: 'system_destruction_relic_10',
+    name: '海盗眼罩',
+    category: '破坏',
+    rarity: '稀有',
+    effect: '开场获得蓄力',
+    description: '战斗开始获得2层蓄力；蓄力效果×1.5（向下取整）。',
+    hooks: { onBattleStart: ({ addStatusEffect }) => { addStatusEffect('player', EffectType.CHARGE, 2); } },
+  },
+  {
+    id: 'system_destruction_relic_11',
+    name: '禁忌废液桶',
+    category: '破坏',
+    rarity: '传奇',
+    effect: '伤害改为真实伤害',
+    description: '双方伤害牌造成的伤害改为真实伤害；战斗中可点击弃置本圣遗物，对敌方造成其20%当前生命的真实伤害。',
+  },
+  {
+    id: 'system_destruction_relic_12',
+    name: '火药',
+    category: '破坏',
+    rarity: '稀有',
+    effect: '满点投掷点数×1.5',
+    description: '投掷点数达到骰子最大值时，点数×1.5。',
+    hooks: { modifyFinalPoint: ({ side, baseDice, self, currentPoint }) => side === 'player' && baseDice >= self.maxDice ? Math.floor(currentPoint * 1.5) : currentPoint },
+  },
+  {
+    id: 'system_destruction_relic_13',
+    name: '错齿齿轮·奇',
+    category: '破坏',
+    rarity: '普通',
+    effect: '奇偶回合点数+3/-3',
+    description: '奇数回合投掷点数+3，偶数回合投掷点数-3。',
+    hooks: { modifyFinalPoint: ({ side, turn, currentPoint }) => side === 'player' ? currentPoint + (turn % 2 === 1 ? 3 : -3) : currentPoint },
+  },
+  {
+    id: 'system_destruction_relic_14',
+    name: '错齿齿轮·偶',
+    category: '破坏',
+    rarity: '普通',
+    effect: '奇偶回合点数-3/+3',
+    description: '奇数回合投掷点数-3，偶数回合投掷点数+3。',
+    hooks: { modifyFinalPoint: ({ side, turn, currentPoint }) => side === 'player' ? currentPoint + (turn % 2 === 1 ? -3 : 3) : currentPoint },
+  },
+  {
+    id: 'system_destruction_relic_15',
+    name: '路障',
+    category: '破坏',
+    rarity: '普通',
+    effect: '拼点失败获得护甲',
+    description: '拼点失败时获得3点护甲。',
+    hooks: { onTurnEnd: ({ state, addArmor }) => { if (state.clashFailed) { addArmor('player', 3); state.clashFailed = false; } } },
+  },
+  {
+    id: 'system_destruction_relic_16',
+    name: '破坏锤',
+    category: '破坏',
+    rarity: '传奇',
+    effect: '攻击可与行动牌拼点',
+    description: '攻击牌可以和对方的行动牌拼点。',
+  },
+  {
+    id: 'system_destruction_relic_17',
+    name: '赔偿契约',
+    category: '破坏',
+    rarity: '稀有',
+    effect: '失败获得金币与生命上限',
+    description: '拼点失败时获得1金币并永久生命上限+1，最多触发30次。',
+  },
+  {
+    id: 'system_destruction_relic_18',
+    name: '生命锁',
+    category: '破坏',
+    rarity: '传奇',
+    effect: '前两回合免伤',
+    description: '战斗前两个回合与复活触发回合免疫所有伤害。',
+    hooks: { onBeforeDirectDamage: (ctx) => { if (ctx.targetSide === 'player' && (ctx.turn <= 2 || ctx.state.reviveTurn === ctx.turn)) ctx.damage = 0; } },
+  },
+  {
+    id: 'system_destruction_relic_19',
+    name: '铁球',
+    category: '破坏',
+    rarity: '普通',
+    effect: '最大点数-3并获得蓄力',
+    description: '最大骰子点数-3；每回合开始获得3层蓄力。',
+    hooks: { onBattleStart: ({ self }) => { self.maxDice = Math.max(self.minDice, self.maxDice - 3); }, onTurnStart: ({ addStatusEffect }) => addStatusEffect('player', EffectType.CHARGE, 3) },
+  },
+  {
+    id: 'system_destruction_relic_20',
+    name: '烟',
+    category: '破坏',
+    rarity: '稀有',
+    effect: '敌方伤害×75%',
+    description: '敌方伤害牌造成的伤害降低至75%。',
+    hooks: { onBeforeDirectDamage: (ctx) => { if (ctx.sourceSide === 'enemy' && ctx.targetSide === 'player' && ctx.card && (ctx.card.type === CardType.PHYSICAL || ctx.card.type === CardType.MAGIC)) ctx.damage = Math.floor(ctx.damage * 0.75); } },
+  },
+];
+
+// ── 原作补充移植圣遗物 ─────────────────────────────────────────────
+// 依赖战斗/地图上下文的效果在 CombatView、GameView 中按 ID 补充。
+export const PORTED_RELIC_ID = {
+  CROSS_NECKLACE: 'basic_cross_necklace',
+  RED_HEART_BOTTLE: 'basic_red_heart_bottle',
+  BLUE_WHITE_BOWL: 'basic_blue_white_bowl',
+  CHECKERBOARD_CARD: 'base_checkerboard_card',
+  FOUR_LEAF_GEM: 'basic_four_leaf_gem',
+  WHITE_IDOL_SHARD: 'basic_white_idol_shard',
+  BLUE_STAR_BOTTLE: 'modao_blue_star_bottle',
+  ARROGANCE_BOOK: 'modao_arrogance_book',
+  SCHOLAR_BADGE: 'modao_scholar_badge',
+  SLOTH_BOOK: 'burn_sloth_book',
+  LUST_BOOK: 'alchemy_lust_book',
+  GLUTTONY_BOOK: 'bloodpool_gluttony_book',
+  DEMON_HORN: 'bloodpool_demon_horn',
+  REGULAR_BADGE: 'system_wealth_relic_21',
+  DAWN_BLADE: 'system_shadow_relic_12',
+  COLLAPSING_TOWER: 'system_destruction_relic_21',
+} as const;
+
+const PORTED_RELICS: readonly RelicData[] = [
+  {
+    id: PORTED_RELIC_ID.CROSS_NECKLACE,
+    name: '十字项链',
+    category: '基础',
+    rarity: '稀有',
+    effect: '死亡时复活并回满生命，随后失去本圣遗物',
+    description: '生命归零时立即复活，回满生命并清除所有负面状态；触发后失去本圣遗物。',
+  },
+  {
+    id: PORTED_RELIC_ID.RED_HEART_BOTTLE,
+    name: '红心瓶',
+    category: '基础',
+    rarity: '普通',
+    effect: '回合开始时回复1点生命',
+    description: '回合开始时若生命不满，回复1点生命；每场战斗最多触发30次。',
+    hooks: {
+      onTurnStart: ({ self, state, heal, addLog }) => {
+        const used = Math.max(0, Math.floor(Number(state.uses ?? 0)));
+        if (used >= 30 || self.hp >= self.maxHp) return;
+        const { healed } = heal('player', 1);
+        if (healed > 0) {
+          state.uses = used + 1;
+          addLog(`[红心瓶] 回复 ${healed} 点生命（${used + 1}/30）。`);
+        }
+      },
+    },
+  },
+  {
+    id: PORTED_RELIC_ID.BLUE_WHITE_BOWL,
+    name: '蓝白碗',
+    category: '基础',
+    rarity: '稀有',
+    effect: '每四回合最小点数+1',
+    description: '每第4、8、12……回合开始时，本场战斗最小骰子点数+1，直到等于最大骰子点数。',
+    hooks: {
+      onTurnStart: ({ turn, self, addLog }) => {
+        if (turn <= 0 || turn % 4 !== 0 || self.minDice >= self.maxDice) return;
+        self.minDice += 1;
+        addLog(`[蓝白碗] 最小骰子点数 +1（当前 ${self.minDice}）。`);
+      },
+    },
+  },
+  {
+    id: PORTED_RELIC_ID.CHECKERBOARD_CARD,
+    name: '棋盘卡牌',
+    category: '基础',
+    rarity: '稀有',
+    effect: '普通战斗卡牌奖励可领取两次',
+    description: '战胜非首领敌人时，卡牌奖励可以领取两次。',
+  },
+  {
+    id: PORTED_RELIC_ID.FOUR_LEAF_GEM,
+    name: '四叶草宝石',
+    category: '基础',
+    rarity: '稀有',
+    effect: '宝箱出现两件圣遗物的概率翻倍',
+    description: '打开宝箱时，出现两件圣遗物的概率翻倍（20%→40%）。',
+  },
+  {
+    id: PORTED_RELIC_ID.WHITE_IDOL_SHARD,
+    name: '白神像碎片',
+    category: '基础',
+    rarity: '普通',
+    effect: '白神像投掷必为最大点数',
+    description: '在白神像祈愿时，投掷点数必定为最大点数。',
+  },
+  {
+    id: PORTED_RELIC_ID.BLUE_STAR_BOTTLE,
+    name: '蓝星瓶',
+    category: '魔导',
+    rarity: '稀有',
+    effect: '魔力不足时由瓶中魔力补足',
+    description: '出牌或使用主动技时若魔力不足，可消耗瓶中的魔力补足；每场战斗瓶中共有20点魔力。',
+  },
+  {
+    id: PORTED_RELIC_ID.ARROGANCE_BOOK,
+    name: '傲慢之书',
+    category: '魔导',
+    rarity: '传奇',
+    effect: '魔法牌魔力消耗为0，敌方开局获得大量魔力与护甲',
+    description: '你的魔法牌魔力消耗为0；战斗开始时，敌方获得100点魔力与20点护甲。',
+    hooks: {
+      onBattleStart: ({ restoreMana, addArmor, addLog }) => {
+        restoreMana('enemy', 100);
+        addArmor('enemy', 20);
+        addLog('[傲慢之书] 敌方获得100点魔力与20点护甲。');
+      },
+    },
+  },
+  {
+    id: PORTED_RELIC_ID.SCHOLAR_BADGE,
+    name: '博学者徽章',
+    category: '魔导',
+    rarity: '稀有',
+    effect: '首次命中追加牌组魔力消耗总和的伤害',
+    description: '每场战斗第一次命中敌方时，额外造成等同于牌组中魔法牌与主动技魔力消耗总和的伤害。',
+  },
+  {
+    id: PORTED_RELIC_ID.SLOTH_BOOK,
+    name: '怠惰之书',
+    category: '燃烧',
+    rarity: '传奇',
+    effect: '每三回合双方眩晕，眩晕时跳过回合不清除燃烧',
+    description: '每第3、6、9……回合开始时，使双方眩晕1回合；双方眩晕时跳过回合不会清除对方的燃烧。',
+    hooks: {
+      onTurnStart: ({ turn, addStatusEffect, addLog }) => {
+        if (turn <= 0 || turn % 3 !== 0) return;
+        addStatusEffect('player', EffectType.STUN, 1, { source: 'relic:burn_sloth_book' });
+        addStatusEffect('enemy', EffectType.STUN, 1, { source: 'relic:burn_sloth_book' });
+        addLog('[怠惰之书] 双方陷入眩晕。');
+      },
+    },
+  },
+  {
+    id: PORTED_RELIC_ID.LUST_BOOK,
+    name: '色欲之书',
+    category: '炼金',
+    rarity: '传奇',
+    effect: '回复与护甲获得量+1，获得3张随机诅咒牌',
+    description: '生命回复量+1，魔力回复量+1，护甲获得量+1；获得时将3张随机诅咒牌加入牌组。',
+  },
+  {
+    id: PORTED_RELIC_ID.GLUTTONY_BOOK,
+    name: '暴食之书',
+    category: '血池',
+    rarity: '传奇',
+    effect: '命中吸血，回合结束损失20%当前生命',
+    description: '使用伤害牌命中敌方时，回复等同于造成伤害的生命；回合结束时受到20%当前生命的真实伤害。',
+  },
+  {
+    id: PORTED_RELIC_ID.DEMON_HORN,
+    name: '恶魔之角',
+    category: '血池',
+    rarity: '普通',
+    effect: '被命中后反伤（楼层数×2）',
+    description: '被敌方伤害牌命中后，使敌方受到等同于当前楼层数×2的物理伤害。',
+  },
+  {
+    id: PORTED_RELIC_ID.REGULAR_BADGE,
+    name: '常客徽章',
+    category: '财富',
+    rarity: '普通',
+    effect: '商店降价并在进店时获得金币',
+    description: '商店商品价格-1（最低为1）；每次进入新的商店时获得2金币。',
+  },
+  {
+    id: PORTED_RELIC_ID.DAWN_BLADE,
+    name: '破晓之刃',
+    category: '暗影',
+    rarity: '普通',
+    effect: '首回合投掷点数+4',
+    description: '每场战斗第一回合，自身投掷点数+4。',
+  },
+  {
+    id: PORTED_RELIC_ID.COLLAPSING_TOWER,
+    name: '崩塌之塔',
+    category: '破坏',
+    rarity: '普通',
+    effect: '拼点失败造成3点真实伤害',
+    description: '拼点失败时，使敌方受到3点真实伤害。',
+  },
+];
 
 const RELIC_LIST: readonly RelicData[] = [
   {
@@ -500,8 +1221,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '循环针',
     rarity: '稀有',
     category: '基础',
-    effect: '打出法术牌后，有50%概率返还已消耗的法力',
-    description: '打出法术牌后，有50%概率返还已消耗的法力。',
+    effect: '打出法术牌后，有50%概率返还已消耗的魔力',
+    description: '打出法术牌后，有50%概率返还已消耗的魔力。',
     uniqueAcquisition: true,
   },
   {
@@ -557,7 +1278,7 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'reset_button',
-    name: '重置按钮',
+    name: '命运骰袋',
     rarity: '普通',
     category: '基础',
     effect: '每场战斗增加 6 次重掷自身骰子的机会',
@@ -673,7 +1394,7 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'sunglasses',
-    name: '墨镜',
+    name: '遮光面纱',
     rarity: '稀有',
     category: '燃烧',
     effect: '自身免疫眩晕，开局时为对手施加一回合眩晕',
@@ -729,7 +1450,7 @@ const RELIC_LIST: readonly RelicData[] = [
   {
     id: 'ember_seed',
     name: '余烬火种',
-    rarity: '稀有',
+    rarity: '普通',
     category: '燃烧',
     effect: '敌人最少拥有与余烬火种数量相同的燃烧层数',
     description: '战斗期间会维持敌人燃烧层数下限，最低值等于余烬火种数量。',
@@ -1004,7 +1725,16 @@ const RELIC_LIST: readonly RelicData[] = [
       onTurnStart: ({ state }) => {
         state['triggeredThisTurn'] = false;
       },
-      onAfterHitTaken: ({ side, targetSide, sourceSide, attemptedDamage, actualDamage, state, addStatusEffect, addLog }) => {
+      onAfterHitTaken: ({
+        side,
+        targetSide,
+        sourceSide,
+        attemptedDamage,
+        actualDamage,
+        state,
+        addStatusEffect,
+        addLog,
+      }) => {
         if (targetSide !== side || !sourceSide || sourceSide === side) return;
         if (actualDamage > 0 || attemptedDamage <= 0) return;
         if (state['triggeredThisTurn']) return;
@@ -1051,8 +1781,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '防御玩偶',
     rarity: '稀有',
     category: '魔导',
-    effect: '被击中前，消耗1点法力获得2点护甲',
-    description: '被击中前，消耗1点法力获得2点护甲。',
+    effect: '被击中前，消耗1点魔力获得2点护甲',
+    description: '被击中前，消耗1点魔力获得2点护甲。',
     hooks: {
       onBeforeDirectDamage: ({ count, side, targetSide, sourceSide, card, damage, spendMana, addArmor, addLog }) => {
         if (targetSide !== side || sourceSide === side) return;
@@ -1082,10 +1812,12 @@ const RELIC_LIST: readonly RelicData[] = [
         const delta = Math.abs(Math.max(0, Math.floor(self.mp)) - Math.max(0, Math.floor(previousTurnMana)));
         const stacks = Math.floor(delta / 3) * Math.max(0, Math.floor(count));
         if (stacks <= 0) return;
-        if (addStatusEffect(side, EffectType.DAMAGE_BOOST, stacks, {
-          source: 'relic:modao_potential_jellyfish',
-          durationTurns: 1,
-        })) {
+        if (
+          addStatusEffect(side, EffectType.DAMAGE_BOOST, stacks, {
+            source: 'relic:modao_potential_jellyfish',
+            durationTurns: 1,
+          })
+        ) {
           addLog(`[电势水母] 魔力差 ${delta}，获得 ${stacks} 层持续1回合的增伤。`);
         }
       },
@@ -1096,15 +1828,16 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '法纹电容',
     rarity: '稀有',
     category: '魔导',
-    effect: '若本回合没有使用物理/魔法牌，则每拥有1层增伤回复1点魔量',
-    description: '若本回合没有使用物理/魔法牌，则每拥有1层增伤回复1点魔量。',
+    effect: '若本回合没有使用物理/魔法牌，则每拥有1层增伤回复1点魔力',
+    description: '若本回合没有使用物理/魔法牌，则每拥有1层增伤回复1点魔力。',
     hooks: {
       onTurnEnd: ({ count, side, self, state, playedPhysicalOrMagicThisTurn, restoreMana, addLog }) => {
         if (playedPhysicalOrMagicThisTurn) return;
         const snapshot = state['damageBoostStacksBeforeTurnEnd'];
-        const boostStacks = typeof snapshot === 'number'
-          ? Math.max(0, Math.floor(snapshot))
-          : Math.max(0, getStacks(self, EffectType.DAMAGE_BOOST));
+        const boostStacks =
+          typeof snapshot === 'number'
+            ? Math.max(0, Math.floor(snapshot))
+            : Math.max(0, getStacks(self, EffectType.DAMAGE_BOOST));
         if (boostStacks <= 0) return;
         const restored = restoreMana(side, boostStacks * Math.max(0, Math.floor(count)));
         if (restored > 0) {
@@ -1118,8 +1851,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '汲取符文',
     rarity: '稀有',
     category: '魔导',
-    effect: '回合结束时，若对方法力高于自身，法力汲取1',
-    description: '回合结束时，若对方法力高于自身，法力汲取1。',
+    effect: '回合结束时，若对方魔力高于自身，魔力汲取1',
+    description: '回合结束时，若对方魔力高于自身，魔力汲取1。',
   },
   {
     id: 'modao_blue_scarf',
@@ -1172,8 +1905,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '水形盾',
     rarity: '稀有',
     category: '魔导',
-    effect: '自身每有5点法力，受到的伤害-1，上限-4',
-    description: '自身每有5点法力，受到的伤害-1，上限-4。',
+    effect: '自身每有5点魔力，受到的伤害-1，上限-4',
+    description: '自身每有5点魔力，受到的伤害-1，上限-4。',
     uniqueAcquisition: true,
     hooks: {
       onBeforeDirectDamage: ctx => {
@@ -1207,8 +1940,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '大魔导法杖',
     rarity: '传奇',
     category: '魔导',
-    effect: '回合开始时，自身每有5点法力获得1层蓄，上限4层',
-    description: '回合开始时，自身每有5点法力获得1层蓄，上限4层。',
+    effect: '回合开始时，自身每有5点魔力获得1层蓄力，上限4层',
+    description: '回合开始时，自身每有5点魔力获得1层蓄力，上限4层。',
     hooks: {
       onTurnStart: ({ count, side, self, addStatusEffect, addLog }) => {
         const stacks = Math.min(4, Math.floor(Math.max(0, self.mp) / 5)) * Math.max(1, Math.floor(count));
@@ -1305,9 +2038,9 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'modao_witch_hat',
-    name: '魔女的帽子',
+    name: '魔女之帽',
     rarity: '传奇',
-    category: '魔导',
+    category: '基础',
     effect: '打出魔法牌时点数x1.5；打出物理牌时点数x0.5',
     description: '每次打出魔法牌点数乘1.5；打出物理牌点数乘0.5。',
     hooks: {
@@ -1316,6 +2049,25 @@ const RELIC_LIST: readonly RelicData[] = [
           return currentPoint * 1.5 ** Math.max(1, count);
         }
         if (card.type === CardType.PHYSICAL) {
+          return currentPoint * 0.5 ** Math.max(1, count);
+        }
+        return currentPoint;
+      },
+    },
+  },
+  {
+    id: 'basic_brute_hammer',
+    name: '蛮力战锤',
+    rarity: '传奇',
+    category: '基础',
+    effect: '打出物理牌时点数x1.5；打出魔法牌时点数x0.5',
+    description: '每次打出物理牌点数乘1.5；打出魔法牌点数乘0.5。',
+    hooks: {
+      modifyFinalPoint: ({ card, currentPoint, count }) => {
+        if (card.type === CardType.PHYSICAL) {
+          return currentPoint * 1.5 ** Math.max(1, count);
+        }
+        if (card.type === CardType.MAGIC) {
           return currentPoint * 0.5 ** Math.max(1, count);
         }
         return currentPoint;
@@ -1369,7 +2121,11 @@ const RELIC_LIST: readonly RelicData[] = [
       onTurnStart: ({ count, side, opponent, addStatusEffect, addLog }) => {
         if (getStacks(opponent, EffectType.COLD) >= 5) return;
         const targetSide: RelicSide = side === 'player' ? 'enemy' : 'player';
-        if (addStatusEffect(targetSide, EffectType.COLD, Math.max(1, Math.floor(count)), { source: 'relic:yanhan_ice_wine_bottle' })) {
+        if (
+          addStatusEffect(targetSide, EffectType.COLD, Math.max(1, Math.floor(count)), {
+            source: 'relic:yanhan_ice_wine_bottle',
+          })
+        ) {
           addLog('[寒冰酒瓶] 敌方寒冷少于5层，追加寒冷。');
         }
       },
@@ -1409,7 +2165,13 @@ const RELIC_LIST: readonly RelicData[] = [
     description: '对方每有4层寒冷，受到的法术伤害+1，上限+5。',
     hooks: {
       onBeforeDirectDamage: ctx => {
-        if (ctx.sourceSide !== ctx.side || ctx.targetSide === ctx.side || ctx.card?.type !== CardType.MAGIC || ctx.damage <= 0) return;
+        if (
+          ctx.sourceSide !== ctx.side ||
+          ctx.targetSide === ctx.side ||
+          ctx.card?.type !== CardType.MAGIC ||
+          ctx.damage <= 0
+        )
+          return;
         const coldStacks = getStacks(ctx.target, EffectType.COLD);
         const bonusPerRelic = Math.min(5, Math.floor(coldStacks / 4));
         const bonus = bonusPerRelic * Math.max(1, Math.floor(ctx.count));
@@ -1429,7 +2191,11 @@ const RELIC_LIST: readonly RelicData[] = [
     hooks: {
       onAfterHitDealt: ({ count, side, targetSide, card, actualDamage, addStatusEffect, addLog }) => {
         if (targetSide === side || card.type !== CardType.MAGIC || actualDamage <= 0) return;
-        if (addStatusEffect(targetSide, EffectType.COLD, Math.max(1, Math.floor(count)), { source: 'relic:yanhan_ice_core' })) {
+        if (
+          addStatusEffect(targetSide, EffectType.COLD, Math.max(1, Math.floor(count)), {
+            source: 'relic:yanhan_ice_core',
+          })
+        ) {
           addLog('[冰核] 法术命中，施加寒冷。');
         }
       },
@@ -1548,8 +2314,8 @@ const RELIC_LIST: readonly RelicData[] = [
     name: '肺印记',
     rarity: '稀有',
     category: '血池',
-    effect: '被敌方卡牌命中并失去生命时，回复1点法力并获得1点护甲',
-    description: '被敌方卡牌命中并失去生命时，回复1点法力并获得1点护甲。',
+    effect: '被敌方卡牌命中并失去生命时，回复1点魔力并获得1点护甲',
+    description: '被敌方卡牌命中并失去生命时，回复1点魔力并获得1点护甲。',
     hooks: {
       onAfterHitTaken: ({ count, side, targetSide, sourceSide, card, actualDamage, restoreMana, addArmor, addLog }) => {
         if (targetSide !== side || sourceSide === side) return;
@@ -1558,7 +2324,7 @@ const RELIC_LIST: readonly RelicData[] = [
         const stacks = Math.max(1, Math.floor(count));
         const restored = restoreMana(side, stacks);
         const armorGained = addArmor(side, stacks);
-        addLog(`[肺印记] 受击失去生命，回复 ${restored} 点法力并获得 ${armorGained} 点护甲。`);
+        addLog(`[肺印记] 受击失去生命，回复 ${restored} 点魔力并获得 ${armorGained} 点护甲。`);
       },
     },
   },
@@ -1582,7 +2348,7 @@ const RELIC_LIST: readonly RelicData[] = [
     id: 'bloodpool_strawberry',
     name: '小小草莓',
     rarity: '普通',
-    category: '普通',
+    category: '基础',
     effect: '最大生命值+7',
     description: '最大生命值增加7点。',
   },
@@ -1590,7 +2356,7 @@ const RELIC_LIST: readonly RelicData[] = [
     id: 'bloodpool_pear',
     name: '小小梨',
     rarity: '稀有',
-    category: '普通',
+    category: '基础',
     effect: '最大生命值+10',
     description: '最大生命值增加10点。',
   },
@@ -1598,7 +2364,7 @@ const RELIC_LIST: readonly RelicData[] = [
     id: 'bloodpool_mango',
     name: '小小芒果',
     rarity: '传奇',
-    category: '普通',
+    category: '基础',
     effect: '最大生命值+13',
     description: '最大生命值增加13点。',
   },
@@ -1662,6 +2428,22 @@ const RELIC_LIST: readonly RelicData[] = [
     },
   },
   {
+    id: 'bloodpool_sages_stone',
+    name: '贤者之石',
+    rarity: '稀有',
+    category: '血池',
+    effect: '出牌时魔力不足可消耗生命补足',
+    description: '出牌时若魔力不足，不足的部分可消耗等量生命补足（至少保留1点生命）。',
+  },
+  {
+    id: 'bloodpool_twin_serpent_ring',
+    name: '双头蛇戒',
+    rarity: '稀有',
+    category: '血池',
+    effect: '回合开始时生命高于50%受伤，低于50%回复',
+    description: '回合开始时，若生命高于50%，受到1点真实伤害；若低于50%，回复1点生命。',
+  },
+  {
     id: 'bloodpool_clash_point_mark',
     name: '骰蚀刻印',
     rarity: '稀有',
@@ -1704,10 +2486,12 @@ const RELIC_LIST: readonly RelicData[] = [
       onBattleStart: ({ count, side, addStatusEffect, addLog }) => {
         const targetSide: RelicSide = side === 'player' ? 'enemy' : 'player';
         const stacks = 4 * Math.max(1, Math.floor(count));
-        if (addStatusEffect(targetSide, EffectType.BLEED, stacks, {
-          source: 'relic:bloodpool_eerie_miniature_painting',
-          lockDecayThisTurn: true,
-        })) {
+        if (
+          addStatusEffect(targetSide, EffectType.BLEED, stacks, {
+            source: 'relic:bloodpool_eerie_miniature_painting',
+            lockDecayThisTurn: true,
+          })
+        ) {
           addLog(`[诡异微型画作] 战斗开始，对敌方施加 ${stacks} 层流血。`);
         }
       },
@@ -1723,7 +2507,7 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'bloodpool_horror_record',
-    name: '惊悚唱片',
+    name: '惊悚八音盒',
     rarity: '传奇',
     category: '血池',
     effect: '回合开始时对双方施加1层流血；流血会被敏感影响',
@@ -1758,10 +2542,12 @@ const RELIC_LIST: readonly RelicData[] = [
         if (card.type !== CardType.PHYSICAL && card.type !== CardType.MAGIC) return;
         if (attemptedDamage <= 0) return;
         const stacks = Math.max(1, Math.floor(count));
-        if (addStatusEffect(sourceSide, EffectType.BLEED, stacks, {
-          source: 'relic:bloodpool_bloodstained_blade',
-          lockDecayThisTurn: true,
-        })) {
+        if (
+          addStatusEffect(sourceSide, EffectType.BLEED, stacks, {
+            source: 'relic:bloodpool_bloodstained_blade',
+            lockDecayThisTurn: true,
+          })
+        ) {
           addLog(`[染血刃] 被命中时，为对方施加 ${stacks} 层流血。`);
         }
       },
@@ -1829,7 +2615,8 @@ const RELIC_LIST: readonly RelicData[] = [
     rarity: '传奇',
     category: '炼金',
     effect: '获得黑手印；牌组无重复时，战斗开始将诅咒牌变为随机稀有牌',
-    description: '获得时强制将一张牌替换为黑手印。若牌组中没有重复卡牌，战斗开始时将牌组中的所有诅咒牌临时变为随机稀有牌。',
+    description:
+      '获得时强制将一张牌替换为黑手印。若牌组中没有重复卡牌，战斗开始时将牌组中的所有诅咒牌临时变为随机稀有牌。',
   },
   {
     id: 'alchemy_perfume_bottle',
@@ -1909,12 +2696,15 @@ const RELIC_LIST: readonly RelicData[] = [
   },
   {
     id: 'alchemy_black',
-    name: '黑色',
+    name: '黑丝',
     rarity: '传奇',
     category: '炼金',
     effect: '每回合第一张连击牌效果触发2次，但不会额外触发抽牌',
     description: '每回合打出的第一张连击牌效果触发2次，但不会额外触发抽牌。',
   },
+  ...SYSTEM_RELICS,
+  ...PORTED_RELICS,
+  ...EVENT_RELICS,
 ];
 
 const RELIC_BY_ID = new Map(RELIC_LIST.map(relic => [relic.id, relic]));
@@ -1924,7 +2714,26 @@ const RELIC_NAME_ALIASES = new Map<string, string>([
   ['草莓', '小小草莓'],
   ['梨', '小小梨'],
   ['芒果', '小小芒果'],
+  ['重置按钮', '命运骰袋'],
+  ['墨镜', '遮光面纱'],
+  ['魔女的帽子', '魔女之帽'],
+  ['惊悚唱片', '惊悚八音盒'],
+  ['黑色', '黑丝'],
+  ['通货膨胀', '沐芯兰的借据'],
+  ['烟雾弹', '迷雾瓶'],
+  ['苦无', '投刃'],
+  ['面罩2', '半脸面具'],
+  ['不对称设计', '失衡护甲·奇'],
+  ['不对称设计2', '失衡护甲·偶'],
+  ['畸形齿轮', '错齿齿轮·奇'],
+  ['畸形齿轮2', '错齿齿轮·偶'],
+  ['创可贴', '止血绷带'],
+  ['核废料桶', '禁忌废液桶'],
+  ['人生意外保险', '赔偿契约'],
 ]);
+
+/** 旧名 → 新名，供存档迁移使用 */
+export const RELIC_LEGACY_NAME_ALIASES: ReadonlyMap<string, string> = RELIC_NAME_ALIASES;
 
 export function getAllRelics(): readonly RelicData[] {
   return RELIC_LIST;
