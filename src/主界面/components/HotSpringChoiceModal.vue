@@ -33,11 +33,30 @@
             v-if="purifiableCurses.length > 0"
             type="button"
             class="spring-option"
+            :class="{ 'spring-option--active': mode === 'purify' }"
             :disabled="busy"
-            @click="emit('purify')"
+            @click="mode = mode === 'purify' ? 'none' : 'purify'"
           >
             <div class="font-heading text-base text-fuchsia-200">净化诅咒</div>
-            <div class="mt-1 text-sm text-dungeon-paper/80">{{ purifiableCurses.map(item => `【${item.from}】→【${item.to}】`).join('、') }}</div>
+            <div class="mt-1 text-sm text-dungeon-paper/80">净化一张诅咒牌</div>
+            <div class="mt-1 text-xs text-dungeon-paper/55">诅咒先化为【愧疚】，愧疚再净化化为【空白】</div>
+          </button>
+        </div>
+
+        <div v-if="mode === 'purify'" class="mt-4 flex flex-col gap-2">
+          <div class="text-xs text-fuchsia-100/70">选择要净化的诅咒牌：</div>
+          <button
+            v-for="entry in purifiableCurses"
+            :key="entry.from"
+            type="button"
+            class="spring-status"
+            :disabled="busy"
+            @click="emit('purify', entry.from)"
+          >
+            <span class="font-semibold text-fuchsia-200"
+              >【{{ entry.from }}】<template v-if="entry.count && entry.count > 1"> ×{{ entry.count }}</template></span
+            >
+            <span class="text-xs text-sky-200/80">净化后会化为【{{ entry.to }}】</span>
           </button>
         </div>
 
@@ -70,18 +89,18 @@ defineProps<{
   hp: number;
   maxHp: number;
   cleansableStatuses: Array<{ raw: string; description: string; degradeTo?: string }>;
-  purifiableCurses: Array<{ from: string; to: string }>;
+  purifiableCurses: Array<{ from: string; to: string; count?: number }>;
   busy?: boolean;
 }>();
 
 const emit = defineEmits<{
   heal: [];
   cleanse: [raw: string];
-  purify: [];
+  purify: [curseName: string];
   close: [];
 }>();
 
-const mode = ref<'none' | 'cleanse'>('none');
+const mode = ref<'none' | 'cleanse' | 'purify'>('none');
 </script>
 
 <style scoped>

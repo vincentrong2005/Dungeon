@@ -273,7 +273,8 @@ export type StatusChoiceMode =
   | 'rewriteYinwen';
 
 export type SettlementStep =
-  | { kind: 'relic'; title: string; relics: RelicData[] }
+  /** pickOne 为 true 时只能从 relics 中挑选一件收下，否则全部收下 */
+  | { kind: 'relic'; title: string; relics: RelicData[]; pickOne?: boolean }
   | { kind: 'curse'; title: string; curseName: string }
   | { kind: 'cardPick'; title: string; options: CardData[]; temporarySource?: string }
   | { kind: 'cardTransform'; title: string; mode: TransformMode }

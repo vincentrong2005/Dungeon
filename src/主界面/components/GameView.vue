@@ -1903,6 +1903,47 @@
                     </span>
                   </button>
                 </div>
+                <div
+                  v-if="!textSettings.singleLayerDisplay"
+                  class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div class="settings-help text-dungeon-paper/70 text-sm font-ui">
+                    <span>显示楼层数</span>
+                    <button
+                      type="button"
+                      class="settings-help-trigger"
+                      @mouseenter="openSettingsHelp('multiLayerFloorCount')"
+                      @mouseleave="closeSettingsHelp('multiLayerFloorCount')"
+                      @focus="openSettingsHelp('multiLayerFloorCount')"
+                      @blur="closeSettingsHelp('multiLayerFloorCount')"
+                      @touchstart.passive="startSettingsHelpTouch('multiLayerFloorCount')"
+                      @touchend="endSettingsHelpTouch('multiLayerFloorCount')"
+                      @touchcancel="endSettingsHelpTouch('multiLayerFloorCount')"
+                      @click.stop.prevent="toggleSettingsHelp('multiLayerFloorCount')"
+                    >
+                      ?
+                    </button>
+                    <Transition name="settings-help-fade">
+                      <div v-if="activeSettingsHelp === 'multiLayerFloorCount'" class="settings-help-popover">
+                        {{ settingsHelpText.multiLayerFloorCount }}
+                      </div>
+                    </Transition>
+                  </div>
+                  <div class="flex items-center gap-2 sm:shrink-0">
+                    <input
+                      v-model.number="multiLayerFloorCountSlider"
+                      type="range"
+                      min="1"
+                      :max="MULTI_LAYER_FLOOR_COUNT_MAX + 1"
+                      step="1"
+                      class="w-32 accent-dungeon-gold"
+                      aria-label="显示楼层数"
+                    />
+                    <span class="text-dungeon-paper font-ui text-sm w-16 text-center">{{
+                      multiLayerFloorCountLabel
+                    }}</span>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -3351,9 +3392,9 @@
           <div v-if="showVictoryRewardView" class="absolute inset-0 z-102 bg-black/90">
             <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
               <div
-                class="w-full max-w-6xl origin-center scale-[1.3] rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]"
+                class="flex max-h-[calc(100%/1.3)] w-full max-w-6xl origin-center scale-[1.3] flex-col rounded-xl border border-dungeon-gold/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_28px_rgba(212,175,55,0.2)]"
               >
-                <div class="mb-4 flex items-center justify-between gap-3">
+                <div class="mb-4 flex shrink-0 items-center justify-between gap-3">
                   <div>
                     <div class="font-heading text-xl text-dungeon-gold">战胜奖励</div>
                     <div class="text-xs text-dungeon-paper/65 mt-1">
@@ -3394,6 +3435,8 @@
                   </div>
                 </div>
 
+                <!-- 面板按容器高度收束（已抵消 1.3 倍缩放），内容超出时在此区域内滚动，避免底部卡片被裁掉 -->
+                <div class="min-h-0 overflow-y-auto custom-scrollbar pr-1">
                 <template v-if="victoryRewardStage === 'pick'">
                   <div class="flex flex-wrap justify-center gap-5">
                     <button
@@ -3421,29 +3464,9 @@
                 </template>
 
                 <template v-else-if="victoryRewardStage === 'replaceDeck' || victoryRewardStage === 'replaceActive'">
-                  <div class="mb-4 rounded-sm border border-dungeon-gold/25 bg-black/20 p-3">
-                    <div class="text-xs text-dungeon-paper/70 mb-2">
-                      已选择奖励{{
-                        selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)
-                          ? '主动技能'
-                          : '卡牌'
-                      }}：
-                    </div>
-                    <div class="flex justify-center">
-                      <DungeonCard
-                        v-if="selectedVictoryRewardCard && !isActiveSkillReward(selectedVictoryRewardCard)"
-                        :card="selectedVictoryRewardCard"
-                        disabled
-                      />
-                      <ActiveSkillCard
-                        v-else-if="selectedVictoryRewardCard && isActiveSkillReward(selectedVictoryRewardCard)"
-                        :skill="selectedVictoryRewardCard"
-                        :footer-right-text="`${selectedVictoryRewardCard.category} · ${selectedVictoryRewardCard.rarity}`"
-                        footer-right-tone="default"
-                      />
-                    </div>
-                  </div>
-
+                  <!-- 左：现有槽位（容器包裹）；右：奖励卡悬浮等待放入 -->
+                  <div class="flex flex-col gap-4 md:flex-row md:items-start">
+                  <div class="min-w-0 flex-1 rounded-sm border border-dungeon-gold/25 bg-black/20 p-3">
                   <div
                     v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length === 0"
                     class="rounded-sm border border-dungeon-brown/50 bg-black/20 p-4 text-center"
@@ -3461,7 +3484,7 @@
 
                   <div
                     v-if="victoryRewardStage === 'replaceDeck' && rewardDeckReplaceEntries.length > 0"
-                    class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
+                    class="grid grid-cols-1 md:grid-cols-3 gap-4"
                   >
                     <button
                       v-for="entry in rewardDeckReplaceEntries"
@@ -3516,7 +3539,30 @@
                       </div>
                     </button>
                   </div>
+                  </div>
+
+                  <div v-if="selectedVictoryRewardCard" class="replace-pending">
+                    <span class="replace-pending__label">{{
+                      isActiveSkillReward(selectedVictoryRewardCard) ? '待装备' : '待替换'
+                    }}</span>
+                    <div class="replace-pending__float">
+                      <DungeonCard
+                        v-if="!isActiveSkillReward(selectedVictoryRewardCard)"
+                        :card="selectedVictoryRewardCard"
+                        disabled
+                      />
+                      <ActiveSkillCard
+                        v-else
+                        :skill="selectedVictoryRewardCard"
+                        :footer-right-text="`${selectedVictoryRewardCard.category} · ${selectedVictoryRewardCard.rarity}`"
+                        footer-right-tone="default"
+                      />
+                    </div>
+                    <span class="replace-pending__hint">选择槽位放入</span>
+                  </div>
+                  </div>
                 </template>
+                </div>
               </div>
             </div>
           </div>
@@ -3526,9 +3572,9 @@
           <div v-if="activeForcedCurseReplacement" class="absolute inset-0 z-104 bg-black/90">
             <div class="absolute inset-0 p-6 md:p-10 flex items-center justify-center">
               <div
-                class="w-full max-w-6xl origin-center scale-[1.2] rounded-xl border border-fuchsia-400/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_32px_rgba(217,70,239,0.2)]"
+                class="flex max-h-[calc(100%/1.2)] w-full max-w-6xl origin-center scale-[1.2] flex-col rounded-xl border border-fuchsia-400/35 bg-[#0f0906]/95 p-5 md:p-7 shadow-[0_0_32px_rgba(217,70,239,0.2)]"
               >
-                <div class="mb-4 flex items-start justify-between gap-3">
+                <div class="mb-4 flex shrink-0 items-start justify-between gap-3">
                   <div>
                     <div class="font-heading text-xl text-fuchsia-200">诅咒替换</div>
                     <div class="text-xs text-dungeon-paper/65 mt-1">
@@ -3544,13 +3590,10 @@
                   </div>
                 </div>
 
-                <div class="mb-4 rounded-sm border border-fuchsia-300/25 bg-black/20 p-3">
-                  <div class="text-xs text-dungeon-paper/70 mb-2">即将加入的诅咒牌：</div>
-                  <div class="flex justify-center">
-                    <DungeonCard v-if="activeForcedCurseCard" :card="activeForcedCurseCard" disabled />
-                  </div>
-                </div>
-
+                <div class="min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                <!-- 左：卡组槽位（容器包裹）；右：诅咒牌悬浮等待放入 -->
+                <div class="flex flex-col gap-4 md:flex-row md:items-start">
+                <div class="min-w-0 flex-1 rounded-sm border border-fuchsia-300/25 bg-black/20 p-3">
                 <div
                   v-if="forcedCurseDeckReplaceEntries.length === 0"
                   class="rounded-sm border border-dungeon-brown/50 bg-black/20 p-4 text-center"
@@ -3582,7 +3625,7 @@
 
                 <div
                   v-else
-                  class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1"
+                  class="grid grid-cols-1 md:grid-cols-3 gap-4"
                 >
                   <button
                     v-for="entry in forcedCurseDeckReplaceEntries"
@@ -3607,6 +3650,17 @@
                       </div>
                     </div>
                   </button>
+                </div>
+                </div>
+
+                <div v-if="activeForcedCurseCard" class="replace-pending replace-pending--curse">
+                  <span class="replace-pending__label">即将加入</span>
+                  <div class="replace-pending__float">
+                    <DungeonCard :card="activeForcedCurseCard" disabled />
+                  </div>
+                  <span class="replace-pending__hint">选择槽位放入</span>
+                </div>
+                </div>
                 </div>
               </div>
             </div>
@@ -3847,8 +3901,8 @@ import {
 } from '../events/minigames';
 import {
   EVENT_CARD_CATEGORY,
-  HOT_SPRING_CURSE_PURIFY_MAP,
   SIN_REWARD_SLOT_CHANCE,
+  resolveHotSpringCursePurify,
   getSinRewardCandidates,
 } from '../battle/eventCards';
 import {
@@ -5969,6 +6023,15 @@ const openInventoryModal = (tab: PlayerDetailInventoryTab = 'items') => {
 const readInitialMaxHpForUpgrade = () => {
   return Math.max(1, getSafeInt(gameStore.statData.$初始血量上限, 20));
 };
+/** 魔法帽「初始魔量」成长的上下限：基础 1，满级 3 级后为 4 */
+const MAGIC_HAT_MP_BASE = 1;
+const MAGIC_HAT_MP_MAX_VALUE = 4;
+/**
+ * `$初始魔量` 只应由魔法帽成长改变。旧版本的神像房 / 局外成长「世界」会把局内收益错误写进它，
+ * 导致重生后魔力保留、成长等级白送并在重置时多返还技能点；这里按成长上限收束旧存档中的异常值。
+ */
+const readInitialMpForUpgrade = () =>
+  Math.min(MAGIC_HAT_MP_MAX_VALUE, Math.max(MAGIC_HAT_MP_BASE, getSafeInt(gameStore.statData.$初始魔量, 1)));
 const calcUpgradeLevel = (value: number, base: number, step: number, maxLevel: number) => {
   const level = Math.floor((value - base) / step);
   return Math.max(0, Math.min(maxLevel, level));
@@ -6010,7 +6073,7 @@ const sumMagicHatCosts = (costs: readonly number[], level: number): number => {
 };
 const magicHatTracks = computed<MagicHatTrackView[]>(() => {
   const hpValue = readInitialMaxHpForUpgrade();
-  const mpValue = Math.max(1, getSafeInt(gameStore.statData.$初始魔量, 1));
+  const mpValue = readInitialMpForUpgrade();
   const goldValue = getSafeInt(gameStore.statData.$初始金币, 0);
 
   const hpLevel = calcUpgradeLevel(hpValue, 20, 2, 5);
@@ -6062,7 +6125,7 @@ const magicHatTracks = computed<MagicHatTrackView[]>(() => {
 });
 const magicHatStartUpgradeRefund = computed(() => {
   const hpLevel = calcUpgradeLevel(readInitialMaxHpForUpgrade(), 20, 2, 5);
-  const mpLevel = calcUpgradeLevel(Math.max(1, getSafeInt(gameStore.statData.$初始魔量, 1)), 1, 1, 3);
+  const mpLevel = calcUpgradeLevel(readInitialMpForUpgrade(), 1, 1, 3);
   const goldLevel = calcUpgradeLevel(getSafeInt(gameStore.statData.$初始金币, 0), 0, 2, 5);
   return (
     sumMagicHatCosts(MAGIC_HAT_HP_COSTS, hpLevel) +
@@ -7219,11 +7282,14 @@ type TextSettingsState = {
   fontFamily: string;
   containerWidth: number;
   singleLayerDisplay: boolean;
+  /** 关闭单层显示时正文框显示的最近 AI 楼层数；0 表示全部 */
+  multiLayerFloorCount: number;
 };
 
 type SettingsNavTab = 'text' | 'music' | 'ai' | 'summary';
 type SettingsHelpKey =
   | 'singleLayerDisplay'
+  | 'multiLayerFloorCount'
   | 'streamingEnabled'
   | 'forbidMatchingXmlInsideThink'
   | 'buttonCompletion'
@@ -7248,7 +7314,10 @@ const DEFAULT_TEXT_SETTINGS: TextSettingsState = {
   fontFamily: "'Cinzel', serif",
   containerWidth: 1300,
   singleLayerDisplay: true,
+  multiLayerFloorCount: 0,
 };
+/** 「显示楼层数」滑块上限；滑到上限之后的一格表示「全部」 */
+const MULTI_LAYER_FLOOR_COUNT_MAX = 20;
 const TEXT_FONT_FAMILY_OPTIONS = new Set<string>([
   "'Cinzel', serif",
   "'Noto Serif SC', serif",
@@ -7288,6 +7357,14 @@ const normalizeTextSettings = (value: unknown): TextSettingsState => {
       typeof candidate.singleLayerDisplay === 'boolean'
         ? candidate.singleLayerDisplay
         : DEFAULT_TEXT_SETTINGS.singleLayerDisplay,
+    multiLayerFloorCount: Math.round(
+      clampTextSettingNumber(
+        candidate.multiLayerFloorCount,
+        0,
+        MULTI_LAYER_FLOOR_COUNT_MAX,
+        DEFAULT_TEXT_SETTINGS.multiLayerFloorCount,
+      ),
+    ),
   };
 };
 
@@ -7355,6 +7432,20 @@ const setSingleLayerDisplay = (enabled: boolean) => {
   }
 };
 
+/** 滑块位置：1~MAX 为具体层数，MAX+1 表示全部（存储为 0） */
+const multiLayerFloorCountSlider = computed<number>({
+  get: () =>
+    textSettings.multiLayerFloorCount > 0 ? textSettings.multiLayerFloorCount : MULTI_LAYER_FLOOR_COUNT_MAX + 1,
+  set: value => {
+    const next = Math.round(Number(value));
+    textSettings.multiLayerFloorCount =
+      !Number.isFinite(next) || next > MULTI_LAYER_FLOOR_COUNT_MAX ? 0 : Math.max(1, next);
+  },
+});
+const multiLayerFloorCountLabel = computed(() =>
+  textSettings.multiLayerFloorCount > 0 ? `${textSettings.multiLayerFloorCount} 层` : '全部',
+);
+
 const optionButtonFontSize = computed(() =>
   Math.round(clampTextSettingNumber(textSettings.fontSize * (14 / DEFAULT_TEXT_SETTINGS.fontSize), 11, 18, 14)),
 );
@@ -7382,6 +7473,7 @@ watch(
       fontFamily: value.fontFamily,
       containerWidth: value.containerWidth,
       singleLayerDisplay: value.singleLayerDisplay,
+      multiLayerFloorCount: value.multiLayerFloorCount,
     });
   },
   { deep: true },
@@ -7632,7 +7724,9 @@ const activeSettingsHelp = ref<SettingsHelpKey | null>(null);
 let settingsHelpTouchTimer: number | null = null;
 const settingsHelpText: Record<SettingsHelpKey, string> = {
   singleLayerDisplay:
-    '开启时正文框只显示最新AI楼层，保持原本体验；关闭后按消息顺序显示历史玩家输入与AI正文。（仅影响显示，有关回退楼层与编辑等操作依旧依靠读档界面）',
+    '开启时正文框只显示最新AI楼层，保持原本体验；关闭后按消息顺序显示历史玩家输入与AI正文，可在下方「显示楼层数」中调整显示范围。（仅影响显示，有关回退楼层与编辑等操作依旧依靠读档界面）',
+  multiLayerFloorCount:
+    '关闭单层显示后，正文框显示最近几层AI回复（连同其前的玩家输入）。滑到最右侧为「全部」，显示整个对话历史。',
   streamingEnabled:
     '开启后，AI回复会边生成边显示预览文本，不必等完整回复结束才看到内容；关闭后只在生成完成后显示最终回复。',
   forbidMatchingXmlInsideThink:
@@ -7916,7 +8010,21 @@ const storyDisplaySourceText = computed<string>(() => {
       const messageId = Number(message.message_id);
       return Number.isFinite(messageId) && messageId > latestId ? messageId : latestId;
     }, -1);
-    const floorTexts = messages
+    // 「显示楼层数」：只保留最近 N 个 AI 楼层，并连同每层之前紧邻的玩家输入一起显示
+    let visibleMessages = messages;
+    const floorLimit = textSettings.multiLayerFloorCount;
+    if (floorLimit > 0) {
+      const assistantIndexes: number[] = [];
+      messages.forEach((message, index) => {
+        if (message.role === 'assistant') assistantIndexes.push(index);
+      });
+      if (assistantIndexes.length > floorLimit) {
+        let startIndex = assistantIndexes[assistantIndexes.length - floorLimit]!;
+        while (startIndex > 0 && messages[startIndex - 1]!.role === 'user') startIndex -= 1;
+        visibleMessages = messages.slice(startIndex);
+      }
+    }
+    const floorTexts = visibleMessages
       .map(message => {
         const messageId = Number(message.message_id);
         if (message.role === 'user') {
@@ -9359,7 +9467,7 @@ const toNonNegativeInt = (value: unknown, fallback: number) => {
 
 const buildRebirthResetFields = (): Record<string, any> => {
   const initialMaxHp = Math.max(1, toNonNegativeInt(gameStore.statData.$初始血量上限, 10));
-  const initialMp = toNonNegativeInt(gameStore.statData.$初始魔量, 1);
+  const initialMp = readInitialMpForUpgrade();
   const initialGold = toNonNegativeInt(gameStore.statData.$初始金币, 0);
   const currentSkillPoints = toNonNegativeInt(gameStore.statData.$技能点, 0);
   const currentFloor = Math.max(1, toNonNegativeInt(gameStore.statData._楼层数, 1));
@@ -9373,6 +9481,8 @@ const buildRebirthResetFields = (): Record<string, any> => {
     _血量: initialMaxHp,
     _血量上限: initialMaxHp,
     $魔量: initialMp,
+    // 同时写回收束后的初始魔量，修正旧存档里被局内收益抬高的值
+    $初始魔量: initialMp,
     _金币: initialGold,
     $技能点: currentSkillPoints + rebirthSkillPointGain,
     _技能: [...REBIRTH_STARTER_DECK],
@@ -10563,7 +10673,8 @@ const preloadRoomImages = async (roomLabel: string, urls: readonly string[]): Pr
   }
 };
 
-// ── 温泉：恢复至满血 / 净化一个负面状态 二选一；持有可净化的诅咒牌（如【愧疚】）时多一个「净化诅咒」 ──
+// ── 温泉：恢复至满血 / 净化一个负面状态 二选一；卡组中有诅咒牌时多一个「净化诅咒」
+//    （选择 1 张诅咒净化一段：任意诅咒 → 【愧疚】，【愧疚】→【空白】） ──
 const showHotSpringChoice = ref(false);
 const hotSpringApplying = ref(false);
 
@@ -10578,18 +10689,21 @@ const hotSpringCleansableEntries = computed(() =>
   }),
 );
 
+const isCurseCardName = (name: string) => getCardByName(name)?.type === CardType.CURSE;
+const purifyHotSpringCurseName = (name: unknown) => resolveHotSpringCursePurify(String(name ?? ''), isCurseCardName);
+
 const hotSpringPurifiableCurses = computed(() => {
   const skills = Array.isArray(gameStore.statData._技能) ? (gameStore.statData._技能 as string[]) : [];
-  const seen = new Set<string>();
-  const result: Array<{ from: string; to: string }> = [];
+  const byName = new Map<string, { from: string; to: string; count: number }>();
   for (const name of skills) {
     const key = String(name ?? '').trim();
-    const to = HOT_SPRING_CURSE_PURIFY_MAP[key];
-    if (!to || seen.has(key)) continue;
-    seen.add(key);
-    result.push({ from: key, to });
+    const to = purifyHotSpringCurseName(key);
+    if (!to) continue;
+    const entry = byName.get(key);
+    if (entry) entry.count += 1;
+    else byName.set(key, { from: key, to, count: 1 });
   }
-  return result;
+  return [...byName.values()];
 });
 
 const useHotSpringCleanse = async () => {
@@ -10624,13 +10738,16 @@ const chooseHotSpringCleanse = (raw: string) =>
     true,
   );
 
-const chooseHotSpringPurify = () => {
+/** 净化 1 张诅咒：同名诅咒有多张时只净化第一张（诅咒不可附魔，同名卡没有差别） */
+const chooseHotSpringPurify = (curseName: string) => {
   const currentSkills = Array.isArray(gameStore.statData._技能) ? [...(gameStore.statData._技能 as string[])] : [];
-  const purifiedSkills = currentSkills.map(name => HOT_SPRING_CURSE_PURIFY_MAP[String(name ?? '').trim()] ?? name);
-  const purifiedText = hotSpringPurifiableCurses.value.map(item => `【${item.from}】化为【${item.to}】`).join('、');
+  const slot = currentSkills.findIndex(name => String(name ?? '').trim() === curseName);
+  const to = slot >= 0 ? purifyHotSpringCurseName(currentSkills[slot]) : null;
+  if (slot < 0 || !to) return;
+  currentSkills[slot] = to;
   return finishHotSpringChoice(
-    { _技能: purifiedSkills },
-    `${HOT_SPRING_CLEANSE_ACTION_TEXT_PREFIX}（选择了净化诅咒：${purifiedText}，负面状态与生命不变）`,
+    { _技能: currentSkills },
+    `${HOT_SPRING_CLEANSE_ACTION_TEXT_PREFIX}（选择了净化诅咒：1张【${curseName}】化为【${to}】，负面状态与生命不变）`,
     true,
   );
 };
@@ -11008,8 +11125,8 @@ const buildIdolPendingFields = () => {
 
   let currentHp = toNonNegativeInt(gameStore.statData._血量, displayHp.value);
   let currentMaxHp = toNonNegativeInt(gameStore.statData._血量上限, displayMaxHp.value);
+  // 神像的魔力收益只作用于本局魔量；`$初始魔量` 属于魔法帽局外成长，不能在这里改动
   let currentMp = toNonNegativeInt(gameStore.statData.$魔量, 1);
-  let currentInitialMp = toNonNegativeInt(gameStore.statData.$初始魔量, currentMp);
   let currentGold = toNonNegativeInt(gameStore.statData._金币, 0);
   let currentMinDice = toNonNegativeInt(gameStore.statData.$最小点数, 1);
   let currentMaxDice = toNonNegativeInt(gameStore.statData.$最大点数, 6);
@@ -11017,15 +11134,11 @@ const buildIdolPendingFields = () => {
   for (const reward of rewards) {
     const { target, dice } = reward;
     if (target === 'maxHp') currentMaxHp += Math.floor(dice * 1.5);
-    if (target === 'mp') {
-      currentInitialMp += dice;
-      currentMp = Math.max(currentMp, currentInitialMp);
-    }
+    if (target === 'mp') currentMp += dice;
     if (target === 'gold') currentGold += dice * 2 + getOwnedRelicCountById('system_wealth_relic_10');
     if (target === 'blackMp') {
       currentHp -= dice;
-      currentInitialMp += idolDiceMax.value;
-      currentMp = Math.max(currentMp, currentInitialMp);
+      currentMp += idolDiceMax.value;
     }
     if (target === 'blackDice') {
       currentMaxHp -= dice;
@@ -11048,7 +11161,6 @@ const buildIdolPendingFields = () => {
     fields._血量上限 = Math.max(1, currentMaxHp);
   }
   if (currentMp !== toNonNegativeInt(gameStore.statData.$魔量, 1)) fields.$魔量 = Math.max(0, currentMp);
-  if (currentInitialMp !== toNonNegativeInt(gameStore.statData.$初始魔量, currentMp)) fields.$初始魔量 = Math.max(0, currentInitialMp);
   if (currentGold !== toNonNegativeInt(gameStore.statData._金币, 0)) fields._金币 = Math.max(0, currentGold);
   if (currentMinDice !== toNonNegativeInt(gameStore.statData.$最小点数, 1)) fields.$最小点数 = Math.max(1, currentMinDice);
   if (currentMaxDice !== toNonNegativeInt(gameStore.statData.$最大点数, 6)) fields.$最大点数 = Math.max(currentMinDice, currentMaxDice);
@@ -12484,10 +12596,9 @@ const buildWorldMetaGrowthPendingFields = (): Record<string, any> | undefined =>
     };
   }
   if (roll === 1) {
-    const nextInitialMp = Math.max(1, toNonNegativeInt(gameStore.statData.$初始魔量, 1)) + 1;
+    // 只提升本局魔量，重生时会随 `$魔量` 一起回到魔法帽的初始魔量
     return {
-      $初始魔量: nextInitialMp,
-      $魔量: Math.max(toNonNegativeInt(gameStore.statData.$魔量, 1) + 1, nextInitialMp),
+      $魔量: toNonNegativeInt(gameStore.statData.$魔量, 1) + 1,
     };
   }
   return {
@@ -13231,6 +13342,74 @@ onBeforeUnmount(() => {
   }
   80% {
     transform: translateX(5px);
+  }
+}
+
+/* 替换界面：右侧悬浮等待放入的奖励卡 / 诅咒卡（窄屏时位于卡组上方） */
+.replace-pending {
+  display: flex;
+  order: -1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.replace-pending__label {
+  color: #f0d08a;
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 8px rgba(240, 208, 138, 0.45);
+}
+
+.replace-pending--curse .replace-pending__label {
+  color: #f5d0fe;
+  text-shadow: 0 0 8px rgba(217, 70, 239, 0.5);
+}
+
+.replace-pending__float {
+  padding: 1.6rem 1.4rem 1.4rem;
+  filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 14px rgba(240, 208, 138, 0.28));
+  animation: replace-pending-float 3.2s ease-in-out infinite;
+}
+
+.replace-pending--curse .replace-pending__float {
+  filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 16px rgba(217, 70, 239, 0.45));
+}
+
+.replace-pending__float > :deep(*) {
+  transform: scale(1.15);
+}
+
+.replace-pending__hint {
+  color: rgba(232, 220, 196, 0.5);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+@media (min-width: 768px) {
+  .replace-pending {
+    position: sticky;
+    top: 0;
+    order: 0;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    padding-top: 2rem;
+  }
+}
+
+@keyframes replace-pending-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .replace-pending__float {
+    animation: none;
   }
 }
 

@@ -69,7 +69,7 @@ const 圣光: CardData = {
   swarmAttack: true,
 };
 
-/** 愧疚：诅咒，无法打出；在温泉中会被净化为【空白】 */
+/** 愧疚：诅咒，无法打出；在温泉中会被净化为【空白】（其他诅咒在温泉中先被净化为愧疚） */
 const 愧疚: CardData = {
   id: EVENT_CARD_ID.GUILT,
   name: '愧疚',
@@ -317,7 +317,14 @@ export const pickSinCardsForCurseBloom = (
 
 export const EVENT_CARDS: readonly CardData[] = [幸运币, 狱卒的鞭子, 圣光, 愧疚, 债务, ...SIN_CARDS];
 
-/** 温泉净化时的诅咒牌转换：诅咒名 → 净化后的卡名 */
-export const HOT_SPRING_CURSE_PURIFY_MAP: Readonly<Record<string, string>> = {
-  愧疚: '空白',
+/**
+ * 温泉「净化诅咒」分两段：任意诅咒 → 【愧疚】，【愧疚】再净化 → 【空白】。
+ * 返回净化后的卡名；不是诅咒（isCurse 为 false）时返回 null。
+ * isCurse 由调用方提供（按卡牌注册表判定类型），避免本文件反向依赖 cardRegistry。
+ */
+export const resolveHotSpringCursePurify = (name: string, isCurse: (name: string) => boolean): string | null => {
+  const key = name.trim();
+  if (!key) return null;
+  if (key === 愧疚.name) return '空白';
+  return isCurse(key) ? 愧疚.name : null;
 };

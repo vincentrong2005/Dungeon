@@ -101,6 +101,20 @@ const sinCardSteps = (ctx: OutcomeContext, mode: 'random' | 'choose', title: str
   return [{ kind: 'cardPick', title, options }];
 };
 
+/** 七宗罪之书（七原罪各自对应的传奇圣遗物）：random 随机一本，choose 从全部未拥有的书中任选一本；都已拥有时降级为稀有圣遗物 */
+const sinBookSteps = (ctx: OutcomeContext, mode: 'random' | 'choose', title: string): SettlementStep[] => {
+  const books = SIN_CARDS.map(card => (card.sin ? ctx.pools.resolveRelic(card.sin.bookRelicId) : undefined)).filter(
+    (relic): relic is RelicData => Boolean(relic),
+  );
+  const unowned = books.filter(relic => ctx.draft.ownedRelicCount(relic) === 0);
+  if (unowned.length === 0) {
+    ctx.draft.notice('七宗罪之书都已拥有，改为获得一件稀有圣遗物');
+    return randomRelicSteps(ctx, '稀有', title);
+  }
+  if (mode === 'random') return relicStep(title, [pickOne(unowned, ctx.random)!]);
+  return [{ kind: 'relic', title, relics: unowned, pickOne: true }];
+};
+
 const activePickSteps = (
   ctx: OutcomeContext,
   count: number,
@@ -526,10 +540,10 @@ export const EVENT_OUTCOMES: Readonly<Record<string, Partial<Record<EventVerdict
     },
   },
   七宗罪: {
-    结局一: { action: { type: 'steps', label: '接受罪书', build: ctx => sinCardSteps(ctx, 'random', '七宗罪：选择了你的罪书') } },
+    结局一: { action: { type: 'steps', label: '接受罪书', build: ctx => sinBookSteps(ctx, 'random', '七宗罪：选择了你的罪书') } },
     结局二: {
       apply: ({ draft }) => draft.changeMaxHpPercent(-0.25),
-      action: { type: 'steps', label: '挑选罪书', build: ctx => sinCardSteps(ctx, 'choose', '七宗罪：亲手挑选一本罪书') },
+      action: { type: 'steps', label: '挑选罪书', build: ctx => sinBookSteps(ctx, 'choose', '七宗罪：亲手挑选一本罪书') },
     },
   },
 

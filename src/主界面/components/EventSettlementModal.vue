@@ -21,11 +21,19 @@
           <!-- 圣遗物 -->
           <template v-if="currentStep?.kind === 'relic'">
             <div class="mx-auto flex max-w-2xl flex-col gap-3">
-              <div
+              <component
+                :is="currentStep.pickOne ? 'button' : 'div'"
                 v-for="relic in currentStep.relics"
                 :key="relic.id"
+                :type="currentStep.pickOne ? 'button' : undefined"
                 class="dg-relic-plaque settle-reveal"
-                :class="rarityToneClass(relic.rarity)"
+                :class="[
+                  rarityToneClass(relic.rarity),
+                  currentStep.pickOne ? 'is-interactive settle-relic-pick' : '',
+                  currentStep.pickOne && pickedRelicId === relic.id ? 'is-picked' : '',
+                ]"
+                :aria-pressed="currentStep.pickOne ? pickedRelicId === relic.id : undefined"
+                @click="currentStep.pickOne && (pickedRelicId = relic.id)"
               >
                 <span class="dg-relic-plaque__orb" aria-hidden="true"><img :src="getRelicOrbUrl(relic.rarity)" alt="" /></span>
                 <div class="min-w-0">
@@ -34,7 +42,7 @@
                   <div class="dg-relic-plaque__effect">{{ relic.effect }}</div>
                   <div v-if="relic.description" class="dg-relic-plaque__desc">{{ relic.description }}</div>
                 </div>
-              </div>
+              </component>
             </div>
           </template>
 
@@ -64,29 +72,37 @@
 
           <!-- 卡组槽位 -->
           <template v-else-if="stage === 'chooseSlot' || stage === 'chooseTarget' || stage === 'chooseBrandSlot'">
-            <div v-if="selectedCard" class="settle-selected">
-              <span class="dg-skin-hint">已选择</span>
-              <DungeonCard :card="selectedCard" disabled class-name="scale-75 -my-8" />
-            </div>
-            <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-              <button
-                v-for="entry in slotEntries"
-                :key="`slot-${entry.idx}`"
-                type="button"
-                class="dg-skin-option settle-slot"
-                :class="{ 'settle-slot--source': entry.idx === sourceSlot }"
-                :disabled="!entry.selectable"
-                @click="chooseSlot(entry.idx)"
-              >
-                <div class="settle-slot__head">
-                  <span>槽位 {{ entry.idx + 1 }}</span>
-                  <span v-if="entry.reason" class="settle-slot__reason">{{ entry.reason }}</span>
+            <!-- 左：卡组九宫格（容器包裹）；右：待替换的卡牌悬浮等待 -->
+            <div class="settle-replace">
+              <div class="settle-replace__deck">
+                <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  <button
+                    v-for="entry in slotEntries"
+                    :key="`slot-${entry.idx}`"
+                    type="button"
+                    class="dg-skin-option settle-slot"
+                    :class="{ 'settle-slot--source': entry.idx === sourceSlot }"
+                    :disabled="!entry.selectable"
+                    @click="chooseSlot(entry.idx)"
+                  >
+                    <div class="settle-slot__head">
+                      <span>槽位 {{ entry.idx + 1 }}</span>
+                      <span v-if="entry.reason" class="settle-slot__reason">{{ entry.reason }}</span>
+                    </div>
+                    <div class="flex justify-center">
+                      <DungeonCard v-if="entry.card" :card="entry.card" disabled />
+                      <div v-else class="settle-slot__empty">{{ entry.name || '空槽位' }}</div>
+                    </div>
+                  </button>
                 </div>
-                <div class="flex justify-center">
-                  <DungeonCard v-if="entry.card" :card="entry.card" disabled />
-                  <div v-else class="settle-slot__empty">{{ entry.name || '空槽位' }}</div>
+              </div>
+              <div v-if="selectedCard" class="settle-replace__pending">
+                <span class="settle-replace__label">待替换</span>
+                <div class="settle-replace__float">
+                  <DungeonCard :card="selectedCard" disabled />
                 </div>
-              </button>
+                <span class="settle-replace__hint">选择槽位放入</span>
+              </div>
             </div>
           </template>
 
@@ -213,7 +229,15 @@
           </div>
           <div class="flex items-center gap-3">
             <span class="settle-step-count">{{ Math.min(stepIndex + 1, steps.length) }} / {{ steps.length }}</span>
-            <button v-if="currentStep?.kind === 'relic'" type="button" class="dg-skin-btn" @click="acceptRelics">收下</button>
+            <button
+              v-if="currentStep?.kind === 'relic'"
+              type="button"
+              class="dg-skin-btn"
+              :disabled="currentStep.pickOne && !pickedRelicId"
+              @click="acceptRelics"
+            >
+              收下
+            </button>
             <button v-else-if="currentStep?.kind === 'curse'" type="button" class="dg-skin-btn dg-skin-btn--curse" @click="acceptCurse">承受诅咒</button>
             <button
               v-else-if="stage === 'result' || currentStep?.kind === 'info' || ((currentStep?.kind === 'relicSell' || currentStep?.kind === 'relicTrade') && ownedRelicEntries.length === 0)"
@@ -268,6 +292,8 @@ const sourceSlot = ref<number | null>(null);
 const candidateCards = ref<CardData[]>([]);
 const selectedActive = ref<ActiveSkillData | null>(null);
 const selectedStatus = ref<string | null>(null);
+/** 「任选一件」圣遗物步骤中当前选中的圣遗物 */
+const pickedRelicId = ref<string | null>(null);
 const resultCards = ref<CardData[]>([]);
 const resultLines = ref<string[]>([]);
 const resultRelics = ref<RelicData[]>([]);
@@ -293,6 +319,7 @@ const resetStage = () => {
   candidateCards.value = [];
   selectedActive.value = null;
   selectedStatus.value = null;
+  pickedRelicId.value = null;
   resultCards.value = [];
   resultLines.value = [];
   resultRelics.value = [];
@@ -374,6 +401,7 @@ const stageHint = computed(() => {
       if (step.kind === 'relicSell' || step.kind === 'relicTrade') return '选择要交出的圣遗物';
       if (step.kind === 'activePick') return '选择 1 个主动技';
       if (step.kind === 'presetPick') return '三选一';
+      if (step.kind === 'relic' && step.pickOne) return '选择 1 件圣遗物收下';
       return '';
   }
 });
@@ -591,7 +619,13 @@ const sellPrice = (relic: RelicData) => {
 const acceptRelics = () => {
   const step = currentStep.value;
   if (step?.kind !== 'relic') return;
-  for (const relic of step.relics) props.draft.addRelic(relic);
+  if (step.pickOne) {
+    const picked = step.relics.find(relic => relic.id === pickedRelicId.value);
+    if (!picked) return;
+    props.draft.addRelic(picked);
+  } else {
+    for (const relic of step.relics) props.draft.addRelic(relic);
+  }
   advance();
 };
 
@@ -760,15 +794,91 @@ const skipStep = () => {
   text-align: center;
 }
 
-.settle-selected {
+/* 任选一件圣遗物：可点击铭牌与选中态 */
+.settle-relic-pick {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settle-relic-pick.is-picked {
+  border-color: var(--dg-gold-bright);
+  box-shadow:
+    0 0 0 1px rgba(240, 208, 138, 0.55),
+    0 0 18px rgba(240, 208, 138, 0.35);
+}
+
+/* 替换布局：左侧卡组九宫格，右侧悬浮的待替换卡（窄屏时卡牌移到上方） */
+.settle-replace {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-  padding: 0.4rem;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settle-replace__deck {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0.6rem;
   border: 1px solid var(--dg-line-strong);
   background: rgba(10, 7, 9, 0.45);
+}
+
+.settle-replace__pending {
+  display: flex;
+  order: -1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.settle-replace__label {
+  color: var(--dg-gold-bright);
+  font-family: var(--dg-font-title);
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  text-shadow: 0 0 8px rgba(240, 208, 138, 0.45);
+}
+
+.settle-replace__float {
+  padding: 1.6rem 1.4rem 1.4rem;
+  filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 14px rgba(240, 208, 138, 0.28));
+  animation: settle-replace-float 3.2s ease-in-out infinite;
+}
+
+.settle-replace__float > :deep(.dungeon-card) {
+  transform: scale(1.15);
+}
+
+.settle-replace__hint {
+  color: var(--dg-text-faint);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+@media (min-width: 768px) {
+  .settle-replace {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .settle-replace__pending {
+    position: sticky;
+    top: 0;
+    order: 0;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    padding-top: 2rem;
+  }
+}
+
+@keyframes settle-replace-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 .settle-slot {
@@ -890,7 +1000,8 @@ const skipStep = () => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settle-reveal {
+  .settle-reveal,
+  .settle-replace__float {
     animation: none;
   }
 }
